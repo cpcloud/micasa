@@ -55,6 +55,7 @@
           pkgs.mkShell {
             inherit shellHook;
             packages = [
+              pkgs.go
               pkgs.gopls
               pkgs.git
             ] ++ enabledPackages;
