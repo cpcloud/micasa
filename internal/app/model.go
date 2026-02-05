@@ -158,6 +158,7 @@ func (m *Model) nextTab() {
 		return
 	}
 	m.active = (m.active + 1) % len(m.tabs)
+	m.status = statusMsg{}
 	_ = m.reloadActiveTab()
 }
 
@@ -169,6 +170,7 @@ func (m *Model) prevTab() {
 	if m.active < 0 {
 		m.active = len(m.tabs) - 1
 	}
+	m.status = statusMsg{}
 	_ = m.reloadActiveTab()
 }
 
