@@ -20,6 +20,12 @@ func (m *Model) buildView() string {
 		content = m.tableView(tab)
 	}
 	logPane := m.logView()
+	if logPane != "" {
+		logPane = joinVerticalNonEmpty(
+			m.logDivider(),
+			logPane,
+		)
+	}
 	status := m.statusView()
 	return joinVerticalNonEmpty(house, tabs, content, logPane, status)
 }
@@ -209,6 +215,15 @@ func (m *Model) logView() string {
 		lines = []string{m.styles.Empty.Render("No log entries.")}
 	}
 	return joinVerticalNonEmpty(header, filterLine, strings.Join(lines, "\n"))
+}
+
+func (m *Model) logDivider() string {
+	width := m.width
+	if width <= 0 {
+		width = 80
+	}
+	line := strings.Repeat("─", width)
+	return m.styles.TableSeparator.Render(line)
 }
 
 func (m *Model) filteredLogEntries() []logEntry {
