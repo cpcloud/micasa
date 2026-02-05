@@ -1,0 +1,5 @@
+.direnv
+target/
+*.db
+*.sqlite
+dev.md
