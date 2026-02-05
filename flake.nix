@@ -7,11 +7,10 @@
     git-hooks.url = "github:cachix/git-hooks.nix";
   };
 
-  outputs = { self, nixpkgs, flake-utils, git-hooks }:
+  outputs = { nixpkgs, flake-utils, git-hooks, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs { inherit system; };
-        go = pkgs.go_1_22;
 
         micasa = pkgs.buildGoModule {
           pname = "micasa";
