@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/micasa/micasa/internal/data"
 )
 
@@ -16,7 +17,7 @@ func (m *Model) buildView() string {
 	if m.mode == modeForm && m.form != nil {
 		content = m.form.View()
 	} else if tab := m.activeTab(); tab != nil {
-		content = tab.Table.View()
+		content = m.tableView(tab)
 	}
 	status := m.statusView()
 	return lipgloss.JoinVertical(lipgloss.Left, house, tabs, content, status)
@@ -154,6 +155,333 @@ func (m *Model) statusView() string {
 		style.Render(m.status.Text),
 		helpLine,
 	)
+}
+
+func (m *Model) tableView(tab *Tab) string {
+	if tab == nil || len(tab.Specs) == 0 {
+		return ""
+	}
+	width := m.width
+	if width <= 0 {
+		width = 80
+	}
+	separator := m.styles.TableSeparator.Render(" │ ")
+	dividerSep := m.styles.TableSeparator.Render("─┼─")
+	widths := columnWidths(tab.Specs, tab.CellRows, width, lipgloss.Width(separator))
+	header := renderHeaderRow(tab.Specs, widths, separator, m.styles.TableHeader)
+	divider := renderDivider(widths, dividerSep, m.styles.TableSeparator)
+	rows := renderRows(
+		tab.Specs,
+		tab.CellRows,
+		tab.Rows,
+		widths,
+		separator,
+		tab.Table.Cursor(),
+		tab.Table.Height(),
+		m.styles,
+	)
+	if len(rows) == 0 {
+		empty := m.styles.Empty.Render("No entries yet.")
+		rows = []string{empty}
+	}
+	return joinVerticalNonEmpty(header, divider, strings.Join(rows, "\n"))
+}
+
+func renderHeaderRow(
+	specs []columnSpec,
+	widths []int,
+	separator string,
+	style lipgloss.Style,
+) string {
+	cells := make([]string, 0, len(specs))
+	for i, spec := range specs {
+		width := safeWidth(widths, i)
+		text := formatCell(spec.Title, width, spec.Align)
+		cells = append(cells, style.Render(text))
+	}
+	return strings.Join(cells, separator)
+}
+
+func renderDivider(
+	widths []int,
+	separator string,
+	style lipgloss.Style,
+) string {
+	parts := make([]string, 0, len(widths))
+	for _, width := range widths {
+		if width < 1 {
+			width = 1
+		}
+		parts = append(parts, style.Render(strings.Repeat("─", width)))
+	}
+	return strings.Join(parts, separator)
+}
+
+func renderRows(
+	specs []columnSpec,
+	rows [][]cell,
+	meta []rowMeta,
+	widths []int,
+	separator string,
+	cursor int,
+	height int,
+	styles Styles,
+) []string {
+	total := len(rows)
+	if total == 0 {
+		return nil
+	}
+	if height <= 0 {
+		height = total
+	}
+	start, end := visibleRange(total, height, cursor)
+	rendered := make([]string, 0, end-start)
+	for i := start; i < end; i++ {
+		selected := i == cursor
+		deleted := i < len(meta) && meta[i].Deleted
+		row := renderRow(specs, rows[i], widths, separator, selected, deleted, styles)
+		rendered = append(rendered, row)
+	}
+	return rendered
+}
+
+func renderRow(
+	specs []columnSpec,
+	row []cell,
+	widths []int,
+	separator string,
+	selected bool,
+	deleted bool,
+	styles Styles,
+) string {
+	cells := make([]string, 0, len(specs))
+	for i, spec := range specs {
+		width := safeWidth(widths, i)
+		var cellValue cell
+		if i < len(row) {
+			cellValue = row[i]
+		}
+		cells = append(cells, renderCell(cellValue, spec, width, styles))
+	}
+	rendered := strings.Join(cells, separator)
+	if deleted {
+		rendered = styles.Deleted.Render(rendered)
+	}
+	if selected {
+		rendered = styles.TableSelected.Render(rendered)
+	}
+	return rendered
+}
+
+func renderCell(
+	cellValue cell,
+	spec columnSpec,
+	width int,
+	styles Styles,
+) string {
+	if width < 1 {
+		width = 1
+	}
+	value := strings.TrimSpace(cellValue.Value)
+	style := cellStyle(cellValue.Kind, styles)
+	if value == "" {
+		value = "—"
+		style = styles.Empty
+	}
+	aligned := formatCell(value, width, spec.Align)
+	return style.Render(aligned)
+}
+
+func cellStyle(kind cellKind, styles Styles) lipgloss.Style {
+	switch kind {
+	case cellMoney:
+		return styles.Money
+	case cellReadonly:
+		return styles.Readonly
+	default:
+		return lipgloss.NewStyle()
+	}
+}
+
+func formatCell(value string, width int, align alignKind) string {
+	if width < 1 {
+		return ""
+	}
+	truncated := ansi.Truncate(value, width, "…")
+	current := lipgloss.Width(truncated)
+	if current >= width {
+		return truncated
+	}
+	padding := width - current
+	switch align {
+	case alignRight:
+		return strings.Repeat(" ", padding) + truncated
+	default:
+		return truncated + strings.Repeat(" ", padding)
+	}
+}
+
+func visibleRange(total, height, cursor int) (int, int) {
+	if total <= height {
+		return 0, total
+	}
+	if cursor < 0 {
+		cursor = 0
+	}
+	if cursor >= total {
+		cursor = total - 1
+	}
+	start := cursor - height/2
+	if start < 0 {
+		start = 0
+	}
+	end := start + height
+	if end > total {
+		end = total
+		start = end - height
+		if start < 0 {
+			start = 0
+		}
+	}
+	return start, end
+}
+
+func columnWidths(
+	specs []columnSpec,
+	rows [][]cell,
+	width int,
+	separatorWidth int,
+) []int {
+	columnCount := len(specs)
+	if columnCount == 0 {
+		return nil
+	}
+	available := width - separatorWidth*(columnCount-1)
+	if available < columnCount {
+		available = columnCount
+	}
+	widths := make([]int, columnCount)
+	for i, spec := range specs {
+		maxWidth := lipgloss.Width(spec.Title)
+		if spec.Max > 0 && maxWidth > spec.Max {
+			maxWidth = spec.Max
+		}
+		for _, row := range rows {
+			if i >= len(row) {
+				continue
+			}
+			value := strings.TrimSpace(row[i].Value)
+			if value == "" {
+				continue
+			}
+			cellWidth := lipgloss.Width(value)
+			if cellWidth > maxWidth {
+				maxWidth = cellWidth
+			}
+		}
+		if maxWidth < spec.Min {
+			maxWidth = spec.Min
+		}
+		if spec.Max > 0 && maxWidth > spec.Max {
+			maxWidth = spec.Max
+		}
+		widths[i] = maxWidth
+	}
+	total := sumInts(widths)
+	if total == available {
+		return widths
+	}
+	if total < available {
+		extra := available - total
+		flex := flexColumns(specs)
+		if len(flex) == 0 {
+			flex = allColumns(specs)
+		}
+		distribute(widths, specs, flex, extra, true)
+		return widths
+	}
+	deficit := total - available
+	flex := flexColumns(specs)
+	if len(flex) == 0 {
+		flex = allColumns(specs)
+	}
+	distribute(widths, specs, flex, deficit, false)
+	return widths
+}
+
+func distribute(
+	widths []int,
+	specs []columnSpec,
+	indices []int,
+	amount int,
+	grow bool,
+) {
+	if amount <= 0 || len(indices) == 0 {
+		return
+	}
+	for amount > 0 {
+		changed := false
+		for _, idx := range indices {
+			if idx >= len(widths) {
+				continue
+			}
+			if grow {
+				if specs[idx].Max > 0 && widths[idx] >= specs[idx].Max {
+					continue
+				}
+				widths[idx]++
+			} else {
+				if widths[idx] <= specs[idx].Min {
+					continue
+				}
+				widths[idx]--
+			}
+			amount--
+			changed = true
+			if amount == 0 {
+				break
+			}
+		}
+		if !changed {
+			return
+		}
+	}
+}
+
+func flexColumns(specs []columnSpec) []int {
+	indices := make([]int, 0, len(specs))
+	for i, spec := range specs {
+		if spec.Flex {
+			indices = append(indices, i)
+		}
+	}
+	return indices
+}
+
+func allColumns(specs []columnSpec) []int {
+	indices := make([]int, len(specs))
+	for i := range specs {
+		indices[i] = i
+	}
+	return indices
+}
+
+func sumInts(values []int) int {
+	total := 0
+	for _, value := range values {
+		total += value
+	}
+	return total
+}
+
+func safeWidth(widths []int, idx int) int {
+	if idx < 0 || idx >= len(widths) {
+		return 1
+	}
+	if widths[idx] < 1 {
+		return 1
+	}
+	return widths[idx]
 }
 
 func (m *Model) headerBox(content string) string {

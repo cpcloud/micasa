@@ -9,61 +9,79 @@ import (
 )
 
 func NewTabs(styles Styles) []Tab {
+	projectSpecs := projectColumnSpecs()
+	quoteSpecs := quoteColumnSpecs()
+	maintenanceSpecs := maintenanceColumnSpecs()
 	return []Tab{
 		{
 			Kind:  tabProjects,
 			Name:  "Projects",
-			Table: newTable(projectColumns(), styles),
+			Specs: projectSpecs,
+			Table: newTable(specsToColumns(projectSpecs), styles),
 		},
 		{
 			Kind:  tabQuotes,
 			Name:  "Quotes",
-			Table: newTable(quoteColumns(), styles),
+			Specs: quoteSpecs,
+			Table: newTable(specsToColumns(quoteSpecs), styles),
 		},
 		{
 			Kind:  tabMaintenance,
 			Name:  "Maintenance",
-			Table: newTable(maintenanceColumns(), styles),
+			Specs: maintenanceSpecs,
+			Table: newTable(specsToColumns(maintenanceSpecs), styles),
 		},
 	}
 }
 
-func projectColumns() []table.Column {
-	return []table.Column{
-		{Title: "ID", Width: 4},
-		{Title: "Type", Width: 12},
-		{Title: "Title", Width: 24},
-		{Title: "Status", Width: 10},
-		{Title: "Budget", Width: 12},
-		{Title: "Actual", Width: 12},
-		{Title: "Start", Width: 10},
-		{Title: "End", Width: 10},
+func projectColumnSpecs() []columnSpec {
+	return []columnSpec{
+		{Title: "ID", Min: 4, Max: 6, Align: alignRight, Kind: cellReadonly},
+		{Title: "Type", Min: 8, Max: 14, Flex: true},
+		{Title: "Title", Min: 14, Max: 32, Flex: true},
+		{Title: "Status", Min: 8, Max: 12},
+		{Title: "Budget", Min: 10, Max: 14, Align: alignRight, Kind: cellMoney},
+		{Title: "Actual", Min: 10, Max: 14, Align: alignRight, Kind: cellMoney},
+		{Title: "Start", Min: 10, Max: 12, Kind: cellDate},
+		{Title: "End", Min: 10, Max: 12, Kind: cellDate},
 	}
 }
 
-func quoteColumns() []table.Column {
-	return []table.Column{
-		{Title: "ID", Width: 4},
-		{Title: "Project", Width: 18},
-		{Title: "Vendor", Width: 16},
-		{Title: "Total", Width: 12},
-		{Title: "Labor", Width: 12},
-		{Title: "Mat", Width: 12},
-		{Title: "Other", Width: 12},
-		{Title: "Recv", Width: 10},
+func quoteColumnSpecs() []columnSpec {
+	return []columnSpec{
+		{Title: "ID", Min: 4, Max: 6, Align: alignRight, Kind: cellReadonly},
+		{Title: "Project", Min: 12, Max: 24, Flex: true},
+		{Title: "Vendor", Min: 12, Max: 20, Flex: true},
+		{Title: "Total", Min: 10, Max: 14, Align: alignRight, Kind: cellMoney},
+		{Title: "Labor", Min: 10, Max: 14, Align: alignRight, Kind: cellMoney},
+		{Title: "Mat", Min: 8, Max: 12, Align: alignRight, Kind: cellMoney},
+		{Title: "Other", Min: 8, Max: 12, Align: alignRight, Kind: cellMoney},
+		{Title: "Recv", Min: 10, Max: 12, Kind: cellDate},
 	}
 }
 
-func maintenanceColumns() []table.Column {
-	return []table.Column{
-		{Title: "ID", Width: 4},
-		{Title: "Item", Width: 20},
-		{Title: "Category", Width: 12},
-		{Title: "Last", Width: 10},
-		{Title: "Next", Width: 10},
-		{Title: "Every", Width: 7},
-		{Title: "Manual", Width: 12},
+func maintenanceColumnSpecs() []columnSpec {
+	return []columnSpec{
+		{Title: "ID", Min: 4, Max: 6, Align: alignRight, Kind: cellReadonly},
+		{Title: "Item", Min: 12, Max: 26, Flex: true},
+		{Title: "Category", Min: 10, Max: 14},
+		{Title: "Last", Min: 10, Max: 12, Kind: cellDate},
+		{Title: "Next", Min: 10, Max: 12, Kind: cellDate},
+		{Title: "Every", Min: 6, Max: 10},
+		{Title: "Manual", Min: 8, Max: 14, Flex: true},
 	}
+}
+
+func specsToColumns(specs []columnSpec) []table.Column {
+	cols := make([]table.Column, 0, len(specs))
+	for _, spec := range specs {
+		width := spec.Min
+		if width <= 0 {
+			width = 6
+		}
+		cols = append(cols, table.Column{Title: spec.Title, Width: width})
+	}
+	return cols
 }
 
 func newTable(columns []table.Column, styles Styles) table.Model {
@@ -80,68 +98,70 @@ func newTable(columns []table.Column, styles Styles) table.Model {
 
 func projectRows(
 	projects []data.Project,
-	styles Styles,
-) ([]table.Row, []rowMeta) {
+) ([]table.Row, []rowMeta, [][]cell) {
 	rows := make([]table.Row, 0, len(projects))
 	meta := make([]rowMeta, 0, len(projects))
+	cells := make([][]cell, 0, len(projects))
 	for _, project := range projects {
 		deleted := project.DeletedAt.Valid
-		values := []string{
-			styles.Readonly.Render(fmt.Sprintf("%d", project.ID)),
-			emptyOr(project.ProjectType.Name, styles),
-			emptyOr(project.Title, styles),
-			emptyOr(project.Status, styles),
-			moneyOrEmpty(project.BudgetCents, styles),
-			moneyOrEmpty(project.ActualCents, styles),
-			dateOrEmpty(project.StartDate, styles),
-			dateOrEmpty(project.EndDate, styles),
+		rowCells := []cell{
+			{Value: fmt.Sprintf("%d", project.ID), Kind: cellReadonly},
+			{Value: project.ProjectType.Name, Kind: cellText},
+			{Value: project.Title, Kind: cellText},
+			{Value: project.Status, Kind: cellText},
+			{Value: centsValue(project.BudgetCents), Kind: cellMoney},
+			{Value: centsValue(project.ActualCents), Kind: cellMoney},
+			{Value: dateValue(project.StartDate), Kind: cellDate},
+			{Value: dateValue(project.EndDate), Kind: cellDate},
 		}
-		rows = append(rows, styledRow(values, deleted, styles))
+		rows = append(rows, cellsToRow(rowCells))
+		cells = append(cells, rowCells)
 		meta = append(meta, rowMeta{
 			ID:      project.ID,
 			Deleted: deleted,
 		})
 	}
-	return rows, meta
+	return rows, meta, cells
 }
 
 func quoteRows(
 	quotes []data.Quote,
-	styles Styles,
-) ([]table.Row, []rowMeta) {
+) ([]table.Row, []rowMeta, [][]cell) {
 	rows := make([]table.Row, 0, len(quotes))
 	meta := make([]rowMeta, 0, len(quotes))
+	cells := make([][]cell, 0, len(quotes))
 	for _, quote := range quotes {
 		deleted := quote.DeletedAt.Valid
 		projectName := quote.Project.Title
 		if projectName == "" {
 			projectName = fmt.Sprintf("Project %d", quote.ProjectID)
 		}
-		values := []string{
-			styles.Readonly.Render(fmt.Sprintf("%d", quote.ID)),
-			emptyOr(projectName, styles),
-			emptyOr(quote.Vendor.Name, styles),
-			styles.Money.Render(data.FormatCents(quote.TotalCents)),
-			moneyOrEmpty(quote.LaborCents, styles),
-			moneyOrEmpty(quote.MaterialsCents, styles),
-			moneyOrEmpty(quote.OtherCents, styles),
-			dateOrEmpty(quote.ReceivedDate, styles),
+		rowCells := []cell{
+			{Value: fmt.Sprintf("%d", quote.ID), Kind: cellReadonly},
+			{Value: projectName, Kind: cellText},
+			{Value: quote.Vendor.Name, Kind: cellText},
+			{Value: data.FormatCents(quote.TotalCents), Kind: cellMoney},
+			{Value: centsValue(quote.LaborCents), Kind: cellMoney},
+			{Value: centsValue(quote.MaterialsCents), Kind: cellMoney},
+			{Value: centsValue(quote.OtherCents), Kind: cellMoney},
+			{Value: dateValue(quote.ReceivedDate), Kind: cellDate},
 		}
-		rows = append(rows, styledRow(values, deleted, styles))
+		rows = append(rows, cellsToRow(rowCells))
+		cells = append(cells, rowCells)
 		meta = append(meta, rowMeta{
 			ID:      quote.ID,
 			Deleted: deleted,
 		})
 	}
-	return rows, meta
+	return rows, meta, cells
 }
 
 func maintenanceRows(
 	items []data.MaintenanceItem,
-	styles Styles,
-) ([]table.Row, []rowMeta) {
+) ([]table.Row, []rowMeta, [][]cell) {
 	rows := make([]table.Row, 0, len(items))
 	meta := make([]rowMeta, 0, len(items))
+	cells := make([][]cell, 0, len(items))
 	for _, item := range items {
 		deleted := item.DeletedAt.Valid
 		manual := manualSummary(item)
@@ -149,51 +169,43 @@ func maintenanceRows(
 		if item.IntervalMonths > 0 {
 			interval = fmt.Sprintf("%d mo", item.IntervalMonths)
 		}
-		values := []string{
-			styles.Readonly.Render(fmt.Sprintf("%d", item.ID)),
-			emptyOr(item.Name, styles),
-			emptyOr(item.Category.Name, styles),
-			dateOrEmpty(item.LastServicedAt, styles),
-			dateOrEmpty(item.NextDueAt, styles),
-			emptyOr(interval, styles),
-			emptyOr(manual, styles),
+		rowCells := []cell{
+			{Value: fmt.Sprintf("%d", item.ID), Kind: cellReadonly},
+			{Value: item.Name, Kind: cellText},
+			{Value: item.Category.Name, Kind: cellText},
+			{Value: dateValue(item.LastServicedAt), Kind: cellDate},
+			{Value: dateValue(item.NextDueAt), Kind: cellDate},
+			{Value: interval, Kind: cellText},
+			{Value: manual, Kind: cellText},
 		}
-		rows = append(rows, styledRow(values, deleted, styles))
+		rows = append(rows, cellsToRow(rowCells))
+		cells = append(cells, rowCells)
 		meta = append(meta, rowMeta{
 			ID:      item.ID,
 			Deleted: deleted,
 		})
 	}
-	return rows, meta
+	return rows, meta, cells
 }
 
-func styledRow(values []string, deleted bool, styles Styles) table.Row {
-	if !deleted {
-		return table.Row(values)
+func cellsToRow(cells []cell) table.Row {
+	row := make(table.Row, len(cells))
+	for i, cell := range cells {
+		row[i] = cell.Value
 	}
-	for i, value := range values {
-		values[i] = styles.Deleted.Render(value)
-	}
-	return table.Row(values)
+	return row
 }
 
-func emptyOr(value string, styles Styles) string {
-	if value == "" {
-		return styles.Empty.Render("n/a")
-	}
-	return value
-}
-
-func moneyOrEmpty(cents *int64, styles Styles) string {
+func centsValue(cents *int64) string {
 	if cents == nil {
-		return styles.Empty.Render("n/a")
+		return ""
 	}
-	return styles.Money.Render(data.FormatCents(*cents))
+	return data.FormatCents(*cents)
 }
 
-func dateOrEmpty(value *time.Time, styles Styles) string {
+func dateValue(value *time.Time) string {
 	if value == nil {
-		return styles.Empty.Render("n/a")
+		return ""
 	}
 	return value.Format(data.DateLayout)
 }

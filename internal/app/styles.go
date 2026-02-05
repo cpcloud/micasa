@@ -3,26 +3,27 @@ package app
 import "github.com/charmbracelet/lipgloss"
 
 type Styles struct {
-	Header        lipgloss.Style
-	HeaderBox     lipgloss.Style
-	HeaderTitle   lipgloss.Style
-	HeaderHint    lipgloss.Style
-	HeaderBadge   lipgloss.Style
-	HeaderChip    lipgloss.Style
-	HeaderSection lipgloss.Style
-	HeaderLabel   lipgloss.Style
-	HeaderValue   lipgloss.Style
-	Keycap        lipgloss.Style
-	TabActive     lipgloss.Style
-	TabInactive   lipgloss.Style
-	TableHeader   lipgloss.Style
-	TableSelected lipgloss.Style
-	Money         lipgloss.Style
-	Readonly      lipgloss.Style
-	Empty         lipgloss.Style
-	Error         lipgloss.Style
-	Info          lipgloss.Style
-	Deleted       lipgloss.Style
+	Header         lipgloss.Style
+	HeaderBox      lipgloss.Style
+	HeaderTitle    lipgloss.Style
+	HeaderHint     lipgloss.Style
+	HeaderBadge    lipgloss.Style
+	HeaderChip     lipgloss.Style
+	HeaderSection  lipgloss.Style
+	HeaderLabel    lipgloss.Style
+	HeaderValue    lipgloss.Style
+	Keycap         lipgloss.Style
+	TabActive      lipgloss.Style
+	TabInactive    lipgloss.Style
+	TableHeader    lipgloss.Style
+	TableSelected  lipgloss.Style
+	TableSeparator lipgloss.Style
+	Money          lipgloss.Style
+	Readonly       lipgloss.Style
+	Empty          lipgloss.Style
+	Error          lipgloss.Style
+	Info           lipgloss.Style
+	Deleted        lipgloss.Style
 }
 
 func DefaultStyles() Styles {
@@ -78,6 +79,8 @@ func DefaultStyles() Styles {
 			Foreground(lipgloss.Color("#1F2937")).
 			Background(lipgloss.Color("#E2E8F0")).
 			Bold(true),
+		TableSeparator: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#374151")),
 		Money: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#C7A4FF")),
 		Readonly: lipgloss.NewStyle().

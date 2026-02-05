@@ -302,21 +302,27 @@ func (m *Model) reloadTab(tab *Tab) error {
 		if err != nil {
 			return err
 		}
-		rows, meta = projectRows(projects, m.styles)
+		var cellRows [][]cell
+		rows, meta, cellRows = projectRows(projects)
+		tab.CellRows = cellRows
 	case tabQuotes:
 		var quotes []data.Quote
 		quotes, err = m.store.ListQuotes(tab.ShowDeleted)
 		if err != nil {
 			return err
 		}
-		rows, meta = quoteRows(quotes, m.styles)
+		var cellRows [][]cell
+		rows, meta, cellRows = quoteRows(quotes)
+		tab.CellRows = cellRows
 	case tabMaintenance:
 		var items []data.MaintenanceItem
 		items, err = m.store.ListMaintenance(tab.ShowDeleted)
 		if err != nil {
 			return err
 		}
-		rows, meta = maintenanceRows(items, m.styles)
+		var cellRows [][]cell
+		rows, meta, cellRows = maintenanceRows(items)
+		tab.CellRows = cellRows
 	}
 	tab.Table.SetRows(rows)
 	tab.Rows = meta
@@ -352,11 +358,16 @@ func (m *Model) loadLookups() error {
 
 func (m *Model) resizeTables() {
 	height := m.height - m.houseLines() - 1 - m.statusLines()
-	if height < 3 {
-		height = 3
+	if height < 4 {
+		height = 4
+	}
+	tableHeight := height - 1
+	if tableHeight < 2 {
+		tableHeight = 2
 	}
 	for i := range m.tabs {
-		m.tabs[i].Table.SetHeight(height)
+		m.tabs[i].Table.SetHeight(tableHeight)
+		m.tabs[i].Table.SetWidth(m.width)
 	}
 }
 
