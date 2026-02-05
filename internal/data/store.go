@@ -141,8 +141,31 @@ func (s *Store) ListMaintenance(includeDeleted bool) ([]MaintenanceItem, error) 
 	return items, nil
 }
 
+func (s *Store) GetProject(id uint) (Project, error) {
+	var project Project
+	err := s.db.Preload("ProjectType").Preload("PreferredVendor").First(&project, id).Error
+	return project, err
+}
+
 func (s *Store) CreateProject(project Project) error {
 	return s.db.Create(&project).Error
+}
+
+func (s *Store) UpdateProject(project Project) error {
+	return s.db.Model(&Project{}).Where("id = ?", project.ID).
+		Select("*").
+		Omit("id", "created_at", "deleted_at").
+		Updates(project).Error
+}
+
+func (s *Store) GetQuote(id uint) (Quote, error) {
+	var quote Quote
+	err := s.db.Preload("Vendor").
+		Preload("Project", func(q *gorm.DB) *gorm.DB {
+			return q.Unscoped().Preload("ProjectType")
+		}).
+		First(&quote, id).Error
+	return quote, err
 }
 
 func (s *Store) CreateQuote(quote Quote, vendor Vendor) error {
@@ -159,8 +182,35 @@ func (s *Store) CreateQuote(quote Quote, vendor Vendor) error {
 	})
 }
 
+func (s *Store) UpdateQuote(quote Quote, vendor Vendor) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		foundVendor, err := findOrCreateVendor(tx, vendor)
+		if err != nil {
+			return err
+		}
+		quote.VendorID = foundVendor.ID
+		return tx.Model(&Quote{}).Where("id = ?", quote.ID).
+			Select("*").
+			Omit("id", "created_at", "deleted_at").
+			Updates(quote).Error
+	})
+}
+
+func (s *Store) GetMaintenance(id uint) (MaintenanceItem, error) {
+	var item MaintenanceItem
+	err := s.db.Preload("Category").First(&item, id).Error
+	return item, err
+}
+
 func (s *Store) CreateMaintenance(item MaintenanceItem) error {
 	return s.db.Create(&item).Error
+}
+
+func (s *Store) UpdateMaintenance(item MaintenanceItem) error {
+	return s.db.Model(&MaintenanceItem{}).Where("id = ?", item.ID).
+		Select("*").
+		Omit("id", "created_at", "deleted_at").
+		Updates(item).Error
 }
 
 func (s *Store) DeleteProject(id uint) error {

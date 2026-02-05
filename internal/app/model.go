@@ -26,6 +26,9 @@ type Model struct {
 	formKind              FormKind
 	form                  *huh.Form
 	formData              any
+	formSnapshot          string
+	formDirty             bool
+	editID                *uint
 	status                statusMsg
 	log                   logState
 	search                searchState
@@ -99,24 +102,19 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	if m.mode == modeForm && m.form != nil {
+		// ctrl+s saves the form immediately from any field.
+		if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "ctrl+s" {
+			return m, m.saveForm()
+		}
 		updated, cmd := m.form.Update(msg)
 		form, ok := updated.(*huh.Form)
 		if ok {
 			m.form = form
 		}
+		m.checkFormDirty()
 		switch m.form.State {
 		case huh.StateCompleted:
-			err := m.handleFormSubmit()
-			m.exitForm()
-			if err != nil {
-				m.setStatusError(err.Error())
-			} else {
-				m.setStatusInfo("Saved.")
-				m.search.dirty = true
-				_ = m.loadLookups()
-				_ = m.loadHouse()
-				_ = m.reloadAllTabs()
-			}
+			return m, m.saveForm()
 		case huh.StateAborted:
 			if m.formKind == formHouse && !m.hasHouse {
 				m.setStatusError("House profile required.")
@@ -154,6 +152,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.formInitCmd()
 		case "a":
 			m.startAddForm()
+			return m, m.formInitCmd()
+		case "e", "enter":
+			if err := m.startEditForm(); err != nil {
+				m.setStatusError(err.Error())
+				return m, nil
+			}
 			return m, m.formInitCmd()
 		case "d":
 			m.deleteSelected()
@@ -225,6 +229,30 @@ func (m *Model) startAddForm() {
 		}
 	case tabMaintenance:
 		m.startMaintenanceForm()
+	}
+}
+
+func (m *Model) startEditForm() error {
+	tab := m.activeTab()
+	if tab == nil {
+		return fmt.Errorf("no active tab")
+	}
+	meta, ok := m.selectedRowMeta()
+	if !ok {
+		return fmt.Errorf("nothing selected")
+	}
+	if meta.Deleted {
+		return fmt.Errorf("cannot edit a deleted item")
+	}
+	switch tab.Kind {
+	case tabProjects:
+		return m.startEditProjectForm(meta.ID)
+	case tabQuotes:
+		return m.startEditQuoteForm(meta.ID)
+	case tabMaintenance:
+		return m.startEditMaintenanceForm(meta.ID)
+	default:
+		return fmt.Errorf("unknown tab")
 	}
 }
 
@@ -447,7 +475,8 @@ func (m *Model) loadLookups() error {
 }
 
 func (m *Model) resizeTables() {
-	height := m.height - m.houseLines() - 1 - m.statusLines() - m.logLines()
+	// Chrome: 1 blank after house + 1 tab row + 1 tab underline = 3
+	height := m.height - m.houseLines() - 3 - m.statusLines() - m.logLines()
 	if height < 4 {
 		height = 4
 	}
@@ -505,11 +534,38 @@ func (m *Model) logBodyLines() int {
 	return body
 }
 
+func (m *Model) saveForm() tea.Cmd {
+	err := m.handleFormSubmit()
+	if err != nil {
+		m.setStatusError(err.Error())
+		return nil
+	}
+	m.exitForm()
+	m.setStatusInfo("Saved.")
+	m.search.dirty = true
+	_ = m.loadLookups()
+	_ = m.loadHouse()
+	_ = m.reloadAllTabs()
+	return nil
+}
+
+func (m *Model) snapshotForm() {
+	m.formSnapshot = fmt.Sprintf("%v", m.formData)
+	m.formDirty = false
+}
+
+func (m *Model) checkFormDirty() {
+	m.formDirty = fmt.Sprintf("%v", m.formData) != m.formSnapshot
+}
+
 func (m *Model) exitForm() {
 	m.mode = modeTable
 	m.formKind = formNone
 	m.form = nil
 	m.formData = nil
+	m.formSnapshot = ""
+	m.formDirty = false
+	m.editID = nil
 }
 
 func (m *Model) setStatusInfo(text string) {

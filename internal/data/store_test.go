@@ -134,6 +134,159 @@ func TestLastDeletionRecord(t *testing.T) {
 	}
 }
 
+func TestUpdateProject(t *testing.T) {
+	store := newTestStore(t)
+	types, err := store.ProjectTypes()
+	if err != nil {
+		t.Fatalf("ProjectTypes error: %v", err)
+	}
+	project := Project{
+		Title:         "Original Title",
+		ProjectTypeID: types[0].ID,
+		Status:        ProjectStatusPlanned,
+	}
+	if err := store.CreateProject(project); err != nil {
+		t.Fatalf("CreateProject error: %v", err)
+	}
+	projects, err := store.ListProjects(false)
+	if err != nil || len(projects) != 1 {
+		t.Fatalf("ListProjects expected 1, got %d err %v", len(projects), err)
+	}
+	id := projects[0].ID
+
+	fetched, err := store.GetProject(id)
+	if err != nil {
+		t.Fatalf("GetProject error: %v", err)
+	}
+	if fetched.Title != "Original Title" {
+		t.Fatalf("expected 'Original Title', got %q", fetched.Title)
+	}
+
+	updated := Project{
+		ID:            id,
+		Title:         "Updated Title",
+		ProjectTypeID: types[0].ID,
+		Status:        ProjectStatusInProgress,
+	}
+	if err := store.UpdateProject(updated); err != nil {
+		t.Fatalf("UpdateProject error: %v", err)
+	}
+
+	fetched, err = store.GetProject(id)
+	if err != nil {
+		t.Fatalf("GetProject after update error: %v", err)
+	}
+	if fetched.Title != "Updated Title" {
+		t.Fatalf("expected 'Updated Title', got %q", fetched.Title)
+	}
+	if fetched.Status != ProjectStatusInProgress {
+		t.Fatalf("expected status %q, got %q", ProjectStatusInProgress, fetched.Status)
+	}
+}
+
+func TestUpdateQuote(t *testing.T) {
+	store := newTestStore(t)
+	types, err := store.ProjectTypes()
+	if err != nil {
+		t.Fatalf("ProjectTypes error: %v", err)
+	}
+	project := Project{
+		Title:         "Test Project",
+		ProjectTypeID: types[0].ID,
+		Status:        ProjectStatusPlanned,
+	}
+	if err := store.CreateProject(project); err != nil {
+		t.Fatalf("CreateProject error: %v", err)
+	}
+	projects, err := store.ListProjects(false)
+	if err != nil || len(projects) != 1 {
+		t.Fatalf("ListProjects expected 1, got %d err %v", len(projects), err)
+	}
+	vendor := Vendor{Name: "Acme Corp"}
+	quote := Quote{
+		ProjectID:  projects[0].ID,
+		TotalCents: 100000,
+	}
+	if err := store.CreateQuote(quote, vendor); err != nil {
+		t.Fatalf("CreateQuote error: %v", err)
+	}
+	quotes, err := store.ListQuotes(false)
+	if err != nil || len(quotes) != 1 {
+		t.Fatalf("ListQuotes expected 1, got %d err %v", len(quotes), err)
+	}
+	id := quotes[0].ID
+
+	updatedQuote := Quote{
+		ID:         id,
+		ProjectID:  projects[0].ID,
+		TotalCents: 200000,
+	}
+	updatedVendor := Vendor{Name: "Acme Corp", ContactName: "John Doe"}
+	if err := store.UpdateQuote(updatedQuote, updatedVendor); err != nil {
+		t.Fatalf("UpdateQuote error: %v", err)
+	}
+
+	fetched, err := store.GetQuote(id)
+	if err != nil {
+		t.Fatalf("GetQuote after update error: %v", err)
+	}
+	if fetched.TotalCents != 200000 {
+		t.Fatalf("expected total 200000, got %d", fetched.TotalCents)
+	}
+	if fetched.Vendor.ContactName != "John Doe" {
+		t.Fatalf("expected contact 'John Doe', got %q", fetched.Vendor.ContactName)
+	}
+}
+
+func TestUpdateMaintenance(t *testing.T) {
+	store := newTestStore(t)
+	categories, err := store.MaintenanceCategories()
+	if err != nil {
+		t.Fatalf("MaintenanceCategories error: %v", err)
+	}
+	item := MaintenanceItem{
+		Name:       "Filter Change",
+		CategoryID: categories[0].ID,
+	}
+	if err := store.CreateMaintenance(item); err != nil {
+		t.Fatalf("CreateMaintenance error: %v", err)
+	}
+	items, err := store.ListMaintenance(false)
+	if err != nil || len(items) != 1 {
+		t.Fatalf("ListMaintenance expected 1, got %d err %v", len(items), err)
+	}
+	id := items[0].ID
+
+	fetched, err := store.GetMaintenance(id)
+	if err != nil {
+		t.Fatalf("GetMaintenance error: %v", err)
+	}
+	if fetched.Name != "Filter Change" {
+		t.Fatalf("expected 'Filter Change', got %q", fetched.Name)
+	}
+
+	updated := MaintenanceItem{
+		ID:             id,
+		Name:           "HVAC Filter Change",
+		CategoryID:     categories[0].ID,
+		IntervalMonths: 3,
+	}
+	if err := store.UpdateMaintenance(updated); err != nil {
+		t.Fatalf("UpdateMaintenance error: %v", err)
+	}
+
+	fetched, err = store.GetMaintenance(id)
+	if err != nil {
+		t.Fatalf("GetMaintenance after update error: %v", err)
+	}
+	if fetched.Name != "HVAC Filter Change" {
+		t.Fatalf("expected 'HVAC Filter Change', got %q", fetched.Name)
+	}
+	if fetched.IntervalMonths != 3 {
+		t.Fatalf("expected interval 3, got %d", fetched.IntervalMonths)
+	}
+}
+
 func newTestStore(t *testing.T) *Store {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "test.db")

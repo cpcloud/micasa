@@ -161,6 +161,7 @@ func (m *Model) startHouseForm() {
 	m.formKind = formHouse
 	m.form = form
 	m.formData = values
+	m.snapshotForm()
 }
 
 func (m *Model) startProjectForm() {
@@ -172,6 +173,32 @@ func (m *Model) startProjectForm() {
 		values.ProjectTypeID = options[0].Value
 	}
 	m.logDebug("Opening project form.")
+	m.openProjectForm(values, options)
+}
+
+func (m *Model) startEditProjectForm(id uint) error {
+	project, err := m.store.GetProject(id)
+	if err != nil {
+		return fmt.Errorf("load project: %w", err)
+	}
+	values := &projectFormData{
+		Title:         project.Title,
+		ProjectTypeID: project.ProjectTypeID,
+		Status:        project.Status,
+		Budget:        data.FormatOptionalCents(project.BudgetCents),
+		Actual:        data.FormatOptionalCents(project.ActualCents),
+		StartDate:     data.FormatDate(project.StartDate),
+		EndDate:       data.FormatDate(project.EndDate),
+		Description:   project.Description,
+	}
+	options := projectTypeOptions(m.projectTypes)
+	m.logDebug(fmt.Sprintf("Editing project %d.", id))
+	m.editID = &id
+	m.openProjectForm(values, options)
+	return nil
+}
+
+func (m *Model) openProjectForm(values *projectFormData, options []huh.Option[uint]) {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
@@ -216,6 +243,7 @@ func (m *Model) startProjectForm() {
 	m.formKind = formProject
 	m.form = form
 	m.formData = values
+	m.snapshotForm()
 }
 
 func (m *Model) startQuoteForm() error {
@@ -230,11 +258,49 @@ func (m *Model) startQuoteForm() error {
 	values := &quoteFormData{}
 	options := projectOptions(projects)
 	values.ProjectID = options[0].Value
+	m.openQuoteForm(values, options)
+	return nil
+}
+
+func (m *Model) startEditQuoteForm(id uint) error {
+	quote, err := m.store.GetQuote(id)
+	if err != nil {
+		return fmt.Errorf("load quote: %w", err)
+	}
+	projects, err := m.store.ListProjects(false)
+	if err != nil {
+		return err
+	}
+	if len(projects) == 0 {
+		return fmt.Errorf("no projects available")
+	}
+	values := &quoteFormData{
+		ProjectID:    quote.ProjectID,
+		VendorName:   quote.Vendor.Name,
+		ContactName:  quote.Vendor.ContactName,
+		Email:        quote.Vendor.Email,
+		Phone:        quote.Vendor.Phone,
+		Website:      quote.Vendor.Website,
+		Total:        data.FormatCents(quote.TotalCents),
+		Labor:        data.FormatOptionalCents(quote.LaborCents),
+		Materials:    data.FormatOptionalCents(quote.MaterialsCents),
+		Other:        data.FormatOptionalCents(quote.OtherCents),
+		ReceivedDate: data.FormatDate(quote.ReceivedDate),
+		Notes:        quote.Notes,
+	}
+	options := projectOptions(projects)
+	m.logDebug(fmt.Sprintf("Editing quote %d.", id))
+	m.editID = &id
+	m.openQuoteForm(values, options)
+	return nil
+}
+
+func (m *Model) openQuoteForm(values *quoteFormData, projectOpts []huh.Option[uint]) {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewSelect[uint]().
 				Title("Project").
-				Options(options...).
+				Options(projectOpts...).
 				Value(&values.ProjectID),
 			huh.NewInput().
 				Title("Vendor name").
@@ -278,7 +344,7 @@ func (m *Model) startQuoteForm() error {
 	m.formKind = formQuote
 	m.form = form
 	m.formData = values
-	return nil
+	m.snapshotForm()
 }
 
 func (m *Model) startMaintenanceForm() {
@@ -288,6 +354,33 @@ func (m *Model) startMaintenanceForm() {
 		values.CategoryID = options[0].Value
 	}
 	m.logDebug("Opening maintenance form.")
+	m.openMaintenanceForm(values, options)
+}
+
+func (m *Model) startEditMaintenanceForm(id uint) error {
+	item, err := m.store.GetMaintenance(id)
+	if err != nil {
+		return fmt.Errorf("load maintenance item: %w", err)
+	}
+	values := &maintenanceFormData{
+		Name:           item.Name,
+		CategoryID:     item.CategoryID,
+		LastServiced:   data.FormatDate(item.LastServicedAt),
+		NextDue:        data.FormatDate(item.NextDueAt),
+		IntervalMonths: intToString(item.IntervalMonths),
+		ManualURL:      item.ManualURL,
+		ManualText:     item.ManualText,
+		Cost:           data.FormatOptionalCents(item.CostCents),
+		Notes:          item.Notes,
+	}
+	options := maintenanceOptions(m.maintenanceCategories)
+	m.logDebug(fmt.Sprintf("Editing maintenance item %d.", id))
+	m.editID = &id
+	m.openMaintenanceForm(values, options)
+	return nil
+}
+
+func (m *Model) openMaintenanceForm(values *maintenanceFormData, options []huh.Option[uint]) {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
@@ -328,6 +421,7 @@ func (m *Model) startMaintenanceForm() {
 	m.formKind = formMaintenance
 	m.form = form
 	m.formData = values
+	m.snapshotForm()
 }
 
 func applyFormDefaults(form *huh.Form) {
@@ -347,10 +441,19 @@ func (m *Model) handleFormSubmit() error {
 	case formHouse:
 		return m.submitHouseForm()
 	case formProject:
+		if m.editID != nil {
+			return m.submitEditProjectForm(*m.editID)
+		}
 		return m.submitProjectForm()
 	case formQuote:
+		if m.editID != nil {
+			return m.submitEditQuoteForm(*m.editID)
+		}
 		return m.submitQuoteForm()
 	case formMaintenance:
+		if m.editID != nil {
+			return m.submitEditMaintenanceForm(*m.editID)
+		}
 		return m.submitMaintenanceForm()
 	default:
 		return nil
@@ -437,6 +540,41 @@ func (m *Model) submitHouseForm() error {
 	return nil
 }
 
+func (m *Model) submitEditProjectForm(id uint) error {
+	values, ok := m.formData.(*projectFormData)
+	if !ok {
+		return fmt.Errorf("unexpected project form data")
+	}
+	budget, err := data.ParseOptionalCents(values.Budget)
+	if err != nil {
+		return err
+	}
+	actual, err := data.ParseOptionalCents(values.Actual)
+	if err != nil {
+		return err
+	}
+	startDate, err := data.ParseOptionalDate(values.StartDate)
+	if err != nil {
+		return err
+	}
+	endDate, err := data.ParseOptionalDate(values.EndDate)
+	if err != nil {
+		return err
+	}
+	project := data.Project{
+		ID:            id,
+		Title:         strings.TrimSpace(values.Title),
+		ProjectTypeID: values.ProjectTypeID,
+		Status:        values.Status,
+		Description:   strings.TrimSpace(values.Description),
+		StartDate:     startDate,
+		EndDate:       endDate,
+		BudgetCents:   budget,
+		ActualCents:   actual,
+	}
+	return m.store.UpdateProject(project)
+}
+
 func (m *Model) submitProjectForm() error {
 	values, ok := m.formData.(*projectFormData)
 	if !ok {
@@ -469,6 +607,51 @@ func (m *Model) submitProjectForm() error {
 		ActualCents:   actual,
 	}
 	return m.store.CreateProject(project)
+}
+
+func (m *Model) submitEditQuoteForm(id uint) error {
+	values, ok := m.formData.(*quoteFormData)
+	if !ok {
+		return fmt.Errorf("unexpected quote form data")
+	}
+	total, err := data.ParseRequiredCents(values.Total)
+	if err != nil {
+		return err
+	}
+	labor, err := data.ParseOptionalCents(values.Labor)
+	if err != nil {
+		return err
+	}
+	materials, err := data.ParseOptionalCents(values.Materials)
+	if err != nil {
+		return err
+	}
+	other, err := data.ParseOptionalCents(values.Other)
+	if err != nil {
+		return err
+	}
+	received, err := data.ParseOptionalDate(values.ReceivedDate)
+	if err != nil {
+		return err
+	}
+	quote := data.Quote{
+		ID:             id,
+		ProjectID:      values.ProjectID,
+		TotalCents:     total,
+		LaborCents:     labor,
+		MaterialsCents: materials,
+		OtherCents:     other,
+		ReceivedDate:   received,
+		Notes:          strings.TrimSpace(values.Notes),
+	}
+	vendor := data.Vendor{
+		Name:        strings.TrimSpace(values.VendorName),
+		ContactName: strings.TrimSpace(values.ContactName),
+		Email:       strings.TrimSpace(values.Email),
+		Phone:       strings.TrimSpace(values.Phone),
+		Website:     strings.TrimSpace(values.Website),
+	}
+	return m.store.UpdateQuote(quote, vendor)
 }
 
 func (m *Model) submitQuoteForm() error {
@@ -513,6 +696,45 @@ func (m *Model) submitQuoteForm() error {
 		Website:     strings.TrimSpace(values.Website),
 	}
 	return m.store.CreateQuote(quote, vendor)
+}
+
+func (m *Model) submitEditMaintenanceForm(id uint) error {
+	values, ok := m.formData.(*maintenanceFormData)
+	if !ok {
+		return fmt.Errorf("unexpected maintenance form data")
+	}
+	lastServiced, err := data.ParseOptionalDate(values.LastServiced)
+	if err != nil {
+		return err
+	}
+	nextDue, err := data.ParseOptionalDate(values.NextDue)
+	if err != nil {
+		return err
+	}
+	interval, err := data.ParseOptionalInt(values.IntervalMonths)
+	if err != nil {
+		return err
+	}
+	if nextDue == nil {
+		nextDue = data.ComputeNextDue(lastServiced, interval)
+	}
+	cost, err := data.ParseOptionalCents(values.Cost)
+	if err != nil {
+		return err
+	}
+	item := data.MaintenanceItem{
+		ID:             id,
+		Name:           strings.TrimSpace(values.Name),
+		CategoryID:     values.CategoryID,
+		LastServicedAt: lastServiced,
+		NextDueAt:      nextDue,
+		IntervalMonths: interval,
+		ManualURL:      strings.TrimSpace(values.ManualURL),
+		ManualText:     strings.TrimSpace(values.ManualText),
+		CostCents:      cost,
+		Notes:          strings.TrimSpace(values.Notes),
+	}
+	return m.store.UpdateMaintenance(item)
 }
 
 func (m *Model) submitMaintenanceForm() error {

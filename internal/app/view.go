@@ -13,6 +13,7 @@ import (
 func (m *Model) buildView() string {
 	house := m.houseView()
 	tabs := m.tabsView()
+	tabLine := m.tabUnderline()
 	content := ""
 	if m.mode == modeSearch {
 		content = m.searchView()
@@ -29,7 +30,29 @@ func (m *Model) buildView() string {
 		)
 	}
 	status := m.statusView()
-	return joinVerticalNonEmpty(house, tabs, content, logPane, status)
+
+	// Assemble upper portion with intentional spacing.
+	upper := lipgloss.JoinVertical(lipgloss.Left, house, "", tabs, tabLine)
+	if content != "" {
+		upper = lipgloss.JoinVertical(lipgloss.Left, upper, content)
+	}
+	if logPane != "" {
+		upper = lipgloss.JoinVertical(lipgloss.Left, upper, logPane)
+	}
+
+	// Anchor the status bar to the terminal bottom.
+	upperH := lipgloss.Height(upper)
+	statusH := lipgloss.Height(status)
+	gap := m.height - upperH - statusH + 1
+	if gap < 1 {
+		gap = 1
+	}
+
+	var b strings.Builder
+	b.WriteString(upper)
+	b.WriteString(strings.Repeat("\n", gap))
+	b.WriteString(status)
+	return b.String()
 }
 
 func (m *Model) houseView() string {
@@ -111,6 +134,14 @@ func (m *Model) tabsView() string {
 	return lipgloss.JoinHorizontal(lipgloss.Left, tabs...)
 }
 
+func (m *Model) tabUnderline() string {
+	width := m.width
+	if width <= 0 {
+		width = 80
+	}
+	return m.styles.TabUnderline.Render(strings.Repeat("━", width))
+}
+
 func (m *Model) statusView() string {
 	if m.mode == modeSearch {
 		help := joinWithSeparator(
@@ -125,8 +156,14 @@ func (m *Model) statusView() string {
 		return help
 	}
 	if m.mode == modeForm {
+		dirtyIndicator := m.styles.FormClean.Render("○ saved")
+		if m.formDirty {
+			dirtyIndicator = m.styles.FormDirty.Render("● unsaved")
+		}
 		help := joinWithSeparator(
 			m.helpSeparator(),
+			dirtyIndicator,
+			m.helpItem("ctrl+s", "save"),
 			m.helpItem("esc", "cancel"),
 			m.helpItem("ctrl+c", "quit"),
 		)
@@ -152,6 +189,7 @@ func (m *Model) statusView() string {
 		m.helpSeparator(),
 		m.helpItem("tab/shift+tab", "switch"),
 		m.helpItem("a", "add"),
+		m.helpItem("e", "edit"),
 		m.helpItem("d", "delete"),
 		m.helpItem("u", "restore"),
 		m.helpItem("x", "deleted"),

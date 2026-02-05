@@ -15,6 +15,7 @@ type Styles struct {
 	Keycap         lipgloss.Style
 	TabActive      lipgloss.Style
 	TabInactive    lipgloss.Style
+	TabUnderline   lipgloss.Style
 	TableHeader    lipgloss.Style
 	TableSelected  lipgloss.Style
 	TableSeparator lipgloss.Style
@@ -27,6 +28,8 @@ type Styles struct {
 	LogLevelError  lipgloss.Style
 	LogLevelDebug  lipgloss.Style
 	LogHighlight   lipgloss.Style
+	FormClean      lipgloss.Style
+	FormDirty      lipgloss.Style
 	SearchBox      lipgloss.Style
 	SearchTitle    lipgloss.Style
 	SearchHint     lipgloss.Style
@@ -86,6 +89,8 @@ func DefaultStyles() Styles {
 		TabInactive: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#A1A1AA")).
 			Padding(0, 1),
+		TabUnderline: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#5A56E0")),
 		TableHeader: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#7C8DB5")).
 			Bold(true),
@@ -123,6 +128,11 @@ func DefaultStyles() Styles {
 		LogHighlight: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#1F2937")).
 			Background(lipgloss.Color("#FBBF24")).
+			Bold(true),
+		FormClean: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#94A3B8")),
+		FormDirty: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FBBF24")).
 			Bold(true),
 		SearchBox: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
