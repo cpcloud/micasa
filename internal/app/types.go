@@ -88,9 +88,7 @@ type searchIndexErrMsg struct {
 	Err error
 }
 
-type Options struct {
-	Verbosity int
-}
+type Options struct{}
 
 type alignKind int
 

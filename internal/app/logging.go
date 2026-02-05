@@ -13,13 +13,16 @@ import (
 type logLevel int
 
 const (
-	logError logLevel = iota
+	logOff logLevel = iota
+	logError
 	logInfo
 	logDebug
 )
 
 func (l logLevel) String() string {
 	switch l {
+	case logOff:
+		return "OFF"
 	case logError:
 		return "ERROR"
 	case logDebug:
@@ -36,16 +39,15 @@ type logEntry struct {
 }
 
 type logState struct {
-	enabled    bool
-	focus      bool
-	verbosity  int
-	maxLevel   logLevel
-	maxEntries int
-	input      textinput.Model
-	filter     *regexp2.Regexp
-	filterErr  error
-	entries    []logEntry
-	highlights []logMatch
+	enabled      bool
+	focus        bool
+	displayLevel logLevel
+	maxEntries   int
+	input        textinput.Model
+	filter       *regexp2.Regexp
+	filterErr    error
+	entries      []logEntry
+	highlights   []logMatch
 }
 
 type logMatch struct {
@@ -53,26 +55,34 @@ type logMatch struct {
 	End   int
 }
 
-func newLogState(verbosity int) logState {
-	if verbosity <= 0 {
-		return logState{}
-	}
+func newLogState() logState {
 	input := textinput.New()
 	input.Prompt = ""
 	input.Placeholder = "type a Perl-compatible regex"
 	input.CharLimit = 256
 	input.Width = 32
-	maxLevel := logInfo
-	if verbosity >= 2 {
-		maxLevel = logDebug
-	}
 	return logState{
-		enabled:    true,
-		verbosity:  verbosity,
-		maxLevel:   maxLevel,
-		maxEntries: 500,
-		input:      input,
+		displayLevel: logInfo,
+		maxEntries:   500,
+		input:        input,
 	}
+}
+
+func (l *logState) cycleLevel() {
+	switch l.displayLevel {
+	case logOff:
+		l.displayLevel = logError
+	case logError:
+		l.displayLevel = logInfo
+	case logInfo:
+		l.displayLevel = logDebug
+	case logDebug:
+		l.displayLevel = logOff
+	}
+}
+
+func (l *logState) levelLabel() string {
+	return l.displayLevel.String()
 }
 
 func (l *logState) setFilter(pattern string) {
@@ -93,7 +103,7 @@ func (l *logState) setFilter(pattern string) {
 }
 
 func (l *logState) append(level logLevel, message string) {
-	if !l.enabled || level > l.maxLevel {
+	if level > l.displayLevel {
 		return
 	}
 	message = strings.TrimSpace(message)

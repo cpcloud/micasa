@@ -143,6 +143,22 @@ func (m *Model) tabUnderline() string {
 }
 
 func (m *Model) statusView() string {
+	if m.log.enabled && m.mode != modeForm {
+		if m.log.focus {
+			return joinWithSeparator(
+				m.helpSeparator(),
+				m.helpItem("esc", "stop filtering"),
+				m.helpItem("ctrl+c", "quit"),
+			)
+		}
+		return joinWithSeparator(
+			m.helpSeparator(),
+			m.helpItem("/", "filter"),
+			m.helpItem("!", "level"),
+			m.helpItem("esc", "close log"),
+			m.helpItem("ctrl+c", "quit"),
+		)
+	}
 	if m.mode == modeSearch {
 		help := joinWithSeparator(
 			m.helpSeparator(),
@@ -198,9 +214,7 @@ func (m *Model) statusView() string {
 		m.helpItem("/", "search"),
 		m.helpItem("q", "quit"),
 	)
-	if m.log.enabled {
-		help = joinWithSeparator(m.helpSeparator(), help, m.helpItem("l", "log"))
-	}
+	help = joinWithSeparator(m.helpSeparator(), help, m.helpItem("l", "log"))
 	deletedLabel := m.styles.HeaderHint.Render(deleted)
 	helpLine := joinWithSeparator(
 		m.helpSeparator(),
@@ -226,11 +240,12 @@ func (m *Model) logView() string {
 		return ""
 	}
 	title := m.styles.LogTitle.Render("Logs")
+	levelBadge := m.styles.HeaderBadge.Render(m.log.levelLabel())
 	indicator := m.styles.LogBlur.Render("○ filter")
 	if m.log.focus {
 		indicator = m.styles.LogFocus.Render("● filter")
 	}
-	header := joinInline(title, indicator)
+	header := joinInline(title, levelBadge, indicator)
 
 	filterStatus := m.log.validityLabel()
 	statusStyle := m.styles.LogValid

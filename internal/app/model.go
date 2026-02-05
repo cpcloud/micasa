@@ -45,7 +45,7 @@ func NewModel(store *data.Store, options Options) (*Model, error) {
 		active:    0,
 		showHouse: false,
 		mode:      modeTable,
-		log:       newLogState(options.Verbosity),
+		log:       newLogState(),
 		search:    newSearchState(),
 	}
 	if err := model.loadLookups(); err != nil {
@@ -59,9 +59,6 @@ func NewModel(store *data.Store, options Options) (*Model, error) {
 	}
 	if !model.hasHouse {
 		model.startHouseForm()
-	}
-	if model.log.enabled {
-		model.logInfo("Log enabled.")
 	}
 	return model, nil
 }
@@ -82,10 +79,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	// Log filter typing mode: only esc escapes back to log browsing.
 	if m.log.enabled && m.log.focus && m.mode != modeForm {
 		if keyMsg, ok := msg.(tea.KeyMsg); ok {
-			switch keyMsg.String() {
-			case "esc":
+			if keyMsg.String() == "esc" {
 				m.log.focus = false
 				m.log.input.Blur()
 				return m, nil
@@ -95,6 +92,24 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.log.input, cmd = m.log.input.Update(msg)
 		m.log.setFilter(m.log.input.Value())
 		return m, cmd
+	}
+
+	// Log browsing mode: !, /, esc handled here.
+	if m.log.enabled && m.mode != modeForm {
+		if keyMsg, ok := msg.(tea.KeyMsg); ok {
+			switch keyMsg.String() {
+			case "esc":
+				return m, m.toggleLog()
+			case "!":
+				m.log.cycleLevel()
+				m.logInfo(fmt.Sprintf("Log level: %s", m.log.levelLabel()))
+				return m, nil
+			case "/":
+				m.log.focus = true
+				return m, m.log.input.Focus()
+			}
+		}
+		return m, nil
 	}
 
 	if m.mode == modeSearch {
@@ -134,9 +149,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "/":
 			return m, m.openSearch()
 		case "l":
-			if m.log.enabled {
-				return m, m.toggleLogFocus()
-			}
+			return m, m.toggleLog()
 		case "tab":
 			m.nextTab()
 			return m, nil
@@ -585,15 +598,16 @@ func (m *Model) formInitCmd() tea.Cmd {
 	return nil
 }
 
-func (m *Model) toggleLogFocus() tea.Cmd {
-	if !m.log.enabled {
+func (m *Model) toggleLog() tea.Cmd {
+	if m.log.enabled {
+		m.log.enabled = false
+		m.log.focus = false
+		m.log.input.Blur()
+		m.resizeTables()
 		return nil
 	}
-	m.log.focus = !m.log.focus
-	if m.log.focus {
-		return m.log.input.Focus()
-	}
-	m.log.input.Blur()
+	m.log.enabled = true
+	m.resizeTables()
 	return nil
 }
 
