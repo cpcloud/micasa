@@ -40,12 +40,12 @@ func (m *Model) houseView() string {
 func (m *Model) houseCollapsed() string {
 	line1 := m.houseTitleLine("▸")
 	line2 := joinInline(
-		m.chip("🏠", m.house.Nickname),
-		m.chip("📍", formatCityState(m.house)),
-		m.chip("🗓", formatInt(m.house.YearBuilt)),
-		m.chip("📐", formatInt(m.house.SquareFeet)),
-		m.chip("🛏", formatInt(m.house.Bedrooms)),
-		m.chip("🛁", formatFloat(m.house.Bathrooms)),
+		m.chip("House", m.house.Nickname),
+		m.chip("Loc", formatCityState(m.house)),
+		m.chip("Yr", formatInt(m.house.YearBuilt)),
+		m.chip("Sq Ft", formatInt(m.house.SquareFeet)),
+		m.chip("Beds", formatInt(m.house.Bedrooms)),
+		m.chip("Baths", formatFloat(m.house.Bathrooms)),
 	)
 	return lipgloss.JoinVertical(lipgloss.Left, line1, line2)
 }
@@ -54,37 +54,37 @@ func (m *Model) houseExpanded() string {
 	address := formatAddress(m.house)
 	line1 := m.houseTitleLine("▾")
 	line2 := joinInline(
-		m.chip("🏠", m.house.Nickname),
-		m.chip("📍", address),
+		m.chip("House", m.house.Nickname),
+		m.chip("Addr", address),
 	)
 	line3 := m.sectionLine(
-		"🧱 Structure",
-		m.chip("🗓", formatInt(m.house.YearBuilt)),
-		m.chip("📐", formatInt(m.house.SquareFeet)),
-		m.chip("🌳", formatInt(m.house.LotSquareFeet)),
-		m.chip("🛏", formatInt(m.house.Bedrooms)),
-		m.chip("🛁", formatFloat(m.house.Bathrooms)),
-		m.chip("🧱", m.house.FoundationType),
-		m.chip("🧵", m.house.WiringType),
-		m.chip("🏚", m.house.RoofType),
-		m.chip("🧱", m.house.ExteriorType),
-		m.chip("🕳", m.house.BasementType),
+		"Structure",
+		m.chip("Yr", formatInt(m.house.YearBuilt)),
+		m.chip("Sq Ft", formatInt(m.house.SquareFeet)),
+		m.chip("Lot", formatInt(m.house.LotSquareFeet)),
+		m.chip("Beds", formatInt(m.house.Bedrooms)),
+		m.chip("Baths", formatFloat(m.house.Bathrooms)),
+		m.chip("Fnd", m.house.FoundationType),
+		m.chip("Wir", m.house.WiringType),
+		m.chip("Roof", m.house.RoofType),
+		m.chip("Ext", m.house.ExteriorType),
+		m.chip("Base", m.house.BasementType),
 	)
 	line4 := m.sectionLine(
-		"⚡ Utilities",
-		m.chip("🔥", m.house.HeatingType),
-		m.chip("❄️", m.house.CoolingType),
-		m.chip("💧", m.house.WaterSource),
-		m.chip("🚰", m.house.SewerType),
-		m.chip("🚗", m.house.ParkingType),
+		"Utilities",
+		m.chip("Heat", m.house.HeatingType),
+		m.chip("Cool", m.house.CoolingType),
+		m.chip("Water", m.house.WaterSource),
+		m.chip("Sewer", m.house.SewerType),
+		m.chip("Park", m.house.ParkingType),
 	)
 	line5 := m.sectionLine(
-		"💰 Financial",
-		m.chip("🛡", m.house.InsuranceCarrier),
-		m.chip("📄", m.house.InsurancePolicy),
-		m.chip("🔁", data.FormatDate(m.house.InsuranceRenewal)),
-		m.chip("🧾", data.FormatOptionalCents(m.house.PropertyTaxCents)),
-		m.chip("🏘", hoaSummary(m.house)),
+		"Financial",
+		m.chip("Ins", m.house.InsuranceCarrier),
+		m.chip("Policy", m.house.InsurancePolicy),
+		m.chip("Renew", data.FormatDate(m.house.InsuranceRenewal)),
+		m.chip("Tax", data.FormatOptionalCents(m.house.PropertyTaxCents)),
+		m.chip("HOA", hoaSummary(m.house)),
 	)
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
