@@ -481,6 +481,7 @@ in case things crash or otherwise go haywire, be diligent about this.
 
 # Completed work
 
+- [HOUSE-UX] redesign house profile: middot-separated inline text, no chip borders (9deaba7)
 - [SERVICELOG] maintenance log feature: service history sub-table per maintenance item (89eefaa)
 - [VENDOR-SERVICE] vendor tracking in service log entries (89eefaa)
 - [APPLIANCE-MAINT] Maint count column on appliances tab (89eefaa)
@@ -530,9 +531,7 @@ in case things crash or otherwise go haywire, be diligent about this.
   be fuckin' dope]) that will move you to that cell in the other tab (if it's
   1:1 of course. if 1:m go to the first match, if m:1, there's only a single
   match, if m:n not sure, help me figure out the ux for that)
-- [HOUSE-UX] redesign house profile collapsed/expanded views: remove chip borders,
-  use middot-separated inline text, cleaner section layout in expanded view
-- for maintenance items, compute the default ghost text for next due date from
+- [MAINT-GHOST] for maintenance items, compute the default ghost text for next due date from
   the last serviced date + the maintenance interval and default to that
 - [APPLIANCEAGE] Add an Age column to the Appliances table, it should be
   read-only and computed from purchase date and the current date based on the
