@@ -733,6 +733,25 @@ func (m *Model) toggleLog() tea.Cmd {
 	return nil
 }
 
+const (
+	defaultWidth  = 80
+	defaultHeight = 24
+)
+
+func (m *Model) effectiveWidth() int {
+	if m.width > 0 {
+		return m.width
+	}
+	return defaultWidth
+}
+
+func (m *Model) effectiveHeight() int {
+	if m.height > 0 {
+		return m.height
+	}
+	return defaultHeight
+}
+
 func (m *Model) logInfo(message string) {
 	m.log.append(logInfo, message)
 }

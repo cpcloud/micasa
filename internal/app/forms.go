@@ -1227,7 +1227,7 @@ func houseFormValues(profile data.HouseProfile) *houseFormData {
 		SquareFeet:       intToString(profile.SquareFeet),
 		LotSquareFeet:    intToString(profile.LotSquareFeet),
 		Bedrooms:         intToString(profile.Bedrooms),
-		Bathrooms:        floatToString(profile.Bathrooms),
+		Bathrooms:        formatFloat(profile.Bathrooms),
 		FoundationType:   profile.FoundationType,
 		WiringType:       profile.WiringType,
 		RoofType:         profile.RoofType,
@@ -1252,8 +1252,4 @@ func intToString(value int) string {
 		return ""
 	}
 	return strconv.Itoa(value)
-}
-
-func floatToString(value float64) string {
-	return formatFloat(value)
 }

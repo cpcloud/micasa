@@ -54,6 +54,13 @@
 - Removed house emoji and "Profile" from title ("House Profile" → "House"), moved `p edit` hint into house title line (visible only when expanded), removed `p profile` from status bar
 - Reverted search emoji back to text label "search"
 - Added `ideating`, `delayed`, `abandoned` project statuses; introduced `cellStatus` cell kind with per-status color styling using Wong palette (rose/blue/orange/green/yellow/gray/vermillion); updated seed data with examples of all status types
+- Refactoring pass #2:
+  - `store.go`: collapsed 4 Delete + 4 Restore methods into `softDelete`/`restoreEntity` helpers (~-30 lines)
+  - `view.go`/`model.go`: extracted `effectiveWidth()`/`effectiveHeight()` to replace 7 repeated width fallback blocks
+  - `view.go`: extracted `filterNonBlank` helper, `joinNonEmpty` now delegates to `joinWithSeparator`, simplified `joinInline`/`joinVerticalNonEmpty`
+  - `view.go`: extracted `withStatusMessage` to deduplicate status rendering in form/table branches of `statusView`
+  - `forms.go`: inlined `floatToString` (was trivial wrapper around `formatFloat`)
+  - `types.go`/`view.go`: replaced `tabLabel` switch with `TabKind.String()` method
 
 ## 2026-02-05 Session 3
 

@@ -34,6 +34,21 @@ const (
 	tabAppliances
 )
 
+func (k TabKind) String() string {
+	switch k {
+	case tabProjects:
+		return "Projects"
+	case tabQuotes:
+		return "Quotes"
+	case tabMaintenance:
+		return "Maintenance"
+	case tabAppliances:
+		return "Appliances"
+	default:
+		return "Unknown"
+	}
+}
+
 type rowMeta struct {
 	ID      uint
 	Deleted bool

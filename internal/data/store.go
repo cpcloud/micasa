@@ -645,76 +645,54 @@ func (s *Store) UpdateAppliance(item Appliance) error {
 		Updates(item).Error
 }
 
-func (s *Store) DeleteAppliance(id uint) error {
-	result := s.db.Delete(&Appliance{}, id)
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
-	}
-	return s.logDeletion(DeletionEntityAppliance, id)
-}
-
-func (s *Store) RestoreAppliance(id uint) error {
-	if err := s.restoreByID(&Appliance{}, id); err != nil {
-		return err
-	}
-	return s.markDeletionRestored(DeletionEntityAppliance, id)
-}
-
 func (s *Store) DeleteProject(id uint) error {
-	result := s.db.Delete(&Project{}, id)
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
-	}
-	return s.logDeletion(DeletionEntityProject, id)
+	return s.softDelete(&Project{}, DeletionEntityProject, id)
 }
 
 func (s *Store) DeleteQuote(id uint) error {
-	result := s.db.Delete(&Quote{}, id)
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
-	}
-	return s.logDeletion(DeletionEntityQuote, id)
+	return s.softDelete(&Quote{}, DeletionEntityQuote, id)
 }
 
 func (s *Store) DeleteMaintenance(id uint) error {
-	result := s.db.Delete(&MaintenanceItem{}, id)
+	return s.softDelete(&MaintenanceItem{}, DeletionEntityMaintenance, id)
+}
+
+func (s *Store) DeleteAppliance(id uint) error {
+	return s.softDelete(&Appliance{}, DeletionEntityAppliance, id)
+}
+
+func (s *Store) RestoreProject(id uint) error {
+	return s.restoreEntity(&Project{}, DeletionEntityProject, id)
+}
+
+func (s *Store) RestoreQuote(id uint) error {
+	return s.restoreEntity(&Quote{}, DeletionEntityQuote, id)
+}
+
+func (s *Store) RestoreMaintenance(id uint) error {
+	return s.restoreEntity(&MaintenanceItem{}, DeletionEntityMaintenance, id)
+}
+
+func (s *Store) RestoreAppliance(id uint) error {
+	return s.restoreEntity(&Appliance{}, DeletionEntityAppliance, id)
+}
+
+func (s *Store) softDelete(model any, entity string, id uint) error {
+	result := s.db.Delete(model, id)
 	if result.Error != nil {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
 		return gorm.ErrRecordNotFound
 	}
-	return s.logDeletion(DeletionEntityMaintenance, id)
+	return s.logDeletion(entity, id)
 }
 
-func (s *Store) RestoreProject(id uint) error {
-	if err := s.restoreByID(&Project{}, id); err != nil {
+func (s *Store) restoreEntity(model any, entity string, id uint) error {
+	if err := s.restoreByID(model, id); err != nil {
 		return err
 	}
-	return s.markDeletionRestored(DeletionEntityProject, id)
-}
-
-func (s *Store) RestoreQuote(id uint) error {
-	if err := s.restoreByID(&Quote{}, id); err != nil {
-		return err
-	}
-	return s.markDeletionRestored(DeletionEntityQuote, id)
-}
-
-func (s *Store) RestoreMaintenance(id uint) error {
-	if err := s.restoreByID(&MaintenanceItem{}, id); err != nil {
-		return err
-	}
-	return s.markDeletionRestored(DeletionEntityMaintenance, id)
+	return s.markDeletionRestored(entity, id)
 }
 
 func (s *Store) LastDeletion(entity string) (DeletionRecord, error) {

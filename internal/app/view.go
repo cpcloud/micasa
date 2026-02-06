@@ -154,11 +154,7 @@ func (m *Model) tabsView() string {
 }
 
 func (m *Model) tabUnderline() string {
-	width := m.width
-	if width <= 0 {
-		width = 80
-	}
-	return m.styles.TabUnderline.Render(strings.Repeat("━", width))
+	return m.styles.TabUnderline.Render(strings.Repeat("━", m.effectiveWidth()))
 }
 
 func (m *Model) statusView() string {
@@ -202,18 +198,7 @@ func (m *Model) statusView() string {
 			m.helpItem("esc", "cancel"),
 			m.helpItem("ctrl+c", "quit"),
 		)
-		if m.status.Text == "" {
-			return help
-		}
-		style := m.styles.Info
-		if m.status.Kind == statusError {
-			style = m.styles.Error
-		}
-		return lipgloss.JoinVertical(
-			lipgloss.Left,
-			style.Render(m.status.Text),
-			help,
-		)
+		return m.withStatusMessage(help)
 	}
 	tab := m.activeTab()
 	help := joinWithSeparator(
@@ -232,27 +217,13 @@ func (m *Model) statusView() string {
 	dbLabel := m.styles.DBHint.Render(m.dbPath)
 	leftWidth := ansi.StringWidth(help)
 	dbWidth := ansi.StringWidth(dbLabel)
-	width := m.width
-	if width <= 0 {
-		width = 80
-	}
+	width := m.effectiveWidth()
 	gap := width - leftWidth - dbWidth
 	if gap < 2 {
 		gap = 2
 	}
 	helpLine := help + strings.Repeat(" ", gap) + dbLabel
-	if m.status.Text == "" {
-		return helpLine
-	}
-	style := m.styles.Info
-	if m.status.Kind == statusError {
-		style = m.styles.Error
-	}
-	return lipgloss.JoinVertical(
-		lipgloss.Left,
-		style.Render(m.status.Text),
-		helpLine,
-	)
+	return m.withStatusMessage(helpLine)
 }
 
 func (m *Model) deletedHint(tab *Tab) string {
@@ -262,6 +233,18 @@ func (m *Model) deletedHint(tab *Tab) string {
 		label = m.styles.DeletedLabel.Render("deleted")
 	}
 	return strings.TrimSpace(fmt.Sprintf("%s %s", key, label))
+}
+
+// withStatusMessage renders the help line, prepending the status message if set.
+func (m *Model) withStatusMessage(helpLine string) string {
+	if m.status.Text == "" {
+		return helpLine
+	}
+	style := m.styles.Info
+	if m.status.Kind == statusError {
+		style = m.styles.Error
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, style.Render(m.status.Text), helpLine)
 }
 
 func (m *Model) editHint() string {
@@ -300,14 +283,8 @@ func (m *Model) helpFullScreen() string {
 // centerPanel centers a rendered panel within the terminal dimensions.
 // minPadTop sets the minimum top padding (e.g. 1 to keep a gap above forms).
 func (m *Model) centerPanel(panel string, minPadTop int) string {
-	width := m.width
-	if width <= 0 {
-		width = 80
-	}
-	height := m.height
-	if height <= 0 {
-		height = 24
-	}
+	width := m.effectiveWidth()
+	height := m.effectiveHeight()
 	panelH := lipgloss.Height(panel)
 	panelW := lipgloss.Width(panel)
 	padTop := (height - panelH) / 2
@@ -449,10 +426,7 @@ func (m *Model) logView() string {
 		statusStyle.Render(filterStatus),
 	)
 
-	width := m.width
-	if width <= 0 {
-		width = 80
-	}
+	width := m.effectiveWidth()
 	header = ansi.Truncate(header, width, "…")
 	filterLine = ansi.Truncate(filterLine, width, "…")
 	statusLine = ansi.Truncate(statusLine, width, "…")
@@ -481,11 +455,7 @@ func (m *Model) logView() string {
 }
 
 func (m *Model) logDivider() string {
-	width := m.width
-	if width <= 0 {
-		width = 80
-	}
-	line := strings.Repeat("─", width)
+	line := strings.Repeat("─", m.effectiveWidth())
 	return m.styles.TableSeparator.Render(line)
 }
 
@@ -558,10 +528,7 @@ func applyHighlights(text string, spans []logMatch, style lipgloss.Style) string
 }
 
 func (m *Model) searchView() string {
-	width := m.width
-	if width <= 0 {
-		width = 80
-	}
+	width := m.effectiveWidth()
 	contentWidth := width - 4
 	if contentWidth < 1 {
 		contentWidth = 1
@@ -597,34 +564,16 @@ func (m *Model) searchView() string {
 }
 
 func formatSearchResult(entry searchEntry, width int) string {
-	label := tabLabel(entry.Tab)
+	label := entry.Tab.String()
 	line := fmt.Sprintf("[%s] %s — %s", label, entry.Title, entry.Summary)
 	return ansi.Truncate(line, width, "…")
-}
-
-func tabLabel(kind TabKind) string {
-	switch kind {
-	case tabProjects:
-		return "Projects"
-	case tabQuotes:
-		return "Quotes"
-	case tabMaintenance:
-		return "Maintenance"
-	case tabAppliances:
-		return "Appliances"
-	default:
-		return "Unknown"
-	}
 }
 
 func (m *Model) tableView(tab *Tab) string {
 	if tab == nil || len(tab.Specs) == 0 {
 		return ""
 	}
-	width := m.width
-	if width <= 0 {
-		width = 80
-	}
+	width := m.effectiveWidth()
 	separator := m.styles.TableSeparator.Render(" │ ")
 	dividerSep := m.styles.TableSeparator.Render("─┼─")
 	widths := columnWidths(tab.Specs, tab.CellRows, width, lipgloss.Width(separator))
@@ -1130,50 +1079,37 @@ func formatAddress(profile data.HouseProfile) string {
 	return joinNonEmpty(parts, ", ")
 }
 
-func joinInline(values ...string) string {
+// filterNonBlank returns only the values that have visible content.
+func filterNonBlank(values []string) []string {
 	filtered := make([]string, 0, len(values))
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			filtered = append(filtered, value)
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			filtered = append(filtered, v)
 		}
 	}
-	if len(filtered) == 0 {
-		return ""
+	return filtered
+}
+
+func joinInline(values ...string) string {
+	if f := filterNonBlank(values); len(f) > 0 {
+		return lipgloss.JoinHorizontal(lipgloss.Center, f...)
 	}
-	return lipgloss.JoinHorizontal(lipgloss.Center, filtered...)
+	return ""
 }
 
 func joinVerticalNonEmpty(values ...string) string {
-	filtered := make([]string, 0, len(values))
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			filtered = append(filtered, value)
-		}
+	if f := filterNonBlank(values); len(f) > 0 {
+		return lipgloss.JoinVertical(lipgloss.Left, f...)
 	}
-	if len(filtered) == 0 {
-		return ""
-	}
-	return lipgloss.JoinVertical(lipgloss.Left, filtered...)
+	return ""
 }
 
 func joinWithSeparator(sep string, values ...string) string {
-	filtered := make([]string, 0, len(values))
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			filtered = append(filtered, value)
-		}
-	}
-	return strings.Join(filtered, sep)
+	return strings.Join(filterNonBlank(values), sep)
 }
 
 func joinNonEmpty(values []string, sep string) string {
-	filtered := make([]string, 0, len(values))
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			filtered = append(filtered, value)
-		}
-	}
-	return strings.Join(filtered, sep)
+	return joinWithSeparator(sep, values...)
 }
 
 func hoaSummary(profile data.HouseProfile) string {
