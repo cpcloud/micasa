@@ -7,17 +7,28 @@
     git-hooks.url = "github:cachix/git-hooks.nix";
   };
 
-  outputs = { nixpkgs, flake-utils, git-hooks, ... }:
-    flake-utils.lib.eachDefaultSystem (system:
+  outputs =
+    {
+      nixpkgs,
+      flake-utils,
+      git-hooks,
+      ...
+    }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
       let
         pkgs = import nixpkgs { inherit system; };
+        version = "0.1.0";
 
         micasa = pkgs.buildGoModule {
           pname = "micasa";
-          version = "0.1.0";
+          inherit version;
           src = ./.;
           subPackages = [ "cmd/micasa" ];
           vendorHash = "sha256-0GfnvE7YqlD3CIwXvE2DYriSLgnskB94++MMGYiG4j4=";
+          ldflags = [
+            "-X main.version=${version}" # Set a variable in the main package
+          ];
         };
 
         preCommit = git-hooks.lib.${system}.run {
@@ -25,9 +36,7 @@
           hooks = {
             golines = {
               enable = true;
-              settings.flags =
-                "--base-formatter=${pkgs.gofumpt}/bin/gofumpt "
-                + "--max-len=100";
+              settings.flags = "--base-formatter=${pkgs.gofumpt}/bin/gofumpt " + "--max-len=100";
             };
             golangci-lint.enable = true;
             gotest.enable = true;
@@ -55,7 +64,8 @@
               pkgs.go
               pkgs.gopls
               pkgs.git
-            ] ++ enabledPackages;
+            ]
+            ++ enabledPackages;
           };
 
         packages = {
