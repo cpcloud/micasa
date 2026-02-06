@@ -314,9 +314,9 @@ func maintenanceRows(
 			appName = item.Appliance.Name
 			appLinkID = *item.ApplianceID
 		}
-		logCount := ">"
+		logCount := ""
 		if n := logCounts[item.ID]; n > 0 {
-			logCount = fmt.Sprintf("%d >", n)
+			logCount = fmt.Sprintf("%d", n)
 		}
 		rowCells := []cell{
 			{Value: fmt.Sprintf("%d", item.ID), Kind: cellReadonly},

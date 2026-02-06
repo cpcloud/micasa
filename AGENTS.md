@@ -534,6 +534,9 @@ in case things crash or otherwise go haywire, be diligent about this.
   be fuckin' dope]) that will move you to that cell in the other tab (if it's
   1:1 of course. if 1:m go to the first match, if m:1, there's only a single
   match, if m:n not sure, help me figure out the ux for that)
+- [DATEPICKER] for date column data entry can we make that a date picker that
+  adjusts a nice little terminal calendar based on what the user has typed in
+  so far?
 - [MAINT-GHOST] for maintenance items, compute the default ghost text for next due date from
   the last serviced date + the maintenance interval and default to that
 - [APPLIANCEAGE] Add an Age column to the Appliances table, it should be

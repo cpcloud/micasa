@@ -652,6 +652,8 @@ func renderCell(
 	if value == "" {
 		value = "—"
 		style = styles.Empty
+	} else if cellValue.Kind == cellDrilldown {
+		return renderPillCell(value, spec, width, hl, deleted, styles)
 	} else if cellValue.Kind == cellStatus {
 		if s, ok := styles.StatusStyles[value]; ok {
 			style = s
@@ -690,6 +692,48 @@ func renderCell(
 
 	aligned := formatCell(value, width, spec.Align)
 	return style.Render(aligned)
+}
+
+// renderPillCell renders a drilldown value as a compact pill badge,
+// right-aligned within the column width.
+func renderPillCell(
+	value string,
+	spec columnSpec,
+	width int,
+	hl cellHighlight,
+	deleted bool,
+	styles Styles,
+) string {
+	style := styles.Drilldown
+	if deleted {
+		style = lipgloss.NewStyle().
+			Foreground(textDim).
+			Strikethrough(true).
+			Italic(true)
+		pill := style.Render(value)
+		pillW := lipgloss.Width(pill)
+		if pad := width - pillW; pad > 0 {
+			return strings.Repeat(" ", pad) + pill
+		}
+		return pill
+	}
+
+	if hl == highlightCursor {
+		style = style.Underline(true)
+	}
+
+	pill := style.Render(value)
+	pillW := lipgloss.Width(pill)
+
+	// Pad to fill the column; pill is always right-aligned.
+	if pad := width - pillW; pad > 0 {
+		padStyle := lipgloss.NewStyle()
+		if hl == highlightRow {
+			padStyle = padStyle.Background(surface)
+		}
+		return padStyle.Render(strings.Repeat(" ", pad)) + pill
+	}
+	return pill
 }
 
 func cellStyle(kind cellKind, styles Styles) lipgloss.Style {

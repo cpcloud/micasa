@@ -153,8 +153,10 @@ func DefaultStyles() Styles {
 		Readonly: lipgloss.NewStyle().
 			Foreground(textDim),
 		Drilldown: lipgloss.NewStyle().
-			Foreground(accent).
-			Underline(true),
+			Foreground(onAccent).
+			Background(accent).
+			Bold(true).
+			Padding(0, 1),
 		Empty: lipgloss.NewStyle().
 			Foreground(textDim),
 		Error: lipgloss.NewStyle().
