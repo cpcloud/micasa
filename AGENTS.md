@@ -253,11 +253,12 @@ These have been repeatedly requested. Violating them wastes the user's time.
 - **No `&&`**: Do not join shell commands with `&&`. Run them as separate tool
   calls (parallel when independent, sequential when dependent).
 - **Run `go mod tidy` before committing** to keep `go.mod`/`go.sum` clean.
-- **Record every user request** in `remaining_work.md` (with a unique ID) if it
-  is not already there. Mark it done when complete. **This includes small
-  one-liner asks and micro UI tweaks.** Do this immediately when the request
-  is made, not later in a batch. If you catch yourself having completed
-  something without recording it, add it retroactively right away.
+- **Record every user request** in the "Remaining work" section of this file
+  (with a unique ID) if it is not already there. Mark it done when complete.
+  **This includes small one-liner asks and micro UI tweaks.** Do this
+  immediately when the request is made, not later in a batch. If you catch
+  yourself having completed something without recording it, add it
+  retroactively right away.
 - **Colorblind-safe palette**: All colors must use the Wong palette with
   `lipgloss.AdaptiveColor{Light, Dark}`. See `styles.go` for the existing
   palette and roles. When adding or changing styles, always provide both Light
@@ -305,16 +306,16 @@ doing the same thing in a loop and not making progress.
 - Every so often, take a breather and find opportunities to refactor code add
   more thorough tests (but still DO NOT poke into implementation details).
 
-Look at `remaining_work.md` and work through those tasks. When you complete
-a task, pause and wait for the developer's input before continuing on. Be
-prepared for the user to veer off into other tasks. That's fine, go with the
-flow and soft nudges to get back to the original work stream are appreciated.
+Look at the "Remaining work" section of this file and work through those
+tasks. When you complete a task, pause and wait for the developer's input
+before continuing on. Be prepared for the user to veer off into other tasks.
+That's fine, go with the flow and soft nudges to get back to the original work
+stream are appreciated.
 
 Once allowed to move on, commit the current change set (fixing any pre-commit
 issues that show up).
 
-When you finish a task, add a ## Completed section to `remaining_work.md` and
-move the task description to a bulleted list in that section with the short
+When you finish a task, move it to the "Completed work" section with the short
 commit hash trailing the task like:
 
 - TASK_DESCRIPTION (SHORT-SHA)
@@ -325,10 +326,10 @@ task description was.
 It's possible that remaining work has already been done, just leave those alone
 if you figure out that the task has already been done.
 
-Every time the user makes a request that is not in `remaining_work.md`, add it
-there as a new task with a unique ID. When you complete the task, mark it as
-done and add a note about the completion in the "Session log" section of this
-file with the task ID and a brief description of what you did.
+Every time the user makes a request that is not in the "Remaining work"
+section, add it there as a new task with a unique ID. When you complete the
+task, mark it as done and add a note about the completion in the "Session log"
+section with the task ID and a brief description of what you did.
 
 For big features, write down the plan in `PLANS.md` before doing anything, just
 in case things crash or otherwise go haywire, be diligent about this.
@@ -410,7 +411,7 @@ in case things crash or otherwise go haywire, be diligent about this.
 - Sized underline to text length only (not full column width) by styling before padding
 - Removed unused CellActive style from Styles struct
 - Consolidated LEARNINGS.md and AGENT_LOG.md into AGENTS.md sections (hard rules + session log) so everything survives context resets
-- **Multi-column sorting** [RW-SORT]: `s` cycles asc/desc/none per column, `S` clears all; priority = insertion order; header indicators (`^1`, `v2`); cell-kind-aware comparators (money, date, numeric, string); empty values always last; default PK asc when no sorts active; Normal mode only; 13 unit tests
+- **Multi-column sorting** [SORT]: `s` cycles asc/desc/none per column, `S` clears all; priority = insertion order; header indicators (`^1`, `v2`); cell-kind-aware comparators (money, date, numeric, string); empty values always last; default PK asc when no sorts active; Normal mode only; 13 unit tests
 
 ## 2026-02-06 Session 6
 
@@ -423,12 +424,12 @@ in case things crash or otherwise go haywire, be diligent about this.
 - New file `internal/app/form_select_test.go`: 15 tests covering ordinal detection, field type detection, option counting, actual jumping with string/uint selects, and `withOrdinals` label prefixing
 - Added ordinal intercept in `updateForm` (model.go)
 - Added "1-9: Jump to Nth option" hint in help view Forms section
-- [RW-ORDINAL-LABEL] Added `withOrdinals[T]` generic helper that prefixes option labels with `N. ` (1-based); applied to all 5 option-building functions (`statusOptions`, `projectTypeOptions`, `maintenanceOptions`, `projectOptions`, `applianceOptions`)
-- [RW-UNDERWAY] Renamed `"in_progress"` status to `"underway"` across data constant, form label, style map key
-- [RW-SELECTCOLOR] Pre-rendered status option labels with semantic lipgloss colors so select menus match table cell coloring
-- [RW-UNDO] Multi-level undo for cell/form edits: `snapshotForUndo()` captures entity from DB before save, closure-based restore, `u` in Edit mode pops LIFO stack (cap 50)
-- [RW-REDO] Redo support: `r` in Edit mode re-applies undone changes. Undo snapshots current state to redo stack before restoring; redo snapshots current state back to undo stack. New edits clear redo stack. Refactored `undoEntry` to carry `FormKind`/`EntityID` for cross-stack snapshotting via `snapshotEntity()`. 15 unit tests total
-- [RW-COLWIDTH] Stable column widths for fixed-option columns: added `FixedValues []string` to `columnSpec`; `columnWidths` accounts for all possible values, not just displayed ones. Status column uses `data.ProjectStatuses()`. Dynamic FK columns (Type, Category) synced via `syncFixedValues()` after `loadLookups()`
+- [ORDINAL-LABEL] Added `withOrdinals[T]` generic helper that prefixes option labels with `N. ` (1-based); applied to all 5 option-building functions (`statusOptions`, `projectTypeOptions`, `maintenanceOptions`, `projectOptions`, `applianceOptions`)
+- [UNDERWAY] Renamed `"in_progress"` status to `"underway"` across data constant, form label, style map key
+- [SELECTCOLOR] Pre-rendered status option labels with semantic lipgloss colors so select menus match table cell coloring
+- [UNDO] Multi-level undo for cell/form edits: `snapshotForUndo()` captures entity from DB before save, closure-based restore, `u` in Edit mode pops LIFO stack (cap 50)
+- [REDO] Redo support: `r` in Edit mode re-applies undone changes. Undo snapshots current state to redo stack before restoring; redo snapshots current state back to undo stack. New edits clear redo stack. Refactored `undoEntry` to carry `FormKind`/`EntityID` for cross-stack snapshotting via `snapshotEntity()`. 15 unit tests total
+- [COLWIDTH] Stable column widths for fixed-option columns: added `FixedValues []string` to `columnSpec`; `columnWidths` accounts for all possible values, not just displayed ones. Status column uses `data.ProjectStatuses()`. Dynamic FK columns (Type, Category) synced via `syncFixedValues()` after `loadLookups()`
 
 ## 2026-02-06 Session 7
 
@@ -437,7 +438,7 @@ in case things crash or otherwise go haywire, be diligent about this.
 **Approach**: Identified 9 switch dispatch sites across model.go, forms.go, and undo.go. Designed `TabHandler` interface with 10 methods covering all entity-specific operations. Created 4 handler structs (projectHandler, quoteHandler, maintenanceHandler, applianceHandler) that delegate to existing form/data methods. House form stays as special case since it has no tab.
 
 **Work done**:
-- [RW-TABHANDLER] New `handlers.go`: `TabHandler` interface + 4 implementations + `handlerForFormKind` lookup
+- [TABHANDLER] New `handlers.go`: `TabHandler` interface + 4 implementations + `handlerForFormKind` lookup
 - Added `Handler TabHandler` field to `Tab` struct, wired in `NewTabs`
 - Replaced dispatches: `reloadTab`, `toggleDeleteSelected`/`restoreByTab`, `startAddForm`, `startEditForm`, `startCellOrFormEdit`, `handleFormSubmit`, `snapshotEntity`, `syncFixedValues`
 - Removed dead code: `restoreByTab`, `startInlineCellEdit` (dispatch wrapper), unused `table` import from model.go
@@ -466,4 +467,74 @@ in case things crash or otherwise go haywire, be diligent about this.
 - **Appliance tab**: added Maint count column, batch-fetches maintenance counts
 - **View**: breadcrumb bar replaces tab bar in detail view, Normal-mode enter hint shows "service log" on Maintenance, help overlay updated
 - **Tests**: 23 new tests in `detail_test.go`, 1 new data test `TestServiceLogCRUD`; all 98 tests passing
-- Also committed [RW-NOTRUNC] column width improvement (1379865) as unrelated pre-existing change
+- Also committed [NOTRUNC] column width improvement (1379865) as unrelated pre-existing change
+
+## 2026-02-06 Session 9
+
+**User request**: Strip `RW-` prefix from task IDs in md files; then consolidate `remaining_work.md` into `AGENTS.md`.
+
+**Work done**:
+- Stripped `RW-` prefix from all task IDs in `AGENTS.md` and `remaining_work.md` (e.g. `[RW-SORT]` -> `[SORT]`)
+- Moved remaining work items and completed work list from `remaining_work.md` into new "Remaining work" and "Completed work" sections in `AGENTS.md`
+- Updated hard rules and dev best practices to reference `AGENTS.md` sections instead of `remaining_work.md`
+- Deleted `remaining_work.md`
+
+# Completed work
+
+- [SERVICELOG] maintenance log feature: service history sub-table per maintenance item (89eefaa)
+- [VENDOR-SERVICE] vendor tracking in service log entries (89eefaa)
+- [APPLIANCE-MAINT] Maint count column on appliances tab (89eefaa)
+- [NOTRUNC] avoid truncating cell text when terminal is wide enough (1379865)
+- [ROWHL] soften table row highlight color (5406579)
+- [DBPATH] move db path from status bar to help overlay (5406579)
+- [SELFG] drop fg override from selected row so status/money colors show through (5406579)
+- [CURSOR] replace orange-bg cell cursor with underline+bold; fix ANSI leak (5406579)
+- [ULLEN] underline matches text length, not full column width (5406579)
+- [CONSOLIDATE] merge LEARNINGS.md and AGENT_LOG.md into AGENTS.md (5406579)
+- [ARROWS] use proper arrow/triangle characters for sort indicators (98384e0)
+- [SORTSTABLE] sort indicators render within existing column width (98384e0)
+- [STATUSBAR-ENTER] remove redundant `enter edit` from Normal mode status bar (98384e0)
+- [SORTPK] PK as implicit tiebreaker, skip priority number for single-column sorts (98384e0)
+- [EDITLABEL] shorten "edit mode" to "edit" in Normal mode status bar (98384e0)
+- [DELETEDANSI] fix ANSI leak on deleted rows (98384e0)
+- [SORT] multi-column sorting (98384e0)
+- [STRIKELEN] strikethrough length matches text, not full column width (d1720a0)
+- [STRIKECLR] softer color for deleted row strikethrough (d1720a0)
+- [XEDIT] move x (show deleted) to Edit mode only (d1720a0)
+- [DELITALIC] add italic to deleted rows (d1720a0)
+- [DTOGGLE] d toggles delete/restore instead of separate d/u keys (d1720a0)
+- [ORDINAL] press 1-9 to jump to Nth option in select fields (60ec495)
+- [ORDINAL-LABEL] show ordinal numbers next to select options (60ec495)
+- [UNDERWAY] rename "in_progress" status to "underway" (ef87b74)
+- [SELECTCOLOR] color status labels in select menus to match table cell colors (d05836d)
+- [UNDO] undo cell/form edits with u in Edit mode (c6b6739)
+- [REDO] redo undone edits with r in Edit mode (c6b6739)
+- [COLWIDTH] stable column widths for fixed-option columns (c6b6739)
+- [TABHANDLER] TabHandler interface eliminates switch dispatch on TabKind/FormKind (67bfbe3)
+- refactor forms.go and view.go: deduplicate submit/edit pairs, centering, inline edit boilerplate, form-data converters (9851c74)
+- scrap the log-on-dash-v approach, just enable logging dynamically (75b2c86)
+- remove the v1 in Logs; remove the forward slashes; ghost text reads type a Perl-compatible regex (1c623d4)
+- build a search engine with local UI, spinner and selection (1c623d4)
+- global search interface: pop up box, show matches, select and jump to row (1c623d4)
+- highlight the part of the string that the regex matched in log lines (4289fb7)
+- entry editing: make editing existing entries work (a457c44)
+- anchored status bar: keystroke info always at bottom of terminal (a457c44)
+
+# Remaining work
+
+- make a new tab, call it Appliances, for tracking appliance information; add
+  an appliance field to Maintenance that links (by foreign key) to this new
+  dataset; second, make it so that when i hit enter on cell that is linked
+  (maybe also find a way to indicate that a column is linked to another table
+  [including its relationship 1:1, 1:m, m:1 or m:n as the indicator would also
+  be fuckin' dope]) that will move you to that cell in the other tab (if it's
+  1:1 of course. if 1:m go to the first match, if m:1, there's only a single
+  match, if m:n not sure, help me figure out the ux for that)
+- [HOUSE-UX] redesign house profile collapsed/expanded views: remove chip borders,
+  use middot-separated inline text, cleaner section layout in expanded view
+- for maintenance items, compute the default ghost text for next due date from
+  the last serviced date + the maintenance interval and default to that
+- [APPLIANCEAGE] Add an Age column to the Appliances table, it should be
+  read-only and computed from purchase date and the current date based on the
+  current time zone.
+- [HIDECOLS] Add the ability to hide and show columns.
