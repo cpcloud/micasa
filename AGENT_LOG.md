@@ -48,6 +48,7 @@
 - Added `LEARNINGS.md` for cross-session notes (no-cd rule, colorblind/adaptive palette constraint)
 - Fixed `/` keycap not rendering in status bar: `renderKeys("/")` was splitting on `/` as delimiter, producing empty parts; added bare `/` check
 - Shortened status bar help labels: arrow symbols for left/right/up/down, `del`/`undo`/`col`/`nav` instead of longer words
+- Replaced search/house labels with emoji (🔍/🏠), changed "edit all" to "edit"
 
 ## 2026-02-05 Session 3
 

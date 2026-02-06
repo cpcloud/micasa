@@ -226,8 +226,8 @@ func (m *Model) statusView() string {
 		m.helpItem("u", "undo"),
 		m.helpItem("x", "deleted"),
 		m.helpItem("p", "profile"),
-		m.helpItem("h", "house"),
-		m.helpItem("/", "search"),
+		m.helpItem("h", "\U0001F3E0"),
+		m.helpItem("/", "\U0001F50D"),
 		m.helpItem("q", "quit"),
 	)
 	help = joinWithSeparator(m.helpSeparator(), help, m.helpItem("l", "log"))
@@ -283,7 +283,7 @@ func (m *Model) editHint() string {
 		}
 	}
 	if spec.Kind == cellReadonly {
-		return "edit all"
+		return "edit"
 	}
 	return "edit: " + spec.Title
 }
