@@ -1,3 +1,6 @@
+<!-- Copyright 2026 Phillip Cloud -->
+<!-- Licensed under the Apache License, Version 2.0 -->
+
 You are Claude Opus 4.6 Thinking running via the cursor CLI. You are running as
 a coding agent on a user's computer.
 
