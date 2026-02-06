@@ -7,10 +7,13 @@ import (
 )
 
 const (
+	ProjectStatusIdeating   = "ideating"
 	ProjectStatusPlanned    = "planned"
 	ProjectStatusQuoted     = "quoted"
 	ProjectStatusInProgress = "in_progress"
+	ProjectStatusDelayed    = "delayed"
 	ProjectStatusCompleted  = "completed"
+	ProjectStatusAbandoned  = "abandoned"
 )
 
 const (
@@ -22,10 +25,13 @@ const (
 
 func ProjectStatuses() []string {
 	return []string{
+		ProjectStatusIdeating,
 		ProjectStatusPlanned,
 		ProjectStatusQuoted,
 		ProjectStatusInProgress,
+		ProjectStatusDelayed,
 		ProjectStatusCompleted,
+		ProjectStatusAbandoned,
 	}
 }
 

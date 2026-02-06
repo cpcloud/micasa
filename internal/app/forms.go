@@ -1088,10 +1088,13 @@ func projectOptions(projects []data.Project) []huh.Option[uint] {
 
 func statusOptions() []huh.Option[string] {
 	return []huh.Option[string]{
+		huh.NewOption("ideating", data.ProjectStatusIdeating),
 		huh.NewOption("planned", data.ProjectStatusPlanned),
 		huh.NewOption("quoted", data.ProjectStatusQuoted),
 		huh.NewOption("in progress", data.ProjectStatusInProgress),
+		huh.NewOption("delayed", data.ProjectStatusDelayed),
 		huh.NewOption("completed", data.ProjectStatusCompleted),
+		huh.NewOption("abandoned", data.ProjectStatusAbandoned),
 	}
 }
 

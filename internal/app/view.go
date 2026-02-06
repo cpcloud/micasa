@@ -66,7 +66,7 @@ func (m *Model) houseView() string {
 	if !m.hasHouse {
 		content := lipgloss.JoinVertical(
 			lipgloss.Left,
-			m.houseTitleLine("setup"),
+			m.houseTitleLine("setup", false),
 			m.styles.HeaderHint.Render("Complete the form to add a house profile."),
 		)
 		return m.headerBox(content)
@@ -78,7 +78,7 @@ func (m *Model) houseView() string {
 }
 
 func (m *Model) houseCollapsed() string {
-	title := m.houseTitleLine("▸")
+	title := m.houseTitleLine("▸", false)
 	sep := m.styles.HeaderHint.Render(" · ")
 	hint := m.styles.HeaderHint
 	val := m.styles.HeaderValue
@@ -93,7 +93,7 @@ func (m *Model) houseCollapsed() string {
 }
 
 func (m *Model) houseExpanded() string {
-	title := m.houseTitleLine("▾")
+	title := m.houseTitleLine("▾", true)
 	hint := m.styles.HeaderHint
 	val := m.styles.HeaderValue
 	sep := hint.Render(" · ")
@@ -225,8 +225,7 @@ func (m *Model) statusView() string {
 		m.helpItem("d", "del"),
 		m.helpItem("u", "undo"),
 		m.deletedHint(tab),
-		m.helpItem("p", "profile"),
-		m.helpItem("/", "\U0001F50D"),
+		m.helpItem("/", "search"),
 		m.helpItem("q", "quit"),
 	)
 	help = joinWithSeparator(m.helpSeparator(), help, m.helpItem("l", "log"))
@@ -763,6 +762,10 @@ func renderCell(
 	if value == "" {
 		value = "—"
 		style = styles.Empty
+	} else if cellValue.Kind == cellStatus {
+		if s, ok := styles.StatusStyles[value]; ok {
+			style = s
+		}
 	}
 	aligned := formatCell(value, width, spec.Align)
 	return style.Render(aligned)
@@ -995,14 +998,17 @@ func (m *Model) keycap(value string) string {
 	return m.styles.Keycap.Render(strings.ToUpper(value))
 }
 
-func (m *Model) houseTitleLine(state string) string {
-	title := m.styles.HeaderTitle.Render("House Profile")
+func (m *Model) houseTitleLine(state string, showEdit bool) string {
+	title := m.styles.HeaderTitle.Render("House")
 	badge := ""
 	if strings.TrimSpace(state) != "" {
 		badge = m.styles.HeaderBadge.Render(state)
 	}
-	hint := m.helpItem("h", "\U0001F3E0")
-	return joinInline(title, badge, hint)
+	parts := []string{title, badge, m.keycap("H")}
+	if showEdit {
+		parts = append(parts, m.helpItem("p", "edit"))
+	}
+	return joinInline(parts...)
 }
 
 // styledPart returns a styled value, or "" if the underlying value is blank.

@@ -51,6 +51,9 @@
 - Replaced search/house labels with emoji (🔍/🏠), changed "edit all" to "edit"
 - Moved `h` house toggle hint from status bar to house profile title line
 - Replaced `+ deleted` indicator: keycap stays normal, only "deleted" label changes color when active
+- Removed house emoji and "Profile" from title ("House Profile" → "House"), moved `p edit` hint into house title line (visible only when expanded), removed `p profile` from status bar
+- Reverted search emoji back to text label "search"
+- Added `ideating`, `delayed`, `abandoned` project statuses; introduced `cellStatus` cell kind with per-status color styling using Wong palette (rose/blue/orange/green/yellow/gray/vermillion); updated seed data with examples of all status types
 
 ## 2026-02-05 Session 3
 

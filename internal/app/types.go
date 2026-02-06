@@ -109,6 +109,7 @@ const (
 	cellMoney
 	cellReadonly
 	cellDate
+	cellStatus
 )
 
 type cell struct {

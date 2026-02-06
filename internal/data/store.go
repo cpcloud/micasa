@@ -208,8 +208,21 @@ func (s *Store) SeedDemoData() error {
 		{
 			Title:         "Paint master bedroom",
 			ProjectTypeID: typeID("Painting"),
-			Status:        ProjectStatusPlanned,
+			Status:        ProjectStatusIdeating,
 			Description:   "Walls in off-white, trim in bright white, two coats",
+		},
+		{
+			Title:         "Add attic insulation",
+			ProjectTypeID: typeID("Exterior"),
+			Status:        ProjectStatusDelayed,
+			Description:   "Blow-in cellulose, waiting on contractor availability",
+			BudgetCents:   ptr(200000),
+		},
+		{
+			Title:         "Convert garage to gym",
+			ProjectTypeID: typeID("Exterior"),
+			Status:        ProjectStatusAbandoned,
+			Description:   "Decided against it; would lose parking",
 		},
 	}
 	for i := range projects {
