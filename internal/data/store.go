@@ -607,6 +607,23 @@ func (s *Store) ListMaintenance(includeDeleted bool) ([]MaintenanceItem, error) 
 	return items, nil
 }
 
+func (s *Store) ListMaintenanceByAppliance(
+	applianceID uint,
+	includeDeleted bool,
+) ([]MaintenanceItem, error) {
+	var items []MaintenanceItem
+	db := s.db.Preload("Category").
+		Where("appliance_id = ?", applianceID).
+		Order("updated_at desc")
+	if includeDeleted {
+		db = db.Unscoped()
+	}
+	if err := db.Find(&items).Error; err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 func (s *Store) GetProject(id uint) (Project, error) {
 	var project Project
 	err := s.db.Preload("ProjectType").Preload("PreferredVendor").First(&project, id).Error

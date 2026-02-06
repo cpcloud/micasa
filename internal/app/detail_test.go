@@ -16,9 +16,9 @@ func TestOpenDetailSetsContext(t *testing.T) {
 		t.Fatal("expected nil detail before open")
 	}
 
-	err := m.openDetail(42, "Test Item")
+	err := m.openServiceLogDetail(42, "Test Item")
 	if err != nil {
-		t.Fatalf("openDetail error: %v", err)
+		t.Fatalf("openServiceLogDetail error: %v", err)
 	}
 	if m.detail == nil {
 		t.Fatal("expected non-nil detail after open")
@@ -34,7 +34,7 @@ func TestOpenDetailSetsContext(t *testing.T) {
 func TestCloseDetailRestoresParent(t *testing.T) {
 	m := newTestModel()
 	m.active = tabIndex(tabMaintenance)
-	_ = m.openDetail(42, "Test Item")
+	_ = m.openServiceLogDetail(42, "Test Item")
 
 	m.closeDetail()
 	if m.detail != nil {
@@ -53,7 +53,7 @@ func TestEffectiveTabReturnsDetailWhenOpen(t *testing.T) {
 		t.Fatal("expected maintenance tab before detail open")
 	}
 
-	_ = m.openDetail(1, "Test")
+	_ = m.openServiceLogDetail(1, "Test")
 	detailTab := m.effectiveTab()
 	if detailTab == nil {
 		t.Fatal("expected non-nil effective tab in detail view")
@@ -78,7 +78,7 @@ func TestEffectiveTabFallsBackToMainTab(t *testing.T) {
 func TestEscInNormalModeClosesDetail(t *testing.T) {
 	m := newTestModel()
 	m.active = tabIndex(tabMaintenance)
-	_ = m.openDetail(1, "Test")
+	_ = m.openServiceLogDetail(1, "Test")
 	if m.detail == nil {
 		t.Fatal("expected detail open")
 	}
@@ -91,7 +91,7 @@ func TestEscInNormalModeClosesDetail(t *testing.T) {
 func TestEscInEditModeDoesNotCloseDetail(t *testing.T) {
 	m := newTestModel()
 	m.active = tabIndex(tabMaintenance)
-	_ = m.openDetail(1, "Test")
+	_ = m.openServiceLogDetail(1, "Test")
 
 	sendKey(m, "i") // enter edit mode
 	if m.mode != modeEdit {
@@ -109,7 +109,7 @@ func TestEscInEditModeDoesNotCloseDetail(t *testing.T) {
 func TestTabSwitchBlockedInDetailView(t *testing.T) {
 	m := newTestModel()
 	m.active = tabIndex(tabMaintenance)
-	_ = m.openDetail(1, "Test")
+	_ = m.openServiceLogDetail(1, "Test")
 
 	before := m.active
 	sendKey(m, "tab")
@@ -121,7 +121,7 @@ func TestTabSwitchBlockedInDetailView(t *testing.T) {
 func TestColumnNavWorksInDetailView(t *testing.T) {
 	m := newTestModel()
 	m.active = tabIndex(tabMaintenance)
-	_ = m.openDetail(1, "Test")
+	_ = m.openServiceLogDetail(1, "Test")
 
 	tab := m.effectiveTab()
 	if tab == nil {
@@ -137,7 +137,7 @@ func TestColumnNavWorksInDetailView(t *testing.T) {
 func TestDetailTabHasServiceLogSpecs(t *testing.T) {
 	m := newTestModel()
 	m.active = tabIndex(tabMaintenance)
-	_ = m.openDetail(1, "Test")
+	_ = m.openServiceLogDetail(1, "Test")
 
 	tab := m.effectiveTab()
 	specs := tab.Specs
@@ -160,7 +160,7 @@ func TestDetailTabHasServiceLogSpecs(t *testing.T) {
 func TestHandlerForFormKindFindsDetailHandler(t *testing.T) {
 	m := newTestModel()
 	m.active = tabIndex(tabMaintenance)
-	_ = m.openDetail(1, "Test")
+	_ = m.openServiceLogDetail(1, "Test")
 
 	handler := m.handlerForFormKind(formServiceLog)
 	if handler == nil {
@@ -195,8 +195,8 @@ func TestApplianceColumnsIncludeMaint(t *testing.T) {
 	if last.Title != "Maint" {
 		t.Fatalf("expected last appliance column to be 'Maint', got %q", last.Title)
 	}
-	if last.Kind != cellReadonly {
-		t.Fatal("expected Maint column to be readonly")
+	if last.Kind != cellDrilldown {
+		t.Fatal("expected Maint column to be drilldown")
 	}
 }
 
@@ -282,7 +282,7 @@ func TestResizeTablesIncludesDetail(t *testing.T) {
 	m.width = 120
 	m.height = 40
 	m.active = tabIndex(tabMaintenance)
-	_ = m.openDetail(1, "Test")
+	_ = m.openServiceLogDetail(1, "Test")
 
 	m.resizeTables()
 	detailH := m.detail.Tab.Table.Height()
@@ -294,7 +294,7 @@ func TestResizeTablesIncludesDetail(t *testing.T) {
 func TestSortWorksInDetailView(t *testing.T) {
 	m := newTestModel()
 	m.active = tabIndex(tabMaintenance)
-	_ = m.openDetail(1, "Test")
+	_ = m.openServiceLogDetail(1, "Test")
 
 	tab := m.effectiveTab()
 	tab.ColCursor = 1 // Date column
@@ -309,7 +309,7 @@ func TestSortWorksInDetailView(t *testing.T) {
 func newTestModelWithDetailRows() *Model {
 	m := newTestModel()
 	m.active = tabIndex(tabMaintenance)
-	_ = m.openDetail(1, "Test")
+	_ = m.openServiceLogDetail(1, "Test")
 
 	tab := m.effectiveTab()
 	// Seed a couple rows.
@@ -356,5 +356,58 @@ func TestSelectedCellUsesDetailTab(t *testing.T) {
 	}
 	if c.Value != "Self" {
 		t.Fatalf("expected 'Self', got %q", c.Value)
+	}
+}
+
+func TestApplianceMaintenanceDetailOpens(t *testing.T) {
+	m := newTestModel()
+	m.active = tabIndex(tabAppliances)
+	err := m.openApplianceMaintenanceDetail(5, "Dishwasher")
+	if err != nil {
+		t.Fatalf("openApplianceMaintenanceDetail error: %v", err)
+	}
+	if m.detail == nil {
+		t.Fatal("detail should be set")
+	}
+	if m.detail.Breadcrumb != "Appliances > Dishwasher" {
+		t.Fatalf("unexpected breadcrumb: %q", m.detail.Breadcrumb)
+	}
+	if m.detail.Tab.Name != "Maintenance" {
+		t.Fatalf("unexpected detail tab name: %q", m.detail.Tab.Name)
+	}
+	if m.detail.Tab.Kind != tabAppliances {
+		t.Fatalf("expected detail tab kind=tabAppliances, got %d", m.detail.Tab.Kind)
+	}
+}
+
+func TestApplianceMaintenanceHandlerFormKind(t *testing.T) {
+	h := applianceMaintenanceHandler{applianceID: 1}
+	if h.FormKind() != formMaintenance {
+		t.Fatal("expected formMaintenance")
+	}
+}
+
+func TestApplianceMaintenanceColumnSpecsNoApplianceColumn(t *testing.T) {
+	specs := applianceMaintenanceColumnSpecs()
+	for _, s := range specs {
+		if s.Title == "Appliance" {
+			t.Fatal("appliance maintenance detail should not include Appliance column")
+		}
+	}
+	// Should still have Log drilldown.
+	last := specs[len(specs)-1]
+	if last.Title != "Log" || last.Kind != cellDrilldown {
+		t.Fatalf("expected last column to be Log drilldown, got %q kind=%d", last.Title, last.Kind)
+	}
+}
+
+func TestApplianceMaintColumnIsDrilldown(t *testing.T) {
+	specs := applianceColumnSpecs()
+	last := specs[len(specs)-1]
+	if last.Title != "Maint" {
+		t.Fatalf("expected last column to be 'Maint', got %q", last.Title)
+	}
+	if last.Kind != cellDrilldown {
+		t.Fatal("expected Maint column to be drilldown")
 	}
 }

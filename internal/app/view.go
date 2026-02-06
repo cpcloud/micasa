@@ -310,8 +310,13 @@ func (m *Model) enterHint() string {
 		return ""
 	}
 	spec := tab.Specs[col]
-	if spec.Kind == cellDrilldown {
-		return "service log"
+	if spec.Kind == cellDrilldown && m.detail == nil {
+		switch tab.Kind {
+		case tabMaintenance:
+			return "service log"
+		case tabAppliances:
+			return "maintenance"
+		}
 	}
 	if spec.Link != nil {
 		if c, ok := m.selectedCell(col); ok && c.LinkID > 0 {

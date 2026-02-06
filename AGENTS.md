@@ -481,6 +481,7 @@ in case things crash or otherwise go haywire, be diligent about this.
 - [DRILLDOWN-STYLE] Styled Log column with accent color, underline, and trailing `>` arrow to signal interactive drilldown; added `cellDrilldown` kind, `Drilldown` style, drilldown-aware sort comparator
 - Fixed enter on Maintenance tab: only drills into service log on Log (drilldown) column; Appliance column now correctly follows FK link to Appliances tab; status bar hint is column-aware
 - Removed edit-on-enter: enter in Normal mode only does drilldown/FK nav, enter in Edit mode no longer edits; status bar hint hidden when enter has no action
+- Appliances Maint column: pill badge drilldown into maintenance items scoped to that appliance; `applianceMaintenanceHandler` + `applianceMaintenanceColumnSpecs` (no Appliance column); `ListMaintenanceByAppliance` store method; refactored `openDetail` into `openDetailWith`/`openServiceLogDetail`/`openApplianceMaintenanceDetail`; 5 new tests
 
 # Completed work
 
@@ -534,6 +535,8 @@ in case things crash or otherwise go haywire, be diligent about this.
   be fuckin' dope]) that will move you to that cell in the other tab (if it's
   1:1 of course. if 1:m go to the first match, if m:1, there's only a single
   match, if m:n not sure, help me figure out the ux for that)
+- [WEBSITE] I've got the `micasa.dev` domain. Help me build a github pages website for this project that is really fucking slick.
+- [README] create a sick README.md that will maximize stars on github
 - [DATEPICKER] for date column data entry can we make that a date picker that
   adjusts a nice little terminal calendar based on what the user has typed in
   so far?

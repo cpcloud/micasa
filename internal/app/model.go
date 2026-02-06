@@ -258,13 +258,20 @@ func (m *Model) handleNormalEnter() error {
 	spec := tab.Specs[col]
 
 	// On a drilldown column, open the detail view for that row.
-	if spec.Kind == cellDrilldown {
-		if m.detail == nil && tab.Kind == tabMaintenance {
+	if spec.Kind == cellDrilldown && m.detail == nil {
+		switch tab.Kind {
+		case tabMaintenance:
 			item, err := m.store.GetMaintenance(meta.ID)
 			if err != nil {
 				return fmt.Errorf("load maintenance item: %w", err)
 			}
-			return m.openDetail(meta.ID, item.Name)
+			return m.openServiceLogDetail(meta.ID, item.Name)
+		case tabAppliances:
+			appliance, err := m.store.GetAppliance(meta.ID)
+			if err != nil {
+				return fmt.Errorf("load appliance: %w", err)
+			}
+			return m.openApplianceMaintenanceDetail(meta.ID, appliance.Name)
 		}
 		return nil
 	}
@@ -362,21 +369,40 @@ func (m *Model) effectiveTab() *Tab {
 	return m.activeTab()
 }
 
-func (m *Model) openDetail(maintID uint, maintName string) error {
+func (m *Model) openServiceLogDetail(maintID uint, maintName string) error {
 	specs := serviceLogColumnSpecs()
-	tab := Tab{
-		Kind:    tabMaintenance, // inherits parent kind for styling
-		Name:    "Service Log",
-		Handler: serviceLogHandler{maintenanceItemID: maintID},
-		Specs:   specs,
-		Table:   newTable(specsToColumns(specs), m.styles),
-	}
-	m.detail = &detailContext{
+	return m.openDetailWith(detailContext{
 		ParentTabIndex: m.active,
 		ParentRowID:    maintID,
 		Breadcrumb:     "Maintenance > " + maintName,
-		Tab:            tab,
-	}
+		Tab: Tab{
+			Kind:    tabMaintenance,
+			Name:    "Service Log",
+			Handler: serviceLogHandler{maintenanceItemID: maintID},
+			Specs:   specs,
+			Table:   newTable(specsToColumns(specs), m.styles),
+		},
+	})
+}
+
+func (m *Model) openApplianceMaintenanceDetail(applianceID uint, applianceName string) error {
+	specs := applianceMaintenanceColumnSpecs()
+	return m.openDetailWith(detailContext{
+		ParentTabIndex: m.active,
+		ParentRowID:    applianceID,
+		Breadcrumb:     "Appliances > " + applianceName,
+		Tab: Tab{
+			Kind:    tabAppliances,
+			Name:    "Maintenance",
+			Handler: applianceMaintenanceHandler{applianceID: applianceID},
+			Specs:   specs,
+			Table:   newTable(specsToColumns(specs), m.styles),
+		},
+	})
+}
+
+func (m *Model) openDetailWith(dc detailContext) error {
+	m.detail = &dc
 	if err := m.reloadDetailTab(); err != nil {
 		m.detail = nil
 		return err

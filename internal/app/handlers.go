@@ -351,6 +351,93 @@ func (applianceHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
 func (applianceHandler) SyncFixedValues(_ *Model, _ []columnSpec) {}
 
 // ---------------------------------------------------------------------------
+// applianceMaintenanceHandler -- detail-view handler for maintenance items
+// scoped to a single appliance.
+// ---------------------------------------------------------------------------
+
+type applianceMaintenanceHandler struct {
+	applianceID uint
+}
+
+func (h applianceMaintenanceHandler) FormKind() FormKind { return formMaintenance }
+
+func (h applianceMaintenanceHandler) Load(
+	store *data.Store,
+	showDeleted bool,
+) ([]table.Row, []rowMeta, [][]cell, error) {
+	items, err := store.ListMaintenanceByAppliance(h.applianceID, showDeleted)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	ids := make([]uint, len(items))
+	for i, item := range items {
+		ids[i] = item.ID
+	}
+	logCounts, err := store.CountServiceLogs(ids)
+	if err != nil {
+		logCounts = map[uint]int{}
+	}
+	rows, meta, cellRows := applianceMaintenanceRows(items, logCounts)
+	return rows, meta, cellRows, nil
+}
+
+func (h applianceMaintenanceHandler) Delete(store *data.Store, id uint) error {
+	return store.DeleteMaintenance(id)
+}
+
+func (h applianceMaintenanceHandler) Restore(store *data.Store, id uint) error {
+	return store.RestoreMaintenance(id)
+}
+
+func (h applianceMaintenanceHandler) StartAddForm(m *Model) error {
+	m.startMaintenanceForm()
+	return nil
+}
+
+func (h applianceMaintenanceHandler) StartEditForm(m *Model, id uint) error {
+	return m.startEditMaintenanceForm(id)
+}
+
+func (h applianceMaintenanceHandler) InlineEdit(m *Model, id uint, col int) error {
+	// Column mapping without Appliance: 0=ID, 1=Item, 2=Category, 3=Last, 4=Next, 5=Every, 6=Log
+	// Remap to the full maintenance column indices (skip col 3=Appliance).
+	fullCol := col
+	if col >= 3 {
+		fullCol = col + 1
+	}
+	return m.inlineEditMaintenance(id, fullCol)
+}
+
+func (h applianceMaintenanceHandler) SubmitForm(m *Model) error {
+	if m.editID != nil {
+		return m.submitEditMaintenanceForm(*m.editID)
+	}
+	return m.submitMaintenanceForm()
+}
+
+func (h applianceMaintenanceHandler) Snapshot(
+	store *data.Store,
+	id uint,
+) (undoEntry, bool) {
+	item, err := store.GetMaintenance(id)
+	if err != nil {
+		return undoEntry{}, false
+	}
+	return undoEntry{
+		Description: fmt.Sprintf("maintenance %q", item.Name),
+		FormKind:    formMaintenance,
+		EntityID:    id,
+		Restore: func() error {
+			return store.UpdateMaintenance(item)
+		},
+	}, true
+}
+
+func (applianceMaintenanceHandler) SyncFixedValues(m *Model, specs []columnSpec) {
+	maintenanceHandler{}.SyncFixedValues(m, specs)
+}
+
+// ---------------------------------------------------------------------------
 // serviceLogHandler -- detail-view handler for service log entries scoped to
 // a single maintenance item.
 // ---------------------------------------------------------------------------

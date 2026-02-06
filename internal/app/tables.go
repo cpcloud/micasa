@@ -133,8 +133,58 @@ func applianceColumnSpecs() []columnSpec {
 		{Title: "Purchased", Min: 10, Max: 12, Kind: cellDate},
 		{Title: "Warranty", Min: 10, Max: 12, Kind: cellDate},
 		{Title: "Cost", Min: 8, Max: 12, Align: alignRight, Kind: cellMoney},
-		{Title: "Maint", Min: 5, Max: 6, Align: alignRight, Kind: cellReadonly},
+		{Title: "Maint", Min: 5, Max: 6, Align: alignRight, Kind: cellDrilldown},
 	}
+}
+
+// applianceMaintenanceColumnSpecs is like maintenanceColumnSpecs but without
+// the Appliance column, since the detail view is already scoped to one.
+func applianceMaintenanceColumnSpecs() []columnSpec {
+	return []columnSpec{
+		{Title: "ID", Min: 4, Max: 6, Align: alignRight, Kind: cellReadonly},
+		{Title: "Item", Min: 12, Max: 26, Flex: true},
+		{Title: "Category", Min: 10, Max: 14},
+		{Title: "Last", Min: 10, Max: 12, Kind: cellDate},
+		{Title: "Next", Min: 10, Max: 12, Kind: cellDate},
+		{Title: "Every", Min: 6, Max: 10},
+		{Title: "Log", Min: 4, Max: 6, Align: alignRight, Kind: cellDrilldown},
+	}
+}
+
+func applianceMaintenanceRows(
+	items []data.MaintenanceItem,
+	logCounts map[uint]int,
+) ([]table.Row, []rowMeta, [][]cell) {
+	rows := make([]table.Row, 0, len(items))
+	meta := make([]rowMeta, 0, len(items))
+	cells := make([][]cell, 0, len(items))
+	for _, item := range items {
+		deleted := item.DeletedAt.Valid
+		interval := ""
+		if item.IntervalMonths > 0 {
+			interval = fmt.Sprintf("%d mo", item.IntervalMonths)
+		}
+		logCount := ""
+		if n := logCounts[item.ID]; n > 0 {
+			logCount = fmt.Sprintf("%d", n)
+		}
+		rowCells := []cell{
+			{Value: fmt.Sprintf("%d", item.ID), Kind: cellReadonly},
+			{Value: item.Name, Kind: cellText},
+			{Value: item.Category.Name, Kind: cellText},
+			{Value: dateValue(item.LastServicedAt), Kind: cellDate},
+			{Value: dateValue(item.NextDueAt), Kind: cellDate},
+			{Value: interval, Kind: cellText},
+			{Value: logCount, Kind: cellDrilldown},
+		}
+		rows = append(rows, cellsToRow(rowCells))
+		cells = append(cells, rowCells)
+		meta = append(meta, rowMeta{
+			ID:      item.ID,
+			Deleted: deleted,
+		})
+	}
+	return rows, meta, cells
 }
 
 func serviceLogColumnSpecs() []columnSpec {
@@ -199,7 +249,7 @@ func applianceRows(
 			{Value: dateValue(item.PurchaseDate), Kind: cellDate},
 			{Value: dateValue(item.WarrantyExpiry), Kind: cellDate},
 			{Value: centsValue(item.CostCents), Kind: cellMoney},
-			{Value: maintCount, Kind: cellReadonly},
+			{Value: maintCount, Kind: cellDrilldown},
 		}
 		rows = append(rows, cellsToRow(rowCells))
 		cells = append(cells, rowCells)
