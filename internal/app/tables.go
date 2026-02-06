@@ -8,6 +8,29 @@ import (
 	"github.com/micasa/micasa/internal/data"
 )
 
+// normalTableKeyMap returns the default table KeyMap with full vim bindings.
+func normalTableKeyMap() table.KeyMap {
+	return table.DefaultKeyMap()
+}
+
+// editTableKeyMap returns a table KeyMap with d/u stripped from half-page
+// bindings so they can be used for delete/undo without conflicting.
+func editTableKeyMap() table.KeyMap {
+	km := table.DefaultKeyMap()
+	km.HalfPageDown.SetKeys("ctrl+d")
+	km.HalfPageDown.SetHelp("ctrl+d", "½ page down")
+	km.HalfPageUp.SetKeys("ctrl+u")
+	km.HalfPageUp.SetHelp("ctrl+u", "½ page up")
+	return km
+}
+
+// setAllTableKeyMaps applies a KeyMap to every tab's table.
+func (m *Model) setAllTableKeyMaps(km table.KeyMap) {
+	for i := range m.tabs {
+		m.tabs[i].Table.KeyMap = km
+	}
+}
+
 func NewTabs(styles Styles) []Tab {
 	projectSpecs := projectColumnSpecs()
 	quoteSpecs := quoteColumnSpecs()

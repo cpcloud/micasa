@@ -22,19 +22,10 @@ func (m *Model) buildView() string {
 	tabs := m.tabsView()
 	tabLine := m.tabUnderline()
 	content := ""
-	if m.mode == modeSearch {
-		content = m.searchView()
-	} else if m.mode == modeForm && m.form != nil {
+	if m.mode == modeForm && m.form != nil {
 		content = m.form.View()
 	} else if tab := m.activeTab(); tab != nil {
 		content = m.tableView(tab)
-	}
-	logPane := m.logView()
-	if logPane != "" {
-		logPane = joinVerticalNonEmpty(
-			m.logDivider(),
-			logPane,
-		)
 	}
 	status := m.statusView()
 
@@ -42,9 +33,6 @@ func (m *Model) buildView() string {
 	upper := lipgloss.JoinVertical(lipgloss.Left, house, "", tabs, tabLine)
 	if content != "" {
 		upper = lipgloss.JoinVertical(lipgloss.Left, upper, content)
-	}
-	if logPane != "" {
-		upper = lipgloss.JoinVertical(lipgloss.Left, upper, logPane)
 	}
 
 	// Anchor the status bar to the terminal bottom.
@@ -170,34 +158,6 @@ func (m *Model) tabUnderline() string {
 }
 
 func (m *Model) statusView() string {
-	if m.log.enabled && m.mode != modeForm {
-		if m.log.focus {
-			return joinWithSeparator(
-				m.helpSeparator(),
-				m.helpItem("esc", "stop filtering"),
-				m.helpItem("ctrl+c", "quit"),
-			)
-		}
-		return joinWithSeparator(
-			m.helpSeparator(),
-			m.helpItem("/", "filter"),
-			m.helpItem("!", "level"),
-			m.helpItem("esc", "close log"),
-			m.helpItem("ctrl+c", "quit"),
-		)
-	}
-	if m.mode == modeSearch {
-		help := joinWithSeparator(
-			m.helpSeparator(),
-			m.helpItem("enter", "open"),
-			m.helpItem("esc", "close"),
-			m.helpItem("\u2191/\u2193", "nav"),
-		)
-		if m.search.indexing {
-			help = joinWithSeparator(m.helpSeparator(), help, "indexing…")
-		}
-		return help
-	}
 	if m.mode == modeForm {
 		dirtyIndicator := m.styles.FormClean.Render("○ saved")
 		if m.formDirty {
@@ -212,22 +172,39 @@ func (m *Model) statusView() string {
 		)
 		return m.withStatusMessage(help)
 	}
-	tab := m.activeTab()
-	help := joinWithSeparator(
-		m.helpSeparator(),
-		m.helpItem("tab/shift+tab", "switch"),
-		m.helpItem("\u2190/\u2192", "col"),
-		m.helpItem("a", "add"),
-		m.helpItem("e", m.editHint()),
-		m.helpItem("d", "del"),
-		m.helpItem("u", "undo"),
-		m.deletedHint(tab),
-		m.helpItem("h", "house"),
-		m.helpItem("p", "profile"),
-		m.helpItem("/", "search"),
-		m.helpItem("q", "quit"),
-	)
-	help = joinWithSeparator(m.helpSeparator(), help, m.helpItem("l", "log"))
+
+	modeBadge := m.styles.ModeNormal.Render("NORMAL")
+	if m.mode == modeEdit {
+		modeBadge = m.styles.ModeEdit.Render("EDIT")
+	}
+
+	var help string
+	if m.mode == modeNormal {
+		help = joinWithSeparator(
+			m.helpSeparator(),
+			modeBadge,
+			m.helpItem("h/l", "col"),
+			m.helpItem("i", "edit mode"),
+			m.helpItem("enter", "edit"),
+			m.deletedHint(m.activeTab()),
+			m.helpItem("H", "house"),
+			m.helpItem("?", "help"),
+			m.helpItem("q", "quit"),
+		)
+	} else {
+		help = joinWithSeparator(
+			m.helpSeparator(),
+			modeBadge,
+			m.helpItem("a", "add"),
+			m.helpItem("e", m.editHint()),
+			m.helpItem("d", "del"),
+			m.helpItem("u", "undo"),
+			m.deletedHint(m.activeTab()),
+			m.helpItem("p", "profile"),
+			m.helpItem("esc", "normal"),
+		)
+	}
+
 	dbLabel := m.styles.DBHint.Render(m.dbPath)
 	leftWidth := ansi.StringWidth(help)
 	dbWidth := ansi.StringWidth(dbLabel)
@@ -335,42 +312,30 @@ func (m *Model) helpView() string {
 		bindings []binding
 	}{
 		{
-			title: "Navigation",
+			title: "Normal Mode",
 			bindings: []binding{
-				{"tab", "Next tab"},
-				{"shift+tab", "Previous tab"},
-				{"up/down", "Move through rows"},
-				{"left/right", "Move through columns"},
-				{"h", "Toggle house profile"},
+				{"j/k", "Move through rows"},
+				{"h/l", "Move through columns"},
+				{"g/G", "Jump to first/last row"},
+				{"d/u", "Half page down/up"},
+				{"tab/shift+tab", "Switch tabs"},
+				{"H", "Toggle house profile"},
+				{"x", "Toggle showing deleted items"},
+				{"enter", "Edit current cell"},
+				{"i", "Enter Edit mode"},
+				{"?", "This help menu"},
+				{"q", "Quit"},
 			},
 		},
 		{
-			title: "Actions",
+			title: "Edit Mode",
 			bindings: []binding{
 				{"a", "Add new entry"},
 				{"e / enter", "Edit cell (or full row on ID column)"},
 				{"d", "Delete selected entry"},
 				{"u", "Restore last deleted entry"},
-				{"x", "Toggle showing deleted items"},
 				{"p", "Edit house profile"},
-			},
-		},
-		{
-			title: "Tools",
-			bindings: []binding{
-				{"/", "Search"},
-				{"l", "Toggle log panel"},
-				{"?", "This help menu"},
-				{"q", "Quit"},
-				{"ctrl+c", "Force quit"},
-			},
-		},
-		{
-			title: "Log Mode",
-			bindings: []binding{
-				{"/", "Focus regex filter"},
-				{"!", "Cycle log level"},
-				{"esc", "Close log panel"},
+				{"esc", "Back to Normal mode"},
 			},
 		},
 		{
@@ -410,177 +375,6 @@ func (m *Model) helpView() string {
 		Padding(1, 2).
 		Render(b.String())
 	return box
-}
-
-func (m *Model) logView() string {
-	if !m.log.enabled {
-		return ""
-	}
-	title := m.styles.LogTitle.Render("Logs")
-	levelBadge := m.styles.HeaderBadge.Render(m.log.levelLabel())
-	indicator := m.styles.LogBlur.Render("○ filter")
-	if m.log.focus {
-		indicator = m.styles.LogFocus.Render("● filter")
-	}
-	header := joinInline(title, levelBadge, indicator)
-
-	filterStatus := m.log.validityLabel()
-	statusStyle := m.styles.LogValid
-	if m.log.filterErr != nil {
-		statusStyle = m.styles.LogInvalid
-	}
-	filterLine := fmt.Sprintf(
-		"%s %s",
-		m.styles.HeaderHint.Render("filter"),
-		m.log.input.View(),
-	)
-	statusLine := fmt.Sprintf(
-		"%s %s",
-		m.styles.HeaderHint.Render("regex"),
-		statusStyle.Render(filterStatus),
-	)
-
-	width := m.effectiveWidth()
-	header = ansi.Truncate(header, width, "…")
-	filterLine = ansi.Truncate(filterLine, width, "…")
-	statusLine = ansi.Truncate(statusLine, width, "…")
-	bodyLines := m.logBodyLines()
-	if bodyLines < 1 {
-		bodyLines = 1
-	}
-	entries := m.filteredLogEntries()
-	if len(entries) > bodyLines {
-		entries = entries[len(entries)-bodyLines:]
-	}
-	lines := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		line := m.formatLogEntry(entry, width)
-		lines = append(lines, line)
-	}
-	if len(lines) == 0 {
-		lines = []string{m.styles.Empty.Render("No log entries.")}
-	}
-	return joinVerticalNonEmpty(
-		header,
-		filterLine,
-		statusLine,
-		strings.Join(lines, "\n"),
-	)
-}
-
-func (m *Model) logDivider() string {
-	line := strings.Repeat("─", m.effectiveWidth())
-	return m.styles.TableSeparator.Render(line)
-}
-
-func (m *Model) filteredLogEntries() []logEntry {
-	entries := make([]logEntry, 0, len(m.log.entries))
-	for _, entry := range m.log.entries {
-		raw := fmt.Sprintf(
-			"%s %s %s",
-			entry.Time.Format("15:04:05"),
-			entry.Level.String(),
-			entry.Message,
-		)
-		if !m.log.matchLine(raw) {
-			continue
-		}
-		entries = append(entries, entry)
-	}
-	return entries
-}
-
-func (m *Model) formatLogEntry(entry logEntry, width int) string {
-	levelStyle := m.styles.LogLevelInfo
-	switch entry.Level {
-	case logError:
-		levelStyle = m.styles.LogLevelError
-	case logDebug:
-		levelStyle = m.styles.LogLevelDebug
-	}
-	level := levelStyle.Render(entry.Level.String())
-	message := entry.Message
-	// Highlight regex matches within the message portion.
-	highlights := m.log.findHighlights(entry.Message)
-	if len(highlights) > 0 {
-		message = applyHighlights(entry.Message, highlights, m.styles.LogHighlight)
-	}
-	raw := fmt.Sprintf("%s %s %s", entry.Time.Format("15:04:05"), level, message)
-	return ansi.Truncate(raw, width, "…")
-}
-
-// applyHighlights inserts styled spans for each match range in the text.
-func applyHighlights(text string, spans []logMatch, style lipgloss.Style) string {
-	if len(spans) == 0 {
-		return text
-	}
-	var b strings.Builder
-	prev := 0
-	for _, span := range spans {
-		start := span.Start
-		end := span.End
-		if start < prev {
-			start = prev
-		}
-		if start > len(text) {
-			break
-		}
-		if end > len(text) {
-			end = len(text)
-		}
-		if start >= end {
-			continue
-		}
-		b.WriteString(text[prev:start])
-		b.WriteString(style.Render(text[start:end]))
-		prev = end
-	}
-	if prev < len(text) {
-		b.WriteString(text[prev:])
-	}
-	return b.String()
-}
-
-func (m *Model) searchView() string {
-	width := m.effectiveWidth()
-	contentWidth := width - 4
-	if contentWidth < 1 {
-		contentWidth = 1
-	}
-	title := m.styles.SearchTitle.Render("Search")
-	status := m.styles.SearchHint.Render("type to search")
-	if m.search.indexing {
-		status = m.styles.SearchHint.Render("indexing " + m.search.spinner.View())
-	}
-	header := joinInline(title, status)
-	query := fmt.Sprintf("%s %s", m.styles.HeaderHint.Render("query"), m.search.input.View())
-	query = ansi.Truncate(query, contentWidth, "…")
-	lines := make([]string, 0, maxSearchResults)
-	if m.search.indexing {
-		lines = append(lines, m.styles.Empty.Render("Building search index…"))
-	} else if len(m.search.results) == 0 && strings.TrimSpace(m.search.input.Value()) != "" {
-		lines = append(lines, m.styles.Empty.Render("No matches."))
-	} else if len(m.search.results) == 0 {
-		lines = append(lines, m.styles.Empty.Render("Start typing to search."))
-	} else {
-		for idx, entry := range m.search.results {
-			line := formatSearchResult(entry, contentWidth)
-			if idx == m.search.cursor {
-				line = m.styles.SearchSelected.Render(line)
-			} else {
-				line = m.styles.SearchResult.Render(line)
-			}
-			lines = append(lines, line)
-		}
-	}
-	content := joinVerticalNonEmpty(header, query, strings.Join(lines, "\n"))
-	return m.styles.SearchBox.Render(content)
-}
-
-func formatSearchResult(entry searchEntry, width int) string {
-	label := entry.Tab.String()
-	line := fmt.Sprintf("[%s] %s — %s", label, entry.Title, entry.Summary)
-	return ansi.Truncate(line, width, "…")
 }
 
 func (m *Model) tableView(tab *Tab) string {

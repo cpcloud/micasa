@@ -20,22 +20,10 @@ type Styles struct {
 	TableSeparator  lipgloss.Style
 	CellActive      lipgloss.Style
 	ColActiveHeader lipgloss.Style
-	LogTitle        lipgloss.Style
-	LogFocus        lipgloss.Style
-	LogBlur         lipgloss.Style
-	LogValid        lipgloss.Style
-	LogInvalid      lipgloss.Style
-	LogLevelInfo    lipgloss.Style
-	LogLevelError   lipgloss.Style
-	LogLevelDebug   lipgloss.Style
-	LogHighlight    lipgloss.Style
 	FormClean       lipgloss.Style
 	FormDirty       lipgloss.Style
-	SearchBox       lipgloss.Style
-	SearchTitle     lipgloss.Style
-	SearchHint      lipgloss.Style
-	SearchResult    lipgloss.Style
-	SearchSelected  lipgloss.Style
+	ModeNormal      lipgloss.Style
+	ModeEdit        lipgloss.Style
 	Money           lipgloss.Style
 	Readonly        lipgloss.Style
 	Empty           lipgloss.Style
@@ -145,56 +133,20 @@ func DefaultStyles() Styles {
 		ColActiveHeader: lipgloss.NewStyle().
 			Foreground(secondary).
 			Bold(true),
-		LogTitle: lipgloss.NewStyle().
-			Foreground(textBright).
-			Background(surface).
-			Padding(0, 1).
-			Bold(true),
-		LogFocus: lipgloss.NewStyle().
-			Foreground(success).
-			Bold(true),
-		LogBlur: lipgloss.NewStyle().
-			Foreground(textMid),
-		LogValid: lipgloss.NewStyle().
-			Foreground(success).
-			Bold(true),
-		LogInvalid: lipgloss.NewStyle().
-			Foreground(danger).
-			Bold(true),
-		LogLevelInfo: lipgloss.NewStyle().
-			Foreground(accent).
-			Bold(true),
-		LogLevelError: lipgloss.NewStyle().
-			Foreground(danger).
-			Bold(true),
-		LogLevelDebug: lipgloss.NewStyle().
-			Foreground(muted).
-			Bold(true),
-		LogHighlight: lipgloss.NewStyle().
-			Foreground(onAccent).
-			Background(warning).
-			Bold(true),
 		FormClean: lipgloss.NewStyle().
 			Foreground(textMid),
 		FormDirty: lipgloss.NewStyle().
 			Foreground(secondary).
 			Bold(true),
-		SearchBox: lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(border).
-			Padding(0, 1),
-		SearchTitle: lipgloss.NewStyle().
-			Foreground(textBright).
-			Background(surface).
+		ModeNormal: lipgloss.NewStyle().
+			Foreground(onAccent).
+			Background(accent).
 			Padding(0, 1).
 			Bold(true),
-		SearchHint: lipgloss.NewStyle().
-			Foreground(textMid),
-		SearchResult: lipgloss.NewStyle().
-			Foreground(textBright),
-		SearchSelected: lipgloss.NewStyle().
+		ModeEdit: lipgloss.NewStyle().
 			Foreground(onAccent).
-			Background(textBright).
+			Background(secondary).
+			Padding(0, 1).
 			Bold(true),
 		Money: lipgloss.NewStyle().
 			Foreground(success),

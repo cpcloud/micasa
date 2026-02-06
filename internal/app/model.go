@@ -25,6 +25,7 @@ type Model struct {
 	hasHouse              bool
 	house                 data.HouseProfile
 	mode                  Mode
+	prevMode              Mode // mode to restore after form closes
 	formKind              FormKind
 	form                  *huh.Form
 	formData              any
@@ -32,8 +33,6 @@ type Model struct {
 	formDirty             bool
 	editID                *uint
 	status                statusMsg
-	log                   logState
-	search                searchState
 	projectTypes          []data.ProjectType
 	maintenanceCategories []data.MaintenanceCategory
 }
@@ -47,9 +46,7 @@ func NewModel(store *data.Store, options Options) (*Model, error) {
 		tabs:      NewTabs(styles),
 		active:    0,
 		showHouse: false,
-		mode:      modeTable,
-		log:       newLogState(),
-		search:    newSearchState(),
+		mode:      modeNormal,
 	}
 	if err := model.loadLookups(); err != nil {
 		return nil, err
@@ -67,7 +64,7 @@ func NewModel(store *data.Store, options Options) (*Model, error) {
 }
 
 func (m *Model) Init() tea.Cmd {
-	return tea.Batch(m.formInitCmd(), m.startSearchIndexBuild())
+	return m.formInitCmd()
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -93,137 +90,28 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Log filter typing mode: only esc escapes back to log browsing.
-	if m.log.enabled && m.log.focus && m.mode != modeForm {
-		if keyMsg, ok := msg.(tea.KeyMsg); ok {
-			if keyMsg.String() == "esc" {
-				m.log.focus = false
-				m.log.input.Blur()
-				return m, nil
-			}
-		}
-		var cmd tea.Cmd
-		m.log.input, cmd = m.log.input.Update(msg)
-		m.log.setFilter(m.log.input.Value())
-		return m, cmd
-	}
-
-	// Log browsing mode: !, /, esc handled here.
-	if m.log.enabled && m.mode != modeForm {
-		if keyMsg, ok := msg.(tea.KeyMsg); ok {
-			switch keyMsg.String() {
-			case "esc":
-				return m, m.toggleLog()
-			case "!":
-				m.log.cycleLevel()
-				m.logInfo(fmt.Sprintf("Log level: %s", m.log.levelLabel()))
-				return m, nil
-			case "/":
-				m.log.focus = true
-				return m, m.log.input.Focus()
-			}
-		}
-		return m, nil
-	}
-
-	if m.mode == modeSearch {
-		return m.updateSearch(msg)
-	}
-
 	if m.mode == modeForm && m.form != nil {
-		// ctrl+s saves the form immediately from any field.
-		if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "ctrl+s" {
-			return m, m.saveForm()
-		}
-		// Don't let WindowSizeMsg resize the house form (it has a fixed width).
-		if _, isResize := msg.(tea.WindowSizeMsg); isResize && m.formKind == formHouse {
-			return m, nil
-		}
-		updated, cmd := m.form.Update(msg)
-		form, ok := updated.(*huh.Form)
-		if ok {
-			m.form = form
-		}
-		m.checkFormDirty()
-		switch m.form.State {
-		case huh.StateCompleted:
-			return m, m.saveForm()
-		case huh.StateAborted:
-			if m.formKind == formHouse && !m.hasHouse {
-				m.setStatusError("House profile required.")
-				m.startHouseForm()
-				return m, m.formInitCmd()
-			}
-			m.exitForm()
-		}
-		return m, cmd
+		return m.updateForm(msg)
 	}
 
 	switch typed := msg.(type) {
 	case tea.KeyMsg:
-		switch typed.String() {
-		case "q":
-			return m, tea.Quit
-		case "?":
-			m.showHelp = true
-			return m, nil
-		case "/":
-			return m, m.openSearch()
-		case "l":
-			return m, m.toggleLog()
-		case "tab":
-			m.nextTab()
-			return m, nil
-		case "shift+tab":
-			m.prevTab()
-			return m, nil
-		case "h":
-			m.showHouse = !m.showHouse
-			m.resizeTables()
-			return m, nil
-		case "p":
-			m.startHouseForm()
-			return m, m.formInitCmd()
-		case "a":
-			m.startAddForm()
-			return m, m.formInitCmd()
-		case "left":
-			if tab := m.activeTab(); tab != nil {
-				tab.ColCursor--
-				if tab.ColCursor < 0 {
-					tab.ColCursor = len(tab.Specs) - 1
-				}
+		if cmd, handled := m.handleCommonKeys(typed); handled {
+			return m, cmd
+		}
+		if m.mode == modeNormal {
+			if cmd, handled := m.handleNormalKeys(typed); handled {
+				return m, cmd
 			}
-			return m, nil
-		case "right":
-			if tab := m.activeTab(); tab != nil {
-				tab.ColCursor++
-				if tab.ColCursor >= len(tab.Specs) {
-					tab.ColCursor = 0
-				}
+		}
+		if m.mode == modeEdit {
+			if cmd, handled := m.handleEditKeys(typed); handled {
+				return m, cmd
 			}
-			return m, nil
-		case "e", "enter":
-			if err := m.startCellOrFormEdit(); err != nil {
-				m.setStatusError(err.Error())
-				return m, nil
-			}
-			return m, m.formInitCmd()
-		case "d":
-			m.deleteSelected()
-			return m, nil
-		case "u", "U":
-			m.restoreSelected()
-			return m, nil
-		case "x":
-			m.toggleShowDeleted()
-			return m, nil
-		case "esc":
-			m.status = statusMsg{}
-			return m, nil
 		}
 	}
 
+	// Pass unhandled messages to the active table (handles j/k, g/G, etc.).
 	tab := m.activeTab()
 	if tab == nil {
 		return m, nil
@@ -233,8 +121,134 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+// updateForm handles input while a form is active.
+func (m *Model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "ctrl+s" {
+		return m, m.saveForm()
+	}
+	if _, isResize := msg.(tea.WindowSizeMsg); isResize && m.formKind == formHouse {
+		return m, nil
+	}
+	updated, cmd := m.form.Update(msg)
+	form, ok := updated.(*huh.Form)
+	if ok {
+		m.form = form
+	}
+	m.checkFormDirty()
+	switch m.form.State {
+	case huh.StateCompleted:
+		return m, m.saveForm()
+	case huh.StateAborted:
+		if m.formKind == formHouse && !m.hasHouse {
+			m.setStatusError("House profile required.")
+			m.startHouseForm()
+			return m, m.formInitCmd()
+		}
+		m.exitForm()
+	}
+	return m, cmd
+}
+
+// handleCommonKeys processes keys available in both Normal and Edit modes.
+func (m *Model) handleCommonKeys(key tea.KeyMsg) (tea.Cmd, bool) {
+	switch key.String() {
+	case "?":
+		m.showHelp = true
+		return nil, true
+	case "tab":
+		m.nextTab()
+		return nil, true
+	case "shift+tab":
+		m.prevTab()
+		return nil, true
+	case "H":
+		m.showHouse = !m.showHouse
+		m.resizeTables()
+		return nil, true
+	case "h", "left":
+		if tab := m.activeTab(); tab != nil {
+			tab.ColCursor--
+			if tab.ColCursor < 0 {
+				tab.ColCursor = len(tab.Specs) - 1
+			}
+		}
+		return nil, true
+	case "l", "right":
+		if tab := m.activeTab(); tab != nil {
+			tab.ColCursor++
+			if tab.ColCursor >= len(tab.Specs) {
+				tab.ColCursor = 0
+			}
+		}
+		return nil, true
+	case "x":
+		m.toggleShowDeleted()
+		return nil, true
+	}
+	return nil, false
+}
+
+// handleNormalKeys processes keys unique to Normal mode.
+func (m *Model) handleNormalKeys(key tea.KeyMsg) (tea.Cmd, bool) {
+	switch key.String() {
+	case "i":
+		m.enterEditMode()
+		return nil, true
+	case "enter":
+		if err := m.startCellOrFormEdit(); err != nil {
+			m.setStatusError(err.Error())
+			return nil, true
+		}
+		return m.formInitCmd(), true
+	case "q":
+		return tea.Quit, true
+	case "esc":
+		m.status = statusMsg{}
+		return nil, true
+	}
+	return nil, false
+}
+
+// handleEditKeys processes keys unique to Edit mode.
+func (m *Model) handleEditKeys(key tea.KeyMsg) (tea.Cmd, bool) {
+	switch key.String() {
+	case "a":
+		m.startAddForm()
+		return m.formInitCmd(), true
+	case "e", "enter":
+		if err := m.startCellOrFormEdit(); err != nil {
+			m.setStatusError(err.Error())
+			return nil, true
+		}
+		return m.formInitCmd(), true
+	case "d":
+		m.deleteSelected()
+		return nil, true
+	case "u":
+		m.restoreSelected()
+		return nil, true
+	case "p":
+		m.startHouseForm()
+		return m.formInitCmd(), true
+	case "esc":
+		m.enterNormalMode()
+		return nil, true
+	}
+	return nil, false
+}
+
 func (m *Model) View() string {
 	return m.buildView()
+}
+
+func (m *Model) enterNormalMode() {
+	m.mode = modeNormal
+	m.setAllTableKeyMaps(normalTableKeyMap())
+}
+
+func (m *Model) enterEditMode() {
+	m.mode = modeEdit
+	m.setAllTableKeyMaps(editTableKeyMap())
 }
 
 func (m *Model) activeTab() *Tab {
@@ -405,8 +419,6 @@ func (m *Model) deleteSelected() {
 		return
 	}
 	tab.LastDeleted = &meta.ID
-	m.search.dirty = true
-	m.logDebug(fmt.Sprintf("Deleted %s %d", tab.Name, meta.ID))
 	m.setStatusInfo("Deleted. Press u to undo.")
 	_ = m.reloadActiveTab()
 }
@@ -457,8 +469,6 @@ func (m *Model) restoreSelected() {
 	if tab.LastDeleted != nil && *tab.LastDeleted == meta.ID {
 		tab.LastDeleted = nil
 	}
-	m.search.dirty = true
-	m.logDebug(fmt.Sprintf("Restored %s %d", tab.Name, meta.ID))
 	m.setStatusInfo("Restored.")
 	_ = m.reloadActiveTab()
 }
@@ -545,7 +555,6 @@ func (m *Model) reloadTab(tab *Tab) error {
 		var cellRows [][]cell
 		rows, meta, cellRows = projectRows(projects)
 		tab.CellRows = cellRows
-		m.logDebug(fmt.Sprintf("Loaded %d projects", len(projects)))
 	case tabQuotes:
 		var quotes []data.Quote
 		quotes, err = m.store.ListQuotes(tab.ShowDeleted)
@@ -555,7 +564,6 @@ func (m *Model) reloadTab(tab *Tab) error {
 		var cellRows [][]cell
 		rows, meta, cellRows = quoteRows(quotes)
 		tab.CellRows = cellRows
-		m.logDebug(fmt.Sprintf("Loaded %d quotes", len(quotes)))
 	case tabMaintenance:
 		var items []data.MaintenanceItem
 		items, err = m.store.ListMaintenance(tab.ShowDeleted)
@@ -565,7 +573,6 @@ func (m *Model) reloadTab(tab *Tab) error {
 		var cellRows [][]cell
 		rows, meta, cellRows = maintenanceRows(items)
 		tab.CellRows = cellRows
-		m.logDebug(fmt.Sprintf("Loaded %d maintenance items", len(items)))
 	case tabAppliances:
 		var appliances []data.Appliance
 		appliances, err = m.store.ListAppliances(tab.ShowDeleted)
@@ -575,7 +582,6 @@ func (m *Model) reloadTab(tab *Tab) error {
 		var cellRows [][]cell
 		rows, meta, cellRows = applianceRows(appliances)
 		tab.CellRows = cellRows
-		m.logDebug(fmt.Sprintf("Loaded %d appliances", len(appliances)))
 	}
 	tab.Table.SetRows(rows)
 	tab.Rows = meta
@@ -611,7 +617,7 @@ func (m *Model) loadLookups() error {
 
 func (m *Model) resizeTables() {
 	// Chrome: 1 blank after house + 1 tab row + 1 tab underline = 3
-	height := m.height - m.houseLines() - 3 - m.statusLines() - m.logLines()
+	height := m.height - m.houseLines() - 3 - m.statusLines()
 	if height < 4 {
 		height = 4
 	}
@@ -623,7 +629,6 @@ func (m *Model) resizeTables() {
 		m.tabs[i].Table.SetHeight(tableHeight)
 		m.tabs[i].Table.SetWidth(m.width)
 	}
-	m.resizeLog()
 }
 
 func (m *Model) houseLines() int {
@@ -637,38 +642,6 @@ func (m *Model) statusLines() int {
 	return 2
 }
 
-func (m *Model) logLines() int {
-	if !m.log.enabled {
-		return 0
-	}
-	return m.logBodyLines() + 6
-}
-
-func (m *Model) resizeLog() {
-	if !m.log.enabled {
-		return
-	}
-	width := m.width - 24
-	if width < 16 {
-		width = 16
-	}
-	m.log.input.Width = width
-}
-
-func (m *Model) logBodyLines() int {
-	body := 4
-	if m.height > 0 {
-		body = m.height / 4
-		if body < 3 {
-			body = 3
-		}
-		if body > 8 {
-			body = 8
-		}
-	}
-	return body
-}
-
 func (m *Model) saveForm() tea.Cmd {
 	err := m.handleFormSubmit()
 	if err != nil {
@@ -677,7 +650,6 @@ func (m *Model) saveForm() tea.Cmd {
 	}
 	m.exitForm()
 	m.setStatusInfo("Saved.")
-	m.search.dirty = true
 	_ = m.loadLookups()
 	_ = m.loadHouse()
 	_ = m.reloadAllTabs()
@@ -694,7 +666,13 @@ func (m *Model) checkFormDirty() {
 }
 
 func (m *Model) exitForm() {
-	m.mode = modeTable
+	m.mode = m.prevMode
+	// Restore correct table key bindings for the returning mode.
+	if m.mode == modeEdit {
+		m.setAllTableKeyMaps(editTableKeyMap())
+	} else {
+		m.setAllTableKeyMaps(normalTableKeyMap())
+	}
 	m.formKind = formNone
 	m.form = nil
 	m.formData = nil
@@ -705,31 +683,16 @@ func (m *Model) exitForm() {
 
 func (m *Model) setStatusInfo(text string) {
 	m.status = statusMsg{Text: text, Kind: statusInfo}
-	m.logInfo(text)
 }
 
 func (m *Model) setStatusError(text string) {
 	m.status = statusMsg{Text: text, Kind: statusError}
-	m.logError(text)
 }
 
 func (m *Model) formInitCmd() tea.Cmd {
 	if m.mode == modeForm && m.form != nil {
 		return m.form.Init()
 	}
-	return nil
-}
-
-func (m *Model) toggleLog() tea.Cmd {
-	if m.log.enabled {
-		m.log.enabled = false
-		m.log.focus = false
-		m.log.input.Blur()
-		m.resizeTables()
-		return nil
-	}
-	m.log.enabled = true
-	m.resizeTables()
 	return nil
 }
 
@@ -752,14 +715,27 @@ func (m *Model) effectiveHeight() int {
 	return defaultHeight
 }
 
-func (m *Model) logInfo(message string) {
-	m.log.append(logInfo, message)
+func selectRowByID(tab *Tab, id uint) bool {
+	for idx, meta := range tab.Rows {
+		if meta.ID == id {
+			tab.Table.SetCursor(idx)
+			return true
+		}
+	}
+	return false
 }
 
-func (m *Model) logError(message string) {
-	m.log.append(logError, message)
-}
-
-func (m *Model) logDebug(message string) {
-	m.log.append(logDebug, message)
+func tabIndex(kind TabKind) int {
+	switch kind {
+	case tabProjects:
+		return 0
+	case tabQuotes:
+		return 1
+	case tabMaintenance:
+		return 2
+	case tabAppliances:
+		return 3
+	default:
+		return 0
+	}
 }

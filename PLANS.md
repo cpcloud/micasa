@@ -63,6 +63,53 @@ Section headers use existing HeaderSection style. Values use dim label + bright 
 2. Rewrite `houseCollapsed` and `houseExpanded`
 3. Remove now-unused `chip`, `sectionLine`, `renderHouseValue`, `HeaderChip` style
 
+## Modal System
+
+**Goal**: Vim-style modal keybindings that work *with* bubbles/table's built-in vim nav.
+
+**Problem**: bubbles/table defaults bind `d` (half-page-down) and `u` (half-page-up), which
+conflict with our delete and undo keys. Single-mode apps must intercept these before the table
+sees them, losing useful navigation. A modal system resolves this cleanly.
+
+**Modes**:
+
+### Normal mode (default, `-- NORMAL --`)
+
+All table vim keys work natively: `j`/`k` rows, `d`/`ctrl+d` half-page-down,
+`u`/`ctrl+u` half-page-up, `g`/`G` top/bottom, `space`/`b` page-down/up. Plus:
+- `h`/`l` or `left`/`right` = column movement (free keys, table doesn't bind them)
+- `tab`/`shift+tab` = switch tabs
+- `H` = toggle house profile
+- `x` = toggle show deleted (view-only toggle)
+- `enter` = edit current cell (convenience; opens form directly)
+- `i` = enter Edit mode
+- `?` = help
+- `q` = quit
+- `esc` = clear status
+
+### Edit mode (`-- EDIT --`)
+
+Same navigation, but `d`/`u` rebound from table nav to data actions:
+- `a` = add new entry
+- `e`/`enter` = edit cell/row
+- `d` = delete
+- `u` = undo/restore
+- `p` = edit house profile
+- `esc` = back to Normal mode
+
+Table KeyMap is dynamically updated: entering Edit mode strips `d`/`u` from
+HalfPageDown/HalfPageUp (keeps `ctrl+d`/`ctrl+u`). Returning to Normal restores them.
+
+### Form mode (unchanged)
+
+`ctrl+s` save, `esc` cancel. Returns to whichever mode (Normal/Edit) was active before.
+
+**Also in this change**:
+- Remove logging feature (files, state, UI, keybindings)
+- Remove search feature (files, state, UI, keybindings)
+- Mode indicator badge in status bar (accent for Normal, secondary for Edit)
+- Per-mode help items in status bar
+
 ## Remaining Work Items (from remaining_work.md)
 
 1. **Appliance tab + cross-tab FK navigation** -- tab done, navigation TBD

@@ -95,7 +95,6 @@ func (m *Model) startHouseForm() {
 	if m.hasHouse {
 		values = houseFormValues(m.house)
 	}
-	m.logDebug("Opening house profile form.")
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
@@ -174,6 +173,7 @@ func (m *Model) startHouseForm() {
 		formWidth = m.width - 10
 	}
 	form.WithWidth(formWidth)
+	m.prevMode = m.mode
 	m.mode = modeForm
 	m.formKind = formHouse
 	m.form = form
@@ -189,7 +189,6 @@ func (m *Model) startProjectForm() {
 	if len(options) > 0 {
 		values.ProjectTypeID = options[0].Value
 	}
-	m.logDebug("Opening project form.")
 	m.openProjectForm(values, options)
 }
 
@@ -200,7 +199,6 @@ func (m *Model) startEditProjectForm(id uint) error {
 	}
 	values := projectFormValues(project)
 	options := projectTypeOptions(m.projectTypes)
-	m.logDebug(fmt.Sprintf("Editing project %d.", id))
 	m.editID = &id
 	m.openProjectForm(values, options)
 	return nil
@@ -247,6 +245,7 @@ func (m *Model) openProjectForm(values *projectFormData, options []huh.Option[ui
 		).Title("Timeline"),
 	)
 	applyFormDefaults(form)
+	m.prevMode = m.mode
 	m.mode = modeForm
 	m.formKind = formProject
 	m.form = form
@@ -262,7 +261,6 @@ func (m *Model) startQuoteForm() error {
 	if len(projects) == 0 {
 		return fmt.Errorf("add a project before adding quotes")
 	}
-	m.logDebug("Opening quote form.")
 	values := &quoteFormData{}
 	options := projectOptions(projects)
 	values.ProjectID = options[0].Value
@@ -284,7 +282,6 @@ func (m *Model) startEditQuoteForm(id uint) error {
 	}
 	values := quoteFormValues(quote)
 	options := projectOptions(projects)
-	m.logDebug(fmt.Sprintf("Editing quote %d.", id))
 	m.editID = &id
 	m.openQuoteForm(values, options)
 	return nil
@@ -335,6 +332,7 @@ func (m *Model) openQuoteForm(values *quoteFormData, projectOpts []huh.Option[ui
 		).Title("Quote"),
 	)
 	applyFormDefaults(form)
+	m.prevMode = m.mode
 	m.mode = modeForm
 	m.formKind = formQuote
 	m.form = form
@@ -350,7 +348,6 @@ func (m *Model) startMaintenanceForm() {
 	}
 	appliances, _ := m.store.ListAppliances(false)
 	appOpts := applianceOptions(appliances)
-	m.logDebug("Opening maintenance form.")
 	m.openMaintenanceForm(values, options, appOpts)
 }
 
@@ -363,7 +360,6 @@ func (m *Model) startEditMaintenanceForm(id uint) error {
 	options := maintenanceOptions(m.maintenanceCategories)
 	appliances, _ := m.store.ListAppliances(false)
 	appOpts := applianceOptions(appliances)
-	m.logDebug(fmt.Sprintf("Editing maintenance item %d.", id))
 	m.editID = &id
 	m.openMaintenanceForm(values, options, appOpts)
 	return nil
@@ -414,6 +410,7 @@ func (m *Model) openMaintenanceForm(
 		).Title("Details"),
 	)
 	applyFormDefaults(form)
+	m.prevMode = m.mode
 	m.mode = modeForm
 	m.formKind = formMaintenance
 	m.form = form
@@ -423,7 +420,6 @@ func (m *Model) openMaintenanceForm(
 
 func (m *Model) startApplianceForm() {
 	values := &applianceFormData{}
-	m.logDebug("Opening appliance form.")
 	m.openApplianceForm(values)
 }
 
@@ -433,7 +429,6 @@ func (m *Model) startEditApplianceForm(id uint) error {
 		return fmt.Errorf("load appliance: %w", err)
 	}
 	values := applianceFormValues(item)
-	m.logDebug(fmt.Sprintf("Editing appliance %d.", id))
 	m.editID = &id
 	m.openApplianceForm(values)
 	return nil
@@ -470,6 +465,7 @@ func (m *Model) openApplianceForm(values *applianceFormData) {
 		).Title("Details"),
 	)
 	applyFormDefaults(form)
+	m.prevMode = m.mode
 	m.mode = modeForm
 	m.formKind = formAppliance
 	m.form = form
@@ -758,6 +754,7 @@ func (m *Model) openInlineEdit(id uint, kind FormKind, field huh.Field, values a
 	m.editID = &id
 	form := huh.NewForm(huh.NewGroup(field))
 	applyFormDefaults(form)
+	m.prevMode = m.mode
 	m.mode = modeForm
 	m.formKind = kind
 	m.form = form

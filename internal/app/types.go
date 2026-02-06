@@ -1,17 +1,15 @@
 package app
 
 import (
-	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/table"
-	"github.com/charmbracelet/bubbles/textinput"
 )
 
 type Mode int
 
 const (
-	modeTable Mode = iota
+	modeNormal Mode = iota
+	modeEdit
 	modeForm
-	modeSearch
 )
 
 type FormKind int
@@ -76,34 +74,6 @@ const (
 type statusMsg struct {
 	Text string
 	Kind statusKind
-}
-
-type searchEntry struct {
-	Tab        TabKind
-	ID         uint
-	Title      string
-	Summary    string
-	Searchable string
-}
-
-type searchState struct {
-	active    bool
-	indexing  bool
-	dirty     bool
-	input     textinput.Model
-	spinner   spinner.Model
-	entries   []searchEntry
-	results   []searchEntry
-	cursor    int
-	lastQuery string
-}
-
-type searchIndexMsg struct {
-	Entries []searchEntry
-}
-
-type searchIndexErrMsg struct {
-	Err error
 }
 
 type Options struct {

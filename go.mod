@@ -8,7 +8,6 @@ require (
 	github.com/charmbracelet/huh v0.8.0
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/x/ansi v0.11.5
-	github.com/dlclark/regexp2 v1.11.5
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.1
 )

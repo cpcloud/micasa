@@ -80,3 +80,21 @@
 - Header shows relation type (e.g. "m:1") via `LinkIndicator` style on linked columns
 - Status bar `editHint` shows "follow m:1" when on a linked cell with a target
 - Created PLANS.md for tracking feature plans across agent sessions
+
+## 2026-02-06 Session 4
+
+**Work done** (see git log for details):
+- Retro pixel-art house: replaced line-drawing house art with DOS/BBS-style pixel art using ░▒▓█ shade characters; sky-blue roof, yellow lit windows, orange door (ec543e3)
+- Tried/reverted mini inline house art and "mi casa" retro wordmark for collapsed view (user didn't like either)
+- **Modal system**: vim-style Normal/Edit modes working with bubbles/table keybindings
+  - Normal mode: full table vim nav (j/k/d/u/g/G), h/l for columns, H for house, i to enter Edit, q to quit
+  - Edit mode: same nav but d/u rebound to delete/undo; a/e/p for add/edit/profile; esc returns to Normal
+  - Table KeyMap dynamically updated: d/u stripped in Edit mode, restored in Normal
+  - Mode badge in status bar (accent=NORMAL, orange=EDIT) with per-mode help items
+  - Updated help overlay with modal sections
+  - prevMode tracking: form exit returns to correct mode
+  - 17 unit tests for mode transitions, key dispatch, KeyMap switching
+- **Removed logging feature**: deleted logging.go, logging_test.go, all logState/logInfo/logDebug/logError references, log UI pane, log status bar items
+- **Removed search feature**: deleted search.go, all searchState/modeSearch references, search UI pane, search index builder
+- Removed log/search styles from styles.go; added ModeNormal/ModeEdit badge styles
+- Removed stale remaining_work.md item about log blocking other actions
