@@ -10,7 +10,7 @@ const (
 	ProjectStatusIdeating   = "ideating"
 	ProjectStatusPlanned    = "planned"
 	ProjectStatusQuoted     = "quoted"
-	ProjectStatusInProgress = "in_progress"
+	ProjectStatusInProgress = "underway"
 	ProjectStatusDelayed    = "delayed"
 	ProjectStatusCompleted  = "completed"
 	ProjectStatusAbandoned  = "abandoned"

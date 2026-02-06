@@ -162,13 +162,13 @@ func DefaultStyles() Styles {
 		LinkIndicator: lipgloss.NewStyle().
 			Foreground(muted),
 		StatusStyles: map[string]lipgloss.Style{
-			"ideating":    lipgloss.NewStyle().Foreground(muted),
-			"planned":     lipgloss.NewStyle().Foreground(accent),
-			"quoted":      lipgloss.NewStyle().Foreground(secondary),
-			"in_progress": lipgloss.NewStyle().Foreground(success),
-			"delayed":     lipgloss.NewStyle().Foreground(warning),
-			"completed":   lipgloss.NewStyle().Foreground(textDim),
-			"abandoned":   lipgloss.NewStyle().Foreground(danger),
+			"ideating":  lipgloss.NewStyle().Foreground(muted),
+			"planned":   lipgloss.NewStyle().Foreground(accent),
+			"quoted":    lipgloss.NewStyle().Foreground(secondary),
+			"underway":  lipgloss.NewStyle().Foreground(success),
+			"delayed":   lipgloss.NewStyle().Foreground(warning),
+			"completed": lipgloss.NewStyle().Foreground(textDim),
+			"abandoned": lipgloss.NewStyle().Foreground(danger),
 		},
 	}
 }
