@@ -129,6 +129,13 @@ func (m *Model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if _, isResize := msg.(tea.WindowSizeMsg); isResize && m.formKind == formHouse {
 		return m, nil
 	}
+	// Intercept 1-9 on Select fields to jump to the Nth option.
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		if n, isOrdinal := selectOrdinal(keyMsg); isOrdinal && isSelectField(m.form) {
+			m.jumpSelectToOrdinal(n)
+			return m, nil
+		}
+	}
 	updated, cmd := m.form.Update(msg)
 	form, ok := updated.(*huh.Form)
 	if ok {

@@ -10,6 +10,10 @@
   use middot-separated inline text, cleaner section layout in expanded view
 - for maintenance items, compute the default ghost text for next due date from
   the last serviced date + the maintenance interval and default to that
+- [RW-ORDINAL] in select fields, allow jumping to an option by pressing its
+  1-based ordinal number
+- [RW-ORDINAL-LABEL] show ordinal numbers next to select options so users know
+  which number key maps to which option
 
 ## Completed
 
@@ -26,11 +30,11 @@
 - [RW-EDITLABEL] shorten "edit mode" to "edit" in Normal mode status bar (98384e0)
 - [RW-DELETEDANSI] fix ANSI leak on deleted rows: merge strikethrough into per-cell style instead of wrapping (98384e0)
 - [RW-SORT] multi-column sorting (98384e0)
-- [RW-STRIKELEN] strikethrough length matches text, not full column width
-- [RW-STRIKECLR] softer color for deleted row strikethrough
-- [RW-XEDIT] move x (show deleted) to Edit mode only
-- [RW-DELITALIC] add italic to deleted rows
-- [RW-DTOGGLE] d toggles delete/restore instead of separate d/u keys
+- [RW-STRIKELEN] strikethrough length matches text, not full column width (d1720a0)
+- [RW-STRIKECLR] softer color for deleted row strikethrough (d1720a0)
+- [RW-XEDIT] move x (show deleted) to Edit mode only (d1720a0)
+- [RW-DELITALIC] add italic to deleted rows (d1720a0)
+- [RW-DTOGGLE] d toggles delete/restore instead of separate d/u keys (d1720a0)
 
 - refactor forms.go and view.go: deduplicate submit/edit pairs, centering, inline edit boilerplate, form-data converters (9851c74)
 - scrap the log-on-dash-v approach, just enable logging dynamically (and allow changing log level) with a keyboard shortcut and bring up the logger ui component when that key is pressed (it's a toggle obviously) (75b2c86)

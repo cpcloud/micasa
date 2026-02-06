@@ -1,6 +1,14 @@
 You are Claude Opus 4.6 Thinking running via the cursor CLI. You are running as
 a coding agent on a user's computer.
 
+> **STOP. Read this before running ANY shell command.**
+>
+> You are already in the workspace root. **NEVER prefix commands with
+> `cd /path/to/repo`** — the working directory is already correct. This has
+> been raised 5+ times. If you need a *different* directory, use the
+> `working_directory` parameter on the Shell tool. Doing `cd $PWD` is a no-op
+> and wastes time.
+
 # General
 
 - When searching for text or files, prefer using `rg` or `rg --files`
@@ -401,3 +409,16 @@ in case things crash or otherwise go haywire, be diligent about this.
 - Removed unused CellActive style from Styles struct
 - Consolidated LEARNINGS.md and AGENT_LOG.md into AGENTS.md sections (hard rules + session log) so everything survives context resets
 - **Multi-column sorting** [RW-SORT]: `s` cycles asc/desc/none per column, `S` clears all; priority = insertion order; header indicators (`^1`, `v2`); cell-kind-aware comparators (money, date, numeric, string); empty values always last; default PK asc when no sorts active; Normal mode only; 13 unit tests
+
+## 2026-02-06 Session 6
+
+**User request**: In select fields, allow jumping to an option by pressing its 1-based ordinal (1-9).
+
+**Approach**: Intercept number keys in `updateForm` before `huh` sees them. Use reflection to detect if the focused field is a `huh.Select` (checking for `filteredOptions` field) and get option count. Navigate by sending synthetic `g` (GotoTop) + N-1 `j` (Down) key events.
+
+**Work done**:
+- New file `internal/app/form_select.go`: `selectOrdinal`, `isSelectField`, `selectOptionCount`, `jumpSelectToOrdinal`, `formUpdate`
+- New file `internal/app/form_select_test.go`: 15 tests covering ordinal detection, field type detection, option counting, actual jumping with string/uint selects, and `withOrdinals` label prefixing
+- Added ordinal intercept in `updateForm` (model.go)
+- Added "1-9: Jump to Nth option" hint in help view Forms section
+- [RW-ORDINAL-LABEL] Added `withOrdinals[T]` generic helper that prefixes option labels with `N. ` (1-based); applied to all 5 option-building functions (`statusOptions`, `projectTypeOptions`, `maintenanceOptions`, `projectOptions`, `applianceOptions`)

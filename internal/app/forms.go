@@ -746,7 +746,7 @@ func applianceOptions(appliances []data.Appliance) []huh.Option[uint] {
 		}
 		options = append(options, huh.NewOption(label, appliance.ID))
 	}
-	return options
+	return withOrdinals(options)
 }
 
 // openInlineEdit sets up a single-field inline edit form.
@@ -1058,7 +1058,7 @@ func projectTypeOptions(types []data.ProjectType) []huh.Option[uint] {
 	for _, projectType := range types {
 		options = append(options, huh.NewOption(projectType.Name, projectType.ID))
 	}
-	return options
+	return withOrdinals(options)
 }
 
 func maintenanceOptions(
@@ -1068,7 +1068,7 @@ func maintenanceOptions(
 	for _, category := range categories {
 		options = append(options, huh.NewOption(category.Name, category.ID))
 	}
-	return options
+	return withOrdinals(options)
 }
 
 func projectOptions(projects []data.Project) []huh.Option[uint] {
@@ -1080,11 +1080,11 @@ func projectOptions(projects []data.Project) []huh.Option[uint] {
 		}
 		options = append(options, huh.NewOption(label, project.ID))
 	}
-	return options
+	return withOrdinals(options)
 }
 
 func statusOptions() []huh.Option[string] {
-	return []huh.Option[string]{
+	return withOrdinals([]huh.Option[string]{
 		huh.NewOption("ideating", data.ProjectStatusIdeating),
 		huh.NewOption("planned", data.ProjectStatusPlanned),
 		huh.NewOption("quoted", data.ProjectStatusQuoted),
@@ -1092,7 +1092,16 @@ func statusOptions() []huh.Option[string] {
 		huh.NewOption("delayed", data.ProjectStatusDelayed),
 		huh.NewOption("completed", data.ProjectStatusCompleted),
 		huh.NewOption("abandoned", data.ProjectStatusAbandoned),
+	})
+}
+
+// withOrdinals prefixes each option label with its 1-based position so users
+// can see which number key jumps to which option.
+func withOrdinals[T comparable](opts []huh.Option[T]) []huh.Option[T] {
+	for i := range opts {
+		opts[i].Key = fmt.Sprintf("%d. %s", i+1, opts[i].Key)
 	}
+	return opts
 }
 
 func requiredText(label string) func(string) error {

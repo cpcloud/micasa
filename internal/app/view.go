@@ -340,6 +340,7 @@ func (m *Model) helpView() string {
 		{
 			title: "Forms",
 			bindings: []binding{
+				{"1-9", "Jump to Nth option (selects only)"},
 				{"ctrl+s", "Save immediately"},
 				{"esc", "Cancel and discard"},
 			},
