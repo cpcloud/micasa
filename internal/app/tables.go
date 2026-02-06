@@ -29,6 +29,9 @@ func (m *Model) setAllTableKeyMaps(km table.KeyMap) {
 	for i := range m.tabs {
 		m.tabs[i].Table.KeyMap = km
 	}
+	if m.detail != nil {
+		m.detail.Tab.Table.KeyMap = km
+	}
 }
 
 func NewTabs(styles Styles) []Tab {
@@ -115,7 +118,7 @@ func maintenanceColumnSpecs() []columnSpec {
 		{Title: "Last", Min: 10, Max: 12, Kind: cellDate},
 		{Title: "Next", Min: 10, Max: 12, Kind: cellDate},
 		{Title: "Every", Min: 6, Max: 10},
-		{Title: "Manual", Min: 8, Max: 14, Flex: true},
+		{Title: "Log", Min: 4, Max: 6, Align: alignRight, Kind: cellReadonly},
 	}
 }
 
@@ -130,17 +133,62 @@ func applianceColumnSpecs() []columnSpec {
 		{Title: "Purchased", Min: 10, Max: 12, Kind: cellDate},
 		{Title: "Warranty", Min: 10, Max: 12, Kind: cellDate},
 		{Title: "Cost", Min: 8, Max: 12, Align: alignRight, Kind: cellMoney},
+		{Title: "Maint", Min: 5, Max: 6, Align: alignRight, Kind: cellReadonly},
 	}
+}
+
+func serviceLogColumnSpecs() []columnSpec {
+	return []columnSpec{
+		{Title: "ID", Min: 4, Max: 6, Align: alignRight, Kind: cellReadonly},
+		{Title: "Date", Min: 10, Max: 12, Kind: cellDate},
+		{Title: "Performed By", Min: 12, Max: 22, Flex: true},
+		{Title: "Cost", Min: 8, Max: 12, Align: alignRight, Kind: cellMoney},
+		{Title: "Notes", Min: 12, Max: 40, Flex: true},
+	}
+}
+
+func serviceLogRows(
+	entries []data.ServiceLogEntry,
+) ([]table.Row, []rowMeta, [][]cell) {
+	rows := make([]table.Row, 0, len(entries))
+	meta := make([]rowMeta, 0, len(entries))
+	cells := make([][]cell, 0, len(entries))
+	for _, entry := range entries {
+		deleted := entry.DeletedAt.Valid
+		performedBy := "Self"
+		if entry.VendorID != nil && entry.Vendor.Name != "" {
+			performedBy = entry.Vendor.Name
+		}
+		rowCells := []cell{
+			{Value: fmt.Sprintf("%d", entry.ID), Kind: cellReadonly},
+			{Value: entry.ServicedAt.Format(data.DateLayout), Kind: cellDate},
+			{Value: performedBy, Kind: cellText},
+			{Value: centsValue(entry.CostCents), Kind: cellMoney},
+			{Value: entry.Notes, Kind: cellText},
+		}
+		rows = append(rows, cellsToRow(rowCells))
+		cells = append(cells, rowCells)
+		meta = append(meta, rowMeta{
+			ID:      entry.ID,
+			Deleted: deleted,
+		})
+	}
+	return rows, meta, cells
 }
 
 func applianceRows(
 	items []data.Appliance,
+	maintCounts map[uint]int,
 ) ([]table.Row, []rowMeta, [][]cell) {
 	rows := make([]table.Row, 0, len(items))
 	meta := make([]rowMeta, 0, len(items))
 	cells := make([][]cell, 0, len(items))
 	for _, item := range items {
 		deleted := item.DeletedAt.Valid
+		maintCount := ""
+		if n := maintCounts[item.ID]; n > 0 {
+			maintCount = fmt.Sprintf("%d", n)
+		}
 		rowCells := []cell{
 			{Value: fmt.Sprintf("%d", item.ID), Kind: cellReadonly},
 			{Value: item.Name, Kind: cellText},
@@ -151,6 +199,7 @@ func applianceRows(
 			{Value: dateValue(item.PurchaseDate), Kind: cellDate},
 			{Value: dateValue(item.WarrantyExpiry), Kind: cellDate},
 			{Value: centsValue(item.CostCents), Kind: cellMoney},
+			{Value: maintCount, Kind: cellReadonly},
 		}
 		rows = append(rows, cellsToRow(rowCells))
 		cells = append(cells, rowCells)
@@ -248,13 +297,13 @@ func quoteRows(
 
 func maintenanceRows(
 	items []data.MaintenanceItem,
+	logCounts map[uint]int,
 ) ([]table.Row, []rowMeta, [][]cell) {
 	rows := make([]table.Row, 0, len(items))
 	meta := make([]rowMeta, 0, len(items))
 	cells := make([][]cell, 0, len(items))
 	for _, item := range items {
 		deleted := item.DeletedAt.Valid
-		manual := manualSummary(item)
 		interval := ""
 		if item.IntervalMonths > 0 {
 			interval = fmt.Sprintf("%d mo", item.IntervalMonths)
@@ -265,6 +314,10 @@ func maintenanceRows(
 			appName = item.Appliance.Name
 			appLinkID = *item.ApplianceID
 		}
+		logCount := ""
+		if n := logCounts[item.ID]; n > 0 {
+			logCount = fmt.Sprintf("%d", n)
+		}
 		rowCells := []cell{
 			{Value: fmt.Sprintf("%d", item.ID), Kind: cellReadonly},
 			{Value: item.Name, Kind: cellText},
@@ -273,7 +326,7 @@ func maintenanceRows(
 			{Value: dateValue(item.LastServicedAt), Kind: cellDate},
 			{Value: dateValue(item.NextDueAt), Kind: cellDate},
 			{Value: interval, Kind: cellText},
-			{Value: manual, Kind: cellText},
+			{Value: logCount, Kind: cellReadonly},
 		}
 		rows = append(rows, cellsToRow(rowCells))
 		cells = append(cells, rowCells)
@@ -305,14 +358,4 @@ func dateValue(value *time.Time) string {
 		return ""
 	}
 	return value.Format(data.DateLayout)
-}
-
-func manualSummary(item data.MaintenanceItem) string {
-	if item.ManualText != "" {
-		return "stored"
-	}
-	if item.ManualURL != "" {
-		return "link"
-	}
-	return ""
 }

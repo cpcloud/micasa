@@ -19,12 +19,18 @@ func (m *Model) buildView() string {
 	}
 
 	house := m.houseView()
-	tabs := m.tabsView()
-	tabLine := m.tabUnderline()
+	var tabs, tabLine string
+	if m.detail != nil {
+		tabs = m.breadcrumbView()
+		tabLine = m.tabUnderline()
+	} else {
+		tabs = m.tabsView()
+		tabLine = m.tabUnderline()
+	}
 	content := ""
 	if m.mode == modeForm && m.form != nil {
 		content = m.form.View()
-	} else if tab := m.activeTab(); tab != nil {
+	} else if tab := m.effectiveTab(); tab != nil {
 		content = m.tableView(tab)
 	}
 	status := m.statusView()
@@ -156,6 +162,27 @@ func (m *Model) tabsView() string {
 	return lipgloss.JoinHorizontal(lipgloss.Left, tabs...)
 }
 
+func (m *Model) breadcrumbView() string {
+	if m.detail == nil {
+		return ""
+	}
+	arrow := m.styles.BreadcrumbArrow.Render(" > ")
+	parts := strings.Split(m.detail.Breadcrumb, " > ")
+	rendered := make([]string, len(parts))
+	for i, p := range parts {
+		if i < len(parts)-1 {
+			rendered[i] = m.styles.HeaderHint.Render(p)
+		} else {
+			rendered[i] = m.styles.Breadcrumb.Render(p)
+		}
+	}
+	crumb := strings.Join(rendered, arrow)
+	back := m.styles.HeaderHint.Render(" (")
+	back += m.keycap("esc")
+	back += m.styles.HeaderHint.Render(" back)")
+	return crumb + back
+}
+
 func (m *Model) tabUnderline() string {
 	return m.styles.TabUnderline.Render(strings.Repeat("━", m.effectiveWidth()))
 }
@@ -188,17 +215,31 @@ func (m *Model) statusView() string {
 
 	var help string
 	if m.mode == modeNormal {
-		help = joinWithSeparator(
-			m.helpSeparator(),
-			modeBadge,
-			m.helpItem("tab", "switch"),
+		enterHint := "enter"
+		if m.detail == nil {
+			tab := m.activeTab()
+			if tab != nil && tab.Kind == tabMaintenance {
+				enterHint = "service log"
+			}
+		}
+		items := []string{modeBadge}
+		if m.detail == nil {
+			items = append(items, m.helpItem("tab", "switch"))
+		}
+		items = append(items,
 			m.helpItem("h/l", "col"),
 			m.helpItem("s", "sort"),
+			m.helpItem("enter", enterHint),
 			m.helpItem("i", "edit"),
 			m.helpItem("H", "house"),
 			m.helpItem("?", "help"),
-			m.helpItem("q", "quit"),
 		)
+		if m.detail != nil {
+			items = append(items, m.helpItem("esc", "back"))
+		} else {
+			items = append(items, m.helpItem("q", "quit"))
+		}
+		help = joinWithSeparator(m.helpSeparator(), items...)
 	} else {
 		help = joinWithSeparator(
 			m.helpSeparator(),
@@ -208,7 +249,7 @@ func (m *Model) statusView() string {
 			m.helpItem("d", "del/restore"),
 			m.helpItem("u", "undo"),
 			m.helpItem("r", "redo"),
-			m.deletedHint(m.activeTab()),
+			m.deletedHint(m.effectiveTab()),
 			m.helpItem("p", "profile"),
 			m.helpItem("esc", "normal"),
 		)
@@ -239,7 +280,7 @@ func (m *Model) withStatusMessage(helpLine string) string {
 }
 
 func (m *Model) editHint() string {
-	tab := m.activeTab()
+	tab := m.effectiveTab()
 	if tab == nil {
 		return "edit"
 	}
@@ -322,7 +363,7 @@ func (m *Model) helpView() string {
 				{"H", "Toggle house profile"},
 				{"s", "Sort by column (cycle asc/desc/off)"},
 				{"S", "Clear all sorts"},
-				{"enter", "Edit current cell"},
+				{"enter", "Open detail / follow link"},
 				{"i", "Enter Edit mode"},
 				{"?", "Help"},
 				{"q", "Quit"},

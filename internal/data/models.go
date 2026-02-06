@@ -21,6 +21,7 @@ const (
 	DeletionEntityQuote       = "quote"
 	DeletionEntityMaintenance = "maintenance"
 	DeletionEntityAppliance   = "appliance"
+	DeletionEntityServiceLog  = "service_log"
 )
 
 func ProjectStatuses() []string {
@@ -163,6 +164,20 @@ type MaintenanceItem struct {
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	DeletedAt      gorm.DeletedAt `gorm:"index"`
+}
+
+type ServiceLogEntry struct {
+	ID                uint            `gorm:"primaryKey"`
+	MaintenanceItemID uint            `gorm:"index"`
+	MaintenanceItem   MaintenanceItem `gorm:"constraint:OnDelete:CASCADE;"`
+	ServicedAt        time.Time
+	VendorID          *uint
+	Vendor            Vendor `gorm:"constraint:OnDelete:SET NULL;"`
+	CostCents         *int64 `gorm:"column:cost_ct"`
+	Notes             string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	DeletedAt         gorm.DeletedAt `gorm:"index"`
 }
 
 type DeletionRecord struct {

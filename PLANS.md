@@ -174,3 +174,172 @@ unused `table` import from model.go.
 1. **Appliance tab + cross-tab FK navigation** -- tab done, navigation TBD
 2. **Column sorting** -- DONE
 3. **Maintenance ghost text** -- compute next_due from last_serviced + interval as default
+
+## Service Log + Vendor Tracking (RW-SERVICELOG, RW-VENDOR-SERVICE, RW-APPLIANCE-MAINT)
+
+### Problem
+
+Maintenance items track *what* needs doing and *when*, but there's no history of
+*when it was actually done*, *who did it*, and *what it cost each time*. Homeowners
+need a running log per maintenance task. Many tasks are vendor-performed (too
+dangerous or specialized for DIY), so the log should capture that naturally.
+
+### Data Model
+
+**New model: `ServiceLogEntry`**
+
+```
+ServiceLogEntry
+  ID             uint (PK)
+  MaintenanceItemID  uint (FK -> MaintenanceItem, NOT NULL)
+  ServicedAt     time.Time (required - when the work was performed)
+  VendorID       *uint (FK -> Vendor, nullable; nil = homeowner did it)
+  CostCents      *int64
+  Notes          string
+  CreatedAt, UpdatedAt, DeletedAt (soft-delete)
+```
+
+The existing `Vendor` model is already in the DB and used by Quotes. We reuse
+it directly -- no new vendor table needed.
+
+**Changes to MaintenanceItem**: None structurally. The existing `LastServicedAt`
+and `CostCents` remain as user-entered schedule hints. A future enhancement could
+auto-update `LastServicedAt` from the most recent log entry, but that's separate
+scope.
+
+### Architecture: Detail View
+
+Instead of adding a new top-level tab (which the user explicitly doesn't want),
+we introduce a **detail view** concept: a secondary table that temporarily
+replaces the main tab table when the user "drills in."
+
+**New state on Model**:
+- `detailContext *detailContext` -- when non-nil, we're in a detail view
+- `detailContext` struct holds:
+  - `ParentTab TabKind` -- which tab we came from
+  - `ParentRowID uint` -- which row we drilled into
+  - `Breadcrumb string` -- e.g. "Maintenance > HVAC filter replacement"
+  - `Tab Tab` -- a full Tab struct (with Handler, Table, Specs, etc.)
+
+**Key behavior when detailContext is active**:
+- View renders the detail tab's table instead of the main tab's
+- Breadcrumb bar replaces the tab bar (shows path back to parent)
+- `esc` in Normal mode: close detail, return to parent tab + row
+- All other keys: delegated to the detail tab's handler (add, edit, delete,
+  sort, undo, etc.)
+
+This means `serviceLogHandler` implements `TabHandler` just like the other
+entity handlers. The detail view is just a tab that isn't in the top-level
+tab bar.
+
+### UX Flow
+
+1. User is on the Maintenance tab, Normal mode
+2. Navigates to a row (e.g. "HVAC filter replacement")
+3. Presses `enter` -> detail view opens showing service log entries for that item
+4. Breadcrumb: `Maintenance > HVAC filter replacement`
+5. The service log table has columns: Date, Performed By, Cost, Notes
+6. User can:
+   - `i` to enter Edit mode, `a` to add a new entry, `e`/`enter` to edit
+   - `s` to sort, `d` to delete, `u` to undo
+   - `esc` (Normal) returns to the maintenance list
+7. "Performed By" shows "Self" or the vendor name
+
+**Visual distinction**:
+- The breadcrumb bar replaces the tab underline, uses a distinct accent
+- The detail table header uses a slightly different style (or the same -- TBD
+  based on how it looks)
+- A subtle visual indicator on the parent table's row (like a count badge in a
+  "Log" column) shows how many entries exist
+
+### Maintenance Tab Changes
+
+Add a **"Log" column** (rightmost or near-right) to the maintenance table:
+- Shows the count of service log entries: "3", "1", or empty
+- This column has `Kind: cellReadonly` (can't inline-edit a count)
+- Pressing `enter` on any column in Normal mode on Maintenance opens the
+  detail view (since Normal mode enter = "drill down / navigate")
+- In Edit mode, `enter`/`e` still inline-edits cells as before
+
+### Service Log Form
+
+**Add form** (when pressing `a` in the service log detail view):
+- ServicedAt (date, required, default: today)
+- Performed By (select: "Self", then list of existing vendors)
+- If new vendor needed: vendor name input (find-or-create, same as quotes)
+- Cost (money, optional)
+- Notes (text, optional)
+
+**Edit form**: same fields, pre-populated.
+
+### Vendor Handling
+
+Reuse the `findOrCreateVendor` pattern from quotes. The form has a select
+dropdown: first option "Self (homeowner)", then all known vendors by name.
+If the user picks a vendor, `VendorID` is set; if "Self", it's nil.
+
+For a future enhancement, we could add a "New vendor..." option that expands
+into vendor detail fields, but for now selecting from existing vendors (or
+using the quote form to create new ones) is sufficient. Actually, we should
+support inline vendor creation in the service log form too -- let's include
+a vendor name field that does find-or-create when it doesn't match an existing
+vendor.
+
+Simpler approach: The select has "Self" + existing vendors. To add a new vendor,
+the user types the name in a text field that appears when "New vendor" is
+selected. This keeps the form clean.
+
+### Appliance Integration
+
+**Option chosen**: Add a "Maint" column to the Appliances table showing the count
+of linked maintenance items. This is a 1:m relationship indicator.
+
+Additionally: in Normal mode, pressing `enter` on an appliance row opens a
+detail view showing that appliance's linked maintenance items. This uses the
+same detail view architecture. From *that* detail view, pressing `enter` on a
+maintenance item opens its service log (nested detail).
+
+Wait -- nested detail adds complexity. For v1, let's keep it to one level:
+- Maintenance tab `enter` -> service log detail
+- Appliance tab: "Maint" column shows count, enter on the Maint column follows
+  an `m:1` link to the Maintenance tab (uses existing cross-tab nav)
+- Or better: enter on appliance row shows linked maintenance items in detail view
+
+For v1: just add the "Maint" count column on Appliances and use the existing
+cross-tab FK navigation from Maintenance -> Appliance. The Appliance tab already
+has a link from Maintenance. We add a reverse indicator.
+
+**Simplest v1 for appliances**: Show maintenance count in Appliances, clicking
+through navigates to Maintenance tab filtered (or just unfiltered with a status
+message). Full detail-view for appliances = future scope.
+
+### Implementation Phases
+
+**Phase 1: Data layer**
+- Add `ServiceLogEntry` model to `models.go`
+- Add `DeletionEntityServiceLog` constant
+- Add store CRUD: `ListServiceLog(maintenanceItemID)`, `GetServiceLog(id)`,
+  `CreateServiceLog`, `UpdateServiceLog`, `DeleteServiceLog`, `RestoreServiceLog`
+- Add `CountServiceLogs(maintenanceItemIDs []uint) map[uint]int` for batch count
+- Migrate, seed demo data (a few entries for existing maintenance items)
+
+**Phase 2: Detail view architecture**
+- Add `detailContext` struct and field to Model
+- Modify `Update()` to delegate to detail tab when active
+- Modify `View()` to render detail table + breadcrumb when active
+- `esc` in Normal mode when detail is active = close detail
+- `enter` in Normal mode on Maintenance tab = open detail
+
+**Phase 3: Service log handler + UI**
+- `serviceLogColumnSpecs()`, `serviceLogRows()`
+- `serviceLogHandler` implementing `TabHandler`
+- Service log form (add/edit) with vendor selector
+- Service log inline edit
+- Demo seed data
+
+**Phase 4: Visual polish + appliance integration**
+- Breadcrumb styling
+- "Log" column on Maintenance with entry count
+- "Maint" column on Appliances with item count
+- Visual distinction for detail view
+- Help overlay updates

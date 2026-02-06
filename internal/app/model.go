@@ -17,6 +17,7 @@ type Model struct {
 	styles                Styles
 	tabs                  []Tab
 	active                int
+	detail                *detailContext // non-nil when viewing a detail sub-table
 	width                 int
 	height                int
 	showHelp              bool
@@ -36,6 +37,7 @@ type Model struct {
 	status                statusMsg
 	projectTypes          []data.ProjectType
 	maintenanceCategories []data.MaintenanceCategory
+	vendors               []data.Vendor
 }
 
 func NewModel(store *data.Store, options Options) (*Model, error) {
@@ -112,8 +114,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	// Pass unhandled messages to the active table (handles j/k, g/G, etc.).
-	tab := m.activeTab()
+	// Pass unhandled messages to the effective table (handles j/k, g/G, etc.).
+	tab := m.effectiveTab()
 	if tab == nil {
 		return m, nil
 	}
@@ -168,7 +170,7 @@ func (m *Model) handleCommonKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 		m.resizeTables()
 		return nil, true
 	case "h", "left":
-		if tab := m.activeTab(); tab != nil {
+		if tab := m.effectiveTab(); tab != nil {
 			tab.ColCursor--
 			if tab.ColCursor < 0 {
 				tab.ColCursor = len(tab.Specs) - 1
@@ -176,7 +178,7 @@ func (m *Model) handleCommonKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 		}
 		return nil, true
 	case "l", "right":
-		if tab := m.activeTab(); tab != nil {
+		if tab := m.effectiveTab(); tab != nil {
 			tab.ColCursor++
 			if tab.ColCursor >= len(tab.Specs) {
 				tab.ColCursor = 0
@@ -191,19 +193,23 @@ func (m *Model) handleCommonKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 func (m *Model) handleNormalKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 	switch key.String() {
 	case "tab":
-		m.nextTab()
+		if m.detail == nil {
+			m.nextTab()
+		}
 		return nil, true
 	case "shift+tab":
-		m.prevTab()
+		if m.detail == nil {
+			m.prevTab()
+		}
 		return nil, true
 	case "s":
-		if tab := m.activeTab(); tab != nil {
+		if tab := m.effectiveTab(); tab != nil {
 			toggleSort(tab, tab.ColCursor)
 			applySorts(tab)
 		}
 		return nil, true
 	case "S":
-		if tab := m.activeTab(); tab != nil {
+		if tab := m.effectiveTab(); tab != nil {
 			clearSorts(tab)
 			applySorts(tab)
 		}
@@ -212,18 +218,50 @@ func (m *Model) handleNormalKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 		m.enterEditMode()
 		return nil, true
 	case "enter":
-		if err := m.startCellOrFormEdit(); err != nil {
+		if err := m.handleNormalEnter(); err != nil {
 			m.setStatusError(err.Error())
 			return nil, true
 		}
-		return m.formInitCmd(), true
+		if m.mode == modeForm {
+			return m.formInitCmd(), true
+		}
+		return nil, true
 	case "q":
 		return tea.Quit, true
 	case "esc":
+		if m.detail != nil {
+			m.closeDetail()
+			return nil, true
+		}
 		m.status = statusMsg{}
 		return nil, true
 	}
 	return nil, false
+}
+
+// handleNormalEnter handles enter in Normal mode: drill into detail views
+// on maintenance rows, follow FK links, or fall through to cell edit.
+func (m *Model) handleNormalEnter() error {
+	tab := m.effectiveTab()
+	if tab == nil {
+		return fmt.Errorf("no active tab")
+	}
+	meta, ok := m.selectedRowMeta()
+	if !ok {
+		return fmt.Errorf("nothing selected")
+	}
+
+	// On the maintenance tab (not already in detail), open service log.
+	if m.detail == nil && tab.Kind == tabMaintenance {
+		item, err := m.store.GetMaintenance(meta.ID)
+		if err != nil {
+			return fmt.Errorf("load maintenance item: %w", err)
+		}
+		return m.openDetail(meta.ID, item.Name)
+	}
+
+	// Otherwise: follow FK link or fall through to edit.
+	return m.startCellOrFormEdit()
 }
 
 // handleEditKeys processes keys unique to Edit mode.
@@ -248,6 +286,9 @@ func (m *Model) handleEditKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 			_ = m.loadLookups()
 			_ = m.loadHouse()
 			_ = m.reloadAllTabs()
+			if m.detail != nil {
+				_ = m.reloadDetailTab()
+			}
 		}
 		return nil, true
 	case "r":
@@ -257,6 +298,9 @@ func (m *Model) handleEditKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 			_ = m.loadLookups()
 			_ = m.loadHouse()
 			_ = m.reloadAllTabs()
+			if m.detail != nil {
+				_ = m.reloadDetailTab()
+			}
 		}
 		return nil, true
 	case "x":
@@ -293,6 +337,74 @@ func (m *Model) activeTab() *Tab {
 	return &m.tabs[m.active]
 }
 
+// effectiveTab returns the detail tab when a detail view is open, otherwise
+// the main active tab. All interaction code should use this.
+func (m *Model) effectiveTab() *Tab {
+	if m.detail != nil {
+		return &m.detail.Tab
+	}
+	return m.activeTab()
+}
+
+func (m *Model) openDetail(maintID uint, maintName string) error {
+	specs := serviceLogColumnSpecs()
+	tab := Tab{
+		Kind:    tabMaintenance, // inherits parent kind for styling
+		Name:    "Service Log",
+		Handler: serviceLogHandler{maintenanceItemID: maintID},
+		Specs:   specs,
+		Table:   newTable(specsToColumns(specs), m.styles),
+	}
+	m.detail = &detailContext{
+		ParentTabIndex: m.active,
+		ParentRowID:    maintID,
+		Breadcrumb:     "Maintenance > " + maintName,
+		Tab:            tab,
+	}
+	if err := m.reloadDetailTab(); err != nil {
+		m.detail = nil
+		return err
+	}
+	m.resizeTables()
+	m.status = statusMsg{}
+	return nil
+}
+
+func (m *Model) closeDetail() {
+	if m.detail == nil {
+		return
+	}
+	parentIdx := m.detail.ParentTabIndex
+	parentRowID := m.detail.ParentRowID
+	m.detail = nil
+	m.active = parentIdx
+	if m.store != nil {
+		_ = m.reloadActiveTab()
+	}
+	// Restore cursor to the parent row.
+	if tab := m.activeTab(); tab != nil {
+		selectRowByID(tab, parentRowID)
+	}
+	m.resizeTables()
+	m.status = statusMsg{}
+}
+
+func (m *Model) reloadDetailTab() error {
+	if m.detail == nil || m.store == nil {
+		return nil
+	}
+	tab := &m.detail.Tab
+	rows, meta, cellRows, err := tab.Handler.Load(m.store, tab.ShowDeleted)
+	if err != nil {
+		return err
+	}
+	tab.CellRows = cellRows
+	tab.Table.SetRows(rows)
+	tab.Rows = meta
+	applySorts(tab)
+	return nil
+}
+
 func (m *Model) nextTab() {
 	if len(m.tabs) == 0 {
 		return
@@ -315,7 +427,7 @@ func (m *Model) prevTab() {
 }
 
 func (m *Model) startAddForm() {
-	tab := m.activeTab()
+	tab := m.effectiveTab()
 	if tab == nil {
 		return
 	}
@@ -325,7 +437,7 @@ func (m *Model) startAddForm() {
 }
 
 func (m *Model) startEditForm() error {
-	tab := m.activeTab()
+	tab := m.effectiveTab()
 	if tab == nil {
 		return fmt.Errorf("no active tab")
 	}
@@ -340,7 +452,7 @@ func (m *Model) startEditForm() error {
 }
 
 func (m *Model) startCellOrFormEdit() error {
-	tab := m.activeTab()
+	tab := m.effectiveTab()
 	if tab == nil {
 		return fmt.Errorf("no active tab")
 	}
@@ -389,7 +501,7 @@ func (m *Model) navigateToLink(link *columnLink, targetID uint) error {
 
 // selectedCell returns the cell at the given column for the currently selected row.
 func (m *Model) selectedCell(col int) (cell, bool) {
-	tab := m.activeTab()
+	tab := m.effectiveTab()
 	if tab == nil {
 		return cell{}, false
 	}
@@ -404,8 +516,15 @@ func (m *Model) selectedCell(col int) (cell, bool) {
 	return row[col], true
 }
 
+func (m *Model) reloadEffectiveTab() error {
+	if m.detail != nil {
+		return m.reloadDetailTab()
+	}
+	return m.reloadActiveTab()
+}
+
 func (m *Model) toggleDeleteSelected() {
-	tab := m.activeTab()
+	tab := m.effectiveTab()
 	if tab == nil {
 		return
 	}
@@ -423,7 +542,7 @@ func (m *Model) toggleDeleteSelected() {
 			tab.LastDeleted = nil
 		}
 		m.setStatusInfo("Restored.")
-		_ = m.reloadActiveTab()
+		_ = m.reloadEffectiveTab()
 		return
 	}
 	if err := tab.Handler.Delete(m.store, meta.ID); err != nil {
@@ -432,20 +551,20 @@ func (m *Model) toggleDeleteSelected() {
 	}
 	tab.LastDeleted = &meta.ID
 	m.setStatusInfo("Deleted. Press d to restore.")
-	_ = m.reloadActiveTab()
+	_ = m.reloadEffectiveTab()
 }
 
 func (m *Model) toggleShowDeleted() {
-	tab := m.activeTab()
+	tab := m.effectiveTab()
 	if tab == nil {
 		return
 	}
 	tab.ShowDeleted = !tab.ShowDeleted
-	_ = m.reloadActiveTab()
+	_ = m.reloadEffectiveTab()
 }
 
 func (m *Model) selectedRowMeta() (rowMeta, bool) {
-	tab := m.activeTab()
+	tab := m.effectiveTab()
 	if tab == nil || len(tab.Rows) == 0 {
 		return rowMeta{}, false
 	}
@@ -509,6 +628,10 @@ func (m *Model) loadLookups() error {
 	if err != nil {
 		return err
 	}
+	m.vendors, err = m.store.ListVendors()
+	if err != nil {
+		return err
+	}
 	m.syncFixedValues()
 	return nil
 }
@@ -532,7 +655,7 @@ func setFixedValues(specs []columnSpec, title string, values []string) {
 }
 
 func (m *Model) resizeTables() {
-	// Chrome: 1 blank after house + 1 tab row + 1 tab underline = 3
+	// Chrome: 1 blank after house + 1 tab/breadcrumb row + 1 underline = 3
 	height := m.height - m.houseLines() - 3 - m.statusLines()
 	if height < 4 {
 		height = 4
@@ -544,6 +667,10 @@ func (m *Model) resizeTables() {
 	for i := range m.tabs {
 		m.tabs[i].Table.SetHeight(tableHeight)
 		m.tabs[i].Table.SetWidth(m.width)
+	}
+	if m.detail != nil {
+		m.detail.Tab.Table.SetHeight(tableHeight)
+		m.detail.Tab.Table.SetWidth(m.width)
 	}
 }
 
@@ -570,6 +697,9 @@ func (m *Model) saveForm() tea.Cmd {
 	_ = m.loadLookups()
 	_ = m.loadHouse()
 	_ = m.reloadAllTabs()
+	if m.detail != nil {
+		_ = m.reloadDetailTab()
+	}
 	return nil
 }
 

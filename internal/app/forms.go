@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
@@ -77,6 +78,14 @@ type maintenanceFormData struct {
 	ManualText     string
 	Cost           string
 	Notes          string
+}
+
+type serviceLogFormData struct {
+	MaintenanceItemID uint
+	ServicedAt        string
+	VendorID          uint // 0 = self
+	Cost              string
+	Notes             string
 }
 
 type applianceFormData struct {
@@ -636,7 +645,7 @@ func (m *Model) inlineEditMaintenance(id uint, col int) error {
 	}
 	values := maintenanceFormValues(item)
 	catOptions := maintenanceOptions(m.maintenanceCategories)
-	// Column mapping: 0=ID, 1=Item, 2=Category, 3=Appliance, 4=Last, 5=Next, 6=Every, 7=Manual
+	// Column mapping: 0=ID, 1=Item, 2=Category, 3=Appliance, 4=Last, 5=Next, 6=Every, 7=Log(readonly)
 	var field huh.Field
 	switch col {
 	case 1:
@@ -670,9 +679,8 @@ func (m *Model) inlineEditMaintenance(id uint, col int) error {
 			Placeholder("6").
 			Value(&values.IntervalMonths).
 			Validate(optionalInt("interval months"))
-	case 7:
-		field = huh.NewInput().Title("Manual URL").Value(&values.ManualURL)
 	default:
+		// Col 7 (Log) is readonly; fall through to full edit form.
 		return m.startEditMaintenanceForm(id)
 	}
 	m.openInlineEdit(id, formMaintenance, field, values)
@@ -685,7 +693,7 @@ func (m *Model) inlineEditAppliance(id uint, col int) error {
 		return fmt.Errorf("load appliance: %w", err)
 	}
 	values := applianceFormValues(item)
-	// Column mapping: 0=ID, 1=Name, 2=Brand, 3=Model, 4=Serial, 5=Location, 6=Purchased, 7=Warranty, 8=Cost
+	// Column mapping: 0=ID, 1=Name, 2=Brand, 3=Model, 4=Serial, 5=Location, 6=Purchased, 7=Warranty, 8=Cost, 9=Maint(readonly)
 	var field huh.Field
 	switch col {
 	case 1:
@@ -719,6 +727,182 @@ func (m *Model) inlineEditAppliance(id uint, col int) error {
 	}
 	m.openInlineEdit(id, formAppliance, field, values)
 	return nil
+}
+
+func (m *Model) startServiceLogForm(maintenanceItemID uint) error {
+	values := &serviceLogFormData{
+		MaintenanceItemID: maintenanceItemID,
+		ServicedAt:        time.Now().Format(data.DateLayout),
+	}
+	vendorOpts := vendorOptions(m.vendors)
+	m.openServiceLogForm(values, vendorOpts)
+	return nil
+}
+
+func (m *Model) startEditServiceLogForm(id uint) error {
+	entry, err := m.store.GetServiceLog(id)
+	if err != nil {
+		return fmt.Errorf("load service log: %w", err)
+	}
+	values := serviceLogFormValues(entry)
+	vendorOpts := vendorOptions(m.vendors)
+	m.editID = &id
+	m.openServiceLogForm(values, vendorOpts)
+	return nil
+}
+
+func (m *Model) openServiceLogForm(
+	values *serviceLogFormData,
+	vendorOpts []huh.Option[uint],
+) {
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Date serviced (YYYY-MM-DD)").
+				Value(&values.ServicedAt).
+				Validate(requiredDate("date serviced")),
+			huh.NewSelect[uint]().
+				Title("Performed by").
+				Options(vendorOpts...).
+				Value(&values.VendorID),
+			huh.NewInput().
+				Title("Cost").
+				Placeholder("125.00").
+				Value(&values.Cost).
+				Validate(optionalMoney("cost")),
+			huh.NewText().Title("Notes").Value(&values.Notes),
+		),
+	)
+	applyFormDefaults(form)
+	m.prevMode = m.mode
+	m.mode = modeForm
+	m.formKind = formServiceLog
+	m.form = form
+	m.formData = values
+	m.snapshotForm()
+}
+
+func (m *Model) submitServiceLogForm() error {
+	entry, vendor, err := m.parseServiceLogFormData()
+	if err != nil {
+		return err
+	}
+	return m.store.CreateServiceLog(entry, vendor)
+}
+
+func (m *Model) submitEditServiceLogForm(id uint) error {
+	entry, vendor, err := m.parseServiceLogFormData()
+	if err != nil {
+		return err
+	}
+	entry.ID = id
+	return m.store.UpdateServiceLog(entry, vendor)
+}
+
+func (m *Model) parseServiceLogFormData() (data.ServiceLogEntry, data.Vendor, error) {
+	values, ok := m.formData.(*serviceLogFormData)
+	if !ok {
+		return data.ServiceLogEntry{}, data.Vendor{}, fmt.Errorf("unexpected service log form data")
+	}
+	servicedAt, err := data.ParseRequiredDate(values.ServicedAt)
+	if err != nil {
+		return data.ServiceLogEntry{}, data.Vendor{}, err
+	}
+	cost, err := data.ParseOptionalCents(values.Cost)
+	if err != nil {
+		return data.ServiceLogEntry{}, data.Vendor{}, err
+	}
+	entry := data.ServiceLogEntry{
+		MaintenanceItemID: values.MaintenanceItemID,
+		ServicedAt:        servicedAt,
+		CostCents:         cost,
+		Notes:             strings.TrimSpace(values.Notes),
+	}
+	var vendor data.Vendor
+	if values.VendorID > 0 {
+		// Look up the vendor to pass to CreateServiceLog/UpdateServiceLog.
+		for _, v := range m.vendors {
+			if v.ID == values.VendorID {
+				vendor = v
+				break
+			}
+		}
+	}
+	return entry, vendor, nil
+}
+
+func (m *Model) inlineEditServiceLog(id uint, col int) error {
+	entry, err := m.store.GetServiceLog(id)
+	if err != nil {
+		return fmt.Errorf("load service log: %w", err)
+	}
+	values := serviceLogFormValues(entry)
+	vendorOpts := vendorOptions(m.vendors)
+	// Column mapping: 0=ID, 1=Date, 2=Performed By, 3=Cost, 4=Notes
+	var field huh.Field
+	switch col {
+	case 1:
+		field = huh.NewInput().
+			Title("Date serviced (YYYY-MM-DD)").
+			Value(&values.ServicedAt).
+			Validate(requiredDate("date serviced"))
+	case 2:
+		field = huh.NewSelect[uint]().
+			Title("Performed by").
+			Options(vendorOpts...).
+			Value(&values.VendorID)
+	case 3:
+		field = huh.NewInput().
+			Title("Cost").
+			Placeholder("125.00").
+			Value(&values.Cost).
+			Validate(optionalMoney("cost"))
+	case 4:
+		field = huh.NewText().Title("Notes").Value(&values.Notes)
+	default:
+		return m.startEditServiceLogForm(id)
+	}
+	m.openInlineEdit(id, formServiceLog, field, values)
+	return nil
+}
+
+func serviceLogFormValues(entry data.ServiceLogEntry) *serviceLogFormData {
+	var vendorID uint
+	if entry.VendorID != nil {
+		vendorID = *entry.VendorID
+	}
+	return &serviceLogFormData{
+		MaintenanceItemID: entry.MaintenanceItemID,
+		ServicedAt:        entry.ServicedAt.Format(data.DateLayout),
+		VendorID:          vendorID,
+		Cost:              data.FormatOptionalCents(entry.CostCents),
+		Notes:             entry.Notes,
+	}
+}
+
+func vendorOptions(vendors []data.Vendor) []huh.Option[uint] {
+	options := make([]huh.Option[uint], 0, len(vendors)+1)
+	options = append(options, huh.NewOption("Self (homeowner)", uint(0)))
+	for _, v := range vendors {
+		label := v.Name
+		if v.ContactName != "" {
+			label = fmt.Sprintf("%s (%s)", v.Name, v.ContactName)
+		}
+		options = append(options, huh.NewOption(label, v.ID))
+	}
+	return withOrdinals(options)
+}
+
+func requiredDate(label string) func(string) error {
+	return func(input string) error {
+		if strings.TrimSpace(input) == "" {
+			return fmt.Errorf("%s is required", label)
+		}
+		if _, err := data.ParseRequiredDate(input); err != nil {
+			return fmt.Errorf("%s should be YYYY-MM-DD", label)
+		}
+		return nil
+	}
 }
 
 func applianceOptions(appliances []data.Appliance) []huh.Option[uint] {

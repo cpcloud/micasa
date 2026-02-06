@@ -41,6 +41,7 @@ func (s *Store) AutoMigrate() error {
 		&MaintenanceCategory{},
 		&Appliance{},
 		&MaintenanceItem{},
+		&ServiceLogEntry{},
 		&DeletionRecord{},
 	)
 }
@@ -446,6 +447,64 @@ func (s *Store) SeedDemoData() error {
 		s.db.Model(&MaintenanceItem{}).Where("name = ?", name).Update("appliance_id", appID)
 	}
 
+	// Service log entries -- sample history for a few maintenance items.
+	logEntries := []ServiceLogEntry{
+		// HVAC filter replacements (maintItems[0])
+		{
+			MaintenanceItemID: maintItems[0].ID,
+			ServicedAt:        time.Date(2025, 12, 1, 0, 0, 0, 0, time.UTC),
+			CostCents:         ptr(2500),
+			Notes:             "Replaced with MERV 13, 20x25x1",
+		},
+		{
+			MaintenanceItemID: maintItems[0].ID,
+			ServicedAt:        time.Date(2025, 9, 1, 0, 0, 0, 0, time.UTC),
+			CostCents:         ptr(2500),
+			Notes:             "Bought bulk pack, 4 remaining",
+		},
+		{
+			MaintenanceItemID: maintItems[0].ID,
+			ServicedAt:        time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC),
+			CostCents:         ptr(2200),
+			Notes:             "Used last filter from old pack",
+		},
+		// Gutter cleaning (maintItems[1]) -- vendor-performed
+		{
+			MaintenanceItemID: maintItems[1].ID,
+			ServicedAt:        time.Date(2025, 11, 10, 0, 0, 0, 0, time.UTC),
+			VendorID:          &vendors[1].ID,
+			CostCents:         ptr(15000),
+			Notes:             "Front and back, cleared two downspout clogs",
+		},
+		{
+			MaintenanceItemID: maintItems[1].ID,
+			ServicedAt:        time.Date(2025, 5, 8, 0, 0, 0, 0, time.UTC),
+			VendorID:          &vendors[1].ID,
+			CostCents:         ptr(15000),
+			Notes:             "Spring cleaning, all clear",
+		},
+		// Furnace inspection (maintItems[4]) -- vendor-performed
+		{
+			MaintenanceItemID: maintItems[4].ID,
+			ServicedAt:        time.Date(2025, 9, 20, 0, 0, 0, 0, time.UTC),
+			VendorID:          &vendors[4].ID,
+			CostCents:         ptr(18000),
+			Notes:             "Annual tune-up, replaced ignitor, heat exchanger OK",
+		},
+		// Smoke detector batteries (maintItems[2])
+		{
+			MaintenanceItemID: maintItems[2].ID,
+			ServicedAt:        time.Date(2025, 11, 1, 0, 0, 0, 0, time.UTC),
+			CostCents:         ptr(3000),
+			Notes:             "All 6 detectors, 9V lithium",
+		},
+	}
+	for i := range logEntries {
+		if err := s.db.Create(&logEntries[i]).Error; err != nil {
+			return fmt.Errorf("seed service log: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -493,6 +552,14 @@ func (s *Store) MaintenanceCategories() ([]MaintenanceCategory, error) {
 		return nil, err
 	}
 	return categories, nil
+}
+
+func (s *Store) ListVendors() ([]Vendor, error) {
+	var vendors []Vendor
+	if err := s.db.Order("name").Find(&vendors).Error; err != nil {
+		return nil, err
+	}
+	return vendors, nil
 }
 
 func (s *Store) ListProjects(includeDeleted bool) ([]Project, error) {
@@ -643,6 +710,124 @@ func (s *Store) UpdateAppliance(item Appliance) error {
 		Select("*").
 		Omit("id", "created_at", "deleted_at").
 		Updates(item).Error
+}
+
+// ---------------------------------------------------------------------------
+// ServiceLogEntry CRUD
+// ---------------------------------------------------------------------------
+
+func (s *Store) ListServiceLog(
+	maintenanceItemID uint,
+	includeDeleted bool,
+) ([]ServiceLogEntry, error) {
+	var entries []ServiceLogEntry
+	db := s.db.Where("maintenance_item_id = ?", maintenanceItemID).
+		Preload("Vendor").
+		Order("serviced_at desc, id desc")
+	if includeDeleted {
+		db = db.Unscoped()
+	}
+	if err := db.Find(&entries).Error; err != nil {
+		return nil, err
+	}
+	return entries, nil
+}
+
+func (s *Store) GetServiceLog(id uint) (ServiceLogEntry, error) {
+	var entry ServiceLogEntry
+	err := s.db.Preload("Vendor").First(&entry, id).Error
+	return entry, err
+}
+
+func (s *Store) CreateServiceLog(entry ServiceLogEntry, vendor Vendor) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if strings.TrimSpace(vendor.Name) != "" {
+			found, err := findOrCreateVendor(tx, vendor)
+			if err != nil {
+				return err
+			}
+			entry.VendorID = &found.ID
+		}
+		return tx.Create(&entry).Error
+	})
+}
+
+func (s *Store) UpdateServiceLog(entry ServiceLogEntry, vendor Vendor) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if strings.TrimSpace(vendor.Name) != "" {
+			found, err := findOrCreateVendor(tx, vendor)
+			if err != nil {
+				return err
+			}
+			entry.VendorID = &found.ID
+		} else {
+			entry.VendorID = nil
+		}
+		return tx.Model(&ServiceLogEntry{}).Where("id = ?", entry.ID).
+			Select("*").
+			Omit("id", "created_at", "deleted_at").
+			Updates(entry).Error
+	})
+}
+
+func (s *Store) DeleteServiceLog(id uint) error {
+	return s.softDelete(&ServiceLogEntry{}, DeletionEntityServiceLog, id)
+}
+
+func (s *Store) RestoreServiceLog(id uint) error {
+	return s.restoreEntity(&ServiceLogEntry{}, DeletionEntityServiceLog, id)
+}
+
+// CountServiceLogs returns the number of non-deleted service log entries per
+// maintenance item ID for the given set of IDs.
+func (s *Store) CountServiceLogs(itemIDs []uint) (map[uint]int, error) {
+	if len(itemIDs) == 0 {
+		return map[uint]int{}, nil
+	}
+	type result struct {
+		MaintenanceItemID uint
+		Count             int
+	}
+	var results []result
+	err := s.db.Model(&ServiceLogEntry{}).
+		Select("maintenance_item_id, count(*) as count").
+		Where("maintenance_item_id IN ?", itemIDs).
+		Group("maintenance_item_id").
+		Find(&results).Error
+	if err != nil {
+		return nil, err
+	}
+	counts := make(map[uint]int, len(results))
+	for _, r := range results {
+		counts[r.MaintenanceItemID] = r.Count
+	}
+	return counts, nil
+}
+
+// CountMaintenanceByAppliance returns the count of non-deleted maintenance
+// items for each appliance ID.
+func (s *Store) CountMaintenanceByAppliance(applianceIDs []uint) (map[uint]int, error) {
+	if len(applianceIDs) == 0 {
+		return map[uint]int{}, nil
+	}
+	type result struct {
+		ApplianceID uint
+		Count       int
+	}
+	var results []result
+	err := s.db.Model(&MaintenanceItem{}).
+		Select("appliance_id, count(*) as count").
+		Where("appliance_id IN ?", applianceIDs).
+		Group("appliance_id").
+		Find(&results).Error
+	if err != nil {
+		return nil, err
+	}
+	counts := make(map[uint]int, len(results))
+	for _, r := range results {
+		counts[r.ApplianceID] = r.Count
+	}
+	return counts, nil
 }
 
 func (s *Store) DeleteProject(id uint) error {

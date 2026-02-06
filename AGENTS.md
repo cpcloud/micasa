@@ -442,3 +442,28 @@ in case things crash or otherwise go haywire, be diligent about this.
 - Replaced dispatches: `reloadTab`, `toggleDeleteSelected`/`restoreByTab`, `startAddForm`, `startEditForm`, `startCellOrFormEdit`, `handleFormSubmit`, `snapshotEntity`, `syncFixedValues`
 - Removed dead code: `restoreByTab`, `startInlineCellEdit` (dispatch wrapper), unused `table` import from model.go
 - 5 new handler tests; all 68 tests passing
+
+## 2026-02-06 Session 8
+
+**User request**: Build maintenance service log feature + vendor tracking. User wanted a "field" in maintenance table that opens a time-ordered sub-table of service events, not a new tab. Also model vendor/self-performed distinction. Show maintenance count on appliances.
+
+**Approach**: Designed and implemented a "detail view" architecture -- a secondary Tab that temporarily replaces the main tab when drilling in. Normal mode `enter` on Maintenance opens it; `esc` closes it. The `serviceLogHandler` implements `TabHandler` just like all other entity handlers, so add/edit/delete/sort/undo all work identically.
+
+**Key design decisions**:
+- `enter` repurposed in Normal mode to "drill down" (detail view, FK link) -- editing stays in Edit mode
+- Detail view has its own `Tab` struct stored in `detailContext` on Model
+- `effectiveTab()` method returns detail tab when active, main tab otherwise
+- `ServiceLogEntry` model: FK to MaintenanceItem + nullable FK to Vendor (nil = self-performed)
+- Vendor select in service log form: "Self (homeowner)" + all known vendors
+- Maintenance "Manual" column replaced with "Log" count column
+- Appliances get a "Maint" count column (batch-fetched via `CountMaintenanceByAppliance`)
+
+**Work done** (see git log for details):
+- **Data layer**: `ServiceLogEntry` model, `DeletionEntityServiceLog`, store CRUD (List/Get/Create/Update/Delete/Restore), `CountServiceLogs`, `CountMaintenanceByAppliance`, `ListVendors`, demo seed data (7 entries across 4 maintenance items)
+- **Detail view architecture**: `detailContext` struct, `effectiveTab()`, `openDetail`/`closeDetail`, `reloadDetailTab`, `handleNormalEnter`, esc-closes-detail, tab-switch-blocked, resize includes detail, setAllTableKeyMaps includes detail
+- **Service log handler**: `serviceLogHandler` implementing `TabHandler`, `serviceLogColumnSpecs` (ID/Date/Performed By/Cost/Notes), `serviceLogRows`, forms (add/edit/inline), `vendorOptions`, `requiredDate` validator
+- **Maintenance tab**: replaced Manual column with Log count column, batch-fetches service log counts
+- **Appliance tab**: added Maint count column, batch-fetches maintenance counts
+- **View**: breadcrumb bar replaces tab bar in detail view, Normal-mode enter hint shows "service log" on Maintenance, help overlay updated
+- **Tests**: 23 new tests in `detail_test.go`, 1 new data test `TestServiceLogCRUD`; all 98 tests passing
+- Also committed [RW-NOTRUNC] column width improvement (1379865) as unrelated pre-existing change

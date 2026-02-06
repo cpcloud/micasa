@@ -31,6 +31,8 @@ type Styles struct {
 	Info            lipgloss.Style
 	DeletedLabel    lipgloss.Style
 	LinkIndicator   lipgloss.Style
+	Breadcrumb      lipgloss.Style
+	BreadcrumbArrow lipgloss.Style
 	StatusStyles    map[string]lipgloss.Style
 }
 
@@ -161,6 +163,11 @@ func DefaultStyles() Styles {
 			Foreground(danger),
 		LinkIndicator: lipgloss.NewStyle().
 			Foreground(muted),
+		Breadcrumb: lipgloss.NewStyle().
+			Foreground(textBright).
+			Bold(true),
+		BreadcrumbArrow: lipgloss.NewStyle().
+			Foreground(accent),
 		StatusStyles: map[string]lipgloss.Style{
 			"ideating":  lipgloss.NewStyle().Foreground(muted),
 			"planned":   lipgloss.NewStyle().Foreground(accent),

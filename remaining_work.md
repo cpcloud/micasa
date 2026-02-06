@@ -11,8 +11,16 @@
 - for maintenance items, compute the default ghost text for next due date from
   the last serviced date + the maintenance interval and default to that
 - [RW-NOTRUNC] avoid truncating cell text when terminal is wide enough
+- [RW-APPLIANCEAGE] Add an Age column to the Appliances table, it should be
+  read-only and computed from purchase date and the current date based on the
+  current time zone.
+- [RW-HIDECOLS] Add the ability to hide and show columns.
 
 ## Completed
+
+- [RW-SERVICELOG] maintenance log feature: service history sub-table per maintenance item (PENDING_SHA)
+- [RW-VENDOR-SERVICE] vendor tracking in service log entries (PENDING_SHA)
+- [RW-APPLIANCE-MAINT] Maint count column on appliances tab (PENDING_SHA)
 
 - [RW-ROWHL] soften table row highlight color -- textMid too close to white fg; use surface bg instead (5406579)
 - [RW-DBPATH] move db path from status bar to help overlay (5406579)

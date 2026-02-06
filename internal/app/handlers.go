@@ -45,8 +45,14 @@ type TabHandler interface {
 }
 
 // handlerForFormKind finds the tab handler that owns the given FormKind.
+// Checks both main tabs and the detail tab (if active).
 // Returns nil for formHouse (no tab) or unknown kinds.
 func (m *Model) handlerForFormKind(kind FormKind) TabHandler {
+	// Check the detail tab first since it may shadow a main tab's form kind.
+	if m.detail != nil && m.detail.Tab.Handler != nil &&
+		m.detail.Tab.Handler.FormKind() == kind {
+		return m.detail.Tab.Handler
+	}
 	for i := range m.tabs {
 		if m.tabs[i].Handler != nil && m.tabs[i].Handler.FormKind() == kind {
 			return m.tabs[i].Handler
@@ -207,7 +213,16 @@ func (maintenanceHandler) Load(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	rows, meta, cellRows := maintenanceRows(items)
+	// Batch-fetch service log counts for all items.
+	ids := make([]uint, len(items))
+	for i, item := range items {
+		ids[i] = item.ID
+	}
+	logCounts, err := store.CountServiceLogs(ids)
+	if err != nil {
+		logCounts = map[uint]int{} // non-fatal
+	}
+	rows, meta, cellRows := maintenanceRows(items, logCounts)
 	return rows, meta, cellRows, nil
 }
 
@@ -278,7 +293,15 @@ func (applianceHandler) Load(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	rows, meta, cellRows := applianceRows(items)
+	ids := make([]uint, len(items))
+	for i, item := range items {
+		ids[i] = item.ID
+	}
+	maintCounts, err := store.CountMaintenanceByAppliance(ids)
+	if err != nil {
+		maintCounts = map[uint]int{}
+	}
+	rows, meta, cellRows := applianceRows(items, maintCounts)
 	return rows, meta, cellRows, nil
 }
 
@@ -326,3 +349,71 @@ func (applianceHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
 }
 
 func (applianceHandler) SyncFixedValues(_ *Model, _ []columnSpec) {}
+
+// ---------------------------------------------------------------------------
+// serviceLogHandler -- detail-view handler for service log entries scoped to
+// a single maintenance item.
+// ---------------------------------------------------------------------------
+
+type serviceLogHandler struct {
+	maintenanceItemID uint
+}
+
+func (h serviceLogHandler) FormKind() FormKind { return formServiceLog }
+
+func (h serviceLogHandler) Load(
+	store *data.Store,
+	showDeleted bool,
+) ([]table.Row, []rowMeta, [][]cell, error) {
+	entries, err := store.ListServiceLog(h.maintenanceItemID, showDeleted)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	rows, meta, cellRows := serviceLogRows(entries)
+	return rows, meta, cellRows, nil
+}
+
+func (h serviceLogHandler) Delete(store *data.Store, id uint) error {
+	return store.DeleteServiceLog(id)
+}
+
+func (h serviceLogHandler) Restore(store *data.Store, id uint) error {
+	return store.RestoreServiceLog(id)
+}
+
+func (h serviceLogHandler) StartAddForm(m *Model) error {
+	return m.startServiceLogForm(h.maintenanceItemID)
+}
+
+func (h serviceLogHandler) StartEditForm(m *Model, id uint) error {
+	return m.startEditServiceLogForm(id)
+}
+
+func (h serviceLogHandler) InlineEdit(m *Model, id uint, col int) error {
+	return m.inlineEditServiceLog(id, col)
+}
+
+func (h serviceLogHandler) SubmitForm(m *Model) error {
+	if m.editID != nil {
+		return m.submitEditServiceLogForm(*m.editID)
+	}
+	return m.submitServiceLogForm()
+}
+
+func (h serviceLogHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
+	entry, err := store.GetServiceLog(id)
+	if err != nil {
+		return undoEntry{}, false
+	}
+	vendor := entry.Vendor
+	return undoEntry{
+		Description: fmt.Sprintf("service log %s", entry.ServicedAt.Format("2006-01-02")),
+		FormKind:    formServiceLog,
+		EntityID:    id,
+		Restore: func() error {
+			return store.UpdateServiceLog(entry, vendor)
+		},
+	}, true
+}
+
+func (serviceLogHandler) SyncFixedValues(_ *Model, _ []columnSpec) {}

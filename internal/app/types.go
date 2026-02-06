@@ -21,6 +21,7 @@ const (
 	formQuote
 	formMaintenance
 	formAppliance
+	formServiceLog
 )
 
 type TabKind int
@@ -88,6 +89,16 @@ const (
 type statusMsg struct {
 	Text string
 	Kind statusKind
+}
+
+// detailContext holds state for a drill-down sub-table (e.g. service log for
+// a maintenance item). When non-nil on the Model, the detail tab replaces the
+// main tab for all interaction.
+type detailContext struct {
+	ParentTabIndex int
+	ParentRowID    uint
+	Breadcrumb     string
+	Tab            Tab
 }
 
 type Options struct {

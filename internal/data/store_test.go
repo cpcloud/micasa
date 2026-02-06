@@ -4,6 +4,7 @@ import (
 	"errors"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -284,6 +285,117 @@ func TestUpdateMaintenance(t *testing.T) {
 	}
 	if fetched.IntervalMonths != 3 {
 		t.Fatalf("expected interval 3, got %d", fetched.IntervalMonths)
+	}
+}
+
+func TestServiceLogCRUD(t *testing.T) {
+	store := newTestStore(t)
+	categories, err := store.MaintenanceCategories()
+	if err != nil {
+		t.Fatalf("MaintenanceCategories error: %v", err)
+	}
+	item := MaintenanceItem{
+		Name:       "Test Maintenance",
+		CategoryID: categories[0].ID,
+	}
+	if err := store.CreateMaintenance(item); err != nil {
+		t.Fatalf("CreateMaintenance error: %v", err)
+	}
+	items, err := store.ListMaintenance(false)
+	if err != nil || len(items) != 1 {
+		t.Fatalf("ListMaintenance expected 1, got %d err %v", len(items), err)
+	}
+	maintID := items[0].ID
+
+	// Create a service log entry (self-performed, no vendor).
+	entry := ServiceLogEntry{
+		MaintenanceItemID: maintID,
+		ServicedAt:        time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
+		Notes:             "did it myself",
+	}
+	if err := store.CreateServiceLog(entry, Vendor{}); err != nil {
+		t.Fatalf("CreateServiceLog error: %v", err)
+	}
+
+	entries, err := store.ListServiceLog(maintID, false)
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("ListServiceLog expected 1, got %d err %v", len(entries), err)
+	}
+	if entries[0].VendorID != nil {
+		t.Fatalf("expected nil VendorID for self-performed entry")
+	}
+	if entries[0].Notes != "did it myself" {
+		t.Fatalf("expected notes 'did it myself', got %q", entries[0].Notes)
+	}
+
+	// Create a vendor-performed entry.
+	vendorEntry := ServiceLogEntry{
+		MaintenanceItemID: maintID,
+		ServicedAt:        time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC),
+		CostCents:         func() *int64 { v := int64(15000); return &v }(),
+		Notes:             "vendor did it",
+	}
+	vendor := Vendor{Name: "Test Plumber", Phone: "555-555-0001"}
+	if err := store.CreateServiceLog(vendorEntry, vendor); err != nil {
+		t.Fatalf("CreateServiceLog with vendor error: %v", err)
+	}
+
+	entries, err = store.ListServiceLog(maintID, false)
+	if err != nil || len(entries) != 2 {
+		t.Fatalf("ListServiceLog expected 2, got %d err %v", len(entries), err)
+	}
+	// Most recent first (2026-02-01 before 2026-01-15).
+	if entries[0].VendorID == nil {
+		t.Fatalf("expected vendor on first entry")
+	}
+	if entries[0].Vendor.Name != "Test Plumber" {
+		t.Fatalf("expected vendor 'Test Plumber', got %q", entries[0].Vendor.Name)
+	}
+
+	// Update: change vendor entry to self-performed.
+	updated := entries[0]
+	updated.Notes = "actually did it myself"
+	if err := store.UpdateServiceLog(updated, Vendor{}); err != nil {
+		t.Fatalf("UpdateServiceLog error: %v", err)
+	}
+	fetched, err := store.GetServiceLog(updated.ID)
+	if err != nil {
+		t.Fatalf("GetServiceLog error: %v", err)
+	}
+	if fetched.VendorID != nil {
+		t.Fatalf("expected nil VendorID after update")
+	}
+	if fetched.Notes != "actually did it myself" {
+		t.Fatalf("expected updated notes, got %q", fetched.Notes)
+	}
+
+	// Delete and restore.
+	if err := store.DeleteServiceLog(fetched.ID); err != nil {
+		t.Fatalf("DeleteServiceLog error: %v", err)
+	}
+	entries, err = store.ListServiceLog(maintID, false)
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("after delete expected 1, got %d err %v", len(entries), err)
+	}
+	entries, err = store.ListServiceLog(maintID, true)
+	if err != nil || len(entries) != 2 {
+		t.Fatalf("with deleted expected 2, got %d err %v", len(entries), err)
+	}
+	if err := store.RestoreServiceLog(fetched.ID); err != nil {
+		t.Fatalf("RestoreServiceLog error: %v", err)
+	}
+	entries, err = store.ListServiceLog(maintID, false)
+	if err != nil || len(entries) != 2 {
+		t.Fatalf("after restore expected 2, got %d err %v", len(entries), err)
+	}
+
+	// CountServiceLogs.
+	counts, err := store.CountServiceLogs([]uint{maintID})
+	if err != nil {
+		t.Fatalf("CountServiceLogs error: %v", err)
+	}
+	if counts[maintID] != 2 {
+		t.Fatalf("expected count 2, got %d", counts[maintID])
 	}
 }
 
