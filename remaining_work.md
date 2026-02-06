@@ -10,7 +10,6 @@
   use middot-separated inline text, cleaner section layout in expanded view
 - for maintenance items, compute the default ghost text for next due date from
   the last serviced date + the maintenance interval and default to that
-- [RW-TABHANDLER] Introduce TabHandler interface to eliminate switch dispatch on TabKind/FormKind
 
 ## Completed
 
@@ -39,6 +38,7 @@
 - [RW-UNDO] undo cell/form edits with u in Edit mode (c6b6739)
 - [RW-REDO] redo undone edits with r in Edit mode (c6b6739)
 - [RW-COLWIDTH] stable column widths for fixed-option columns (c6b6739)
+- [RW-TABHANDLER] TabHandler interface eliminates switch dispatch on TabKind/FormKind (67bfbe3)
 
 - refactor forms.go and view.go: deduplicate submit/edit pairs, centering, inline edit boilerplate, form-data converters (9851c74)
 - scrap the log-on-dash-v approach, just enable logging dynamically (and allow changing log level) with a keyboard shortcut and bring up the logger ui component when that key is pressed (it's a toggle obviously) (75b2c86)
