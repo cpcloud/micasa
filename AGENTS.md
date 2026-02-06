@@ -480,6 +480,7 @@ in case things crash or otherwise go haywire, be diligent about this.
 - Deleted `remaining_work.md`
 - [DRILLDOWN-STYLE] Styled Log column with accent color, underline, and trailing `>` arrow to signal interactive drilldown; added `cellDrilldown` kind, `Drilldown` style, drilldown-aware sort comparator
 - Fixed enter on Maintenance tab: only drills into service log on Log (drilldown) column; Appliance column now correctly follows FK link to Appliances tab; status bar hint is column-aware
+- Removed edit-on-enter: enter in Normal mode only does drilldown/FK nav, enter in Edit mode no longer edits; status bar hint hidden when enter has no action
 
 # Completed work
 

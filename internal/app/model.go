@@ -240,20 +240,25 @@ func (m *Model) handleNormalKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 }
 
 // handleNormalEnter handles enter in Normal mode: drill into detail views
-// on drilldown columns, follow FK links, or fall through to cell edit.
+// on drilldown columns, or follow FK links.
 func (m *Model) handleNormalEnter() error {
 	tab := m.effectiveTab()
 	if tab == nil {
-		return fmt.Errorf("no active tab")
+		return nil
 	}
 	meta, ok := m.selectedRowMeta()
 	if !ok {
-		return fmt.Errorf("nothing selected")
+		return nil
 	}
 
-	// On a drilldown column, open the service log for that row.
 	col := tab.ColCursor
-	if col >= 0 && col < len(tab.Specs) && tab.Specs[col].Kind == cellDrilldown {
+	if col < 0 || col >= len(tab.Specs) {
+		return nil
+	}
+	spec := tab.Specs[col]
+
+	// On a drilldown column, open the detail view for that row.
+	if spec.Kind == cellDrilldown {
 		if m.detail == nil && tab.Kind == tabMaintenance {
 			item, err := m.store.GetMaintenance(meta.ID)
 			if err != nil {
@@ -261,10 +266,18 @@ func (m *Model) handleNormalEnter() error {
 			}
 			return m.openDetail(meta.ID, item.Name)
 		}
+		return nil
 	}
 
-	// Otherwise: follow FK link or fall through to edit.
-	return m.startCellOrFormEdit()
+	// On a linked column with a target, follow the FK.
+	if spec.Link != nil {
+		if c, ok := m.selectedCell(col); ok && c.LinkID > 0 {
+			return m.navigateToLink(spec.Link, c.LinkID)
+		}
+	}
+
+	_ = meta // suppress unused warning
+	return nil
 }
 
 // handleEditKeys processes keys unique to Edit mode.
@@ -273,7 +286,7 @@ func (m *Model) handleEditKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 	case "a":
 		m.startAddForm()
 		return m.formInitCmd(), true
-	case "e", "enter":
+	case "e":
 		if err := m.startCellOrFormEdit(); err != nil {
 			m.setStatusError(err.Error())
 			return nil, true

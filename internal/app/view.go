@@ -215,13 +215,6 @@ func (m *Model) statusView() string {
 
 	var help string
 	if m.mode == modeNormal {
-		enterHint := "enter"
-		if tab := m.effectiveTab(); tab != nil {
-			col := tab.ColCursor
-			if col >= 0 && col < len(tab.Specs) && tab.Specs[col].Kind == cellDrilldown {
-				enterHint = "service log"
-			}
-		}
 		items := []string{modeBadge}
 		if m.detail == nil {
 			items = append(items, m.helpItem("tab", "switch"))
@@ -229,7 +222,11 @@ func (m *Model) statusView() string {
 		items = append(items,
 			m.helpItem("h/l", "col"),
 			m.helpItem("s", "sort"),
-			m.helpItem("enter", enterHint),
+		)
+		if hint := m.enterHint(); hint != "" {
+			items = append(items, m.helpItem("enter", hint))
+		}
+		items = append(items,
 			m.helpItem("i", "edit"),
 			m.helpItem("H", "house"),
 			m.helpItem("?", "help"),
@@ -299,6 +296,29 @@ func (m *Model) editHint() string {
 		return "edit"
 	}
 	return "edit: " + spec.Title
+}
+
+// enterHint returns a contextual label for the enter key in Normal mode,
+// or "" if enter has no action on the current column.
+func (m *Model) enterHint() string {
+	tab := m.effectiveTab()
+	if tab == nil {
+		return ""
+	}
+	col := tab.ColCursor
+	if col < 0 || col >= len(tab.Specs) {
+		return ""
+	}
+	spec := tab.Specs[col]
+	if spec.Kind == cellDrilldown {
+		return "service log"
+	}
+	if spec.Link != nil {
+		if c, ok := m.selectedCell(col); ok && c.LinkID > 0 {
+			return "follow " + spec.Link.Relation
+		}
+	}
+	return ""
 }
 
 func (m *Model) formFullScreen() string {
@@ -373,7 +393,7 @@ func (m *Model) helpView() string {
 			title: "Edit Mode",
 			bindings: []binding{
 				{"a", "Add new entry"},
-				{"e / enter", "Edit cell (or full row on ID column)"},
+				{"e", "Edit cell (or full row on ID column)"},
 				{"d", "Toggle delete/restore"},
 				{"u", "Undo last edit"},
 				{"r", "Redo last undo"},
