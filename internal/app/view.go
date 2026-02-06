@@ -66,7 +66,11 @@ func (m *Model) houseView() string {
 	if !m.hasHouse {
 		content := lipgloss.JoinVertical(
 			lipgloss.Left,
-			m.houseTitleLine("setup", false),
+			joinInline(
+				m.styles.HeaderTitle.Render("House"),
+				m.styles.HeaderBadge.Render("setup"),
+				m.keycap("H"),
+			),
 			m.styles.HeaderHint.Render("Complete the form to add a house profile."),
 		)
 		return m.headerBox(content)
@@ -78,7 +82,8 @@ func (m *Model) houseView() string {
 }
 
 func (m *Model) houseCollapsed() string {
-	title := m.houseTitleLine("▸", false)
+	title := m.styles.HeaderTitle.Render("House")
+	badge := m.styles.HeaderBadge.Render("▸")
 	sep := m.styles.HeaderHint.Render(" · ")
 	hint := m.styles.HeaderHint
 	val := m.styles.HeaderValue
@@ -89,11 +94,12 @@ func (m *Model) houseCollapsed() string {
 		styledPart(hint, sqftLabel(m.house.SquareFeet)),
 		styledPart(hint, formatInt(m.house.YearBuilt)),
 	)
-	return joinVerticalNonEmpty(title, stats)
+	return joinInline(title, badge, stats, m.keycap("H"))
 }
 
 func (m *Model) houseExpanded() string {
-	title := m.houseTitleLine("▾", true)
+	title := m.styles.HeaderTitle.Render("House")
+	badge := m.styles.HeaderBadge.Render("▾")
 	hint := m.styles.HeaderHint
 	val := m.styles.HeaderValue
 	sep := hint.Render(" · ")
@@ -101,6 +107,13 @@ func (m *Model) houseExpanded() string {
 	identity := joinStyledParts(sep,
 		styledPart(val, m.house.Nickname),
 		styledPart(hint, formatAddress(m.house)),
+	)
+	titleLine := joinInline(
+		title,
+		badge,
+		identity,
+		m.keycap("H"),
+		m.helpItem("p", "edit"),
 	)
 
 	structNums := joinStyledParts(sep,
@@ -138,7 +151,7 @@ func (m *Model) houseExpanded() string {
 	)
 	financial := m.houseSection("Financial", finLine1, finLine2)
 
-	return joinVerticalNonEmpty(title, identity, "", structure, utilities, financial)
+	return joinVerticalNonEmpty(titleLine, "", structure, utilities, financial)
 }
 
 func (m *Model) tabsView() string {
@@ -945,19 +958,6 @@ func (m *Model) renderKeys(keys string) string {
 
 func (m *Model) keycap(value string) string {
 	return m.styles.Keycap.Render(strings.ToUpper(value))
-}
-
-func (m *Model) houseTitleLine(state string, showEdit bool) string {
-	title := m.styles.HeaderTitle.Render("House")
-	badge := ""
-	if strings.TrimSpace(state) != "" {
-		badge = m.styles.HeaderBadge.Render(state)
-	}
-	parts := []string{title, badge, m.keycap("H")}
-	if showEdit {
-		parts = append(parts, m.helpItem("p", "edit"))
-	}
-	return joinInline(parts...)
 }
 
 // styledPart returns a styled value, or "" if the underlying value is blank.

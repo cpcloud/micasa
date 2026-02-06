@@ -61,6 +61,7 @@
   - `view.go`: extracted `withStatusMessage` to deduplicate status rendering in form/table branches of `statusView`
   - `forms.go`: inlined `floatToString` (was trivial wrapper around `formatFloat`)
   - `types.go`/`view.go`: replaced `tabLabel` switch with `TabKind.String()` method
+- Merged house title + stats into a single line for collapsed view; same for expanded (title + identity on one line, sections below); removed now-unused `houseTitleLine` helper
 
 ## 2026-02-05 Session 3
 
