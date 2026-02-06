@@ -485,6 +485,7 @@ in case things crash or otherwise go haywire, be diligent about this.
 
 # Completed work
 
+- [README] project README with features, keybindings, architecture, install instructions
 - Appliances tab, FK links on Maintenance/Quotes, enter follows link, relation indicators in headers (f61993b, 03af1e1)
 - [HOUSE-UX] redesign house profile: middot-separated inline text, no chip borders (9deaba7)
 - [SERVICELOG] maintenance log feature: service history sub-table per maintenance item (89eefaa)
@@ -528,7 +529,6 @@ in case things crash or otherwise go haywire, be diligent about this.
 
 # Remaining work
 
-- [README] create a sick README.md that will maximize stars on github
 - [WEBSITE] I've got the `micasa.dev` domain. Help me build a github pages website for this project that is really fucking slick.
 - [DATEPICKER] for date column data entry can we make that a date picker that
   adjusts a nice little terminal calendar based on what the user has typed in
