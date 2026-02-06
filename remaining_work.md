@@ -8,6 +8,9 @@
   match, if m:n not sure, help me   figure out the ux for that )
 - [RW-HOUSE-UX] redesign house profile collapsed/expanded views: remove chip borders,
   use middot-separated inline text, cleaner section layout in expanded view
+- when log mode is enabled, i still need to be able to do everything. right now
+  i can't do any other actions except logging related functionality when
+  logging is enabled
 - add the ability to sort by a column with a key stroke, it should toggle
   ascending, descending, and no sort. sort by primary key by default
 - for maintenance items, compute the default ghost text for next due date from

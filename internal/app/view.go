@@ -1076,14 +1076,14 @@ func sqftLabel(sqft int) string {
 	if sqft == 0 {
 		return ""
 	}
-	return fmt.Sprintf("%d sqft", sqft)
+	return fmt.Sprintf("%d ft\u00B2", sqft)
 }
 
 func lotLabel(sqft int) string {
 	if sqft == 0 {
 		return ""
 	}
-	return fmt.Sprintf("%d lot", sqft)
+	return fmt.Sprintf("%d ft\u00B2 lot", sqft)
 }
 
 func formatInt(value int) string {
