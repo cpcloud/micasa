@@ -387,17 +387,21 @@ func TestApplianceMaintenanceHandlerFormKind(t *testing.T) {
 	}
 }
 
-func TestApplianceMaintenanceColumnSpecsNoApplianceColumn(t *testing.T) {
+func TestApplianceMaintenanceColumnSpecsNoApplianceOrLog(t *testing.T) {
 	specs := applianceMaintenanceColumnSpecs()
 	for _, s := range specs {
 		if s.Title == "Appliance" {
 			t.Fatal("appliance maintenance detail should not include Appliance column")
 		}
+		if s.Title == "Log" {
+			t.Fatal(
+				"appliance maintenance detail should not include Log column (no nested drilldown yet)",
+			)
+		}
 	}
-	// Should still have Log drilldown.
 	last := specs[len(specs)-1]
-	if last.Title != "Log" || last.Kind != cellDrilldown {
-		t.Fatalf("expected last column to be Log drilldown, got %q kind=%d", last.Title, last.Kind)
+	if last.Title != "Every" {
+		t.Fatalf("expected last column to be 'Every', got %q", last.Title)
 	}
 }
 

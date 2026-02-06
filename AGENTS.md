@@ -535,8 +535,8 @@ in case things crash or otherwise go haywire, be diligent about this.
   be fuckin' dope]) that will move you to that cell in the other tab (if it's
   1:1 of course. if 1:m go to the first match, if m:1, there's only a single
   match, if m:n not sure, help me figure out the ux for that)
-- [WEBSITE] I've got the `micasa.dev` domain. Help me build a github pages website for this project that is really fucking slick.
 - [README] create a sick README.md that will maximize stars on github
+- [WEBSITE] I've got the `micasa.dev` domain. Help me build a github pages website for this project that is really fucking slick.
 - [DATEPICKER] for date column data entry can we make that a date picker that
   adjusts a nice little terminal calendar based on what the user has typed in
   so far?
@@ -546,3 +546,6 @@ in case things crash or otherwise go haywire, be diligent about this.
   read-only and computed from purchase date and the current date based on the
   current time zone.
 - [HIDECOLS] Add the ability to hide and show columns.
+- [NESTED-DRILL] Stack-based nested drilldown: push current detail onto a stack
+  when drilling deeper (e.g. Appliances > Dishwasher > Filter Replacement service
+  log), esc pops back one level, breadcrumb grows with each level.

@@ -369,15 +369,7 @@ func (h applianceMaintenanceHandler) Load(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	ids := make([]uint, len(items))
-	for i, item := range items {
-		ids[i] = item.ID
-	}
-	logCounts, err := store.CountServiceLogs(ids)
-	if err != nil {
-		logCounts = map[uint]int{}
-	}
-	rows, meta, cellRows := applianceMaintenanceRows(items, logCounts)
+	rows, meta, cellRows := applianceMaintenanceRows(items)
 	return rows, meta, cellRows, nil
 }
 
@@ -399,7 +391,7 @@ func (h applianceMaintenanceHandler) StartEditForm(m *Model, id uint) error {
 }
 
 func (h applianceMaintenanceHandler) InlineEdit(m *Model, id uint, col int) error {
-	// Column mapping without Appliance: 0=ID, 1=Item, 2=Category, 3=Last, 4=Next, 5=Every, 6=Log
+	// Column mapping without Appliance/Log: 0=ID, 1=Item, 2=Category, 3=Last, 4=Next, 5=Every
 	// Remap to the full maintenance column indices (skip col 3=Appliance).
 	fullCol := col
 	if col >= 3 {

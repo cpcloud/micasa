@@ -138,7 +138,7 @@ func applianceColumnSpecs() []columnSpec {
 }
 
 // applianceMaintenanceColumnSpecs is like maintenanceColumnSpecs but without
-// the Appliance column, since the detail view is already scoped to one.
+// the Appliance column (already scoped) or Log column (no nested drilldown yet).
 func applianceMaintenanceColumnSpecs() []columnSpec {
 	return []columnSpec{
 		{Title: "ID", Min: 4, Max: 6, Align: alignRight, Kind: cellReadonly},
@@ -147,13 +147,11 @@ func applianceMaintenanceColumnSpecs() []columnSpec {
 		{Title: "Last", Min: 10, Max: 12, Kind: cellDate},
 		{Title: "Next", Min: 10, Max: 12, Kind: cellDate},
 		{Title: "Every", Min: 6, Max: 10},
-		{Title: "Log", Min: 4, Max: 6, Align: alignRight, Kind: cellDrilldown},
 	}
 }
 
 func applianceMaintenanceRows(
 	items []data.MaintenanceItem,
-	logCounts map[uint]int,
 ) ([]table.Row, []rowMeta, [][]cell) {
 	rows := make([]table.Row, 0, len(items))
 	meta := make([]rowMeta, 0, len(items))
@@ -164,10 +162,6 @@ func applianceMaintenanceRows(
 		if item.IntervalMonths > 0 {
 			interval = fmt.Sprintf("%d mo", item.IntervalMonths)
 		}
-		logCount := ""
-		if n := logCounts[item.ID]; n > 0 {
-			logCount = fmt.Sprintf("%d", n)
-		}
 		rowCells := []cell{
 			{Value: fmt.Sprintf("%d", item.ID), Kind: cellReadonly},
 			{Value: item.Name, Kind: cellText},
@@ -175,7 +169,6 @@ func applianceMaintenanceRows(
 			{Value: dateValue(item.LastServicedAt), Kind: cellDate},
 			{Value: dateValue(item.NextDueAt), Kind: cellDate},
 			{Value: interval, Kind: cellText},
-			{Value: logCount, Kind: cellDrilldown},
 		}
 		rows = append(rows, cellsToRow(rowCells))
 		cells = append(cells, rowCells)
