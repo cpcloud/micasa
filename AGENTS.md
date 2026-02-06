@@ -390,7 +390,7 @@ in case things crash or otherwise go haywire, be diligent about this.
 
 **Work done** (see git log for details):
 - Retro pixel-art house: replaced line-drawing house art with DOS/BBS-style pixel art using shade characters (ec543e3)
-- Tried/reverted mini inline house art and "mi casa" retro wordmark for collapsed view (user didn't like either)
+- Tried/reverted mini inline house art and "micasa" retro wordmark for collapsed view (user didn't like either)
 - **Modal system**: vim-style Normal/Edit modes working with bubbles/table keybindings
   - Normal mode: full table vim nav (j/k/d/u/g/G), h/l for columns, H for house, i to enter Edit, q to quit
   - Edit mode: same nav but d/u rebound to delete/undo; a/e/p for add/edit/profile; esc returns to Normal

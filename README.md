@@ -1,7 +1,7 @@
 <!-- Copyright 2026 Phillip Cloud -->
 <!-- Licensed under the Apache License, Version 2.0 -->
 
-# mi casa
+# `micasa`
 
 A terminal UI for tracking everything about your home -- projects, quotes,
 maintenance schedules, appliances, and service history. All in a single
@@ -26,7 +26,7 @@ Spreadsheets get messy. Notion is overkill. You just want to know when the
 furnace filter was last changed, how much the roof quotes came in at, and
 whether the dishwasher is still under warranty.
 
-mi casa keeps it all in one place with vim-style navigation, zero cloud
+`micasa` keeps it all in one place with vim-style navigation, zero cloud
 dependencies, and a data file you can back up with `cp`.
 
 ## Features
