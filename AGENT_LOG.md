@@ -42,6 +42,10 @@
 - Extracted `centerPanel` -- deduplicated `formFullScreen`/`helpFullScreen` centering logic
 - Made `floatToString` delegate to `formatFloat` (was identical copy), removed unused `math` import
 - All existing tests pass, build clean
+- Redesigned house profile collapsed/expanded views (RW-HOUSE-UX): removed bordered chip boxes, replaced with middot-separated inline text; collapsed is now a single stats line, expanded uses section headers with indented continuation lines; removed `chip`, `sectionLine`, `renderHouseValue`, `HeaderChip` style, `surfaceDeep` color
+- Used `ft²` instead of `sqft` in house profile labels
+- Removed `db:` prefix from status bar path display
+- Added `LEARNINGS.md` for cross-session notes (no-cd rule, colorblind/adaptive palette constraint)
 
 ## 2026-02-05 Session 3
 
