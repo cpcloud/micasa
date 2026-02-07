@@ -8,26 +8,43 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: write
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: cpcloud/micasa
 
 jobs:
-  goreleaser:
-    name: GoReleaser
+  container:
+    name: Build & Push Container
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "1.24"
+      - uses: DeterminateSystems/nix-installer-action@main
 
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Build container image
+        run: nix build '.#micasa-container'
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
         with:
-          distribution: goreleaser
-          version: "~> v2"
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Load, tag, and push image
+        run: |
+          # nix produces a gzipped tarball
+          docker load < result
+
+          version="${GITHUB_REF_NAME#v}"
+
+          docker tag micasa:latest "$REGISTRY/$IMAGE_NAME:$version"
+          docker tag micasa:latest "$REGISTRY/$IMAGE_NAME:latest"
+
+          docker push "$REGISTRY/$IMAGE_NAME:$version"
+          docker push "$REGISTRY/$IMAGE_NAME:latest"

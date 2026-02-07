@@ -500,7 +500,7 @@ in case things crash or otherwise go haywire, be diligent about this.
 
 ## 2026-02-06 Session 11
 
-**User request**: Implement [HIDECOLS] — hide/show columns with candy-wrapper stacks, ladle L-shape for edge columns, sparse ellipsis indicators.
+**User request**: Implement [HIDECOLS] -- hide/show columns with candy-wrapper stacks, ladle L-shape for edge columns, sparse ellipsis indicators.
 
 **Work done** (see git log for details):
 - `c` hides current column (Normal mode), `C` shows all; last visible column protected
@@ -564,6 +564,15 @@ in case things crash or otherwise go haywire, be diligent about this.
 - highlight the part of the string that the regex matched in log lines (4289fb7)
 - entry editing: make editing existing entries work (a457c44)
 - anchored status bar: keystroke info always at bottom of terminal (a457c44)
+
+## 2026-02-07 Session 12
+
+**Work done**:
+- Committed pre-existing refactor: candy stacks replaced with single-line hidden-column badges (356abd4)
+- Left-aligned all badges, color-only for position (fef8e04)
+- Triangle glyphs on outermost badges for direction (4336fb2)
+- Centered badge row (c566cc6)
+- [GHCR] Removed goreleaser setup, replaced release workflow with nix container build + push to ghcr.io
 
 # Remaining work
 
