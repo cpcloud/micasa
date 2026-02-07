@@ -4,6 +4,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -46,6 +47,9 @@ func main() {
 		fail("initialize app", err)
 	}
 	if _, err := tea.NewProgram(model, tea.WithAltScreen()).Run(); err != nil {
+		if errors.Is(err, tea.ErrInterrupted) {
+			os.Exit(130)
+		}
 		fail("run app", err)
 	}
 }

@@ -81,7 +81,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.resizeTables()
 	case tea.KeyMsg:
 		if typed.String() == "ctrl+c" {
-			return m, tea.Quit
+			return m, tea.Interrupt
 		}
 	}
 
