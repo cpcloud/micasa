@@ -152,6 +152,13 @@
             copyToRoot = root;
             config = {
               Entrypoint = [ "/bin/micasa" ];
+              Labels = {
+                "org.opencontainers.image.description" =
+                  "Terminal UI for managing home projects and maintenance";
+                "org.opencontainers.image.source" =
+                  "https://github.com/micasa/micasa";
+                "org.opencontainers.image.licenses" = "Apache-2.0";
+              };
             };
           };
         };
