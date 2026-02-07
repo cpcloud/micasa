@@ -158,7 +158,6 @@ type MaintenanceItem struct {
 	ApplianceID    *uint
 	Appliance      Appliance  `gorm:"constraint:OnDelete:SET NULL;"`
 	LastServicedAt *time.Time `gorm:"column:last_srv"`
-	NextDueAt      *time.Time `gorm:"column:next_due"`
 	IntervalMonths int        `gorm:"column:int_mo"`
 	ManualURL      string     `gorm:"column:man_url"`
 	ManualText     string     `gorm:"column:man_txt"`

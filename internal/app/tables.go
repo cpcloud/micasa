@@ -165,12 +165,13 @@ func applianceMaintenanceRows(
 		if item.IntervalMonths > 0 {
 			interval = fmt.Sprintf("%d mo", item.IntervalMonths)
 		}
+		nextDue := data.ComputeNextDue(item.LastServicedAt, item.IntervalMonths)
 		rowCells := []cell{
 			{Value: fmt.Sprintf("%d", item.ID), Kind: cellReadonly},
 			{Value: item.Name, Kind: cellText},
 			{Value: item.Category.Name, Kind: cellText},
 			{Value: dateValue(item.LastServicedAt), Kind: cellDate},
-			{Value: dateValue(item.NextDueAt), Kind: cellDate},
+			{Value: dateValue(nextDue), Kind: cellDate},
 			{Value: interval, Kind: cellText},
 		}
 		rows = append(rows, cellsToRow(rowCells))
@@ -364,13 +365,14 @@ func maintenanceRows(
 		if n := logCounts[item.ID]; n > 0 {
 			logCount = fmt.Sprintf("%d", n)
 		}
+		nextDue := data.ComputeNextDue(item.LastServicedAt, item.IntervalMonths)
 		rowCells := []cell{
 			{Value: fmt.Sprintf("%d", item.ID), Kind: cellReadonly},
 			{Value: item.Name, Kind: cellText},
 			{Value: item.Category.Name, Kind: cellText},
 			{Value: appName, Kind: cellText, LinkID: appLinkID},
 			{Value: dateValue(item.LastServicedAt), Kind: cellDate},
-			{Value: dateValue(item.NextDueAt), Kind: cellDate},
+			{Value: dateValue(nextDue), Kind: cellDate},
 			{Value: interval, Kind: cellText},
 			{Value: logCount, Kind: cellDrilldown},
 		}

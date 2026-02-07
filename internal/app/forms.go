@@ -75,7 +75,6 @@ type maintenanceFormData struct {
 	CategoryID     uint
 	ApplianceID    uint // 0 means none
 	LastServiced   string
-	NextDue        string
 	IntervalMonths string
 	ManualURL      string
 	ManualText     string
@@ -406,10 +405,6 @@ func (m *Model) openMaintenanceForm(
 				Placeholder("6").
 				Value(&values.IntervalMonths).
 				Validate(optionalInt("interval months")),
-			huh.NewInput().
-				Title("Next due (YYYY-MM-DD)").
-				Value(&values.NextDue).
-				Validate(optionalDate("next due")),
 		).Title("Schedule"),
 		huh.NewGroup(
 			huh.NewInput().Title("Manual URL").Value(&values.ManualURL),
@@ -648,7 +643,7 @@ func (m *Model) inlineEditMaintenance(id uint, col int) error {
 	}
 	values := maintenanceFormValues(item)
 	catOptions := maintenanceOptions(m.maintenanceCategories)
-	// Column mapping: 0=ID, 1=Item, 2=Category, 3=Appliance, 4=Last, 5=Next, 6=Every, 7=Log(readonly)
+	// Column mapping: 0=ID, 1=Item, 2=Category, 3=Appliance, 4=Last, 5=Next(computed), 6=Every, 7=Log
 	var field huh.Field
 	switch col {
 	case 1:
@@ -671,11 +666,6 @@ func (m *Model) inlineEditMaintenance(id uint, col int) error {
 			Title("Last serviced (YYYY-MM-DD)").
 			Value(&values.LastServiced).
 			Validate(optionalDate("last serviced"))
-	case 5:
-		field = huh.NewInput().
-			Title("Next due (YYYY-MM-DD)").
-			Value(&values.NextDue).
-			Validate(optionalDate("next due"))
 	case 6:
 		field = huh.NewInput().
 			Title("Interval months").
@@ -683,7 +673,7 @@ func (m *Model) inlineEditMaintenance(id uint, col int) error {
 			Value(&values.IntervalMonths).
 			Validate(optionalInt("interval months"))
 	default:
-		// Col 7 (Log) is readonly; fall through to full edit form.
+		// Col 0 (ID), 5 (Next Due, computed), 7 (Log) are readonly.
 		return m.startEditMaintenanceForm(id)
 	}
 	m.openInlineEdit(id, formMaintenance, field, values)
@@ -1174,16 +1164,9 @@ func (m *Model) parseMaintenanceFormData() (data.MaintenanceItem, error) {
 	if err != nil {
 		return data.MaintenanceItem{}, err
 	}
-	nextDue, err := data.ParseOptionalDate(values.NextDue)
-	if err != nil {
-		return data.MaintenanceItem{}, err
-	}
 	interval, err := data.ParseOptionalInt(values.IntervalMonths)
 	if err != nil {
 		return data.MaintenanceItem{}, err
-	}
-	if nextDue == nil {
-		nextDue = data.ComputeNextDue(lastServiced, interval)
 	}
 	cost, err := data.ParseOptionalCents(values.Cost)
 	if err != nil {
@@ -1198,7 +1181,6 @@ func (m *Model) parseMaintenanceFormData() (data.MaintenanceItem, error) {
 		CategoryID:     values.CategoryID,
 		ApplianceID:    appID,
 		LastServicedAt: lastServiced,
-		NextDueAt:      nextDue,
 		IntervalMonths: interval,
 		ManualURL:      strings.TrimSpace(values.ManualURL),
 		ManualText:     strings.TrimSpace(values.ManualText),
@@ -1363,7 +1345,6 @@ func maintenanceFormValues(item data.MaintenanceItem) *maintenanceFormData {
 		CategoryID:     item.CategoryID,
 		ApplianceID:    appID,
 		LastServiced:   data.FormatDate(item.LastServicedAt),
-		NextDue:        data.FormatDate(item.NextDueAt),
 		IntervalMonths: intToString(item.IntervalMonths),
 		ManualURL:      item.ManualURL,
 		ManualText:     item.ManualText,
