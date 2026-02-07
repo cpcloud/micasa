@@ -436,7 +436,12 @@ func (m *Model) tableView(tab *Tab) string {
 		bodyParts = append(bodyParts, strings.Join(rows, "\n"))
 	}
 	if badges != "" {
-		centered := lipgloss.PlaceHorizontal(width, lipgloss.Center, badges)
+		// Center relative to the actual table content width, not the terminal.
+		tableWidth := sumInts(widths)
+		if len(widths) > 1 {
+			tableWidth += (len(widths) - 1) * lipgloss.Width(normalSep)
+		}
+		centered := lipgloss.PlaceHorizontal(tableWidth, lipgloss.Center, badges)
 		bodyParts = append(bodyParts, centered)
 	}
 	return joinVerticalNonEmpty(bodyParts...)
