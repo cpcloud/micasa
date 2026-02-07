@@ -573,6 +573,7 @@ in case things crash or otherwise go haywire, be diligent about this.
 - Triangle glyphs on outermost badges for direction (4336fb2)
 - Centered badge row (c566cc6)
 - [GHCR] Removed goreleaser setup, replaced release workflow with nix container build + push to ghcr.io
+- [SEMREL] Added semantic-release workflow (push to main), split container push into own workflow triggered by `release: [published]`
 
 # Remaining work
 
