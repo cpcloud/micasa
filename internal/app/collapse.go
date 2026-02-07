@@ -52,7 +52,8 @@ func hiddenColumnNames(specs []columnSpec) []string {
 
 // renderHiddenBadges renders a single left-aligned line of hidden column
 // names. Color indicates position relative to the cursor: HiddenLeft for
-// columns to the left, HiddenRight for columns to the right.
+// columns to the left (with a trailing left-arrow), HiddenRight for columns
+// to the right (with a leading right-arrow).
 func renderHiddenBadges(
 	specs []columnSpec,
 	colCursor int,
@@ -66,9 +67,9 @@ func renderHiddenBadges(
 			continue
 		}
 		if i < colCursor {
-			parts = append(parts, styles.HiddenLeft.Render(spec.Title))
+			parts = append(parts, styles.HiddenLeft.Render(spec.Title+" <"))
 		} else {
-			parts = append(parts, styles.HiddenRight.Render(spec.Title))
+			parts = append(parts, styles.HiddenRight.Render("> "+spec.Title))
 		}
 	}
 	if len(parts) == 0 {
