@@ -34,7 +34,8 @@ jobs:
         run: go build ./...
 
       - name: Test
-        run: go test -race -v ./...
+        shell: bash
+        run: go test -race -shuffle=$RANDOM -v ./...
 
   lint:
     name: Lint
