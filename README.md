@@ -15,32 +15,33 @@ A terminal UI for tracking everything about your home. Single SQLite file. No cl
   ▀▀▀▀▀▀▀▀▀▀▀
 ```
 
+Your house is quietly plotting to break while you sleep -- and you're dreaming about redoing the kitchen. `micasa` tracks both from your terminal.
+
 ## Features
 
-- **When did I last change the furnace filter?** Maintenance schedules, due dates, service history.
-- **How much was that roof quote?** Vendor quotes with cost breakdowns.
-- **Is the dishwasher still under warranty?** Appliances with linked maintenance.
-- **Who replaced the water heater?** Service log with vendor tracking.
-- **What's the status of everything?** Projects with color-coded statuses.
-- **Do I need a mouse?** No. Vim-style `hjkl`, undo/redo, multi-column sort.
-- **Where's my data?** `~/.local/share/micasa/micasa.db`. Back it up with `cp`.
+- **When did I last change the furnace filter?** Maintenance schedules, auto-computed due dates, full service history.
+- **What if we finally did the backyard?** Projects from napkin sketch to completion -- or graceful abandonment.
+- **How much would it actually cost to...** Quotes, vendors, stare at the numbers, close the laptop, reopen the laptop.
+- **Is the dishwasher still under warranty?** Appliance tracking with purchase dates, warranty windows, and linked maintenance.
 
 ## Install
 
-Requires Go 1.24+ and CGO (for SQLite).
-
 ```sh
-go install github.com/micasa/micasa/cmd/micasa@latest
+go install github.com/cpcloud/micasa/cmd/micasa@latest
 ```
 
-## Quick start
+Or grab a binary from the [latest release](https://github.com/cpcloud/micasa/releases/latest).
 
 ```sh
-micasa --demo   # explore with sample data
-micasa          # start fresh
+micasa --demo   # poke around with sample data
+micasa          # start fresh with your own house
 ```
+
+Your data stays yours. `~/.local/share/micasa/micasa.db`. One file. Back it up with `cp`.
 
 ## Keybindings
+
+No mouse required.
 
 ### Normal mode
 
@@ -53,6 +54,7 @@ micasa          # start fresh
 | `tab` / `shift+tab` | Next / previous tab |
 | `s` / `S` | Cycle sort / clear all sorts |
 | `enter` | Drilldown or follow link |
+| `c` / `C` | Hide / show columns |
 | `i` | Enter Edit mode |
 | `H` | Toggle house profile |
 | `?` | Help |
@@ -71,13 +73,9 @@ micasa          # start fresh
 | `1`-`9` | Jump to Nth select option |
 | `esc` | Back to Normal |
 
-## Tech stack
+## Tech
 
-[Bubble Tea](https://github.com/charmbracelet/bubbletea) +
-[Bubbles](https://github.com/charmbracelet/bubbles) +
-[huh](https://github.com/charmbracelet/huh) +
-[Lip Gloss](https://github.com/charmbracelet/lipgloss) +
-[GORM](https://gorm.io)/SQLite
+Built with the [Charmbracelet](https://github.com/charmbracelet) TUI toolkit, [GORM](https://gorm.io), and [SQLite](https://sqlite.org). [Pure Go](https://go.dev), zero CGO.
 
 ## Contributing
 

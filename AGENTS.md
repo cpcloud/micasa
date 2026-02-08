@@ -264,6 +264,9 @@ These have been repeatedly requested. Violating them wastes the user's time.
   retroactively right away.
 - **Website commits use `docs(website):`** not `feat(website):` to avoid
   triggering semantic-release version bumps.
+- **Keep README and website in sync**: when changing content on one (features,
+  install instructions, keybindings, tech stack, pitch copy), update the other
+  to match.
 - **Colorblind-safe palette**: All colors must use the Wong palette with
   `lipgloss.AdaptiveColor{Light, Dark}`. See `styles.go` for the existing
   palette and roles. When adding or changing styles, always provide both Light
@@ -677,6 +680,9 @@ in case things crash or otherwise go haywire, be diligent about this.
   model number; doesn't need to be super sophisticated, just plausible
 - [PARSE-ARGS] can we avoid manual argument parsing and use a maintained
   library for this?
+- [WEBSITE-CHIMNEY] can we add some animated cursor-block chimney smoke for that
+  sweet little block cursor house you made? a bit worried that it might be too much
+  animation on the landing page, so feel free to tell me that idea is hot garbage lol.
 
 ## Bugs
 
