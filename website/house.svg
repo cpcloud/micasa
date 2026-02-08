@@ -1,0 +1,18 @@
+<!-- Copyright 2026 Phillip Cloud -->
+<!-- Licensed under the Apache License, Version 2.0 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 120" width="200" height="120">
+  <style>
+    text {
+      font-family: "SFMono-Regular", "Consolas", "Liberation Mono", "Menlo", monospace;
+      font-size: 14px;
+      fill: #c05e3c;
+    }
+  </style>
+  <text x="100" y="16" text-anchor="middle" xml:space="preserve">    „“„</text>
+  <text x="100" y="30" text-anchor="middle" xml:space="preserve">  „“““““„</text>
+  <text x="100" y="44" text-anchor="middle" xml:space="preserve">„“““““““““„</text>
+  <text x="100" y="58" text-anchor="middle" xml:space="preserve">ˆˆ ‘‘ ‘‘ ˆˆ</text>
+  <text x="100" y="72" text-anchor="middle" xml:space="preserve">ˆˆ  ˆˆˆˆ ˆˆ</text>
+  <text x="100" y="86" text-anchor="middle" xml:space="preserve">ˆˆ  ˆ  ˆ ˆˆ</text>
+  <text x="100" y="100" text-anchor="middle" xml:space="preserve">€€€€€€€€€€€</text>
+</svg>
