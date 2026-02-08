@@ -5,17 +5,14 @@
 
 A terminal UI for tracking everything about your home. Single SQLite file. No cloud. No account. No subscriptions. Just your house.
 
-<div align="center">
-<pre>
-    ▄▓▄
+<div align="center"><pre><code>    ▄▓▄
   ▄▓▓▓▓▓▄
 ▄▓▓▓▓▓▓▓▓▓▄
 ██ ░░ ░░ ██
 ██  ████ ██
 ██  █  █ ██
 ▀▀▀▀▀▀▀▀▀▀▀
-</pre>
-</div>
+</code></pre></div>
 
 ## Features
 
