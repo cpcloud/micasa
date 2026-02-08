@@ -5,9 +5,15 @@
 
 A terminal UI for tracking everything about your home. Single SQLite file. No cloud. No account. No subscriptions. Just your house.
 
-<div align="center">
-  <img src="website/house.svg" alt="micasa" width="160">
-</div>
+```
+      ▄▓▄
+    ▄▓▓▓▓▓▄
+  ▄▓▓▓▓▓▓▓▓▓▄
+  ██ ░░ ░░ ██
+  ██  ████ ██
+  ██  █  █ ██
+  ▀▀▀▀▀▀▀▀▀▀▀
+```
 
 ## Features
 
