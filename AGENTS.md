@@ -622,7 +622,8 @@ in case things crash or otherwise go haywire, be diligent about this.
 
 **Work done**:
 - [WEBSITE-BUG] Replaced all 6 `github.com/micasa/micasa` refs in `index.html` on `gh-pages` branch with `github.com/cpcloud/micasa` (hero CTA, install go-install, install release link, footer x3) (3500195)
-- [WEBSITE-MAIN] Moved website from `gh-pages` branch to `website/` on `main`; added `pages.yml` workflow (deploy-pages action, triggers on `website/**` changes); copied `index.html`, `style.css`, `CNAME`
+- [WEBSITE-MAIN] Moved website from `gh-pages` branch to `website/` on `main`; added `pages.yml` workflow (deploy-pages action, triggers on `website/**` changes, workflow_dispatch); copied `index.html`, `style.css`, `CNAME` (343e35a, 3c9bed3)
+- Deleted `gh-pages` branch (local + remote)
 
 # Remaining work
 
