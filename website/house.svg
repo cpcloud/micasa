@@ -1,8 +1,6 @@
 <!-- Copyright 2026 Phillip Cloud -->
 <!-- Licensed under the Apache License, Version 2.0 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 84 90" width="112" height="120">
-  <!-- Terminal background with rounded corners -->
-  <rect x="0" y="0" width="84" height="90" rx="6" fill="#2d2a26"/>
   <!-- Grid: 11 cols x 7 rows, cell=6x10, offset=(8,12) for padding -->
   <!-- Row 0: peak -->
   <rect x="32" y="17" width="6" height="5" fill="#c05e3c"/>
@@ -43,13 +41,4 @@
   <rect x="68" y="62" width="6" height="10" fill="#c05e3c"/>
   <!-- Row 6: foundation -->
   <rect x="8" y="72" width="66" height="5" fill="#c05e3c"/>
-  <!-- Subtle scanlines -->
-  <rect x="0" y="11" width="84" height="1" fill="#faf6f1" opacity="0.03"/>
-  <rect x="0" y="21" width="84" height="1" fill="#faf6f1" opacity="0.03"/>
-  <rect x="0" y="31" width="84" height="1" fill="#faf6f1" opacity="0.03"/>
-  <rect x="0" y="41" width="84" height="1" fill="#faf6f1" opacity="0.03"/>
-  <rect x="0" y="51" width="84" height="1" fill="#faf6f1" opacity="0.03"/>
-  <rect x="0" y="61" width="84" height="1" fill="#faf6f1" opacity="0.03"/>
-  <rect x="0" y="71" width="84" height="1" fill="#faf6f1" opacity="0.03"/>
-  <rect x="0" y="81" width="84" height="1" fill="#faf6f1" opacity="0.03"/>
 </svg>
