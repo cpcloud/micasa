@@ -1,7 +1,7 @@
 // Copyright 2026 Phillip Cloud
 // Licensed under the Apache License, Version 2.0
 
-module github.com/micasa/micasa
+module github.com/cpcloud/micasa
 
 go 1.24.2
 

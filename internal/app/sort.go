@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/table"
-	"github.com/micasa/micasa/internal/data"
+	"github.com/cpcloud/micasa/internal/data"
 )
 
 // toggleSort cycles the sort on colIdx: none -> asc -> desc -> none.

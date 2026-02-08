@@ -247,7 +247,7 @@
                 "org.opencontainers.image.description" =
                   "Terminal UI for managing home projects and maintenance";
                 "org.opencontainers.image.source" =
-                  "https://github.com/micasa/micasa";
+                  "https://github.com/cpcloud/micasa";
                 "org.opencontainers.image.url" = "https://micasa.dev";
                 "org.opencontainers.image.licenses" = "Apache-2.0";
               };

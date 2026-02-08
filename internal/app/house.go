@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/micasa/micasa/internal/data"
+	"github.com/cpcloud/micasa/internal/data"
 )
 
 func (m *Model) houseView() string {

@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/charmbracelet/bubbles/table"
-	"github.com/micasa/micasa/internal/data"
+	"github.com/cpcloud/micasa/internal/data"
 )
 
 // TabHandler encapsulates entity-specific operations for a tab, eliminating

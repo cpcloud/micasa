@@ -10,7 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/micasa/micasa/internal/data"
+	"github.com/cpcloud/micasa/internal/data"
 	"gorm.io/gorm"
 )
 

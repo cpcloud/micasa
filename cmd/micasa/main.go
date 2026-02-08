@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/micasa/micasa/internal/app"
-	"github.com/micasa/micasa/internal/data"
+	"github.com/cpcloud/micasa/internal/app"
+	"github.com/cpcloud/micasa/internal/data"
 )
 
 func main() {

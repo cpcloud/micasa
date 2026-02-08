@@ -11,7 +11,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/micasa/micasa/internal/data"
+	"github.com/cpcloud/micasa/internal/data"
 )
 
 type houseFormData struct {

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/table"
-	"github.com/micasa/micasa/internal/data"
+	"github.com/cpcloud/micasa/internal/data"
 )
 
 // normalTableKeyMap returns the default table KeyMap with full vim bindings.

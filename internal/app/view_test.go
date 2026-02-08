@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/micasa/micasa/internal/data"
+	"github.com/cpcloud/micasa/internal/data"
 )
 
 func TestBuildViewShowsFullHouseBox(t *testing.T) {

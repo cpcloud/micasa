@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/table"
-	"github.com/micasa/micasa/internal/data"
+	"github.com/cpcloud/micasa/internal/data"
 )
 
 func TestOpenDetailSetsContext(t *testing.T) {
