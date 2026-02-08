@@ -7,9 +7,9 @@
 
 # `micasa`
 
-A terminal UI for tracking everything about your home. Single SQLite file. No cloud. No account. No subscriptions. Just your house.
-
 Your house is quietly plotting to break while you sleep -- and you're dreaming about redoing the kitchen. `micasa` tracks both from your terminal.
+
+> Single SQLite file. No cloud. No account. No subscriptions.
 
 ## Features
 
@@ -19,6 +19,8 @@ Your house is quietly plotting to break while you sleep -- and you're dreaming a
 - **Is the dishwasher still under warranty?** Appliance tracking with purchase dates, warranty windows, and linked maintenance.
 
 ## Install
+
+Requires Go 1.24+:
 
 ```sh
 go install github.com/cpcloud/micasa/cmd/micasa@latest
@@ -31,11 +33,10 @@ micasa --demo   # poke around with sample data
 micasa          # start fresh with your own house
 ```
 
-Your data stays yours. `~/.local/share/micasa/micasa.db`. One file. Back it up with `cp`.
+> Your data stays yours. `~/.local/share/micasa/micasa.db`. One file. Back it up with `cp`.
 
-## Keybindings
-
-No mouse required.
+<details>
+<summary><h2>Keybindings (no mouse required)</h2></summary>
 
 ### Normal mode
 
@@ -67,13 +68,18 @@ No mouse required.
 | `1`-`9` | Jump to Nth select option |
 | `esc` | Back to Normal |
 
-## Tech
+</details>
+
+## Development
 
 Built with the [Charmbracelet](https://github.com/charmbracelet) TUI toolkit, [GORM](https://gorm.io), and [SQLite](https://sqlite.org). [Pure Go](https://go.dev), zero CGO.
 
-## Contributing
+PRs welcome. The repo uses a [Nix](https://nixos.org) dev shell with pre-commit hooks for formatting, linting, and tests:
 
-PRs welcome. `go test ./...` before submitting. Pre-commit hooks handle formatting, linting, and tests.
+```sh
+nix develop          # enter dev shell
+go test ./...        # run tests
+```
 
 ## License
 
