@@ -35,8 +35,12 @@ micasa          # start fresh with your own house
 
 > Your data stays yours. `~/.local/share/micasa/micasa.db`. One file. Back it up with `cp`.
 
+## Keybindings
+
+No mouse required.
+
 <details>
-<summary><h2>Keybindings (no mouse required)</h2></summary>
+<summary>Show all keybindings</summary>
 
 ### Normal mode
 
