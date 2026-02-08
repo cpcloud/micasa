@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<!-- Copyright 2026 Phillip Cloud -->
+<!-- Licensed under the Apache License, Version 2.0 -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>micasa &mdash; your house, in a terminal</title>
+  <meta name="description" content="A terminal UI for tracking everything about your home. Single SQLite file. No cloud. No account. No subscriptions. Just your house.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=JetBrains+Mono:wght@400;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ─── Hero ─── -->
+<header class="hero">
+  <div class="container">
+    <div class="hero-house" aria-hidden="true">
+      &#x2584;&#x2593;&#x2584;<br>
+      &#x2584;&#x2593;&#x2593;&#x2593;&#x2593;&#x2593;&#x2584;<br>
+      &#x2584;&#x2593;&#x2593;&#x2593;&#x2593;&#x2593;&#x2593;&#x2593;&#x2593;&#x2593;&#x2584;<br>
+      &#x2588;&#x2588; &#x2591;&#x2591; &#x2591;&#x2591; &#x2588;&#x2588;<br>
+      &#x2588;&#x2588; &nbsp;&#x2588;&#x2588;&#x2588;&#x2588; &#x2588;&#x2588;<br>
+      &#x2588;&#x2588; &nbsp;&#x2588;&nbsp;&nbsp;&#x2588; &#x2588;&#x2588;<br>
+      &#x2580;&#x2580;&#x2580;&#x2580;&#x2580;&#x2580;&#x2580;&#x2580;&#x2580;&#x2580;&#x2580;
+    </div>
+    <h1>micasa<span class="dot">.</span></h1>
+    <p class="tagline">
+      A terminal UI for tracking everything about your home.
+      Single SQLite file. No cloud. No account. No subscriptions.
+    </p>
+    <div class="hero-cta">
+      <a href="#install" class="btn-primary">Install</a>
+      <a href="https://github.com/cpcloud/micasa" class="btn-secondary">GitHub</a>
+    </div>
+  </div>
+</header>
+
+<!-- ─── Pitch ─── -->
+<div class="container">
+  <p class="pitch">
+    Home ownership is a never-ending parade of things that are broken, about to
+    break, or quietly plotting to break while you sleep. <strong>micasa</strong>
+    helps you keep track of all of it from the comfort of your terminal, because
+    you have enough browser tabs open already.
+  </p>
+</div>
+
+<!-- ─── Features ─── -->
+<section id="features">
+  <div class="container">
+    <h2>Frequently <span class="accent">panicked</span> questions</h2>
+    <div class="features-grid">
+
+      <div class="feature">
+        <p class="feature-q">When did I last change the furnace filter?</p>
+        <p class="feature-a">Maintenance schedules with auto-computed due dates and full service history.</p>
+      </div>
+
+      <div class="feature">
+        <p class="feature-q">How much was that roof quote?</p>
+        <p class="feature-a">Vendor quotes with labor, materials, and other cost breakdowns.</p>
+      </div>
+
+      <div class="feature">
+        <p class="feature-q">Is the dishwasher still under warranty?</p>
+        <p class="feature-a">Appliance tracking with purchase dates, warranty expiry, and linked maintenance items.</p>
+      </div>
+
+      <div class="feature">
+        <p class="feature-q">Who replaced the water heater last time?</p>
+        <p class="feature-a">Service log with vendor tracking. Drill into any maintenance item to see the full history.</p>
+      </div>
+
+      <div class="feature">
+        <p class="feature-q">What's the status of&hellip; everything?</p>
+        <p class="feature-a">Projects with color-coded statuses, from &ldquo;ideating&rdquo; to &ldquo;completed&rdquo; to &ldquo;abandoned.&rdquo;</p>
+      </div>
+
+      <div class="feature">
+        <p class="feature-q">Do I need a mouse for this?</p>
+        <p class="feature-a">No. Vim-style modal editing, <code>hjkl</code> navigation, undo/redo, multi-column sorting. Your mouse can rest.</p>
+      </div>
+
+      <div class="feature">
+        <p class="feature-q">Where does my data live?</p>
+        <p class="feature-a"><code>~/.local/share/micasa/micasa.db</code>. One file. Back it up with <code>cp</code>. Radical, we know.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ─── Install ─── -->
+<section id="install">
+  <div class="container">
+    <h2>Get <span class="accent">started</span></h2>
+    <div class="install-steps">
+      <div>
+        <p>Install with Go (1.24+):</p>
+        <pre><code>go install github.com/cpcloud/micasa/cmd/micasa@latest</code></pre>
+      </div>
+      <p class="install-or">or grab a binary from the <a href="https://github.com/cpcloud/micasa/releases/latest">latest release</a></p>
+      <div>
+        <p>Then run it:</p>
+        <pre><code>micasa --demo   # poke around with sample data
+micasa          # start fresh with your own house</code></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Keybindings ─── -->
+<section id="keys">
+  <div class="container">
+    <h2>Keyboard <span class="accent">driven</span></h2>
+    <div class="keys-modes">
+
+      <div>
+        <h3>Normal <span class="mode-badge mode-normal">normal</span></h3>
+        <ul class="key-list">
+          <li><kbd>j / k</kbd> <span class="desc">Row up / down</span></li>
+          <li><kbd>h / l</kbd> <span class="desc">Column left / right</span></li>
+          <li><kbd>g / G</kbd> <span class="desc">First / last row</span></li>
+          <li><kbd>d / u</kbd> <span class="desc">Half-page down / up</span></li>
+          <li><kbd>tab</kbd> <span class="desc">Next tab</span></li>
+          <li><kbd>s / S</kbd> <span class="desc">Sort / clear sorts</span></li>
+          <li><kbd>enter</kbd> <span class="desc">Drilldown or follow link</span></li>
+          <li><kbd>c / C</kbd> <span class="desc">Hide / show columns</span></li>
+          <li><kbd>i</kbd> <span class="desc">Enter Edit mode</span></li>
+          <li><kbd>?</kbd> <span class="desc">Help</span></li>
+          <li><kbd>q</kbd> <span class="desc">Quit</span></li>
+        </ul>
+      </div>
+
+      <div>
+        <h3>Edit <span class="mode-badge mode-edit">edit</span></h3>
+        <ul class="key-list">
+          <li><kbd>a</kbd> <span class="desc">Add entry</span></li>
+          <li><kbd>e</kbd> <span class="desc">Edit cell or row</span></li>
+          <li><kbd>d</kbd> <span class="desc">Delete / restore</span></li>
+          <li><kbd>x</kbd> <span class="desc">Show / hide deleted</span></li>
+          <li><kbd>p</kbd> <span class="desc">Edit house profile</span></li>
+          <li><kbd>u / r</kbd> <span class="desc">Undo / redo</span></li>
+          <li><kbd>1&ndash;9</kbd> <span class="desc">Jump to Nth option</span></li>
+          <li><kbd>esc</kbd> <span class="desc">Back to Normal</span></li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ─── Tech ─── -->
+<section id="tech">
+  <div class="container">
+    <h2>Built <span class="accent">with</span></h2>
+    <ul class="tech-list">
+      <li><a href="https://github.com/charmbracelet/bubbletea">Bubble Tea</a></li>
+      <li><a href="https://github.com/charmbracelet/bubbles">Bubbles</a></li>
+      <li><a href="https://github.com/charmbracelet/huh">huh</a></li>
+      <li><a href="https://github.com/charmbracelet/lipgloss">Lip Gloss</a></li>
+      <li><a href="https://gorm.io">GORM</a></li>
+      <li>SQLite</li>
+      <li>Pure Go, zero CGO</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─── Footer ─── -->
+<footer>
+  <div class="container">
+    <div class="footer-links">
+      <a href="https://github.com/cpcloud/micasa">GitHub</a>
+      <a href="https://github.com/cpcloud/micasa/releases/latest">Releases</a>
+      <a href="https://github.com/cpcloud/micasa/blob/main/LICENSE">Apache-2.0</a>
+    </div>
+    <p>&copy; 2026 Phillip Cloud</p>
+  </div>
+</footer>
+
+</body>
+</html>

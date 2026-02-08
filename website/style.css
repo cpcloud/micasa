@@ -1,0 +1,389 @@
+/* Copyright 2026 Phillip Cloud */
+/* Licensed under the Apache License, Version 2.0 */
+
+/* --- Reset & Base --- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --cream: #faf6f1;
+  --linen: #f0ebe4;
+  --charcoal: #2d2a26;
+  --charcoal-soft: #4a4640;
+  --terracotta: #c05e3c;
+  --terracotta-dark: #a04e30;
+  --sage: #6b8f71;
+  --sage-light: #8aab8f;
+  --warm-gray: #9e958a;
+  --rule: #d9d2c9;
+}
+
+html {
+  font-size: 18px;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: "Source Serif 4", "Georgia", "Times New Roman", serif;
+  color: var(--charcoal);
+  background: var(--cream);
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- Typography --- */
+h1,
+h2,
+h3 {
+  font-family: "DM Serif Display", "Georgia", serif;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+h2 {
+  font-size: 2rem;
+  margin-bottom: 1.5rem;
+  color: var(--charcoal);
+}
+
+h2 .accent {
+  color: var(--terracotta);
+}
+
+a {
+  color: var(--terracotta);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  color: var(--terracotta-dark);
+}
+
+code,
+pre {
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+}
+
+code {
+  font-size: 0.85em;
+  background: var(--linen);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+}
+
+pre {
+  background: var(--charcoal);
+  color: #e8e2da;
+  padding: 1.25rem 1.5rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+/* --- Layout --- */
+.container {
+  max-width: 740px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+section {
+  padding: 4rem 0;
+}
+
+section + section {
+  border-top: 1px solid var(--rule);
+}
+
+/* --- Hero --- */
+.hero {
+  padding: 5rem 0 4rem;
+  text-align: center;
+}
+
+.hero-house {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.9rem;
+  line-height: 1.3;
+  color: var(--terracotta);
+  margin-bottom: 1.5rem;
+  user-select: none;
+}
+
+.hero h1 {
+  font-size: 3.5rem;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.75rem;
+}
+
+.hero h1 .dot {
+  color: var(--terracotta);
+}
+
+.tagline {
+  font-size: 1.15rem;
+  color: var(--charcoal-soft);
+  max-width: 480px;
+  margin: 0 auto 2rem;
+}
+
+.hero-cta {
+  display: inline-flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.hero-cta a {
+  display: inline-block;
+  padding: 0.6rem 1.5rem;
+  border-radius: 6px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.85rem;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.btn-primary {
+  background: var(--terracotta);
+  color: var(--cream) !important;
+}
+
+.btn-primary:hover {
+  background: var(--terracotta-dark);
+  color: var(--cream) !important;
+}
+
+.btn-secondary {
+  background: var(--linen);
+  color: var(--charcoal) !important;
+  border: 1px solid var(--rule);
+}
+
+.btn-secondary:hover {
+  background: var(--rule);
+  color: var(--charcoal) !important;
+}
+
+/* --- Pitch --- */
+.pitch {
+  font-size: 1.05rem;
+  color: var(--charcoal-soft);
+  text-align: center;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 2.5rem 0;
+  border-top: 1px solid var(--rule);
+  font-style: italic;
+}
+
+/* --- Features --- */
+.features-grid {
+  display: grid;
+  gap: 2rem;
+}
+
+.feature {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0 1rem;
+  align-items: baseline;
+}
+
+.feature-q {
+  font-family: "DM Serif Display", "Georgia", serif;
+  font-size: 1.1rem;
+  color: var(--charcoal);
+  grid-column: 1 / -1;
+  margin-bottom: 0.25rem;
+}
+
+.feature-q::before {
+  content: "Q. ";
+  color: var(--terracotta);
+  font-weight: 700;
+}
+
+.feature-a {
+  color: var(--charcoal-soft);
+  grid-column: 1 / -1;
+  padding-left: 1.75rem;
+}
+
+.feature-a::before {
+  content: "A. ";
+  color: var(--sage);
+  font-weight: 700;
+  margin-left: -1.75rem;
+}
+
+/* --- Install --- */
+.install-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.install-steps p {
+  color: var(--charcoal-soft);
+}
+
+.install-or {
+  text-align: center;
+  color: var(--warm-gray);
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+/* --- Keybindings --- */
+.keys-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+@media (max-width: 600px) {
+  .keys-modes {
+    grid-template-columns: 1fr;
+  }
+}
+
+.keys-modes h3 {
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+  color: var(--charcoal);
+}
+
+.keys-modes h3 .mode-badge {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.2em 0.5em;
+  border-radius: 4px;
+  vertical-align: middle;
+  margin-left: 0.5rem;
+}
+
+.mode-normal {
+  background: var(--sage);
+  color: var(--cream);
+}
+
+.mode-edit {
+  background: var(--terracotta);
+  color: var(--cream);
+}
+
+.key-list {
+  list-style: none;
+  font-size: 0.9rem;
+}
+
+.key-list li {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--linen);
+}
+
+.key-list li:last-child {
+  border-bottom: none;
+}
+
+.key-list kbd {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.8rem;
+  min-width: 4.5rem;
+  text-align: right;
+  color: var(--terracotta);
+  flex-shrink: 0;
+}
+
+.key-list .desc {
+  color: var(--charcoal-soft);
+}
+
+/* --- Tech --- */
+.tech-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  list-style: none;
+  justify-content: center;
+}
+
+.tech-list li {
+  background: var(--linen);
+  border: 1px solid var(--rule);
+  padding: 0.35rem 0.9rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  color: var(--charcoal-soft);
+}
+
+.tech-list li a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.tech-list li a:hover {
+  color: var(--terracotta);
+}
+
+/* --- Footer --- */
+footer {
+  padding: 3rem 0;
+  border-top: 1px solid var(--rule);
+  text-align: center;
+  color: var(--warm-gray);
+  font-size: 0.85rem;
+}
+
+footer a {
+  color: var(--warm-gray);
+}
+
+footer a:hover {
+  color: var(--terracotta);
+}
+
+.footer-links {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+}
+
+/* --- Responsive --- */
+@media (max-width: 600px) {
+  html {
+    font-size: 16px;
+  }
+
+  .hero h1 {
+    font-size: 2.5rem;
+  }
+
+  section {
+    padding: 3rem 0;
+  }
+
+  .hero {
+    padding: 3rem 0 2.5rem;
+  }
+}

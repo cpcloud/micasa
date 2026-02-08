@@ -582,6 +582,8 @@ in case things crash or otherwise go haywire, be diligent about this.
 - [WIN-TEMPDIR] Store.Close() for Windows temp dir cleanup (2c132df)
 - [CI-PRECOMMIT] nix pre-commit hooks replace manual lint/tidy CI jobs (9479cce)
 - [RELEASE-CONSOLIDATE] consolidated binaries+container into release workflow to fix GITHUB_TOKEN event limitation
+- [WEBSITE-BUG] fix GitHub links on website: micasa/micasa -> cpcloud/micasa (3500195)
+- [WEBSITE-MAIN] move website from gh-pages branch to website/ on main with Actions deploy workflow
 
 ## 2026-02-07 Session 12
 
@@ -614,8 +616,17 @@ in case things crash or otherwise go haywire, be diligent about this.
 - [CONTAINER-TAGS] Dropped SHA tags from container image (d8f8f7d)
 - [OCI-LABELS] Added description/source/license OCI labels to Nix container image (865174f)
 
+## 2026-02-08 Session 14
+
+**User request**: Fix [WEBSITE] bug -- GitHub links on gh-pages site pointed to `micasa/micasa` (nonexistent) instead of `cpcloud/micasa`.
+
+**Work done**:
+- [WEBSITE-BUG] Replaced all 6 `github.com/micasa/micasa` refs in `index.html` on `gh-pages` branch with `github.com/cpcloud/micasa` (hero CTA, install go-install, install release link, footer x3) (3500195)
+- [WEBSITE-MAIN] Moved website from `gh-pages` branch to `website/` on `main`; added `pages.yml` workflow (deploy-pages action, triggers on `website/**` changes); copied `index.html`, `style.css`, `CNAME`
+
 # Remaining work
 
+## Features
 - [WEBSITE] Help me build a `github-pages` website for this project. Modern,
   simple, not AI sloppish, whimsical, funny, perhaps even a bit snarky and
   irreverent. Ideally this wouldn't require a bunch of random javascript crap
@@ -650,3 +661,11 @@ in case things crash or otherwise go haywire, be diligent about this.
   and ideally we can gather some data to get a rough idea of when a thing is
   due for replacement; would be sweet if we could pull that data based on the
   model number; doesn't need to be super sophisticated, just plausible
+- [PARSE-ARGS] can we avoid manual argument parsing and use a maintained
+  library for this?
+
+## Bugs
+
+## Questions
+- Why are some values pointers to numbers instead of just the number? E.g.,
+  HOAFeeCents and PropertyTaxCents. Why aren't those just plain int64s?
