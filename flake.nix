@@ -12,6 +12,7 @@
 
   outputs =
     {
+      self,
       nixpkgs,
       flake-utils,
       git-hooks,
@@ -146,6 +147,96 @@
         packages = {
           inherit micasa;
           default = micasa;
+          website = pkgs.writeShellScriptBin "micasa-website" ''
+            echo "Serving website at http://localhost:8000"
+            ${pkgs.python3}/bin/python3 -m http.server 8000 -d website
+          '';
+          record-demo = pkgs.writeShellApplication {
+            name = "record-demo";
+            runtimeInputs = [
+              micasa
+              pkgs.asciinema
+              pkgs.asciinema-agg
+              pkgs.tmux
+              pkgs.fontconfig
+              pkgs.jetbrains-mono
+            ];
+            text = ''
+              CAST_FILE="$(mktemp --suffix=.cast)"
+              GIF_FILE="images/demo.gif"
+              SESSION="micasa-demo"
+              COLS=132
+              ROWS=42
+
+              cleanup() {
+                tmux kill-session -t "$SESSION" 2>/dev/null || true
+              }
+              trap cleanup EXIT
+              cleanup
+
+              send() { tmux send-keys -t "$SESSION" "$@"; }
+              pause() { sleep "''${1:-0.5}"; }
+
+              tmux new-session -d -s "$SESSION" -x "$COLS" -y "$ROWS"
+
+              send "TERM=xterm-256color asciinema rec --cols $COLS --rows $ROWS --overwrite '$CAST_FILE' -c 'micasa --demo'" Enter
+              pause 3
+
+              # Projects tab
+              pause 2
+              send j; pause 0.6
+              send j; pause 0.6
+              send j; pause 0.6
+              send j; pause 1
+
+              send l; pause 0.5
+              send l; pause 0.5
+              send s; pause 1.2
+              send s; pause 1.5
+
+              # Maintenance tab
+              send Tab; pause 2
+              send j; pause 0.5
+              send j; pause 0.5
+
+              send l; pause 0.4
+              send l; pause 0.4
+              send l; pause 0.4
+              send l; pause 0.4
+              send l; pause 1
+
+              send Enter; pause 3
+              send Escape; pause 1.5
+
+              # Appliances tab
+              send Tab; pause 2
+              send j; pause 0.5
+              send j; pause 0.5
+              send j; pause 1
+
+              # House profile
+              send H; pause 3
+              send H; pause 1.5
+
+              # Help overlay
+              send ?; pause 4
+              send Escape; pause 1
+
+              # Quit
+              send q; pause 1
+
+              echo "Converting to GIF..."
+              FONT_FILE=$(fc-list : file family | grep -i "JetBrains Mono" | head -1 | cut -d: -f1)
+              FONT_DIR=$(dirname "$FONT_FILE")
+              agg --font-dir "$FONT_DIR" \
+                  --font-family "JetBrains Mono" \
+                  --theme asciinema \
+                  --cols "$COLS" --rows "$ROWS" \
+                  "$CAST_FILE" "$GIF_FILE"
+
+              echo "Done: $CAST_FILE and $GIF_FILE"
+            '';
+          };
           micasa-container = pkgs.dockerTools.buildImage {
             name = "micasa";
             tag = "latest";
@@ -166,6 +257,8 @@
 
         apps = {
           default = flake-utils.lib.mkApp { drv = micasa; };
+          website = flake-utils.lib.mkApp { drv = self.packages.${system}.website; };
+          record-demo = flake-utils.lib.mkApp { drv = self.packages.${system}.record-demo; };
         };
 
         formatter = pkgs.nixpkgs-fmt;

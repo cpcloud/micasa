@@ -274,6 +274,9 @@ These have been repeatedly requested. Violating them wastes the user's time.
 - **No mass-history-cleanup logs**: Don't write detailed session log entries
   for git history rewrites (filter-branch, squash rebases, etc.) -- they
   reference commit hashes that no longer exist and add noise.
+- **Re-record demo after UI/UX changes**: Run `nix run '.#record-demo'`
+  after any UI or UX feature work. This updates `images/demo.gif` (used in
+  README). Commit the GIF with the feature.
 
 If the user asks you to learn something, add it to this "Hard rules" section
 so it survives context resets. This file is always injected; external files
@@ -697,6 +700,12 @@ in case things crash or otherwise go haywire, be diligent about this.
 - [WEBSITE-CHIMNEY] can we add some animated cursor-block chimney smoke for that
   sweet little block cursor house you made? a bit worried that it might be too much
   animation on the landing page, so feel free to tell me that idea is hot garbage lol.
+- [STATUS-MODE-VERBOSITY] is there a kind of verbose status bar we can add that
+  shows keystrokes and also more verbose context?
+
+## Docs
+
+- [ATTRIBUTION] ensure that claude, codex and cursor are ack'd in the built with section
 
 ## Bugs
 

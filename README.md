@@ -2,7 +2,7 @@
 <!-- Licensed under the Apache License, Version 2.0 -->
 
 <div align="center">
-  <img src="website/house.svg" alt="micasa">
+  <img src="images/house.svg" alt="micasa">
 </div>
 
 # `micasa`
@@ -10,6 +10,10 @@
 Your house is quietly plotting to break while you sleep -- and you're dreaming about redoing the kitchen. `micasa` tracks both from your terminal.
 
 > Single SQLite file. No cloud. No account. No subscriptions.
+
+<div align="center">
+  <img src="images/demo.gif" alt="micasa demo" width="800">
+</div>
 
 ## Features
 
