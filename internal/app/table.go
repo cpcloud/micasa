@@ -61,14 +61,24 @@ func renderHeaderRow(
 	separators []string,
 	colCursor int,
 	sorts []sortEntry,
+	hasLeft, hasRight bool,
 	styles Styles,
 ) string {
 	cells := make([]string, 0, len(specs))
+	last := len(specs) - 1
 	for i, spec := range specs {
 		width := safeWidth(widths, i)
 		title := spec.Title
 		if spec.Link != nil {
 			title = title + " " + styles.LinkIndicator.Render(spec.Link.Relation)
+		}
+		// Scroll arrows embedded in edge column headers.
+		arrow := lipgloss.NewStyle().Foreground(secondary)
+		if i == 0 && hasLeft {
+			title = arrow.Render("◀") + " " + title
+		}
+		if i == last && hasRight {
+			title = title + " " + arrow.Render("▶")
 		}
 		indicator := sortIndicator(sorts, i)
 		text := formatHeaderCell(title, indicator, width)

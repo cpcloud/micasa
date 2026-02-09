@@ -508,7 +508,16 @@ func (m *Model) tableView(tab *Tab) string {
 	vpVisToFull := sliceViewport(visToFull, vpStart, vpEnd)
 	plainSeps, collapsedSeps := gapSeparators(vpVisToFull, len(tab.Specs), normalSep, m.styles)
 
-	header := renderHeaderRow(vpSpecs, vpWidths, collapsedSeps, vpCursor, vpSorts, m.styles)
+	header := renderHeaderRow(
+		vpSpecs,
+		vpWidths,
+		collapsedSeps,
+		vpCursor,
+		vpSorts,
+		hasLeft,
+		hasRight,
+		m.styles,
+	)
 	divider := renderDivider(vpWidths, plainSeps, normalDiv, m.styles.TableSeparator)
 
 	// Badge line accounts for 1 row of vertical space when visible.
@@ -535,9 +544,6 @@ func (m *Model) tableView(tab *Tab) string {
 		m.styles,
 	)
 
-	// Scroll indicators.
-	scrollHint := m.scrollIndicators(hasLeft, hasRight)
-
 	// Assemble body (header + divider + data rows).
 	bodyParts := []string{header, divider}
 	if len(rows) == 0 {
@@ -553,26 +559,7 @@ func (m *Model) tableView(tab *Tab) string {
 		centered := lipgloss.PlaceHorizontal(tableWidth, lipgloss.Center, badges)
 		bodyParts = append(bodyParts, centered)
 	}
-	if scrollHint != "" {
-		bodyParts = append(bodyParts, scrollHint)
-	}
 	return joinVerticalNonEmpty(bodyParts...)
-}
-
-// scrollIndicators renders a hint line when columns exist off-screen.
-func (m *Model) scrollIndicators(hasLeft, hasRight bool) string {
-	if !hasLeft && !hasRight {
-		return ""
-	}
-	hint := m.styles.HeaderHint
-	var parts []string
-	if hasLeft {
-		parts = append(parts, hint.Render("◀ more"))
-	}
-	if hasRight {
-		parts = append(parts, hint.Render("more ▶"))
-	}
-	return strings.Join(parts, "  ")
 }
 
 // viewportSorts adjusts sort entries so column indices are relative to the
