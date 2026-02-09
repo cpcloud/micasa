@@ -398,6 +398,7 @@ func (m *Model) helpView() string {
 			bindings: []binding{
 				{"j/k", "Move through rows"},
 				{"h/l", "Move through columns"},
+				{"^/$", "Jump to first/last column"},
 				{"g/G", "Jump to first/last row"},
 				{"d/u", "Half page down/up"},
 				{"tab/shift+tab", "Switch tabs"},

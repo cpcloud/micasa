@@ -189,6 +189,24 @@ func TestNextVisibleColClampsLeftAllVisible(t *testing.T) {
 	}
 }
 
+func TestFirstVisibleCol(t *testing.T) {
+	specs := []columnSpec{
+		{Title: "A", HideOrder: 1}, {Title: "B"}, {Title: "C"}, {Title: "D"},
+	}
+	if got := firstVisibleCol(specs); got != 1 {
+		t.Fatalf("expected 1 (A hidden), got %d", got)
+	}
+}
+
+func TestLastVisibleCol(t *testing.T) {
+	specs := []columnSpec{
+		{Title: "A"}, {Title: "B"}, {Title: "C"}, {Title: "D", HideOrder: 1},
+	}
+	if got := lastVisibleCol(specs); got != 2 {
+		t.Fatalf("expected 2 (D hidden), got %d", got)
+	}
+}
+
 func TestVisibleCount(t *testing.T) {
 	specs := []columnSpec{
 		{Title: "A"}, {Title: "B", HideOrder: 1}, {Title: "C"},

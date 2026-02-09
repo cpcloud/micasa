@@ -134,6 +134,26 @@ func TestColumnNavClampsLeft(t *testing.T) {
 	}
 }
 
+func TestCaretJumpsToFirstColumn(t *testing.T) {
+	m := newTestModel()
+	tab := m.activeTab()
+	tab.ColCursor = len(tab.Specs) - 1
+	sendKey(m, "^")
+	if tab.ColCursor != 0 {
+		t.Fatalf("expected cursor at 0, got %d", tab.ColCursor)
+	}
+}
+
+func TestDollarJumpsToLastColumn(t *testing.T) {
+	m := newTestModel()
+	tab := m.activeTab()
+	tab.ColCursor = 0
+	sendKey(m, "$")
+	if tab.ColCursor != len(tab.Specs)-1 {
+		t.Fatalf("expected cursor at last column %d, got %d", len(tab.Specs)-1, tab.ColCursor)
+	}
+}
+
 func TestNextTabAdvances(t *testing.T) {
 	m := newTestModel()
 	// Directly call nextTab logic without store (would panic on reloadActiveTab).

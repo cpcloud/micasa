@@ -762,7 +762,7 @@ in case things crash or otherwise go haywire, be diligent about this.
 - [DATEPICKER] for date column data entry can we make that a date picker that
   adjusts a nice little terminal calendar based on what the user has typed in
   so far?
-- [HOTNESS-KEYS] in nav mode, ^ should go to the first column, $ to the last
+- [HOTNESS-KEYS] ~~in nav mode, ^ should go to the first column, $ to the last~~ DONE
 - [NORMAL-TO-NAV] change the NORMAL label to NAV
 - [STYLING-TIME-TO-MAINT] add a gradient from say green to orange to red (where
   green means maintenance is not due for a long time, orange means it's coming

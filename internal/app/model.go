@@ -233,6 +233,18 @@ func (m *Model) handleCommonKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 			m.updateTabViewport(tab)
 		}
 		return nil, true
+	case "^":
+		if tab := m.effectiveTab(); tab != nil {
+			tab.ColCursor = firstVisibleCol(tab.Specs)
+			m.updateTabViewport(tab)
+		}
+		return nil, true
+	case "$":
+		if tab := m.effectiveTab(); tab != nil {
+			tab.ColCursor = lastVisibleCol(tab.Specs)
+			m.updateTabViewport(tab)
+		}
+		return nil, true
 	}
 	return nil, false
 }
@@ -906,6 +918,26 @@ func nextVisibleCol(specs []columnSpec, current int, forward bool) int {
 		}
 	}
 	return current
+}
+
+// firstVisibleCol returns the index of the leftmost visible column.
+func firstVisibleCol(specs []columnSpec) int {
+	for i, s := range specs {
+		if s.HideOrder == 0 {
+			return i
+		}
+	}
+	return 0
+}
+
+// lastVisibleCol returns the index of the rightmost visible column.
+func lastVisibleCol(specs []columnSpec) int {
+	for i := len(specs) - 1; i >= 0; i-- {
+		if specs[i].HideOrder == 0 {
+			return i
+		}
+	}
+	return 0
 }
 
 // visibleCount returns the number of non-hidden columns.
