@@ -25,6 +25,10 @@ type Model struct {
 	height                int
 	showHelp              bool
 	showHouse             bool
+	showDashboard         bool
+	dashboard             dashboardData
+	dashCursor            int
+	dashNav               []dashNavEntry
 	hasHouse              bool
 	house                 data.HouseProfile
 	mode                  Mode
@@ -65,6 +69,9 @@ func NewModel(store *data.Store, options Options) (*Model, error) {
 	}
 	if !model.hasHouse {
 		model.startHouseForm()
+	} else {
+		model.showDashboard = true
+		_ = model.loadDashboard()
 	}
 	return model, nil
 }
@@ -102,6 +109,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch typed := msg.(type) {
 	case tea.KeyMsg:
+		// Dashboard intercepts nav keys before other handlers.
+		if m.showDashboard {
+			if cmd, handled := m.handleDashboardKeys(typed); handled {
+				return m, cmd
+			}
+		}
 		if cmd, handled := m.handleCommonKeys(typed); handled {
 			return m, cmd
 		}
@@ -115,6 +128,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, cmd
 			}
 		}
+	}
+
+	// Dashboard absorbs remaining keys so they don't reach the table.
+	if m.showDashboard {
+		return m, nil
 	}
 
 	// Pass unhandled messages to the effective table (handles j/k, g/G, etc.).
@@ -162,6 +180,36 @@ func (m *Model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+// handleDashboardKeys intercepts keys that belong to the dashboard (j/k
+// navigation, enter to jump, h/l blocked). Keys like D, tab, ?, q fall
+// through to the normal handlers.
+func (m *Model) handleDashboardKeys(key tea.KeyMsg) (tea.Cmd, bool) {
+	switch key.String() {
+	case "j", "down":
+		m.dashDown()
+		return nil, true
+	case "k", "up":
+		m.dashUp()
+		return nil, true
+	case "g":
+		m.dashTop()
+		return nil, true
+	case "G":
+		m.dashBottom()
+		return nil, true
+	case "enter":
+		m.dashJump()
+		return nil, true
+	case "h", "l", "left", "right":
+		// Block column movement on dashboard.
+		return nil, true
+	case "s", "S", "c", "C", "i":
+		// Block table-specific keys on dashboard.
+		return nil, true
+	}
+	return nil, false
+}
+
 // handleCommonKeys processes keys available in both Normal and Edit modes.
 func (m *Model) handleCommonKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 	switch key.String() {
@@ -189,13 +237,22 @@ func (m *Model) handleCommonKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 // handleNormalKeys processes keys unique to Normal mode.
 func (m *Model) handleNormalKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 	switch key.String() {
+	case "D":
+		m.toggleDashboard()
+		return nil, true
 	case "tab":
 		if m.detail == nil {
+			if m.showDashboard {
+				m.showDashboard = false
+			}
 			m.nextTab()
 		}
 		return nil, true
 	case "shift+tab":
 		if m.detail == nil {
+			if m.showDashboard {
+				m.showDashboard = false
+			}
 			m.prevTab()
 		}
 		return nil, true
@@ -308,25 +365,15 @@ func (m *Model) handleEditKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 	case "u":
 		if err := m.popUndo(); err != nil {
 			m.setStatusError(err.Error())
-		} else if m.store != nil {
-			_ = m.loadLookups()
-			_ = m.loadHouse()
-			_ = m.reloadAllTabs()
-			if m.detail != nil {
-				_ = m.reloadDetailTab()
-			}
+		} else {
+			m.reloadAll()
 		}
 		return nil, true
 	case "r":
 		if err := m.popRedo(); err != nil {
 			m.setStatusError(err.Error())
-		} else if m.store != nil {
-			_ = m.loadLookups()
-			_ = m.loadHouse()
-			_ = m.reloadAllTabs()
-			if m.detail != nil {
-				_ = m.reloadDetailTab()
-			}
+		} else {
+			m.reloadAll()
 		}
 		return nil, true
 	case "x":
@@ -439,6 +486,34 @@ func (m *Model) reloadDetailTab() error {
 		return nil
 	}
 	return m.reloadTab(&m.detail.Tab)
+}
+
+// reloadAll refreshes lookups, house profile, all tabs, detail tab, and
+// dashboard data. Called after any data mutation.
+func (m *Model) reloadAll() {
+	if m.store == nil {
+		return
+	}
+	_ = m.loadLookups()
+	_ = m.loadHouse()
+	_ = m.reloadAllTabs()
+	if m.detail != nil {
+		_ = m.reloadDetailTab()
+	}
+	if m.showDashboard {
+		_ = m.loadDashboard()
+	}
+}
+
+func (m *Model) toggleDashboard() {
+	m.showDashboard = !m.showDashboard
+	if m.showDashboard {
+		_ = m.loadDashboard()
+		// Close any open detail view when returning to dashboard.
+		if m.detail != nil {
+			m.closeDetail()
+		}
+	}
 }
 
 func (m *Model) nextTab() {
@@ -612,6 +687,9 @@ func (m *Model) selectedRowMeta() (rowMeta, bool) {
 }
 
 func (m *Model) reloadActiveTab() error {
+	if m.store == nil {
+		return nil
+	}
 	tab := m.activeTab()
 	if tab == nil {
 		return nil
@@ -620,6 +698,9 @@ func (m *Model) reloadActiveTab() error {
 }
 
 func (m *Model) reloadAllTabs() error {
+	if m.store == nil {
+		return nil
+	}
 	for i := range m.tabs {
 		if err := m.reloadTab(&m.tabs[i]); err != nil {
 			return err
@@ -730,12 +811,7 @@ func (m *Model) saveForm() tea.Cmd {
 	}
 	m.exitForm()
 	m.setStatusInfo("Saved.")
-	_ = m.loadLookups()
-	_ = m.loadHouse()
-	_ = m.reloadAllTabs()
-	if m.detail != nil {
-		_ = m.reloadDetailTab()
-	}
+	m.reloadAll()
 	return nil
 }
 

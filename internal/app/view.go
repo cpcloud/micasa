@@ -19,19 +19,28 @@ func (m *Model) buildView() string {
 	}
 
 	house := m.houseView()
-	var tabs, tabLine string
-	if m.detail != nil {
+
+	var tabs, tabLine, content string
+	if m.showDashboard {
+		tabs = m.dashboardTabsView()
+		tabLine = m.tabUnderline()
+		content = m.dashboardView()
+	} else if m.detail != nil {
 		tabs = m.breadcrumbView()
 		tabLine = m.tabUnderline()
+		if m.mode == modeForm && m.form != nil {
+			content = m.form.View()
+		} else if tab := m.effectiveTab(); tab != nil {
+			content = m.tableView(tab)
+		}
 	} else {
 		tabs = m.tabsView()
 		tabLine = m.tabUnderline()
-	}
-	content := ""
-	if m.mode == modeForm && m.form != nil {
-		content = m.form.View()
-	} else if tab := m.effectiveTab(); tab != nil {
-		content = m.tableView(tab)
+		if m.mode == modeForm && m.form != nil {
+			content = m.form.View()
+		} else if tab := m.effectiveTab(); tab != nil {
+			content = m.tableView(tab)
+		}
 	}
 	status := m.statusView()
 
@@ -67,6 +76,15 @@ func (m *Model) tabsView() string {
 		} else {
 			tabs = append(tabs, m.styles.TabInactive.Render(tab.Name))
 		}
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Left, tabs...)
+}
+
+func (m *Model) dashboardTabsView() string {
+	dashTab := m.styles.TabActive.Render("Dashboard")
+	tabs := []string{dashTab}
+	for _, tab := range m.tabs {
+		tabs = append(tabs, m.styles.TabInactive.Render(tab.Name))
 	}
 	return lipgloss.JoinHorizontal(lipgloss.Left, tabs...)
 }
@@ -123,6 +141,25 @@ func (m *Model) statusView() string {
 	}
 
 	var help string
+	if m.showDashboard {
+		items := []string{
+			modeBadge,
+			m.helpItem("j/k", "navigate"),
+		}
+		if m.dashNavCount() > 0 {
+			items = append(items, m.helpItem("enter", "jump to"))
+		}
+		items = append(items,
+			m.helpItem("tab", "switch"),
+			m.helpItem("D", "dashboard"),
+			m.helpItem("H", "house"),
+			m.helpItem("?", "help"),
+			m.helpItem("q", "quit"),
+		)
+		help = joinWithSeparator(m.helpSeparator(), items...)
+		return m.withStatusMessage(help)
+	}
+
 	if m.mode == modeNormal {
 		items := []string{modeBadge}
 		if m.detail == nil {
@@ -143,6 +180,7 @@ func (m *Model) statusView() string {
 		}
 		items = append(items,
 			m.helpItem("i", "edit"),
+			m.helpItem("D", "dashboard"),
 			m.helpItem("H", "house"),
 			m.helpItem("?", "help"),
 		)
@@ -322,6 +360,7 @@ func (m *Model) helpView() string {
 				{"enter", "Open detail / follow link"},
 				{"c", "Hide current column"},
 				{"C", "Show all columns"},
+				{"D", "Toggle dashboard"},
 				{"i", "Enter Edit mode"},
 				{"?", "Help"},
 				{"q", "Quit"},

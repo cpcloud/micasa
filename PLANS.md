@@ -347,6 +347,80 @@ message). Full detail-view for appliances = future scope.
 - Visual distinction for detail view
 - Help overlay updates
 
+## Dashboard Landing Screen (DASHBOARD)
+
+**Goal**: Replace "boot into Projects tab" with an at-a-glance overview showing
+what needs attention. Accessible with `D` in Normal mode, shown by default on
+launch. Tab navigation or `D` dismisses it. Data refreshes whenever the
+dashboard is opened.
+
+**Sections** (top to bottom):
+
+1. **Overdue & Upcoming Maintenance** -- highest value. Computed from
+   `LastServicedAt + IntervalMonths`. Sub-grouped:
+   - Overdue items (NextDue < now): danger-colored, sorted by most overdue first
+   - Upcoming within 30 days: warning-colored, sorted by soonest
+   - Columns: Name, Appliance (if linked), Days overdue/until, Last serviced
+   - Cap at 10 rows total
+   - Empty state: "Nothing overdue or upcoming -- nice work!"
+
+2. **Active Projects** -- status IN (underway, delayed). Shows title, status
+   (with color), budget vs actual (over-budget highlighted in danger). Sorted
+   by status priority (delayed first, then underway).
+   - Empty state: "No active projects. Time to start something?"
+
+3. **Expiring Soon** -- two sources:
+   - Appliance warranties expiring within 90 days (or expired within last 30)
+   - House insurance renewal within 90 days
+   - Shows item name, expiry date, days until expiry (or days past)
+   - Empty state: "All clear for the next 90 days"
+
+4. **Recent Activity** -- last 5 service log entries across all maintenance items.
+   Preload maintenance item name + vendor. Shows date, item name, who, cost.
+   - Empty state: "No service history yet"
+
+5. **Spending Snapshot** -- single line: YTD service costs + project actual costs.
+   Just two numbers and a total. Computed from ServiceLogEntry.CostCents
+   (where ServicedAt is this year) and Project.ActualCents.
+   - Empty state: nothing shown (skip section entirely if zero)
+
+**Data Layer** (new store methods):
+- `ListMaintenanceWithSchedule() []MaintenanceItem` -- all non-deleted items
+  with IntervalMonths > 0, preloading Appliance
+- `ListActiveProjects() []Project` -- status IN (underway, delayed)
+- `ListExpiringWarranties(horizon time.Duration) []Appliance` -- WarrantyExpiry
+  within horizon from now (or expired within 30 days)
+- `ListRecentServiceLogs(limit int) []ServiceLogEntry` -- global, ordered by
+  ServicedAt desc, preload MaintenanceItem + Vendor
+- `YTDServiceSpendCents() int64` -- SUM cost_ct WHERE serviced_at >= Jan 1
+- `YTDProjectSpendCents() int64` -- SUM act_ct for all non-deleted projects
+
+**App Layer**:
+- `DashboardData` struct with fields for each section
+- `showDashboard bool` on Model (default true when hasHouse)
+- `loadDashboard()` method queries store, computes urgency/dates
+- `D` in Normal mode toggles `showDashboard`, calls `loadDashboard()` when opening
+- Tab/shift-tab sets `showDashboard = false`
+- `buildView()` renders dashboard when active (no tabs/table visible)
+- Status bar in dashboard mode: mode badge + `D dashboard` + `tab switch` + `?` + `q`
+- Help overlay: `D` documented in Normal mode section
+
+**Styles** (new entries in Styles struct):
+- `DashSection` -- section header (bold, accent-colored)
+- Urgency: reuse `danger` for overdue, `warning` for upcoming, `success` for all-clear
+- Spending: reuse `Money` style
+
+**Tests**:
+- `TestLoadDashboard_OverdueMaintenance` -- items with past NextDue show up
+- `TestLoadDashboard_UpcomingMaintenance` -- items due within 30 days
+- `TestLoadDashboard_NoMaintenance` -- empty list
+- `TestLoadDashboard_ActiveProjects` -- underway/delayed only
+- `TestLoadDashboard_ExpiringWarranties` -- within 90 days
+- `TestLoadDashboard_RecentActivity` -- last 5 entries, global
+- `TestLoadDashboard_Spending` -- YTD aggregation
+- `TestDashboardToggle` -- D key toggles, tab dismisses
+- `TestDashboardRefresh` -- data changes reflected after re-opening
+
 ## Hide/Show Columns (HIDECOLS)
 
 **Goal**: Let users hide columns per-tab to reduce noise. Session-only (not persisted).

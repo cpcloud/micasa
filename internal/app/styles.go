@@ -39,6 +39,12 @@ type Styles struct {
 	BreadcrumbArrow lipgloss.Style
 	HiddenLeft      lipgloss.Style // hidden cols to the left of cursor
 	HiddenRight     lipgloss.Style // hidden cols to the right of cursor
+	DashSection     lipgloss.Style // dashboard section header
+	DashLabel       lipgloss.Style // dashboard dim label text
+	DashValue       lipgloss.Style // dashboard bright value text
+	DashOverdue     lipgloss.Style // overdue maintenance item
+	DashUpcoming    lipgloss.Style // upcoming maintenance (within 30 days)
+	DashAllClear    lipgloss.Style // empty-state / all-clear message
 	StatusStyles    map[string]lipgloss.Style
 }
 
@@ -184,6 +190,23 @@ func DefaultStyles() Styles {
 			Italic(true),
 		HiddenRight: lipgloss.NewStyle().
 			Foreground(accent).
+			Italic(true),
+		DashSection: lipgloss.NewStyle().
+			Foreground(onAccent).
+			Background(accent).
+			Padding(0, 1).
+			Bold(true),
+		DashLabel: lipgloss.NewStyle().
+			Foreground(textDim),
+		DashValue: lipgloss.NewStyle().
+			Foreground(textBright),
+		DashOverdue: lipgloss.NewStyle().
+			Foreground(danger).
+			Bold(true),
+		DashUpcoming: lipgloss.NewStyle().
+			Foreground(warning),
+		DashAllClear: lipgloss.NewStyle().
+			Foreground(success).
 			Italic(true),
 		StatusStyles: map[string]lipgloss.Style{
 			"ideating":  lipgloss.NewStyle().Foreground(muted),

@@ -597,6 +597,7 @@ in case things crash or otherwise go haywire, be diligent about this.
 - [WEBSITE-MAIN] move website from gh-pages branch to website/ on main with Actions deploy workflow (343e35a, 3c9bed3)
 - [WEBSITE-VIBES] typewriter heading, aspirational content, pitch tightening, polish (413e24a, b0bb6d9, cc0a955)
 - [MODULE-RENAME] Go module path corrected from micasa/micasa to cpcloud/micasa (f2fc33d)
+- [DASHBOARD] Dashboard landing screen with overdue/upcoming maintenance, active projects, expiring warranties, recent activity, YTD spending
 
 ## 2026-02-07 Session 12
 
@@ -661,11 +662,21 @@ in case things crash or otherwise go haywire, be diligent about this.
 
 ## 2026-02-08 Session 16
 
-**User request**: Update `vendorHash` in `flake.nix` if needed after Go module rename; commit the module rename as a bugfix.
+**User request**: Update `vendorHash` in `flake.nix` if needed after Go module rename; commit the module rename as a bugfix. Then implement [DASHBOARD] landing screen.
 
 **Work done**:
 - `nix build` succeeded without vendorHash change (deps unchanged, only module name moved)
 - [MODULE-RENAME] Go module `github.com/micasa/micasa` -> `github.com/cpcloud/micasa` in go.mod, all imports, flake.nix OCI label; fixed `.gitignore` binary pattern that blocked `cmd/micasa/` (f2fc33d)
+- [DASHBOARD] Dashboard landing screen: at-a-glance overview replaces boot-into-Projects; `D` toggles in Normal mode, `tab` dismisses; refreshes on all data mutations
+  - **Data layer** (`data/dashboard.go`): 6 new store methods -- `ListMaintenanceWithSchedule`, `ListActiveProjects`, `ListExpiringWarranties`, `ListRecentServiceLogs`, `YTDServiceSpendCents`, `YTDProjectSpendCents`
+  - **Dashboard struct** (`app/dashboard.go`): `dashboardData` with urgency computation, `loadDashboardAt(now)` for testability
+  - **Sections**: Overdue/Upcoming Maintenance (danger/warning colors), Active Projects (status-colored, over-budget highlighted), Expiring Soon (warranties + insurance), Recent Activity (last 5 service logs), Spending YTD
+  - **Empty states**: emoji + encouraging messages per section ("Nothing overdue -- nice work!", "No active projects. Time to start something?", etc.)
+  - **View**: "Dashboard" tab in tab bar, dedicated status bar hints, help overlay updated
+  - **Styles**: `DashSection`, `DashLabel`, `DashValue`, `DashOverdue`, `DashUpcoming`, `DashAllClear` -- all Wong palette with AdaptiveColor
+  - **Refresh**: `reloadAll()` helper consolidates all data refresh paths (saveForm, undo, redo)
+  - **Tests**: 6 data-layer tests (schedule, active projects, warranties, recent logs, spending) + 12 app-layer tests (daysUntil, daysLabel, sort, cap, toggle, dismiss, blocking, empty/populated views, tab bar, status bar) -- 154 total tests passing
+  - Added nil guards on `reloadActiveTab`/`reloadAllTabs` for store-less test models
 
 # Remaining work
 
@@ -711,6 +722,37 @@ in case things crash or otherwise go haywire, be diligent about this.
   animation on the landing page, so feel free to tell me that idea is hot garbage lol.
 - [STATUS-MODE-VERBOSITY] is there a kind of verbose status bar we can add that
   shows keystrokes and also more verbose context?
+- [VENDORS-TAB] Vendors as a first-class tab. Vendor model already exists but is
+  only accessible through quote and service log forms. Should be browsable,
+  editable, and show all work a vendor has done (quotes + service log entries).
+- [PAINT-COLORS] Paint color tracking per room: brand, color name/code, finish,
+  room/area. "What paint did we use in the living room?" is a universal
+  homeowner question.
+- [SPENDING-SUMMARY] Aggregate spending view: total spend by year/month, by
+  category (projects, maintenance, appliances). Could live as a summary section
+  in the house profile or as its own dashboard panel.
+- [PROJECT-PRIORITY] Priority or manual ordering for projects. Status captures
+  lifecycle but not urgency. A simple priority field (or drag-to-reorder) would
+  let homeowners rank what matters most.
+- [SEASONAL-CHECKLISTS] Recurring seasonal reminders not tied to a specific
+  appliance or interval (e.g. "clean gutters in spring", "check weatherstripping
+  before winter"). Could be a lightweight checklist model with season/month tags.
+- [WARRANTY-INDICATOR] Visual indicator on appliances for warranty status: green
+  if still covered, red/dim if expired. WarrantyExpiry field already exists;
+  this is purely a rendering enhancement.
+- [NOTES-EXPAND] Read-only note preview: enter or a dedicated key on a notes
+  cell expands to show the full text in a popup/overlay, without entering edit
+  mode.
+- [TABLE-FILTER] In-table row filtering: `/` opens a filter input, typed text
+  narrows visible rows across all columns, `esc` clears. Essential for tabs
+  with more than ~15 rows. (Search was previously removed; this is a simpler,
+  per-tab approach.)
+- [QUICK-CAPTURE] Lower-ceremony entry creation. Options: (a) minimal "just
+  title" add flow in the TUI that skips optional fields, (b) CLI subcommands
+  like `micasa add project "fix squeaky door"`, or (c) both.
+- [QUICK-ADD-FORM] Lighter-weight add forms: only require essential fields
+  (title + status for projects, name + interval for maintenance), let user fill
+  in optional details later via edit.
 
 ## Docs
 
