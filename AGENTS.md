@@ -699,6 +699,13 @@ in case things crash or otherwise go haywire, be diligent about this.
   - `cli` struct with `arg`, `env`, `help` tags; kong handles help, errors, env var docs
   - Removed `cliOpts`, `parseArgs`, `printHelp` (~35 lines); `resolveDBPath` kept for demo/default logic
   - Help output auto-documents `$MICASA_DB_PATH` env var
+- [DASH-OVERLAY] Dashboard rendered as centered overlay using `rmhubbert/bubbletea-overlay`
+  - `buildView()` refactored: `buildBaseView()` renders normal table, `buildDashboardOverlay()` renders bordered box
+  - `overlay.Composite()` composites dashboard on top of live table view
+  - Dashboard hints (j/k, enter, D, ?, q) moved into overlay box; `statusView()` no longer has dashboard branch
+  - Removed `dashboardTabsView()`; background shows normal tab bar
+  - Dashboard box: rounded border, accent color, max 78 wide, capped to terminal height
+  - Updated 3 tests: overlay content, composite rendering, status bar independence
 
 # Remaining work
 
@@ -770,6 +777,12 @@ in case things crash or otherwise go haywire, be diligent about this.
 - [QUICK-ADD-FORM] Lighter-weight add forms: only require essential fields
   (title + status for projects, name + interval for maintenance), let user fill
   in optional details later via edit.
+
+- [DASH-OVERLAY-STYLE] Revisit dashboard overlay styling -- noodle on dim/bg
+  approach, make it feel polished.
+- [HELP-OVERLAY] Convert help screen to an overlay using bubbletea-overlay.
+  Must support stacking on top of the dashboard overlay (dimming the layer
+  beneath).
 
 ## Docs
 

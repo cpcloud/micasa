@@ -305,26 +305,48 @@ func TestDashboardViewWithData(t *testing.T) {
 	}
 }
 
-func TestDashboardTabsView(t *testing.T) {
-	m := newTestModel()
-	m.showDashboard = true
-	view := m.dashboardTabsView()
-	if !strings.Contains(view, "Dashboard") {
-		t.Error("expected 'Dashboard' in tab bar")
-	}
-	if !strings.Contains(view, "Projects") {
-		t.Error("expected 'Projects' in tab bar")
-	}
-}
-
-func TestDashboardStatusBar(t *testing.T) {
+func TestDashboardOverlay(t *testing.T) {
 	m := newTestModel()
 	m.width = 120
 	m.height = 40
 	m.showDashboard = true
+	m.dashboard = dashboardData{}
+	m.dashNav = nil
+
+	ov := m.buildDashboardOverlay()
+	if !strings.Contains(ov, "Dashboard") {
+		t.Error("expected 'Dashboard' title in overlay")
+	}
+	if !strings.Contains(ov, "help") {
+		t.Error("expected help hint in overlay")
+	}
+}
+
+func TestDashboardOverlayComposite(t *testing.T) {
+	m := newTestModel()
+	m.width = 120
+	m.height = 40
+	m.showDashboard = true
+	m.dashboard = dashboardData{}
+	m.dashNav = nil
+
+	// buildView should produce a composited result without panicking.
+	view := m.buildView()
+	if view == "" {
+		t.Error("expected non-empty composited view")
+	}
+}
+
+func TestDashboardStatusBarShowsNormal(t *testing.T) {
+	m := newTestModel()
+	m.width = 120
+	m.height = 40
+	m.showDashboard = true
+	// statusView always shows normal-mode status; dashboard hints are
+	// in the overlay, not the status bar.
 	status := m.statusView()
 	if !strings.Contains(status, "NORMAL") {
-		t.Error("expected NORMAL badge in dashboard status")
+		t.Error("expected NORMAL badge in status bar")
 	}
 }
 

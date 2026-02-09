@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	overlay "github.com/rmhubbert/bubbletea-overlay"
 )
 
 func (m *Model) buildView() string {
@@ -18,14 +19,25 @@ func (m *Model) buildView() string {
 		return m.formFullScreen()
 	}
 
+	base := m.buildBaseView()
+
+	if m.showDashboard {
+		fg := cancelFaint(m.buildDashboardOverlay())
+		dimmed := dimBackground(base)
+		return overlay.Composite(fg, dimmed, overlay.Center, overlay.Center, 0, 0)
+	}
+
+	return base
+}
+
+// buildBaseView renders the normal table/detail/form view with house, tabs,
+// content area, and status bar. Used as the background when the dashboard
+// overlay is active.
+func (m *Model) buildBaseView() string {
 	house := m.houseView()
 
 	var tabs, tabLine, content string
-	if m.showDashboard {
-		tabs = m.dashboardTabsView()
-		tabLine = m.tabUnderline()
-		content = m.dashboardView()
-	} else if m.detail != nil {
+	if m.detail != nil {
 		tabs = m.breadcrumbView()
 		tabLine = m.tabUnderline()
 		if m.mode == modeForm && m.form != nil {
@@ -65,6 +77,50 @@ func (m *Model) buildView() string {
 	return b.String()
 }
 
+// buildDashboardOverlay renders the dashboard content inside a bordered box
+// with navigation hints, suitable for compositing over the base view.
+func (m *Model) buildDashboardOverlay() string {
+	title := m.styles.DashSection.Render("Dashboard")
+	content := m.dashboardView()
+
+	// Navigation hints inside the overlay.
+	items := []string{m.helpItem("j/k", "navigate")}
+	if m.dashNavCount() > 0 {
+		items = append(items, m.helpItem("enter", "jump to"))
+	}
+	items = append(items,
+		m.helpItem("D", "close"),
+		m.helpItem("?", "help"),
+		m.helpItem("q", "quit"),
+	)
+	hints := joinWithSeparator(m.helpSeparator(), items...)
+
+	boxContent := lipgloss.JoinVertical(
+		lipgloss.Left, title, "", content, "", hints,
+	)
+
+	// Content width: terminal minus border (2) + padding (4) + breathing room (6).
+	contentW := m.effectiveWidth() - 12
+	if contentW > 72 {
+		contentW = 72
+	}
+	if contentW < 30 {
+		contentW = 30
+	}
+	maxH := m.effectiveHeight() - 4
+	if maxH < 10 {
+		maxH = 10
+	}
+
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(accent).
+		Padding(1, 2).
+		Width(contentW).
+		MaxHeight(maxH).
+		Render(boxContent)
+}
+
 func (m *Model) tabsView() string {
 	pinned := m.mode == modeEdit
 	tabs := make([]string, 0, len(m.tabs))
@@ -76,15 +132,6 @@ func (m *Model) tabsView() string {
 		} else {
 			tabs = append(tabs, m.styles.TabInactive.Render(tab.Name))
 		}
-	}
-	return lipgloss.JoinHorizontal(lipgloss.Left, tabs...)
-}
-
-func (m *Model) dashboardTabsView() string {
-	dashTab := m.styles.TabActive.Render("Dashboard")
-	tabs := []string{dashTab}
-	for _, tab := range m.tabs {
-		tabs = append(tabs, m.styles.TabInactive.Render(tab.Name))
 	}
 	return lipgloss.JoinHorizontal(lipgloss.Left, tabs...)
 }
@@ -141,25 +188,6 @@ func (m *Model) statusView() string {
 	}
 
 	var help string
-	if m.showDashboard {
-		items := []string{
-			modeBadge,
-			m.helpItem("j/k", "navigate"),
-		}
-		if m.dashNavCount() > 0 {
-			items = append(items, m.helpItem("enter", "jump to"))
-		}
-		items = append(items,
-			m.helpItem("tab", "switch"),
-			m.helpItem("D", "dashboard"),
-			m.helpItem("H", "house"),
-			m.helpItem("?", "help"),
-			m.helpItem("q", "quit"),
-		)
-		help = joinWithSeparator(m.helpSeparator(), items...)
-		return m.withStatusMessage(help)
-	}
-
 	if m.mode == modeNormal {
 		items := []string{modeBadge}
 		if m.detail == nil {
@@ -485,6 +513,25 @@ func (m *Model) tableView(tab *Tab) string {
 		bodyParts = append(bodyParts, centered)
 	}
 	return joinVerticalNonEmpty(bodyParts...)
+}
+
+// dimBackground applies ANSI faint (dim) to an already-styled string. It
+// replaces full resets with reset+faint so the dim survives through existing
+// color codes.
+func dimBackground(s string) string {
+	dimmed := strings.ReplaceAll(s, "\033[0m", "\033[0;2m")
+	return "\033[2m" + dimmed + "\033[0m"
+}
+
+// cancelFaint prepends each line with the ANSI "normal intensity" code so that
+// faint state inherited from a composited background does not bleed into the
+// foreground overlay.
+func cancelFaint(s string) string {
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		lines[i] = "\033[22m" + line
+	}
+	return strings.Join(lines, "\n")
 }
 
 // --- Keycap rendering ---
