@@ -1,6 +1,3 @@
-<!-- Copyright 2026 Phillip Cloud -->
-<!-- Licensed under the Apache License, Version 2.0 -->
-
 +++
 title = "micasa docs"
 description = "Documentation for micasa, a terminal UI for tracking everything about your home."

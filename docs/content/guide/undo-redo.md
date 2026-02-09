@@ -1,6 +1,3 @@
-<!-- Copyright 2026 Phillip Cloud -->
-<!-- Licensed under the Apache License, Version 2.0 -->
-
 +++
 title = "Undo and Redo"
 weight = 9

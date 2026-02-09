@@ -108,7 +108,7 @@
               name = "license-header";
               entry = "${licenseCheck}";
               files = "\\.(go|nix|ya?ml|sh|md)$|^\\.envrc$|\\.gitignore$|^go\\.mod$";
-              excludes = ["LICENSE" "flake\\.lock" "go\\.sum" "\\.json$"];
+              excludes = ["LICENSE" "flake\\.lock" "go\\.sum" "\\.json$" "^docs/content/"];
               language = "system";
               pass_filenames = true;
             };
@@ -150,7 +150,7 @@
           default = micasa;
           website = pkgs.writeShellScriptBin "micasa-website" ''
             rm -rf website/docs
-            ${pkgs.hugo}/bin/hugo --source docs --baseURL /docs/ --destination ../website/docs
+            ${pkgs.hugo}/bin/hugo --source docs --baseURL /docs/ --destination ../website/docs >/dev/null 2>&1
             ${pkgs.python3}/bin/python3 -m http.server 0 -d website
           '';
           docs = pkgs.writeShellScriptBin "micasa-docs" ''
@@ -235,7 +235,7 @@
               FONT_DIR=$(dirname "$FONT_FILE")
               agg --font-dir "$FONT_DIR" \
                   --font-family "JetBrains Mono" \
-                  --theme asciinema \
+                  --theme dracula \
                   --cols "$COLS" --rows "$ROWS" \
                   "$CAST_FILE" "$GIF_FILE"
 
@@ -270,7 +270,7 @@
               AGG_OPTS=(
                 --font-dir "$FONT_DIR"
                 --font-family "JetBrains Mono"
-                --theme asciinema
+                --theme dracula
                 --cols "$COLS" --rows "$ROWS"
                 --no-loop
               )

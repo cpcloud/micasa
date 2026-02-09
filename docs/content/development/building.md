@@ -1,6 +1,3 @@
-<!-- Copyright 2026 Phillip Cloud -->
-<!-- Licensed under the Apache License, Version 2.0 -->
-
 +++
 title = "Building from Source"
 weight = 1
