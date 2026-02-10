@@ -4,28 +4,21 @@
 package data
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/adrg/xdg"
 )
 
-const DefaultDBFile = "micasa.db"
+const AppName = "micasa"
 
 func DefaultDBPath() (string, error) {
 	if override := os.Getenv("MICASA_DB_PATH"); override != "" {
 		return override, nil
 	}
-	dataHome := os.Getenv("XDG_DATA_HOME")
-	if dataHome == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", fmt.Errorf("resolve home dir: %w", err)
-		}
-		dataHome = filepath.Join(home, ".local", "share")
-	}
-	dir := filepath.Join(dataHome, "micasa")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", fmt.Errorf("create data dir: %w", err)
-	}
-	return filepath.Join(dir, DefaultDBFile), nil
+	// xdg.DataFile creates the parent directory and returns the full path.
+	// On Linux/WSL: $XDG_DATA_HOME/micasa/micasa.db (default ~/.local/share)
+	// On macOS:     ~/Library/Application Support/micasa/micasa.db
+	// On Windows:   %LOCALAPPDATA%/micasa/micasa.db
+	return xdg.DataFile(filepath.Join(AppName, AppName+".db"))
 }

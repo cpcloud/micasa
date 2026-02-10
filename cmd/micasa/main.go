@@ -22,7 +22,7 @@ type cli struct {
 func main() {
 	var c cli
 	kong.Parse(&c,
-		kong.Name("micasa"),
+		kong.Name(data.AppName),
 		kong.Description("A terminal UI for tracking everything about your home."),
 		kong.UsageOnError(),
 	)
@@ -69,6 +69,6 @@ func resolveDBPath(c cli) (string, error) {
 }
 
 func fail(context string, err error) {
-	fmt.Fprintf(os.Stderr, "micasa: %s: %v\n", context, err)
+	fmt.Fprintf(os.Stderr, "%s: %s: %v\n", data.AppName, context, err)
 	os.Exit(1)
 }

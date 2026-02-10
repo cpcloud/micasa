@@ -29,7 +29,7 @@
           inherit version;
           src = ./.;
           subPackages = [ "cmd/micasa" ];
-          vendorHash = "sha256-NfXXLvq0MOU1vmOyEWBBEbl7Faf4o1WfKIrg36bu2OE=";
+          vendorHash = "sha256-N92+issG7+IerXO9WEUnOpZa95z/G/lEiyFpy6tX28c=";
           env.CGO_ENABLED = 0;
           ldflags = [
             "-X main.version=${version}"

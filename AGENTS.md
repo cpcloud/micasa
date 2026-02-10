@@ -270,6 +270,13 @@ These have been repeatedly requested. Violating them wastes the user's time.
   time and sets `set -euo pipefail` automatically.
 - **Use `pkgs.python3.pkgs`** not `pkgs.python3Packages` for Python
   packages in Nix expressions.
+- **Audit new deps before adding**: When the user asks to introduce a new
+  third-party dependency, review its source for security issues (injection
+  risks, unsafe env var handling, network calls, file writes outside
+  expected paths) before integrating.
+- **Nix vendorHash after dep changes**: After adding or updating a Go
+  dependency, run `nix build '.#micasa'`. If it fails with a hash mismatch,
+  update `vendorHash` in `flake.nix` to the expected value from the error.
 - **Run `go mod tidy` before committing** to keep `go.mod`/`go.sum` clean.
 - **Record every user request** in the "Remaining work" section of this file
   (with a unique ID) if it is not already there. Mark it done when complete.
@@ -621,6 +628,7 @@ in case things crash or otherwise go haywire, be diligent about this.
 - [DASHBOARD] Dashboard landing screen with overdue/upcoming maintenance, active projects, expiring warranties, recent activity, YTD spending (271121c)
 - [WEBSITE-CHIMNEY] animated chimney smoke particle system on website hero house (75318ac)
 - [PARSE-ARGS] replaced manual arg parsing with alecthomas/kong
+- [XDG-LIB] switched to adrg/xdg for platform-aware data paths (Linux/macOS/Windows)
 
 ## 2026-02-07 Session 12
 
@@ -816,6 +824,16 @@ in case things crash or otherwise go haywire, be diligent about this.
 - Cleaned up temp files (good.png, bad.png, debug-vhs.png, test_output.gif, debug.tape, test.tape)
 
 **WIP**: `house-profile.tape` -- VHS `Screenshot` silently produces no file when the `H` key has been pressed (toggles house profile expansion in micasa). All other tapes work. Without `H`, the same tape works. Not a timing issue (tested with 3s+ sleeps). Needs further investigation -- possibly VHS Chrome rendering fails on the expanded house profile view.
+
+## 2026-02-09 Session 20
+
+**User request**: Integrate `adrg/xdg` for platform-aware data paths. Also: audit new deps for security before integrating (added as hard rule).
+
+**Work done**:
+- Added hard rule: audit new third-party deps for security before integrating
+- Audited `adrg/xdg` v0.5.3: no network calls, no file writes (only `MkdirAll` with `0o700`), rejects relative paths, only dep is `golang.org/x/sys` -- clean
+- [XDG-LIB] Replaced hand-rolled XDG logic in `internal/data/path.go` with `xdg.DataFile("micasa/micasa.db")`; gets correct macOS (`~/Library/Application Support`) and Windows (`%LOCALAPPDATA%`) paths for free; `MICASA_DB_PATH` override preserved
+- All 154 tests pass
 
 # Remaining work
 
