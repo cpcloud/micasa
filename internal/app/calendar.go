@@ -77,19 +77,34 @@ func calendarGrid(cal calendarState, styles Styles) string {
 		}
 	}
 
-	// Navigation hints.
-	hints := lipgloss.NewStyle().
-		Foreground(textDim).
-		Render("h/l day  j/k week  H/L month  ctrl+shift+h/l year  enter pick  esc cancel")
+	// Navigation hints split into two lines to keep the box compact.
+	hintStyle := lipgloss.NewStyle().Foreground(textDim)
+	hints := lipgloss.JoinVertical(lipgloss.Left,
+		hintStyle.Render("h/l day · j/k week · H/L month · ctrl+shift+h/l year"),
+		hintStyle.Render("enter pick · esc cancel"),
+	)
+
+	// The grid is 20 chars wide ("Su Mo Tu We Th Fr Sa"); center everything
+	// to the wider of the grid and hints so the box looks balanced.
+	calW := lipgloss.Width(dayLabels)
+	hintW := lipgloss.Width(hints)
+	boxW := calW
+	if hintW > boxW {
+		boxW = hintW
+	}
+
+	center := func(s string) string {
+		return lipgloss.PlaceHorizontal(boxW, lipgloss.Center, s)
+	}
 
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
-		header,
+		center(header),
 		"",
-		dayLabels,
-		grid.String(),
+		center(dayLabels),
+		center(grid.String()),
 		"",
-		hints,
+		center(hints),
 	)
 }
 
