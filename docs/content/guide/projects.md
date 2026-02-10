@@ -21,28 +21,28 @@ The `Title` field is required. Everything else is optional or has a default.
 
 ## Fields
 
-| Column   | Description | Notes |
-|----------|-------------|-------|
-| `ID`     | Auto-assigned primary key | Read-only |
-| `Type`   | Project category | Select from pre-seeded types (Renovation, Repair, etc.) |
-| `Title`  | Project name | Required. Free text. |
-| `Status` | Lifecycle stage | Select: ideating, planned, quoted, underway, delayed, completed, abandoned |
-| `Budget` | Planned cost | Dollar amount (e.g., 1250.00) |
-| `Actual` | Real cost | Dollar amount. Over-budget is highlighted on the dashboard. |
-| `Start`  | Start date | YYYY-MM-DD |
-| `End`    | End date | YYYY-MM-DD |
+| Column | Type | Description | Notes |
+|-------:|------|-------------|-------|
+| `ID` | auto | Auto-assigned primary key | Read-only |
+| `Type` | select | Project category | Pre-seeded types (Renovation, Repair, etc.) |
+| `Title` | text | Project name | Required |
+| `Status` | select | Lifecycle stage | See [status lifecycle](#status-lifecycle) below |
+| `Budget` | money | Planned cost | Dollar amount (e.g., 1250.00) |
+| `Actual` | money | Real cost | Over-budget is highlighted on the dashboard |
+| `Start` | date | Start date | YYYY-MM-DD |
+| `End` | date | End date | YYYY-MM-DD |
 
 ## Status lifecycle
 
 Projects move through these statuses. Each has a distinct color in the table:
 
-- **ideating** -- just an idea, not committed
-- **planned** -- decided to do it, working out details
-- **quoted** -- have vendor quotes, comparing options
-- **underway** -- work in progress
-- **delayed** -- stalled for some reason
-- **completed** -- done
-- **abandoned** -- decided not to do it
+- <span class="status-ideating">**ideating**</span> -- just an idea, not committed
+- <span class="status-planned">**planned**</span> -- decided to do it, working out details
+- <span class="status-quoted">**quoted**</span> -- have vendor quotes, comparing options
+- <span class="status-underway">**underway**</span> -- work in progress
+- <span class="status-delayed">**delayed**</span> -- stalled for some reason
+- <span class="status-completed">**completed**</span> -- done
+- <span class="status-abandoned">**abandoned**</span> -- decided not to do it
 
 ## Inline editing
 

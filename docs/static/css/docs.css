@@ -304,6 +304,16 @@ pre {
   background: rgba(192, 94, 60, 0.06);
 }
 
+/* ── Status colors (match terminal UI Wong palette, light mode) */
+
+.status-ideating  { color: #AA4499; }
+.status-planned   { color: #0072B2; }
+.status-quoted    { color: #D55E00; }
+.status-underway  { color: #007A5A; }
+.status-delayed   { color: #B8860B; }
+.status-completed { color: #6B7280; }
+.status-abandoned { color: #CC3311; }
+
 /* ── Screenshots ───────────────────────────────────────────── */
 
 .docs-main img {

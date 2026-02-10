@@ -22,16 +22,16 @@ enable auto-computed due dates.
 
 ## Fields
 
-| Column      | Description | Notes |
-|-------------|-------------|-------|
-| `ID`        | Auto-assigned | Read-only |
-| `Item`      | Task name | Required. E.g., "HVAC filter replacement" |
-| `Category`  | Task type | Select from pre-seeded categories (HVAC, Plumbing, etc.) |
-| `Appliance` | Linked appliance | Optional. Select from your appliances. Links to Appliances tab. |
-| `Last`      | Last serviced date | YYYY-MM-DD |
-| `Next`      | Next due date | Auto-computed: `Last` + interval. Read-only. |
-| `Every`     | Interval | Shown as "N mo" (e.g., "6 mo") |
-| `Log`       | Service log count | Drilldown -- press `enter` to open. |
+| Column | Type | Description | Notes |
+|-------:|------|-------------|-------|
+| `ID` | auto | Auto-assigned | Read-only |
+| `Item` | text | Task name | Required. E.g., "HVAC filter replacement" |
+| `Category` | select | Task type | Pre-seeded categories (HVAC, Plumbing, etc.) |
+| `Appliance` | select | Linked appliance | Optional. Links to Appliances tab |
+| `Last` | date | Last serviced date | YYYY-MM-DD |
+| `Next` | date | Next due date | Auto-computed: `Last` + `Every`. Read-only |
+| `Every` | number | Interval | Shown as "N mo" (e.g., "6 mo") |
+| `Log` | drilldown | Service log count | Press `enter` to open |
 
 ## Next due date
 
@@ -52,13 +52,13 @@ To view the service log, navigate to the `Log` column in Normal mode and press
 
 ![Service log drilldown](/docs/images/service-log.png)
 
-| Column         | Description |
-|----------------|-------------|
-| `ID`           | Auto-assigned |
-| `Date`         | When the work was done (required) |
-| `Performed By` | "Self" or a vendor name |
-| `Cost`         | Dollar amount |
-| `Notes`        | Free text |
+| Column | Type | Description |
+|-------:|------|-------------|
+| `ID` | auto | Auto-assigned |
+| `Date` | date | When the work was done (required) |
+| `Performed By` | select | "Self" or a vendor name |
+| `Cost` | money | Dollar amount |
+| `Notes` | text | Free text |
 
 The detail view supports all the same operations as a regular tab: add, edit,
 delete, sort, undo. Press `esc` to close the detail view and return to the

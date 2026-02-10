@@ -22,16 +22,16 @@ is linked to a project.
 
 ## Fields
 
-| Column    | Description | Notes |
-|-----------|-------------|-------|
-| `ID`      | Auto-assigned | Read-only |
-| `Project` | Linked project | Select. Shows as `m:1` link -- press `enter` to jump. |
-| `Vendor`  | Vendor name | Required. Find-or-create: typing a name that exists reuses it. |
-| `Total`   | Total quote amount | Required. Dollar amount. |
-| `Labor`   | Labor portion | Optional. |
-| `Mat`     | Materials portion | Optional. |
-| `Other`   | Other costs | Optional. |
-| `Recv`    | Date received | YYYY-MM-DD |
+| Column | Type | Description | Notes |
+|-------:|------|-------------|-------|
+| `ID` | auto | Auto-assigned | Read-only |
+| `Project` | select | Linked project | Shows as `m:1` link -- press `enter` to jump |
+| `Vendor` | text | Vendor name | Required. Find-or-create: typing a name that exists reuses it |
+| `Total` | money | Total quote amount | Required |
+| `Labor` | money | Labor portion | Optional |
+| `Mat` | money | Materials portion | Optional |
+| `Other` | money | Other costs | Optional |
+| `Recv` | date | Date received | YYYY-MM-DD |
 
 ## Vendor management
 

@@ -40,17 +40,17 @@ Financial). Save with `ctrl+s`, cancel with `esc`.
 
 ## Fields
 
-| Section    | Field              | Notes |
-|------------|--------------------|-------|
-| Basics     | `Nickname`         | Required. Display name for your house. |
-| Basics     | `Address`          | Street, city, state, postal code. |
-| Structure  | `Year built`       | Whole number. |
-| Structure  | `Square feet` / `Lot` | Interior and lot size. |
-| Structure  | `Bedrooms` / `Baths`  | Baths can be decimal (e.g., 2.5). |
-| Structure  | `Foundation`, `Wiring`, `Roof`, `Exterior`, `Basement` | Free text. |
-| Utilities  | `Heating`, `Cooling`, `Water`, `Sewer`, `Parking` | Free text. |
-| Financial  | `Insurance carrier`   | Company name. |
-| Financial  | `Insurance policy`    | Policy number. |
-| Financial  | `Insurance renewal`   | Date (YYYY-MM-DD). Shows on dashboard when due. |
-| Financial  | `Property tax`        | Annual amount in dollars (e.g., 4200.00). |
-| Financial  | `HOA name` / `fee`    | Name and monthly fee. |
+| Section | Field | Type | Notes |
+|--------:|-------|------|-------|
+| Basics | `Nickname` | text | Required. Display name for your house |
+| Basics | `Address` | text | Street, city, state, postal code |
+| Structure | `Year built` | number | Whole number |
+| Structure | `Square feet` / `Lot` | number | Interior and lot size |
+| Structure | `Bedrooms` / `Baths` | number | Baths can be decimal (e.g., 2.5) |
+| Structure | `Foundation`, `Wiring`, `Roof`, `Exterior`, `Basement` | text | Free text |
+| Utilities | `Heating`, `Cooling`, `Water`, `Sewer`, `Parking` | text | Free text |
+| Financial | `Insurance carrier` | text | Company name |
+| Financial | `Insurance policy` | text | Policy number |
+| Financial | `Insurance renewal` | date | Shows on dashboard when due |
+| Financial | `Property tax` | money | Annual amount in dollars (e.g., 4200.00) |
+| Financial | `HOA name` / `fee` | text / money | Name and monthly fee |

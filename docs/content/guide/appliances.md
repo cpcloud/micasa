@@ -20,18 +20,18 @@ Only the `Name` is required.
 
 ## Fields
 
-| Column      | Description | Notes |
-|-------------|-------------|-------|
-| `ID`        | Auto-assigned | Read-only |
-| `Name`      | Appliance name | Required. E.g., "Kitchen Refrigerator" |
-| `Brand`     | Manufacturer | E.g., "LG" |
-| `Model`     | Model number | For warranty lookups and replacements |
-| `Serial`    | Serial number | |
-| `Location`  | Where in the house | E.g., "Kitchen", "Basement" |
-| `Purchased` | Purchase date | YYYY-MM-DD |
-| `Warranty`  | Warranty expiry | YYYY-MM-DD. Shows on dashboard when expiring. |
-| `Cost`      | Purchase price | Dollar amount |
-| `Maint`     | Maintenance count | Drilldown -- press `enter` to view linked maintenance. |
+| Column | Type | Description | Notes |
+|-------:|------|-------------|-------|
+| `ID` | auto | Auto-assigned | Read-only |
+| `Name` | text | Appliance name | Required. E.g., "Kitchen Refrigerator" |
+| `Brand` | text | Manufacturer | E.g., "LG" |
+| `Model` | text | Model number | For warranty lookups and replacements |
+| `Serial` | text | Serial number | |
+| `Location` | text | Where in the house | E.g., "Kitchen", "Basement" |
+| `Purchased` | date | Purchase date | YYYY-MM-DD |
+| `Warranty` | date | Warranty expiry | Shows on dashboard when expiring |
+| `Cost` | money | Purchase price | Dollar amount |
+| `Maint` | drilldown | Maintenance count | Press `enter` to view linked maintenance |
 
 ## Warranty tracking
 
