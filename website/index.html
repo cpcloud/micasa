@@ -93,11 +93,12 @@
       <p class="install-or">or grab a binary from the <a href="https://github.com/cpcloud/micasa/releases/latest">latest release</a></p>
       <div>
         <p>Then run it:</p>
-        <pre><code>micasa --demo   # poke around with sample data
-micasa          # start fresh with your own house</code></pre>
+        <pre><code>micasa --demo         # poke around with sample data
+micasa                # start fresh with your own house
+micasa --print-path   # show where the database lives</code></pre>
       </div>
     </div>
-    <p class="install-data">Your data stays yours. One SQLite file in your platform's data directory. Back it up with <code>cp</code>.</p>
+    <p class="install-data">Your data stays yours. One SQLite file in your platform's data directory. Back it up with <code>cp "$(micasa --print-path)" backup.db</code>.</p>
   </div>
 </section>
 

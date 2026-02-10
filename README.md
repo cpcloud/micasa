@@ -33,11 +33,12 @@ go install github.com/cpcloud/micasa/cmd/micasa@latest
 Or grab a binary from the [latest release](https://github.com/cpcloud/micasa/releases/latest).
 
 ```sh
-micasa --demo   # poke around with sample data
-micasa          # start fresh with your own house
+micasa --demo         # poke around with sample data
+micasa                # start fresh with your own house
+micasa --print-path   # show where the database lives
 ```
 
-> Your data stays yours. One SQLite file in your platform's data directory. Back it up with `cp`.
+> Your data stays yours. One SQLite file in your platform's data directory. Back it up with `cp "$(micasa --print-path)" backup.db`.
 
 ## Documentation
 

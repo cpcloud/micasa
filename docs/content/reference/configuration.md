@@ -18,8 +18,9 @@ Arguments:
   [<db-path>]    SQLite database path. Pass with --demo to persist demo data.
 
 Flags:
-  -h, --help    Show help.
-      --demo    Launch with sample data in an in-memory database.
+  -h, --help          Show help.
+      --demo          Launch with sample data in an in-memory database.
+      --print-path    Print the resolved database path and exit.
 ```
 
 ### `<db-path>`
@@ -40,6 +41,20 @@ micasa /tmp/my-demo.db          # reopens with the demo data
 Launches with fictitious sample data: a house profile, several projects,
 maintenance items, appliances, service log entries, and quotes. Without a
 `<db-path>`, the database lives in memory and disappears when you quit.
+
+### `--print-path`
+
+Prints the resolved database path to stdout and exits. Useful for scripting
+and backup:
+
+```sh
+micasa --print-path                               # platform default
+MICASA_DB_PATH=/tmp/foo.db micasa --print-path    # /tmp/foo.db
+micasa --print-path /custom/path.db               # /custom/path.db
+micasa --demo --print-path                        # :memory:
+micasa --demo --print-path /tmp/d.db              # /tmp/d.db
+cp "$(micasa --print-path)" backup.db             # backup the database
+```
 
 ## Environment variables
 

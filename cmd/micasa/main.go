@@ -15,8 +15,9 @@ import (
 )
 
 type cli struct {
-	DBPath string `arg:"" optional:"" help:"SQLite database path. Pass with --demo to persist demo data." env:"MICASA_DB_PATH"`
-	Demo   bool   `                   help:"Launch with sample data in an in-memory database."`
+	DBPath    string `arg:"" optional:"" help:"SQLite database path. Pass with --demo to persist demo data." env:"MICASA_DB_PATH"`
+	Demo      bool   `                   help:"Launch with sample data in an in-memory database."`
+	PrintPath bool   `                   help:"Print the resolved database path and exit."`
 }
 
 func main() {
@@ -30,6 +31,10 @@ func main() {
 	dbPath, err := resolveDBPath(c)
 	if err != nil {
 		fail("resolve db path", err)
+	}
+	if c.PrintPath {
+		fmt.Println(dbPath)
+		return
 	}
 	store, err := data.Open(dbPath)
 	if err != nil {

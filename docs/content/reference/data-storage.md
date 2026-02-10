@@ -55,7 +55,7 @@ etc.). These are reference data used in select dropdowns.
 Your database is a single file. Back it up with `cp`:
 
 ```sh
-cp ~/.local/share/micasa/micasa.db ~/backups/micasa-$(date +%F).db
+cp "$(micasa --print-path)" ~/backups/micasa-$(date +%F).db
 ```
 
 Since SQLite supports [hot
