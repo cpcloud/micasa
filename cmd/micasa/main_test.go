@@ -185,15 +185,23 @@ func TestPrintPath_ExitCodeZero(t *testing.T) {
 	}
 }
 
-func TestVersion_DefaultIsDev(t *testing.T) {
+func TestVersion_DevShowsCommitHash(t *testing.T) {
 	bin := buildTestBinary(t)
 	out, err := exec.Command(bin, "--version").Output()
 	if err != nil {
 		t.Fatalf("--version failed: %v", err)
 	}
 	got := strings.TrimSpace(string(out))
-	if got != "dev" {
-		t.Errorf("got %q, want dev", got)
+	// Built inside a git repo: expect a hex hash, possibly with -dirty.
+	if got == "dev" {
+		t.Error("expected commit hash, got bare dev")
+	}
+	hash := strings.TrimSuffix(got, "-dirty")
+	for _, c := range hash {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			t.Errorf("expected hex hash, got %q", got)
+			break
+		}
 	}
 }
 

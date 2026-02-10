@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime/debug"
 
 	"github.com/alecthomas/kong"
 	tea "github.com/charmbracelet/bubbletea"
@@ -30,7 +31,7 @@ func main() {
 		kong.Name(data.AppName),
 		kong.Description("A terminal UI for tracking everything about your home."),
 		kong.UsageOnError(),
-		kong.Vars{"version": version},
+		kong.Vars{"version": versionString()},
 	)
 
 	dbPath, err := resolveDBPath(c)
@@ -76,6 +77,36 @@ func resolveDBPath(c cli) (string, error) {
 		return ":memory:", nil
 	}
 	return data.DefaultDBPath()
+}
+
+// versionString returns the version for display. Release builds return
+// the version set via ldflags. Dev builds return the short git commit hash
+// (with a -dirty suffix if the tree was modified), or "dev" as a last resort.
+func versionString() string {
+	if version != "dev" {
+		return version
+	}
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return version
+	}
+	var revision string
+	var dirty bool
+	for _, s := range info.Settings {
+		switch s.Key {
+		case "vcs.revision":
+			revision = s.Value
+		case "vcs.modified":
+			dirty = s.Value == "true"
+		}
+	}
+	if revision == "" {
+		return version
+	}
+	if dirty {
+		return revision + "-dirty"
+	}
+	return revision
 }
 
 func fail(context string, err error) {
