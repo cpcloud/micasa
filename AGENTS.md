@@ -883,6 +883,19 @@ in case things crash or otherwise go haywire, be diligent about this.
   - Fix 2: replaced hard DOM swap with cross-fade -- at 85% of flight, rubble fades out while real house fades in simultaneously over 250ms
   - Smoke suppressed during cross-fade, re-enabled after cleanup
 
+## 2026-02-10 Session 31
+
+**User request**: Chimney smoke vanishes instantly on house destruction -- make it more realistic. User chose option 3 (shockwave scatter).
+
+**Work done**:
+- [WEBSITE-SMOKE-SCATTER] Shockwave scatter for chimney smoke during house destruction:
+  - On click, existing smoke particles are cloned at their exact visual positions into the scene
+  - smoke-bed hidden immediately (stops spawning), originals disappear with it
+  - Clones get velocity kick radiating from click epicenter (same epicenter as block explosion)
+  - Light drag slows particles naturally; they fade over 0.4-0.7s
+  - Animated in the existing block physics tick loop; loop continues until both blocks settle and smoke clears
+  - Removed duplicate `clickX`/`clickY` declaration (hoisted earlier for smoke scatter)
+
 ## 2026-02-10 Session 30
 
 **User request**: Add `ctrl+shift+h/l` to move whole years in the calendar date picker.
@@ -1048,6 +1061,7 @@ in case things crash or otherwise go haywire, be diligent about this.
 - [DASH-NO-ACTIVITY] removed recent activity from dashboard summary (a818e44)
 - [SAFE-DELETE] FK guards on soft-delete: projects with quotes and maintenance with service logs are refused with actionable error messages
 - [WEBSITE-REBUILD-ANIM] fixed house rebuild animation snap: smooth deceleration easing + cross-fade replaces hard DOM swap
+- [WEBSITE-SMOKE-SCATTER] shockwave scatter for chimney smoke on house destruction
 
 # Remaining work
 

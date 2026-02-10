@@ -250,12 +250,49 @@ micasa --print-path   # show where the database lives</code></pre>
   function destroyHouse(evt) {
     animating = true;
 
-    // Kill smoke
     var smoke = document.getElementById('smoke-bed');
-    if (smoke) smoke.style.display = 'none';
-
     var houseRect = house.getBoundingClientRect();
     var sceneRect = scene.getBoundingClientRect();
+
+    // Shockwave scatter: grab existing smoke particles, clone them into
+    // the scene at their current visual positions, then hide the originals.
+    var clickX = evt.clientX - sceneRect.left;
+    var clickY = evt.clientY - sceneRect.top;
+    var scatteredSmoke = [];
+    if (smoke) {
+      var smokeEls = smoke.querySelectorAll('.smoke-particle');
+      for (var si = 0; si < smokeEls.length; si++) {
+        var sRect = smokeEls[si].getBoundingClientRect();
+        var sx = sRect.left - sceneRect.left;
+        var sy = sRect.top - sceneRect.top;
+        var sAlpha = parseFloat(smokeEls[si].style.opacity) || 0;
+        if (sAlpha < 0.05) continue;
+
+        var clone = document.createElement('span');
+        clone.className = 'smoke-particle';
+        clone.textContent = smokeEls[si].textContent;
+        clone.style.position = 'absolute';
+        clone.style.left = sx + 'px';
+        clone.style.top = sy + 'px';
+        clone.style.opacity = String(sAlpha);
+        clone.style.fontSize = '0.9rem';
+        clone.style.transform = 'none';
+        scene.appendChild(clone);
+
+        var dx = sx - clickX, dy = sy - clickY;
+        var dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        var speed = 200 + Math.random() * 150;
+        scatteredSmoke.push({
+          el: clone, x: 0, y: 0,
+          vx: (dx / dist) * speed + (Math.random() - 0.5) * 80,
+          vy: (dy / dist) * speed - Math.random() * 100,
+          startAlpha: sAlpha,
+          maxLife: 0.4 + Math.random() * 0.3,
+          age: 0
+        });
+      }
+      smoke.style.display = 'none';
+    }
 
     // Measure exact browser-rendered position of each block character.
     // Wrap each char in an inline span, measure, restore -- synchronous,
@@ -337,10 +374,6 @@ micasa --print-path   # show where the database lives</code></pre>
     var bounceFriction = 0.5;
     var started = performance.now();
     var lastTime = started;
-
-    // Click position = explosion epicenter (relative to scene)
-    var clickX = evt.clientX - sceneRect.left;
-    var clickY = evt.clientY - sceneRect.top;
 
     // Measure blast radius (diagonal of house) for distance scaling
     var blastRadius = Math.sqrt(houseRect.width * houseRect.width + houseRect.height * houseRect.height);
@@ -428,7 +461,26 @@ micasa --print-path   # show where the database lives</code></pre>
         item.el.style.opacity = alpha.toFixed(2);
       }
 
-      if (!allDone) {
+      // Animate scattered smoke particles (shockwave scatter)
+      for (var si = scatteredSmoke.length - 1; si >= 0; si--) {
+        var sp = scatteredSmoke[si];
+        sp.age += dt;
+        if (sp.age >= sp.maxLife) {
+          sp.el.remove();
+          scatteredSmoke.splice(si, 1);
+          continue;
+        }
+        sp.x += sp.vx * dt;
+        sp.y += sp.vy * dt;
+        // Light drag so they slow down naturally
+        sp.vx *= (1 - 1.5 * dt);
+        sp.vy *= (1 - 1.5 * dt);
+        var fade = 1 - sp.age / sp.maxLife;
+        sp.el.style.transform = 'translate(' + sp.x.toFixed(1) + 'px,' + sp.y.toFixed(1) + 'px)';
+        sp.el.style.opacity = (sp.startAlpha * fade).toFixed(2);
+      }
+
+      if (!allDone || scatteredSmoke.length > 0) {
         requestAnimationFrame(tick);
       } else {
         // Settle into smoldering rubble
