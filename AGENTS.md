@@ -297,11 +297,13 @@ These have been repeatedly requested. Violating them wastes the user's time.
   real hash.
 - **Run `go mod tidy` before committing** to keep `go.mod`/`go.sum` clean.
 - **Record every user request** in the "Remaining work" section of this file
-  (with a unique ID) if it is not already there. Mark it done when complete.
-  **This includes small one-liner asks and micro UI tweaks.** Do this
-  immediately when the request is made, not later in a batch. If you catch
-  yourself having completed something without recording it, add it
-  retroactively right away.
+  (with a unique ID) if it is not already there. **This includes small
+  one-liner asks and micro UI tweaks.** Do this immediately when the request
+  is made, not later in a batch. If you catch yourself having completed
+  something without recording it, add it retroactively right away.
+- **Completed tasks: move, don't strikethrough.** When a task is done, remove
+  it from "Remaining work" and add it to "Completed work" with a short commit
+  hash. Never use `~~strikethrough~~` to mark tasks done in place.
 - **Website commits use `docs(website):`** not `feat(website):` to avoid
   triggering semantic-release version bumps.
 - **Keep README and website in sync**: when changing content on one (features,
@@ -1009,6 +1011,8 @@ in case things crash or otherwise go haywire, be diligent about this.
 - [DOCS] project documentation with Hugo, deployed to micasa.dev/docs
 - [ATTRIBUTION] Claude/Cursor credited in website footer + README
 - [NAV-CLAMP] column navigation clamped at edges instead of wrapping
+- [DASH-RESIZE] dashboard dynamically resizes for terminal height (2b322cd)
+- [DASH-NO-ACTIVITY] removed recent activity from dashboard summary (a818e44)
 
 # Remaining work
 
@@ -1067,13 +1071,15 @@ in case things crash or otherwise go haywire, be diligent about this.
   HOAFeeCents and PropertyTaxCents. Why aren't those just plain int64s?
 
 ## Moar
-- ~~dashboard should dynamically resize for terminal height~~ DONE (2b322cd)
-- let's make sure that deleting, even soft deleting doesn't break the model,
-  e.g., if i try to delete a quote that's linked to a project, i get
+- [SAFE-DELETE] make sure that deleting, even soft deleting doesn't break the
+  model, e.g., if i try to delete a quote that's linked to a project, i get
   a reasonable error message, probably in the status bar but open to thoughts
   on where to show it
-- would be nice to have a way to hide completed projects easily. we'll get to
-  the generic way to do that when we implement filter, but i think it will
-  still be useful as a standalone feature
-- seems like vendors should have a drilldown link to quotes, that would effectively show the quote history for a vendor
-- so for the house brick animation on the main website, the reanimation of hte fallen bricks kind of snaps back into place at the last step
+- [HIDE-COMPLETED] would be nice to have a way to hide completed projects
+  easily. we'll get to the generic way to do that when we implement filter,
+  but i think it will still be useful as a standalone feature
+- [VENDOR-DRILLDOWN] vendors should have a drilldown link to quotes, that
+  would effectively show the quote history for a vendor
+- [WEBSITE-REBUILD-ANIM] house brick animation on the main website: the
+  reanimation of the fallen bricks kind of snaps back into place at the last
+  step
