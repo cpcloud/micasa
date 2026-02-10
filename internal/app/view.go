@@ -198,8 +198,17 @@ func (m *Model) statusView() string {
 	}
 
 	// Both badges render at the same width to prevent layout shift.
-	badgeWidth := lipgloss.Width(m.styles.ModeNormal.Render("NAV"))
-	modeBadge := m.styles.ModeNormal.Render("NAV")
+	// Anchor to the wider label so the narrower one gets padded, not squeezed.
+	navW := lipgloss.Width(m.styles.ModeNormal.Render("NAV"))
+	editW := lipgloss.Width(m.styles.ModeEdit.Render("EDIT"))
+	badgeWidth := navW
+	if editW > badgeWidth {
+		badgeWidth = editW
+	}
+	modeBadge := m.styles.ModeNormal.
+		Width(badgeWidth).
+		Align(lipgloss.Center).
+		Render("NAV")
 	if m.mode == modeEdit {
 		modeBadge = m.styles.ModeEdit.
 			Width(badgeWidth).
