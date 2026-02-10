@@ -959,6 +959,16 @@ in case things crash or otherwise go haywire, be diligent about this.
   - Help overlay + keybindings doc updated; keyEsc constant for goconst lint
   - 12 tests
 
+## 2026-02-10 Session 28
+
+**User request**: Commit logically.
+
+**Work done**: Split 11 dirty files into 4 commits grouped by concern:
+- `fd06367` feat(ui): scrollable help overlay with scrollbar -- model.go + view.go + re-recorded help.png
+- `e3f2a44` docs: sync with recent features -- architecture, navigation, sorting, data-storage docs
+- `9494112` docs(website): keybindings + rubble clickability -- index.html + style.css
+- `a58448f` chore: remove docs flake app -- flake.nix + building.md
+
 ## 2026-02-10 Session 27
 
 **User request**: Full security/privacy audit before making repo public. Then quick-win feature batch.
