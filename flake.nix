@@ -265,16 +265,18 @@
               OUT="docs/static/images"
               mkdir -p "$OUT"
 
+              TMPDIR=$(mktemp -d)
+              trap 'rm -rf "$TMPDIR"' EXIT
+
               # Make JetBrains Mono visible to Chrome inside VHS
-              FC_CONF=$(mktemp --suffix=.conf)
-              trap 'rm -f "$FC_CONF"' EXIT
+              FC_CONF="$TMPDIR/fonts.conf"
               cat > "$FC_CONF" <<FCXML
               <?xml version="1.0"?>
               <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
               <fontconfig>
                 <include>/etc/fonts/fonts.conf</include>
                 <dir>${pkgs.jetbrains-mono}/share/fonts</dir>
-                <cachedir>/tmp/fc-cache-screenshots-$$</cachedir>
+                <cachedir>$TMPDIR/fc-cache</cachedir>
               </fontconfig>
               FCXML
               export FONTCONFIG_FILE="$FC_CONF"
@@ -282,10 +284,10 @@
               vhs "$tape"
 
               # Extract last frame from GIF as PNG
-              magick "$OUT/$name.gif" -coalesce "$OUT/$name-frame-%04d.png"
-              last=$(printf '%s\n' "$OUT/$name-frame"-*.png | sort -t- -k3 -n | tail -1)
+              magick "$OUT/$name.gif" -coalesce "$TMPDIR/$name-frame-%04d.png"
+              last=$(printf '%s\n' "$TMPDIR/$name-frame"-*.png | sort -t- -k3 -n | tail -1)
               mv "$last" "$OUT/$name.png"
-              rm -f "$OUT/$name-frame"-*.png "$OUT/$name.gif"
+              rm -f "$OUT/$name.gif"
 
               echo "$name -> $OUT/$name.png"
             '';
