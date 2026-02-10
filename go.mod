@@ -8,13 +8,13 @@ go 1.25.4
 require (
 	github.com/adrg/xdg v0.5.3
 	github.com/alecthomas/kong v1.14.0
-	github.com/charmbracelet/bubbles v0.21.1
+	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/huh v0.8.0
 	github.com/charmbracelet/lipgloss v1.1.0
-	github.com/charmbracelet/x/ansi v0.11.5
+	github.com/charmbracelet/x/ansi v0.11.6
 	github.com/glebarez/sqlite v1.11.0
-	github.com/rmhubbert/bubbletea-overlay v0.6.4
+	github.com/rmhubbert/bubbletea-overlay v0.6.5
 	gorm.io/gorm v1.31.1
 )
 
