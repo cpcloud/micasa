@@ -16,10 +16,6 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-
 jobs:
   test:
     name: Build & Test (${{ matrix.os }}, Go ${{ matrix.go-version }})
@@ -104,7 +100,7 @@ jobs:
           extra_args: --only-verified
 
   # ---------------------------------------------------------------------------
-  # Release (only on main, after all CI jobs pass)
+  # Semantic Release (only on main, after all CI jobs pass)
   # ---------------------------------------------------------------------------
 
   semantic-release:
@@ -117,10 +113,6 @@ jobs:
       cancel-in-progress: false
     permissions:
       contents: write
-    outputs:
-      published: ${{ steps.release.outputs.new_release_published }}
-      tag: ${{ steps.release.outputs.new_release_git_tag }}
-      version: ${{ steps.release.outputs.new_release_version }}
     steps:
       - name: Generate app token
         id: app-token
@@ -147,151 +139,3 @@ jobs:
             @semantic-release/git
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-
-  binaries:
-    name: Build (${{ matrix.goos }}/${{ matrix.goarch }})
-    needs: semantic-release
-    if: needs.semantic-release.outputs.published == 'true'
-    runs-on: ubuntu-latest
-    concurrency:
-      group: release
-      cancel-in-progress: false
-    permissions:
-      contents: write
-    strategy:
-      matrix:
-        include:
-          - goos: linux
-            goarch: amd64
-          - goos: linux
-            goarch: arm64
-          - goos: darwin
-            goarch: amd64
-          - goos: darwin
-            goarch: arm64
-          - goos: windows
-            goarch: amd64
-          - goos: windows
-            goarch: arm64
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          ref: ${{ needs.semantic-release.outputs.tag }}
-
-      - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6
-        with:
-          go-version: "1.25"
-
-      - name: Build
-        env:
-          CGO_ENABLED: "0"
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          VERSION: ${{ needs.semantic-release.outputs.version }}
-        run: |
-          ext=""
-          if [ "$GOOS" = "windows" ]; then ext=".exe"; fi
-          go build -ldflags="-X main.version=${VERSION}" -o "micasa${ext}" ./cmd/micasa
-
-      - name: Package
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-        run: |
-          name="micasa_${GOOS}_${GOARCH}"
-          if [ "$GOOS" = "windows" ]; then
-            zip "${name}.zip" micasa.exe
-          else
-            tar czf "${name}.tar.gz" micasa
-          fi
-
-      - name: Upload release asset
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-        run: |
-          tag="${{ needs.semantic-release.outputs.tag }}"
-          name="micasa_${GOOS}_${GOARCH}"
-          if [ "$GOOS" = "windows" ]; then
-            gh release upload "$tag" "${name}.zip"
-          else
-            gh release upload "$tag" "${name}.tar.gz"
-          fi
-
-  checksums:
-    name: Checksums
-    needs: [semantic-release, binaries]
-    if: needs.semantic-release.outputs.published == 'true'
-    runs-on: ubuntu-latest
-    concurrency:
-      group: release
-      cancel-in-progress: false
-    permissions:
-      contents: write
-    steps:
-      - name: Download all assets
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-        run: gh release download "${{ needs.semantic-release.outputs.tag }}" --dir assets
-
-      - name: Generate checksums
-        run: |
-          cd assets
-          sha256sum * > checksums.txt
-
-      - name: Upload checksums
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-        run: gh release upload "${{ needs.semantic-release.outputs.tag }}" assets/checksums.txt
-
-  container:
-    name: Build & Push Container
-    needs: semantic-release
-    if: needs.semantic-release.outputs.published == 'true'
-    runs-on: ubuntu-latest
-    concurrency:
-      group: release
-      cancel-in-progress: false
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          ref: ${{ needs.semantic-release.outputs.tag }}
-
-      - uses: cachix/install-nix-action@4e002c8ec80594ecd40e759629461e26c8abed15 # v31
-
-      - name: Build container image
-        run: nix build '.#micasa-container'
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=semver,pattern={{version}},value=${{ needs.semantic-release.outputs.tag }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ needs.semantic-release.outputs.tag }}
-            type=semver,pattern={{major}},value=${{ needs.semantic-release.outputs.tag }}
-            type=raw,value=latest
-
-      - name: Log in to GHCR
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Load, tag, and push image
-        run: |
-          docker load < result
-          for tag in $TAGS; do
-            docker tag micasa:latest "$tag"
-            docker push "$tag"
-          done
-        env:
-          TAGS: ${{ steps.meta.outputs.tags }}
