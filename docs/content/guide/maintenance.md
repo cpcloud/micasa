@@ -1,6 +1,6 @@
 +++
 title = "Maintenance"
-weight = 4
+weight = 5
 description = "Recurring upkeep tasks with schedules and service logs."
 linkTitle = "Maintenance"
 +++

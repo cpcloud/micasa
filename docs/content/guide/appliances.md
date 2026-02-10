@@ -1,6 +1,6 @@
 +++
 title = "Appliances"
-weight = 5
+weight = 6
 description = "Track physical equipment, warranties, and linked maintenance."
 linkTitle = "Appliances"
 +++
