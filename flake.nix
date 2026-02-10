@@ -286,10 +286,10 @@
                 vhs "$tape"
 
                 # Extract last frame from GIF as PNG
-                magick "$OUT/$name.gif" -coalesce "$OUT/$name-frame.png"
-                last=$(ls -1 "$OUT/$name-frame"*.png 2>/dev/null | tail -1)
+                magick "$OUT/$name.gif" -coalesce "$OUT/$name-frame-%04d.png"
+                last=$(printf '%s\n' "$OUT/$name-frame"-*.png | sort -t- -k3 -n | tail -1)
                 mv "$last" "$OUT/$name.png"
-                rm -f "$OUT/$name-frame"*.png "$OUT/$name.gif"
+                rm -f "$OUT/$name-frame"-*.png "$OUT/$name.gif"
 
                 echo "  -> $OUT/$name.png"
               done
