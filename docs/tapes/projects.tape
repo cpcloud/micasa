@@ -4,9 +4,9 @@ Output docs/static/images/projects.gif
 
 Set Shell bash
 Set FontFamily "JetBrains Mono"
-Set FontSize 20
-Set Width 1600
-Set Height 1200
+Set FontSize 32
+Set Width 2400
+Set Height 1800
 Set Padding 20
 Set Theme "Dracula"
 Set CursorBlink false
