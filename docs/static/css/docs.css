@@ -324,6 +324,11 @@ pre {
   text-align: center;
 }
 
+.docs-main pre.mermaid .entityLabel {
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace !important;
+  font-size: 0.9em;
+}
+
 /* ── Screenshots ───────────────────────────────────────────── */
 
 .docs-main img {

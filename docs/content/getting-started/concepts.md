@@ -14,6 +14,36 @@ bathrooms, structural info (foundation, wiring, roof), utilities (heating,
 cooling, water, sewer), and financial info (insurance, property tax, HOA).
 There's exactly one house profile per database.
 
+```mermaid
+erDiagram
+    HouseProfile {
+        uint ID PK
+        string Nickname
+        string Address
+        int YearBuilt
+        int SquareFeet
+        int LotSquareFeet
+        int Bedrooms
+        float Bathrooms
+        string Foundation
+        string Wiring
+        string Roof
+        string Exterior
+        string Basement
+        string Heating
+        string Cooling
+        string Water
+        string Sewer
+        string Parking
+        string InsuranceCarrier
+        string InsurancePolicy
+        date InsuranceRenewal
+        money PropertyTax
+        string HOAName
+        money HOAFee
+    }
+```
+
 ## Projects
 
 Anything you want to do to your house, from "fix the squeaky door" to "redo
@@ -26,6 +56,21 @@ the kitchen." Each project has:
 - `Budget` and `Actual` cost for tracking spending
 - `Start` and `End` dates
 
+```mermaid
+erDiagram
+    Project {
+        uint ID PK
+        select Type FK
+        string Title
+        select Status
+        money Budget
+        money Actual
+        date Start
+        date End
+    }
+    Project }o--|| ProjectType : "categorized by"
+```
+
 ## Quotes
 
 Vendor quotes linked to a project. Each quote has:
@@ -37,6 +82,22 @@ Vendor quotes linked to a project. Each quote has:
 
 Quotes link to projects via a foreign key. On the Quotes tab, the `Project`
 column is a navigable link -- press `enter` to jump to the linked project.
+
+```mermaid
+erDiagram
+    Quote {
+        uint ID PK
+        select Project FK
+        string Vendor FK
+        money Total
+        money Labor
+        money Mat
+        money Other
+        date Recv
+    }
+    Quote }o--|| Project : "for"
+    Quote }o--|| Vendor : "from"
+```
 
 ## Maintenance
 
@@ -52,6 +113,22 @@ Recurring upkeep tasks. Each maintenance item has:
 The `Log` column on the Maintenance tab is a drilldown -- press `enter` to
 open the service log for that item.
 
+```mermaid
+erDiagram
+    MaintenanceItem {
+        uint ID PK
+        string Item
+        select Category FK
+        select Appliance FK
+        date Last
+        date Next "computed"
+        number Every
+        drilldown Log "count"
+    }
+    MaintenanceItem }o--|| MaintenanceCategory : "categorized by"
+    MaintenanceItem }o--o| Appliance : "linked to"
+```
+
 ## Service Log
 
 Each entry in a maintenance item's service log records:
@@ -64,6 +141,19 @@ Each entry in a maintenance item's service log records:
 Service log entries are accessed by drilling into a maintenance item, not as a
 standalone tab.
 
+```mermaid
+erDiagram
+    ServiceLogEntry {
+        uint ID PK
+        date Date
+        select PerformedBy FK
+        money Cost
+        string Notes
+    }
+    ServiceLogEntry }o--|| MaintenanceItem : "belongs to"
+    ServiceLogEntry }o--o| Vendor : "performed by"
+```
+
 ## Appliances
 
 Physical equipment in your home. Each appliance tracks:
@@ -74,6 +164,22 @@ Physical equipment in your home. Each appliance tracks:
 - Linked maintenance: the `Maint` column shows how many maintenance
   items reference this appliance. Press `enter` to drill into them.
 
+```mermaid
+erDiagram
+    Appliance {
+        uint ID PK
+        string Name
+        string Brand
+        string Model
+        string Serial
+        string Location
+        date Purchased
+        date Warranty
+        money Cost
+        drilldown Maint "count"
+    }
+```
+
 ## Vendors
 
 Vendors are shared entities created through the Quotes and Service Log forms.
@@ -81,17 +187,34 @@ When you add a quote or service log entry, you type a vendor name; micasa
 finds or creates the vendor record. Vendors have name, contact name, email,
 phone, website, and notes.
 
+```mermaid
+erDiagram
+    Vendor {
+        uint ID PK
+        string Name
+        string ContactName
+        string Email
+        string Phone
+        string Website
+        string Notes
+    }
+```
+
 ## Relationships
+
+The full entity relationship diagram:
 
 ```mermaid
 erDiagram
-    HOUSE_PROFILE ||--o{ PROJECT : has
-    PROJECT ||--o{ QUOTE : has
-    QUOTE }o--|| VENDOR : "from"
-    HOUSE_PROFILE ||--o{ MAINTENANCE : has
-    MAINTENANCE }o--o| APPLIANCE : "linked to"
-    MAINTENANCE ||--o{ SERVICE_LOG : has
-    SERVICE_LOG }o--o| VENDOR : "performed by"
+    HouseProfile ||--o{ Project : has
+    HouseProfile ||--o{ MaintenanceItem : has
+    Project ||--o{ Quote : has
+    Project }o--|| ProjectType : "categorized by"
+    Quote }o--|| Vendor : "from"
+    MaintenanceItem }o--|| MaintenanceCategory : "categorized by"
+    MaintenanceItem }o--o| Appliance : "linked to"
+    MaintenanceItem ||--o{ ServiceLogEntry : has
+    ServiceLogEntry }o--o| Vendor : "performed by"
 ```
 
 - A **project** has many **quotes**
