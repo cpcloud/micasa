@@ -12,9 +12,9 @@ require (
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/huh v0.8.0
 	github.com/charmbracelet/lipgloss v1.1.0
-	github.com/charmbracelet/x/ansi v0.11.5
+	github.com/charmbracelet/x/ansi v0.11.6
 	github.com/glebarez/sqlite v1.11.0
-	github.com/rmhubbert/bubbletea-overlay v0.6.4
+	github.com/rmhubbert/bubbletea-overlay v0.6.5
 	gorm.io/gorm v1.31.1
 )
 
