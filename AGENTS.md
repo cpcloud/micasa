@@ -804,6 +804,18 @@ in case things crash or otherwise go haywire, be diligent about this.
   - 2 new tests: `TestVersion_DefaultIsDev`, `TestVersion_Injected` (builds with custom ldflags)
   - Docs: `--version` flag added to configuration.md usage block
 
+## 2026-02-09 Session 24
+
+**User request**: Pin nix-installer-action to version tag; pin all GitHub Actions to commit SHAs; add Renovate config for automated updates.
+
+**Work done**:
+- [PIN-ACTIONS] Pinned `DeterminateSystems/nix-installer-action` from `@main` to `@v21`
+- Pinned all 12 distinct actions across ci.yml, release.yml, pages.yml to commit SHAs with `# vX` version comments
+- Resolved annotated tag for `github/codeql-action` (tag object -> commit dereference)
+- Pinned `cycjimmy/semantic-release-action` to v4.2.2 (latest in v4 line; no `v4` tag exists, only branch)
+- Created `renovate.json` with `config:recommended` + `pinDigests: true` for github-actions manager
+- Verified: docker, DeterminateSystems, trufflesecurity are GitHub verified creators; cycjimmy is not
+
 # Completed work
 
 - [REF-SCROLL] Refactor width/scroll implementation (fb84d4e, a46f34a, 9ca4f6e, 1bfa3cb)
@@ -874,6 +886,7 @@ in case things crash or otherwise go haywire, be diligent about this.
 - [PARSE-ARGS] replaced manual arg parsing with alecthomas/kong
 - [XDG-LIB] switched to adrg/xdg for platform-aware data paths (Linux/macOS/Windows)
 - [PRINT-PATH] `--print-path` flag: resolves and prints db path to stdout, exits 0
+- [PIN-ACTIONS] pin all GitHub Actions to commit SHAs + Renovate config for automated updates
 
 # Remaining work
 
