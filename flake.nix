@@ -22,7 +22,7 @@
       system:
       let
         pkgs = import nixpkgs { inherit system; };
-        version = "0.1.0";
+        version = builtins.replaceStrings [ "\n" "\r" ] [ "" "" ] (builtins.readFile ./VERSION);
 
         micasa = pkgs.buildGoModule {
           pname = "micasa";
@@ -31,6 +31,9 @@
           subPackages = [ "cmd/micasa" ];
           vendorHash = "sha256-N92+issG7+IerXO9WEUnOpZa95z/G/lEiyFpy6tX28c=";
           env.CGO_ENABLED = 0;
+          preCheck = ''
+            export HOME="$(mktemp -d)"
+          '';
           ldflags = [
             "-X main.version=${version}"
           ];

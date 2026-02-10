@@ -795,6 +795,14 @@ in case things crash or otherwise go haywire, be diligent about this.
   - 6 unit tests for `resolveDBPath`: explicit path, explicit+demo, demo-only (:memory:), default (platform), env override, explicit-beats-env
   - 6 integration tests via `buildTestBinary`: default path, explicit path, env override, demo-no-path, demo-with-path, exit-code-zero
 - Docs: `--print-path` section in configuration.md, backup example in data-storage.md uses `$(micasa --print-path)`, README and website CLI snippets updated
+- [AUTO-VERSION] Automatic version injection at release time:
+  - `VERSION` file (read by `flake.nix` via `builtins.readFile`); replaces hardcoded `version = "0.1.0"`
+  - `var version = "dev"` in main.go, overridden by `-X main.version=...` ldflags
+  - `--version` flag via `kong.VersionFlag`; nix-built binary shows `0.1.0`, dev builds show `dev`
+  - `.releaserc.json`: `@semantic-release/exec` writes next version to VERSION, `@semantic-release/git` commits it; tag lands on the updated commit
+  - `release.yml`: `extra_plugins` for exec+git; binaries job injects version via ldflags; binaries + container jobs checkout the tag ref
+  - 2 new tests: `TestVersion_DefaultIsDev`, `TestVersion_Injected` (builds with custom ldflags)
+  - Docs: `--version` flag added to configuration.md usage block
 
 # Completed work
 

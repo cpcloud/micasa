@@ -38,6 +38,10 @@ jobs:
       - name: Run semantic-release
         id: release
         uses: cycjimmy/semantic-release-action@v4
+        with:
+          extra_plugins: |
+            @semantic-release/exec
+            @semantic-release/git
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -63,6 +67,8 @@ jobs:
             goarch: arm64
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.semantic-release.outputs.tag }}
 
       - uses: actions/setup-go@v5
         with:
@@ -73,10 +79,11 @@ jobs:
           CGO_ENABLED: "0"
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
+          VERSION: ${{ needs.semantic-release.outputs.version }}
         run: |
           ext=""
           if [ "$GOOS" = "windows" ]; then ext=".exe"; fi
-          go build -ldflags="-s -w" -o "micasa${ext}" ./cmd/micasa
+          go build -ldflags="-s -w -X main.version=${VERSION}" -o "micasa${ext}" ./cmd/micasa
 
       - name: Package
         env:
@@ -133,6 +140,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.semantic-release.outputs.tag }}
 
       - uses: DeterminateSystems/nix-installer-action@main
 

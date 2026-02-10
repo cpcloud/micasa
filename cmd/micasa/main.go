@@ -14,10 +14,14 @@ import (
 	"github.com/cpcloud/micasa/internal/data"
 )
 
+// version is set at build time via -ldflags "-X main.version=...".
+var version = "dev"
+
 type cli struct {
-	DBPath    string `arg:"" optional:"" help:"SQLite database path. Pass with --demo to persist demo data." env:"MICASA_DB_PATH"`
-	Demo      bool   `                   help:"Launch with sample data in an in-memory database."`
-	PrintPath bool   `                   help:"Print the resolved database path and exit."`
+	DBPath    string           `arg:"" optional:"" help:"SQLite database path. Pass with --demo to persist demo data." env:"MICASA_DB_PATH"`
+	Demo      bool             `                   help:"Launch with sample data in an in-memory database."`
+	PrintPath bool             `                   help:"Print the resolved database path and exit."`
+	Version   kong.VersionFlag `                   help:"Show version and exit."`
 }
 
 func main() {
@@ -26,6 +30,7 @@ func main() {
 		kong.Name(data.AppName),
 		kong.Description("A terminal UI for tracking everything about your home."),
 		kong.UsageOnError(),
+		kong.Vars{"version": version},
 	)
 
 	dbPath, err := resolveDBPath(c)

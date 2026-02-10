@@ -19,6 +19,7 @@ Arguments:
 
 Flags:
   -h, --help          Show help.
+      --version       Show version and exit.
       --demo          Launch with sample data in an in-memory database.
       --print-path    Print the resolved database path and exit.
 ```

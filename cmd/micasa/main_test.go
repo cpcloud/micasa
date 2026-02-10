@@ -184,3 +184,38 @@ func TestPrintPath_ExitCodeZero(t *testing.T) {
 		t.Errorf("expected exit 0, got %v", err)
 	}
 }
+
+func TestVersion_DefaultIsDev(t *testing.T) {
+	bin := buildTestBinary(t)
+	out, err := exec.Command(bin, "--version").Output()
+	if err != nil {
+		t.Fatalf("--version failed: %v", err)
+	}
+	got := strings.TrimSpace(string(out))
+	if got != "dev" {
+		t.Errorf("got %q, want dev", got)
+	}
+}
+
+func TestVersion_Injected(t *testing.T) {
+	ext := ""
+	if runtime.GOOS == "windows" {
+		ext = ".exe"
+	}
+	bin := filepath.Join(t.TempDir(), "micasa"+ext)
+	cmd := exec.Command("go", "build",
+		"-ldflags", "-X main.version=1.2.3",
+		"-o", bin, ".")
+	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("build failed: %v\n%s", err, out)
+	}
+	out, err := exec.Command(bin, "--version").Output()
+	if err != nil {
+		t.Fatalf("--version failed: %v", err)
+	}
+	got := strings.TrimSpace(string(out))
+	if got != "1.2.3" {
+		t.Errorf("got %q, want 1.2.3", got)
+	}
+}
