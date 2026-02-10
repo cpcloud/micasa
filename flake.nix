@@ -266,11 +266,11 @@
                 exit
               fi
 
-              # All tapes in parallel (skip debug + demo)
-              ntapes=$(find "$TAPES" -name '*.tape' ! -name 'debug.tape' ! -name 'demo.tape' | wc -l)
+              # All tapes in parallel (skip demo -- it has its own command)
+              ntapes=$(find "$TAPES" -name '*.tape' ! -name 'demo.tape' | wc -l)
               nprocs=$(nproc)
               jobs=$(( ntapes < nprocs ? ntapes : nprocs ))
-              find "$TAPES" -name '*.tape' ! -name 'debug.tape' ! -name 'demo.tape' -print0 \
+              find "$TAPES" -name '*.tape' ! -name 'demo.tape' -print0 \
                 | parallel -0 -j"$jobs" --bar capture-one {}
 
               echo ""
