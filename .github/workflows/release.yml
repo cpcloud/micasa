@@ -148,8 +148,6 @@ jobs:
 
       - uses: DeterminateSystems/nix-installer-action@main
 
-      - uses: DeterminateSystems/magic-nix-cache-action@main
-
       - name: Build container image
         run: nix build '.#micasa-container'
 
