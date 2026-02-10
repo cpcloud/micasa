@@ -96,6 +96,10 @@ a coding agent on a user's computer.
   like to proceed.
 - **NEVER** use destructive commands like `git reset --hard` or `git checkout
   --` unless specifically requested or approved by the user.
+- **No revert commits for unpushed work**: If a commit hasn't been pushed,
+  use `git reset HEAD~1` (or `HEAD~N`) to undo it instead of `git revert`.
+  Revert commits add noise to the history for no reason when the original
+  is local-only.
 
 # Exploration and reading files
 
