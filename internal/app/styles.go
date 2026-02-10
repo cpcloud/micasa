@@ -39,6 +39,7 @@ type Styles struct {
 	BreadcrumbArrow lipgloss.Style
 	HiddenLeft      lipgloss.Style // hidden cols to the left of cursor
 	HiddenRight     lipgloss.Style // hidden cols to the right of cursor
+	DashSubtitle    lipgloss.Style // dashboard subtitle (house name, date)
 	DashSection     lipgloss.Style // dashboard section header
 	DashLabel       lipgloss.Style // dashboard dim label text
 	DashValue       lipgloss.Style // dashboard bright value text
@@ -190,6 +191,9 @@ func DefaultStyles() Styles {
 			Italic(true),
 		HiddenRight: lipgloss.NewStyle().
 			Foreground(accent).
+			Italic(true),
+		DashSubtitle: lipgloss.NewStyle().
+			Foreground(textDim).
 			Italic(true),
 		DashSection: lipgloss.NewStyle().
 			Foreground(onAccent).

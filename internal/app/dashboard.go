@@ -14,6 +14,21 @@ import (
 )
 
 // ---------------------------------------------------------------------------
+// Dashboard header
+// ---------------------------------------------------------------------------
+
+func (m *Model) dashboardHeader(width int) string {
+	var parts []string
+	if m.hasHouse && m.house.Nickname != "" {
+		parts = append(parts, m.house.Nickname)
+	}
+	parts = append(parts, time.Now().Format("Monday, Jan 2"))
+
+	text := m.styles.DashSubtitle.Render(strings.Join(parts, " \u00b7 "))
+	return lipgloss.NewStyle().Width(width).Align(lipgloss.Right).Render(text)
+}
+
+// ---------------------------------------------------------------------------
 // Dashboard data types
 // ---------------------------------------------------------------------------
 

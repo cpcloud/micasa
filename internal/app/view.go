@@ -99,7 +99,18 @@ func (m *Model) buildBaseView() string {
 // buildDashboardOverlay renders the dashboard content inside a bordered box
 // with navigation hints, suitable for compositing over the base view.
 func (m *Model) buildDashboardOverlay() string {
-	title := m.styles.DashSection.Render("Dashboard")
+	// Content width: terminal minus border (2) + padding (4) + breathing room (6).
+	contentW := m.effectiveWidth() - 12
+	if contentW > 72 {
+		contentW = 72
+	}
+	if contentW < 30 {
+		contentW = 30
+	}
+
+	// Inner width excludes the box padding (2 each side).
+	innerW := contentW - 4
+	header := m.dashboardHeader(innerW)
 	content := m.dashboardView()
 
 	// Navigation hints inside the overlay.
@@ -114,17 +125,8 @@ func (m *Model) buildDashboardOverlay() string {
 	hints := joinWithSeparator(m.helpSeparator(), items...)
 
 	boxContent := lipgloss.JoinVertical(
-		lipgloss.Left, title, "", content, "", hints,
+		lipgloss.Left, header, "", content, "", hints,
 	)
-
-	// Content width: terminal minus border (2) + padding (4) + breathing room (6).
-	contentW := m.effectiveWidth() - 12
-	if contentW > 72 {
-		contentW = 72
-	}
-	if contentW < 30 {
-		contentW = 30
-	}
 	maxH := m.effectiveHeight() - 4
 	if maxH < 10 {
 		maxH = 10
@@ -226,7 +228,7 @@ func (m *Model) statusView() string {
 		}
 		items = append(items,
 			m.helpItem("i", "edit"),
-			m.helpItem("D", "dashboard"),
+			m.helpItem("D", "summary"),
 			m.helpItem("H", "house"),
 			m.helpItem("?", "help"),
 		)
@@ -409,7 +411,7 @@ func (m *Model) helpView() string {
 				{"enter", "Open detail / follow link"},
 				{"c", "Hide current column"},
 				{"C", "Show all columns"},
-				{"D", "Toggle dashboard"},
+				{"D", "Toggle summary"},
 				{"i", "Enter Edit mode"},
 				{"?", "Help"},
 				{"q", "Quit"},

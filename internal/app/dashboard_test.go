@@ -314,8 +314,10 @@ func TestDashboardOverlay(t *testing.T) {
 	m.dashNav = nil
 
 	ov := m.buildDashboardOverlay()
-	if !strings.Contains(ov, "Dashboard") {
-		t.Error("expected 'Dashboard' title in overlay")
+	// Header shows today's date (no "Dashboard" title -- tab bar handles that).
+	today := time.Now().Format("Monday, Jan 2")
+	if !strings.Contains(ov, today) {
+		t.Errorf("expected today's date %q in overlay header", today)
 	}
 	if !strings.Contains(ov, "help") {
 		t.Error("expected help hint in overlay")
