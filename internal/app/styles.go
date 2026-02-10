@@ -45,7 +45,6 @@ type Styles struct {
 	DashValue       lipgloss.Style // dashboard bright value text
 	DashOverdue     lipgloss.Style // overdue maintenance item
 	DashUpcoming    lipgloss.Style // upcoming maintenance (within 30 days)
-	DashAllClear    lipgloss.Style // empty-state / all-clear message
 	CalCursor       lipgloss.Style // calendar: cursor day
 	CalSelected     lipgloss.Style // calendar: previously selected day
 	CalToday        lipgloss.Style // calendar: today marker
@@ -212,9 +211,6 @@ func DefaultStyles() Styles {
 			Bold(true),
 		DashUpcoming: lipgloss.NewStyle().
 			Foreground(warning),
-		DashAllClear: lipgloss.NewStyle().
-			Foreground(success).
-			Italic(true),
 		CalCursor: lipgloss.NewStyle().
 			Background(accent).
 			Foreground(lipgloss.AdaptiveColor{Light: "#FFFFFF", Dark: "#000000"}).

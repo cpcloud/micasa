@@ -307,6 +307,10 @@ These have been repeatedly requested. Violating them wastes the user's time.
 - **Keep README and website in sync**: when changing content on one (features,
   install instructions, keybindings, tech stack, pitch copy), update the other
   to match.
+- **Unix aesthetic -- silence is success**: If everything is as expected,
+  don't display anything that says "all good". Like Unix commands: no news
+  is good news. Skip empty-state placeholders, "nothing to do" messages,
+  and success confirmations. Only surface information that requires attention.
 - **Colorblind-safe palette**: All colors must use the Wong palette with
   `lipgloss.AdaptiveColor{Light, Dark}`. See `styles.go` for the existing
   palette and roles. When adding or changing styles, always provide both Light
@@ -1060,6 +1064,7 @@ in case things crash or otherwise go haywire, be diligent about this.
   HOAFeeCents and PropertyTaxCents. Why aren't those just plain int64s?
 
 ## Moar
+- ~~dashboard should dynamically resize for terminal height~~ DONE (2b322cd)
 - let's make sure that deleting, even soft deleting doesn't break the model,
   e.g., if i try to delete a quote that's linked to a project, i get
   a reasonable error message, probably in the status bar but open to thoughts

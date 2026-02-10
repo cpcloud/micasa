@@ -356,7 +356,7 @@ func (m *Model) dashboardView(budget int) string {
 	spendLine := m.dashSpendingLine()
 
 	if len(sections) == 0 && spendLine == "" {
-		return m.styles.DashAllClear.Render("  All clear!")
+		return ""
 	}
 
 	// Compute fixed overhead: section headers, sub-headers, inter-section

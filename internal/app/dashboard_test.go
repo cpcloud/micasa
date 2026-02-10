@@ -251,13 +251,9 @@ func TestDashboardViewEmptySections(t *testing.T) {
 	m.dashCursor = 0
 
 	view := m.dashboardView(50)
-	// Empty sections are skipped entirely; only the "All clear!" fallback.
-	if !strings.Contains(view, "All clear") {
-		t.Error("expected all-clear fallback")
-	}
-	// No section headers should appear.
-	if strings.Contains(view, "Overdue") || strings.Contains(view, "Active Projects") {
-		t.Error("empty sections should be skipped, not rendered with headers")
+	// Empty dashboard returns empty string -- silence is success.
+	if view != "" {
+		t.Errorf("expected empty string for empty dashboard, got %q", view)
 	}
 }
 
