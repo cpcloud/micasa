@@ -61,21 +61,36 @@ body {
 }
 
 .sidebar-brand {
-  display: block;
-  font-family: "DM Serif Display", "Georgia", serif;
-  font-size: 1.4rem;
-  color: var(--charcoal);
-  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 0 1.5rem 1.5rem;
   border-bottom: 1px solid var(--rule);
   margin-bottom: 1rem;
 }
 
-.sidebar-brand:hover {
+.sidebar-brand-link {
+  font-family: "DM Serif Display", "Georgia", serif;
+  font-size: 1.4rem;
+  color: var(--charcoal);
+  text-decoration: none;
+}
+
+.sidebar-brand-link:hover {
   color: var(--terracotta);
 }
 
-.sidebar-brand .dot {
+.sidebar-brand-link .dot {
+  color: var(--terracotta);
+}
+
+.sidebar-house {
+  color: var(--warm-gray);
+  transition: color 0.15s;
+  line-height: 1;
+}
+
+.sidebar-house:hover {
   color: var(--terracotta);
 }
 
