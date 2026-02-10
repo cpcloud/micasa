@@ -40,7 +40,6 @@ type dashboardData struct {
 	ActiveProjects     []data.Project
 	ExpiringWarranties []warrantyStatus
 	InsuranceRenewal   *insuranceStatus
-	RecentActivity     []data.ServiceLogEntry
 	ServiceSpendCents  int64
 	ProjectSpendCents  int64
 }
@@ -216,12 +215,6 @@ func (m *Model) loadDashboardAt(now time.Time) error {
 		}
 	}
 
-	// Recent activity.
-	d.RecentActivity, err = m.store.ListRecentServiceLogs(5)
-	if err != nil {
-		return fmt.Errorf("load recent activity: %w", err)
-	}
-
 	// Spending snapshot (YTD).
 	yearStart := time.Date(now.Year(), 1, 1, 0, 0, 0, 0, now.Location())
 	d.ServiceSpendCents, err = m.store.YTDServiceSpendCents(yearStart)
@@ -259,9 +252,6 @@ func (m *Model) buildDashNav() {
 		nav = append(nav, dashNavEntry{Tab: tabAppliances, ID: w.Appliance.ID})
 	}
 	// Insurance renewal is not navigable (it's in the house profile).
-	for _, e := range m.dashboard.RecentActivity {
-		nav = append(nav, dashNavEntry{Tab: tabMaintenance, ID: e.MaintenanceItemID})
-	}
 	m.dashNav = nav
 	if m.dashCursor >= len(nav) {
 		m.dashCursor = max(0, len(nav)-1)
@@ -344,12 +334,6 @@ func (m *Model) dashboardView(budget int) string {
 	if expRows := m.dashExpiringRows(); len(expRows) > 0 {
 		sections = append(sections, dashSection{
 			title: "Expiring Soon", rows: expRows,
-		})
-	}
-
-	if actRows := m.dashActivityRows(); len(actRows) > 0 {
-		sections = append(sections, dashSection{
-			title: "Recent Activity", rows: actRows,
 		})
 	}
 
@@ -719,31 +703,6 @@ func (m *Model) dashExpiringRows() []dashRow {
 				},
 			},
 			// Not navigable: no Target.
-		})
-	}
-	return rows
-}
-
-func (m *Model) dashActivityRows() []dashRow {
-	d := m.dashboard
-	rows := make([]dashRow, 0, len(d.RecentActivity))
-	for _, e := range d.RecentActivity {
-		who := "Self"
-		if e.VendorID != nil && e.Vendor.Name != "" {
-			who = e.Vendor.Name
-		}
-		costText := ""
-		if e.CostCents != nil {
-			costText = data.FormatCents(*e.CostCents)
-		}
-		rows = append(rows, dashRow{
-			Cells: []dashCell{
-				{Text: e.ServicedAt.Format(data.DateLayout), Style: m.styles.DashLabel},
-				{Text: e.MaintenanceItem.Name, Style: m.styles.DashValue},
-				{Text: who, Style: m.styles.DashLabel},
-				{Text: costText, Style: m.styles.Money, Align: alignRight},
-			},
-			Target: &dashNavEntry{Tab: tabMaintenance, ID: e.MaintenanceItemID},
 		})
 	}
 	return rows

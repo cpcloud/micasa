@@ -1058,6 +1058,9 @@ in case things crash or otherwise go haywire, be diligent about this.
   in optional details later via edit.
 - [DASH-OVERLAY-STYLE] Revisit dashboard overlay styling -- noodle on dim/bg
   approach, make it feel polished.
+- [RECENT-ACTIVITY] Bring back recent service activity with better UX -- not
+  in the dashboard summary. Could be a dedicated view, a detail pane on
+  maintenance items, or a global activity feed.
 
 ## Questions
 - Why are some values pointers to numbers instead of just the number? E.g.,
