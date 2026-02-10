@@ -161,11 +161,11 @@
             name = "micasa-website";
             runtimeInputs = [
               self.packages.${system}.build-docs
-              pkgs.python3.pkgs.livereload
+              pkgs.python3
             ];
             text = ''
               micasa-build-docs >/dev/null 2>&1
-              livereload website/
+              python3 -m http.server 0 -d website
             '';
           };
           docs = pkgs.writeShellApplication {
