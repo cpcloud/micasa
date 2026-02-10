@@ -138,17 +138,19 @@ keep it running.
 
 ## Vendors
 
-Vendors are shared entities created through the Quotes and Service Log forms.
-When you add a quote or service log entry, you type a vendor name; micasa
-finds or creates the vendor record. Vendors have name, contact name, email,
-phone, website, and notes.
+Vendors are people and companies you hire. They have their own tab showing
+name, contact, email, phone, website, plus aggregate counts: how many quotes
+and service log entries reference each vendor.
+
+Vendors are also created implicitly through the Quotes and Service Log forms --
+type a vendor name and micasa finds or creates the record.
 
 ### Why this matters
 
 Because vendors are shared, updating a vendor's phone number **in one place**
-updates it everywhere. You won't end up with "Acme Plumbing" and
-"Acme Plumbing LLC" as two separate contacts -- micasa matches on name and
-reuses the existing record.
+updates it everywhere. The Vendors tab gives you a bird's-eye view of everyone
+you've worked with and how often, while the `Vendor` column on the Quotes tab
+is a **live link** -- press `enter` to jump to that vendor's record.
 
 ## Relationships
 

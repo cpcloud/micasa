@@ -42,6 +42,7 @@ func NewTabs(styles Styles) []Tab {
 	quoteSpecs := quoteColumnSpecs()
 	maintenanceSpecs := maintenanceColumnSpecs()
 	applianceSpecs := applianceColumnSpecs()
+	vendorSpecs := vendorColumnSpecs()
 	return []Tab{
 		{
 			Kind:    tabProjects,
@@ -71,6 +72,13 @@ func NewTabs(styles Styles) []Tab {
 			Specs:   applianceSpecs,
 			Table:   newTable(specsToColumns(applianceSpecs), styles),
 		},
+		{
+			Kind:    tabVendors,
+			Name:    "Vendors",
+			Handler: vendorHandler{},
+			Specs:   vendorSpecs,
+			Table:   newTable(specsToColumns(vendorSpecs), styles),
+		},
 	}
 }
 
@@ -97,7 +105,13 @@ func quoteColumnSpecs() []columnSpec {
 			Flex:  true,
 			Link:  &columnLink{TargetTab: tabProjects, Relation: "m:1"},
 		},
-		{Title: "Vendor", Min: 12, Max: 20, Flex: true},
+		{
+			Title: "Vendor",
+			Min:   12,
+			Max:   20,
+			Flex:  true,
+			Link:  &columnLink{TargetTab: tabVendors, Relation: "m:1"},
+		},
 		{Title: "Total", Min: 10, Max: 14, Align: alignRight, Kind: cellMoney},
 		{Title: "Labor", Min: 10, Max: 14, Align: alignRight, Kind: cellMoney},
 		{Title: "Mat", Min: 8, Max: 12, Align: alignRight, Kind: cellMoney},
@@ -290,6 +304,53 @@ func applianceAge(purchased *time.Time, now time.Time) string {
 	return fmt.Sprintf("%dy %dm", years, months)
 }
 
+func vendorColumnSpecs() []columnSpec {
+	return []columnSpec{
+		{Title: "ID", Min: 4, Max: 6, Align: alignRight, Kind: cellReadonly},
+		{Title: "Name", Min: 14, Max: 24, Flex: true},
+		{Title: "Contact", Min: 10, Max: 20, Flex: true},
+		{Title: "Email", Min: 12, Max: 24, Flex: true},
+		{Title: "Phone", Min: 12, Max: 16},
+		{Title: "Website", Min: 12, Max: 28, Flex: true},
+		{Title: "Quotes", Min: 6, Max: 8, Align: alignRight, Kind: cellReadonly},
+		{Title: "Jobs", Min: 5, Max: 8, Align: alignRight, Kind: cellReadonly},
+	}
+}
+
+func vendorRows(
+	vendors []data.Vendor,
+	quoteCounts map[uint]int,
+	jobCounts map[uint]int,
+) ([]table.Row, []rowMeta, [][]cell) {
+	rows := make([]table.Row, 0, len(vendors))
+	meta := make([]rowMeta, 0, len(vendors))
+	cells := make([][]cell, 0, len(vendors))
+	for _, v := range vendors {
+		quoteCount := ""
+		if n := quoteCounts[v.ID]; n > 0 {
+			quoteCount = fmt.Sprintf("%d", n)
+		}
+		jobCount := ""
+		if n := jobCounts[v.ID]; n > 0 {
+			jobCount = fmt.Sprintf("%d", n)
+		}
+		rowCells := []cell{
+			{Value: fmt.Sprintf("%d", v.ID), Kind: cellReadonly},
+			{Value: v.Name, Kind: cellText},
+			{Value: v.ContactName, Kind: cellText},
+			{Value: v.Email, Kind: cellText},
+			{Value: v.Phone, Kind: cellText},
+			{Value: v.Website, Kind: cellText},
+			{Value: quoteCount, Kind: cellReadonly},
+			{Value: jobCount, Kind: cellReadonly},
+		}
+		rows = append(rows, cellsToRow(rowCells))
+		cells = append(cells, rowCells)
+		meta = append(meta, rowMeta{ID: v.ID})
+	}
+	return rows, meta, cells
+}
+
 func specsToColumns(specs []columnSpec) []table.Column {
 	cols := make([]table.Column, 0, len(specs))
 	for _, spec := range specs {
@@ -357,7 +418,7 @@ func quoteRows(
 		rowCells := []cell{
 			{Value: fmt.Sprintf("%d", quote.ID), Kind: cellReadonly},
 			{Value: projectName, Kind: cellText, LinkID: quote.ProjectID},
-			{Value: quote.Vendor.Name, Kind: cellText},
+			{Value: quote.Vendor.Name, Kind: cellText, LinkID: quote.VendorID},
 			{Value: data.FormatCents(quote.TotalCents), Kind: cellMoney},
 			{Value: centsValue(quote.LaborCents), Kind: cellMoney},
 			{Value: centsValue(quote.MaterialsCents), Kind: cellMoney},

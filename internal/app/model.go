@@ -1049,6 +1049,8 @@ func tabIndex(kind TabKind) int {
 		return 2
 	case tabAppliances:
 		return 3
+	case tabVendors:
+		return 4
 	default:
 		return 0
 	}

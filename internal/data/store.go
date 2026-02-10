@@ -566,6 +566,71 @@ func (s *Store) ListVendors() ([]Vendor, error) {
 	return vendors, nil
 }
 
+func (s *Store) GetVendor(id uint) (Vendor, error) {
+	var vendor Vendor
+	if err := s.db.First(&vendor, id).Error; err != nil {
+		return Vendor{}, err
+	}
+	return vendor, nil
+}
+
+func (s *Store) CreateVendor(vendor Vendor) error {
+	return s.db.Create(&vendor).Error
+}
+
+func (s *Store) UpdateVendor(vendor Vendor) error {
+	return s.db.Model(&Vendor{}).Where("id = ?", vendor.ID).
+		Select("*").
+		Omit("id", "created_at").
+		Updates(vendor).Error
+}
+
+// CountQuotesByVendor returns the number of non-deleted quotes per vendor ID.
+func (s *Store) CountQuotesByVendor(vendorIDs []uint) (map[uint]int, error) {
+	if len(vendorIDs) == 0 {
+		return map[uint]int{}, nil
+	}
+	var results []struct {
+		VendorID uint `gorm:"column:vendor_id"`
+		Count    int  `gorm:"column:cnt"`
+	}
+	if err := s.db.Model(&Quote{}).
+		Select("vendor_id, count(*) as cnt").
+		Where("vendor_id IN ?", vendorIDs).
+		Group("vendor_id").
+		Find(&results).Error; err != nil {
+		return nil, err
+	}
+	counts := make(map[uint]int, len(results))
+	for _, r := range results {
+		counts[r.VendorID] = r.Count
+	}
+	return counts, nil
+}
+
+// CountServiceLogsByVendor returns the number of non-deleted service log entries per vendor ID.
+func (s *Store) CountServiceLogsByVendor(vendorIDs []uint) (map[uint]int, error) {
+	if len(vendorIDs) == 0 {
+		return map[uint]int{}, nil
+	}
+	var results []struct {
+		VendorID uint `gorm:"column:vendor_id"`
+		Count    int  `gorm:"column:cnt"`
+	}
+	if err := s.db.Model(&ServiceLogEntry{}).
+		Select("vendor_id, count(*) as cnt").
+		Where("vendor_id IN ?", vendorIDs).
+		Group("vendor_id").
+		Find(&results).Error; err != nil {
+		return nil, err
+	}
+	counts := make(map[uint]int, len(results))
+	for _, r := range results {
+		counts[r.VendorID] = r.Count
+	}
+	return counts, nil
+}
+
 func (s *Store) ListProjects(includeDeleted bool) ([]Project, error) {
 	var projects []Project
 	db := s.db.Preload("ProjectType").Preload("PreferredVendor")

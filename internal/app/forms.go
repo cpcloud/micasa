@@ -90,6 +90,15 @@ type serviceLogFormData struct {
 	Notes             string
 }
 
+type vendorFormData struct {
+	Name        string
+	ContactName string
+	Email       string
+	Phone       string
+	Website     string
+	Notes       string
+}
+
 type applianceFormData struct {
 	Name           string
 	Brand          string
@@ -526,6 +535,115 @@ func (m *Model) parseApplianceFormData() (data.Appliance, error) {
 		CostCents:      cost,
 		Notes:          strings.TrimSpace(values.Notes),
 	}, nil
+}
+
+func (m *Model) startVendorForm() {
+	values := &vendorFormData{}
+	m.openVendorForm(values)
+}
+
+func (m *Model) startEditVendorForm(id uint) error {
+	vendor, err := m.store.GetVendor(id)
+	if err != nil {
+		return fmt.Errorf("load vendor: %w", err)
+	}
+	values := vendorFormValues(vendor)
+	m.editID = &id
+	m.openVendorForm(values)
+	return nil
+}
+
+func (m *Model) openVendorForm(values *vendorFormData) {
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Name").
+				Placeholder("Acme Plumbing").
+				Value(&values.Name).
+				Validate(requiredText("name")),
+			huh.NewInput().Title("Contact name").Value(&values.ContactName),
+			huh.NewInput().Title("Email").Value(&values.Email),
+			huh.NewInput().Title("Phone").Value(&values.Phone),
+			huh.NewInput().Title("Website").Value(&values.Website),
+			huh.NewText().Title("Notes").Value(&values.Notes),
+		),
+	)
+	applyFormDefaults(form)
+	m.prevMode = m.mode
+	m.mode = modeForm
+	m.formKind = formVendor
+	m.form = form
+	m.formData = values
+	m.snapshotForm()
+}
+
+func (m *Model) submitVendorForm() error {
+	vendor, err := m.parseVendorFormData()
+	if err != nil {
+		return err
+	}
+	return m.store.CreateVendor(vendor)
+}
+
+func (m *Model) submitEditVendorForm(id uint) error {
+	vendor, err := m.parseVendorFormData()
+	if err != nil {
+		return err
+	}
+	vendor.ID = id
+	return m.store.UpdateVendor(vendor)
+}
+
+func (m *Model) parseVendorFormData() (data.Vendor, error) {
+	values, ok := m.formData.(*vendorFormData)
+	if !ok {
+		return data.Vendor{}, fmt.Errorf("unexpected vendor form data")
+	}
+	return data.Vendor{
+		Name:        strings.TrimSpace(values.Name),
+		ContactName: strings.TrimSpace(values.ContactName),
+		Email:       strings.TrimSpace(values.Email),
+		Phone:       strings.TrimSpace(values.Phone),
+		Website:     strings.TrimSpace(values.Website),
+		Notes:       strings.TrimSpace(values.Notes),
+	}, nil
+}
+
+func (m *Model) inlineEditVendor(id uint, col int) error {
+	vendor, err := m.store.GetVendor(id)
+	if err != nil {
+		return fmt.Errorf("load vendor: %w", err)
+	}
+	values := vendorFormValues(vendor)
+	// Column mapping: 0=ID, 1=Name, 2=Contact, 3=Email, 4=Phone, 5=Website, 6=Quotes(ro), 7=Jobs(ro)
+	var field huh.Field
+	switch col {
+	case 1:
+		field = huh.NewInput().Title("Name").Value(&values.Name).Validate(requiredText("name"))
+	case 2:
+		field = huh.NewInput().Title("Contact name").Value(&values.ContactName)
+	case 3:
+		field = huh.NewInput().Title("Email").Value(&values.Email)
+	case 4:
+		field = huh.NewInput().Title("Phone").Value(&values.Phone)
+	case 5:
+		field = huh.NewInput().Title("Website").Value(&values.Website)
+	default:
+		return m.startEditVendorForm(id)
+	}
+	m.openInlineEdit(id, formVendor, field, values)
+	return nil
+}
+
+func vendorFormValues(vendor data.Vendor) *vendorFormData {
+	return &vendorFormData{
+		Name:        vendor.Name,
+		ContactName: vendor.ContactName,
+		Email:       vendor.Email,
+		Phone:       vendor.Phone,
+		Website:     vendor.Website,
+		Notes:       vendor.Notes,
+	}
 }
 
 func (m *Model) inlineEditProject(id uint, col int) error {

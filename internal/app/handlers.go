@@ -500,3 +500,80 @@ func (h serviceLogHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool
 }
 
 func (serviceLogHandler) SyncFixedValues(_ *Model, _ []columnSpec) {}
+
+// ---------------------------------------------------------------------------
+// vendorHandler
+// ---------------------------------------------------------------------------
+
+type vendorHandler struct{}
+
+func (vendorHandler) FormKind() FormKind { return formVendor }
+
+func (vendorHandler) Load(
+	store *data.Store,
+	_ bool,
+) ([]table.Row, []rowMeta, [][]cell, error) {
+	vendors, err := store.ListVendors()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	ids := make([]uint, len(vendors))
+	for i, v := range vendors {
+		ids[i] = v.ID
+	}
+	quoteCounts, err := store.CountQuotesByVendor(ids)
+	if err != nil {
+		quoteCounts = map[uint]int{}
+	}
+	jobCounts, err := store.CountServiceLogsByVendor(ids)
+	if err != nil {
+		jobCounts = map[uint]int{}
+	}
+	rows, meta, cellRows := vendorRows(vendors, quoteCounts, jobCounts)
+	return rows, meta, cellRows, nil
+}
+
+func (vendorHandler) Delete(_ *data.Store, _ uint) error {
+	return fmt.Errorf("vendors cannot be deleted (referenced by quotes and service logs)")
+}
+
+func (vendorHandler) Restore(_ *data.Store, _ uint) error {
+	return fmt.Errorf("vendors do not support soft-delete")
+}
+
+func (vendorHandler) StartAddForm(m *Model) error {
+	m.startVendorForm()
+	return nil
+}
+
+func (vendorHandler) StartEditForm(m *Model, id uint) error {
+	return m.startEditVendorForm(id)
+}
+
+func (vendorHandler) InlineEdit(m *Model, id uint, col int) error {
+	return m.inlineEditVendor(id, col)
+}
+
+func (vendorHandler) SubmitForm(m *Model) error {
+	if m.editID != nil {
+		return m.submitEditVendorForm(*m.editID)
+	}
+	return m.submitVendorForm()
+}
+
+func (vendorHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
+	vendor, err := store.GetVendor(id)
+	if err != nil {
+		return undoEntry{}, false
+	}
+	return undoEntry{
+		Description: fmt.Sprintf("vendor %q", vendor.Name),
+		FormKind:    formVendor,
+		EntityID:    id,
+		Restore: func() error {
+			return store.UpdateVendor(vendor)
+		},
+	}, true
+}
+
+func (vendorHandler) SyncFixedValues(_ *Model, _ []columnSpec) {}

@@ -25,6 +25,7 @@ const (
 	formMaintenance
 	formAppliance
 	formServiceLog
+	formVendor
 )
 
 type TabKind int
@@ -34,6 +35,7 @@ const (
 	tabQuotes
 	tabMaintenance
 	tabAppliances
+	tabVendors
 )
 
 func (k TabKind) String() string {
@@ -46,6 +48,8 @@ func (k TabKind) String() string {
 		return "Maintenance"
 	case tabAppliances:
 		return "Appliances"
+	case tabVendors:
+		return "Vendors"
 	default:
 		return "Unknown"
 	}

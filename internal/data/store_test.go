@@ -496,6 +496,132 @@ func TestSoftDeletePersistsAcrossRuns(t *testing.T) {
 	}
 }
 
+func TestVendorCRUD(t *testing.T) {
+	store := newTestStore(t)
+
+	// Create.
+	v := Vendor{
+		Name:        "Test Vendor",
+		ContactName: "Alice",
+		Email:       "alice@example.com",
+		Phone:       "555-0001",
+	}
+	if err := store.CreateVendor(v); err != nil {
+		t.Fatalf("CreateVendor: %v", err)
+	}
+
+	// List.
+	vendors, err := store.ListVendors()
+	if err != nil {
+		t.Fatalf("ListVendors: %v", err)
+	}
+	if len(vendors) != 1 {
+		t.Fatalf("expected 1 vendor, got %d", len(vendors))
+	}
+	got := vendors[0]
+	if got.Name != "Test Vendor" || got.ContactName != "Alice" {
+		t.Fatalf("unexpected vendor: %+v", got)
+	}
+
+	// Get.
+	fetched, err := store.GetVendor(got.ID)
+	if err != nil {
+		t.Fatalf("GetVendor: %v", err)
+	}
+	if fetched.Email != "alice@example.com" {
+		t.Fatalf("expected email alice@example.com, got %s", fetched.Email)
+	}
+
+	// Update.
+	fetched.Phone = "555-9999"
+	fetched.Website = "https://example.com"
+	if err := store.UpdateVendor(fetched); err != nil {
+		t.Fatalf("UpdateVendor: %v", err)
+	}
+	updated, _ := store.GetVendor(fetched.ID)
+	if updated.Phone != "555-9999" || updated.Website != "https://example.com" {
+		t.Fatalf("update didn't stick: %+v", updated)
+	}
+}
+
+func TestCountQuotesByVendor(t *testing.T) {
+	store := newTestStore(t)
+
+	// Seed a vendor and a project.
+	v := Vendor{Name: "Quote Vendor"}
+	if err := store.CreateVendor(v); err != nil {
+		t.Fatalf("CreateVendor: %v", err)
+	}
+	vendors, _ := store.ListVendors()
+	vendorID := vendors[0].ID
+
+	types, _ := store.ProjectTypes()
+	p := Project{Title: "Test", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned}
+	if err := store.CreateProject(p); err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+	projects, _ := store.ListProjects(false)
+	projectID := projects[0].ID
+
+	// Create two quotes for this vendor.
+	for i := 0; i < 2; i++ {
+		q := Quote{ProjectID: projectID, TotalCents: 100000}
+		if err := store.CreateQuote(q, Vendor{Name: "Quote Vendor"}); err != nil {
+			t.Fatalf("CreateQuote: %v", err)
+		}
+	}
+
+	counts, err := store.CountQuotesByVendor([]uint{vendorID})
+	if err != nil {
+		t.Fatalf("CountQuotesByVendor: %v", err)
+	}
+	if counts[vendorID] != 2 {
+		t.Fatalf("expected 2 quotes, got %d", counts[vendorID])
+	}
+
+	// Empty input.
+	empty, err := store.CountQuotesByVendor(nil)
+	if err != nil {
+		t.Fatalf("CountQuotesByVendor(nil): %v", err)
+	}
+	if len(empty) != 0 {
+		t.Fatalf("expected empty map, got %v", empty)
+	}
+}
+
+func TestCountServiceLogsByVendor(t *testing.T) {
+	store := newTestStore(t)
+
+	v := Vendor{Name: "Job Vendor"}
+	if err := store.CreateVendor(v); err != nil {
+		t.Fatalf("CreateVendor: %v", err)
+	}
+	vendors, _ := store.ListVendors()
+	vendorID := vendors[0].ID
+
+	cats, _ := store.MaintenanceCategories()
+	m := MaintenanceItem{Name: "Filter", CategoryID: cats[0].ID}
+	if err := store.CreateMaintenance(m); err != nil {
+		t.Fatalf("CreateMaintenance: %v", err)
+	}
+	items, _ := store.ListMaintenance(false)
+	maintID := items[0].ID
+
+	now := time.Now()
+	entry := ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: now}
+	if err := store.CreateServiceLog(entry, Vendor{Name: "Job Vendor"}); err != nil {
+		t.Fatalf("CreateServiceLog: %v", err)
+	}
+
+	counts, err := store.CountServiceLogsByVendor([]uint{vendorID})
+	if err != nil {
+		t.Fatalf("CountServiceLogsByVendor: %v", err)
+	}
+	if counts[vendorID] != 1 {
+		t.Fatalf("expected 1 job, got %d", counts[vendorID])
+	}
+}
+
 func newTestStore(t *testing.T) *Store {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "test.db")

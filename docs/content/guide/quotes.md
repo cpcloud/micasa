@@ -26,7 +26,7 @@ is linked to a project.
 |-------:|------|-------------|-------|
 | `ID` | auto | Auto-assigned | Read-only |
 | `Project` | select | Linked project | Shows as `m:1` link -- press `enter` to jump |
-| `Vendor` | text | Vendor name | Required. Find-or-create: typing a name that exists reuses it |
+| `Vendor` | text | Vendor name | Required. Shows as `m:1` link -- press `enter` to jump to vendor |
 | `Total` | money | Total quote amount | Required |
 | `Labor` | money | Labor portion | Optional |
 | `Mat` | money | Materials portion | Optional |
