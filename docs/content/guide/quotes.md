@@ -22,16 +22,16 @@ is linked to a project.
 
 ## Fields
 
-| Column  | Description | Notes |
-|---------|-------------|-------|
-| ID      | Auto-assigned | Read-only |
-| Project | Linked project | Select. Shows as `m:1` link -- press `enter` to jump. |
-| Vendor  | Vendor name | Required. Find-or-create: typing a name that exists reuses it. |
-| Total   | Total quote amount | Required. Dollar amount. |
-| Labor   | Labor portion | Optional. |
-| Mat     | Materials portion | Optional. |
-| Other   | Other costs | Optional. |
-| Recv    | Date received | YYYY-MM-DD |
+| Column    | Description | Notes |
+|-----------|-------------|-------|
+| `ID`      | Auto-assigned | Read-only |
+| `Project` | Linked project | Select. Shows as `m:1` link -- press `enter` to jump. |
+| `Vendor`  | Vendor name | Required. Find-or-create: typing a name that exists reuses it. |
+| `Total`   | Total quote amount | Required. Dollar amount. |
+| `Labor`   | Labor portion | Optional. |
+| `Mat`     | Materials portion | Optional. |
+| `Other`   | Other costs | Optional. |
+| `Recv`    | Date received | YYYY-MM-DD |
 
 ## Vendor management
 
@@ -45,11 +45,11 @@ all quotes and service log entries for that vendor.
 
 ## Cost comparison
 
-To compare quotes for a project, sort the Quotes tab by the Project column
-(`s` on the Project column header) to group quotes by project. Then compare
-the Total, Labor, Materials, and Other columns across vendors.
+To compare quotes for a project, sort the Quotes tab by the `Project` column
+(`s` on the `Project` column header) to group quotes by project. Then compare
+the `Total`, `Labor`, `Mat`, and `Other` columns across vendors.
 
 ## Project link
 
-The Project column is a foreign key. In Normal mode, press `enter` on the
-Project cell to jump to the linked project in the Projects tab.
+The `Project` column is a foreign key. In Normal mode, press `enter` on the
+`Project` cell to jump to the linked project in the Projects tab.

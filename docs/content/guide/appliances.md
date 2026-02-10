@@ -16,22 +16,22 @@ the water heater to the dishwasher.
 2. Enter Edit mode (`i`), press `a`
 3. Fill in the identity and details forms
 
-Only the **Name** is required.
+Only the `Name` is required.
 
 ## Fields
 
-| Column    | Description | Notes |
-|-----------|-------------|-------|
-| ID        | Auto-assigned | Read-only |
-| Name      | Appliance name | Required. E.g., "Kitchen Refrigerator" |
-| Brand     | Manufacturer | E.g., "LG" |
-| Model     | Model number | For warranty lookups and replacements |
-| Serial    | Serial number | |
-| Location  | Where in the house | E.g., "Kitchen", "Basement" |
-| Purchased | Purchase date | YYYY-MM-DD |
-| Warranty  | Warranty expiry | YYYY-MM-DD. Shows on dashboard when expiring. |
-| Cost      | Purchase price | Dollar amount |
-| Maint     | Maintenance count | Drilldown -- press `enter` to view linked maintenance. |
+| Column      | Description | Notes |
+|-------------|-------------|-------|
+| `ID`        | Auto-assigned | Read-only |
+| `Name`      | Appliance name | Required. E.g., "Kitchen Refrigerator" |
+| `Brand`     | Manufacturer | E.g., "LG" |
+| `Model`     | Model number | For warranty lookups and replacements |
+| `Serial`    | Serial number | |
+| `Location`  | Where in the house | E.g., "Kitchen", "Basement" |
+| `Purchased` | Purchase date | YYYY-MM-DD |
+| `Warranty`  | Warranty expiry | YYYY-MM-DD. Shows on dashboard when expiring. |
+| `Cost`      | Purchase price | Dollar amount |
+| `Maint`     | Maintenance count | Drilldown -- press `enter` to view linked maintenance. |
 
 ## Warranty tracking
 
@@ -41,8 +41,8 @@ Enter the warranty expiry date when you add an appliance. The
 
 ## Maintenance drilldown
 
-The **Maint** column shows how many maintenance items are linked to this
-appliance. In Normal mode, navigate to the Maint column and press `enter` to
+The `Maint` column shows how many maintenance items are linked to this
+appliance. In Normal mode, navigate to the `Maint` column and press `enter` to
 open a detail view showing those maintenance items (without the Appliance
 column, since it's redundant).
 
@@ -51,5 +51,5 @@ From the detail view you can add, edit, or delete maintenance items. Press
 
 ## Inline editing
 
-All columns except ID and Maint support inline editing. Press `e` in Edit
+All columns except `ID` and `Maint` support inline editing. Press `e` in Edit
 mode on a cell to edit just that field.

@@ -13,7 +13,7 @@ exactly one per database.
 ## First-time setup
 
 On first launch (with no existing database), micasa presents the house profile
-form automatically. The **Nickname** field is required; everything else is
+form automatically. The `Nickname` field is required; everything else is
 optional. Fill in what you know now and come back later for the rest.
 
 ## Viewing the profile
@@ -42,15 +42,15 @@ Financial). Save with `ctrl+s`, cancel with `esc`.
 
 | Section    | Field              | Notes |
 |------------|--------------------|-------|
-| Basics     | Nickname           | Required. Display name for your house. |
-| Basics     | Address            | Street, city, state, postal code. |
-| Structure  | Year built         | Whole number. |
-| Structure  | Square feet / Lot  | Interior and lot size. |
-| Structure  | Bedrooms / Baths   | Baths can be decimal (e.g., 2.5). |
-| Structure  | Foundation, Wiring, Roof, Exterior, Basement | Free text. |
-| Utilities  | Heating, Cooling, Water, Sewer, Parking | Free text. |
-| Financial  | Insurance carrier  | Company name. |
-| Financial  | Insurance policy   | Policy number. |
-| Financial  | Insurance renewal  | Date (YYYY-MM-DD). Shows on dashboard when due. |
-| Financial  | Property tax       | Annual amount in dollars (e.g., 4200.00). |
-| Financial  | HOA name / fee     | Name and monthly fee. |
+| Basics     | `Nickname`         | Required. Display name for your house. |
+| Basics     | `Address`          | Street, city, state, postal code. |
+| Structure  | `Year built`       | Whole number. |
+| Structure  | `Square feet` / `Lot` | Interior and lot size. |
+| Structure  | `Bedrooms` / `Baths`  | Baths can be decimal (e.g., 2.5). |
+| Structure  | `Foundation`, `Wiring`, `Roof`, `Exterior`, `Basement` | Free text. |
+| Utilities  | `Heating`, `Cooling`, `Water`, `Sewer`, `Parking` | Free text. |
+| Financial  | `Insurance carrier`   | Company name. |
+| Financial  | `Insurance policy`    | Policy number. |
+| Financial  | `Insurance renewal`   | Date (YYYY-MM-DD). Shows on dashboard when due. |
+| Financial  | `Property tax`        | Annual amount in dollars (e.g., 4200.00). |
+| Financial  | `HOA name` / `fee`    | Name and monthly fee. |

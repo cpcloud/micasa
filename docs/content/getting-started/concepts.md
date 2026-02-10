@@ -19,47 +19,47 @@ There's exactly one house profile per database.
 Anything you want to do to your house, from "fix the squeaky door" to "redo
 the kitchen." Each project has:
 
-- **Type** (e.g., Renovation, Repair, Landscaping) -- these are pre-seeded
+- `Type` (e.g., Renovation, Repair, Landscaping) -- these are pre-seeded
   categories
-- **Status** tracking a lifecycle: ideating, planned, quoted, underway,
+- `Status` tracking a lifecycle: ideating, planned, quoted, underway,
   delayed, completed, abandoned
-- **Budget and actual cost** for tracking spending
-- **Start and end dates**
+- `Budget` and `Actual` cost for tracking spending
+- `Start` and `End` dates
 
 ## Quotes
 
 Vendor quotes linked to a project. Each quote has:
 
-- **Vendor** info (name, contact, email, phone, website) -- vendors are
+- `Vendor` info (name, contact, email, phone, website) -- vendors are
   shared across quotes and service log entries
-- **Cost breakdown**: total, labor, materials, other
-- **Received date**
+- Cost breakdown: `Total`, `Labor`, `Mat`, `Other`
+- `Recv` date
 
-Quotes link to projects via a foreign key. On the Quotes tab, the Project
+Quotes link to projects via a foreign key. On the Quotes tab, the `Project`
 column is a navigable link -- press `enter` to jump to the linked project.
 
 ## Maintenance
 
 Recurring upkeep tasks. Each maintenance item has:
 
-- **Category** (e.g., HVAC, Plumbing, Electrical) -- pre-seeded
-- **Appliance** link (optional) -- ties the task to a specific appliance
-- **Schedule**: last serviced date + interval in months
-- **Next due date**: auto-computed from last serviced + interval
-- **Service log**: a time-ordered history of when the task was actually
+- `Category` (e.g., HVAC, Plumbing, Electrical) -- pre-seeded
+- `Appliance` link (optional) -- ties the task to a specific appliance
+- Schedule: `Last` serviced date + `Every` (interval in months)
+- `Next` due date: auto-computed from `Last` + `Every`
+- `Log`: a time-ordered history of when the task was actually
   performed, by whom, and at what cost
 
-The **Log** column on the Maintenance tab is a drilldown -- press `enter` to
+The `Log` column on the Maintenance tab is a drilldown -- press `enter` to
 open the service log for that item.
 
 ## Service Log
 
 Each entry in a maintenance item's service log records:
 
-- **Date serviced**
-- **Performed by**: yourself ("Self") or a vendor
-- **Cost**
-- **Notes**
+- `Date` serviced
+- `Performed By`: yourself ("Self") or a vendor
+- `Cost`
+- `Notes`
 
 Service log entries are accessed by drilling into a maintenance item, not as a
 standalone tab.
@@ -68,10 +68,10 @@ standalone tab.
 
 Physical equipment in your home. Each appliance tracks:
 
-- **Identity**: name, brand, model number, serial number, location
-- **Purchase date and warranty expiry**
-- **Cost**
-- **Linked maintenance**: the **Maint** column shows how many maintenance
+- Identity: `Name`, `Brand`, `Model`, `Serial`, `Location`
+- `Purchased` date and `Warranty` expiry
+- `Cost`
+- Linked maintenance: the `Maint` column shows how many maintenance
   items reference this appliance. Press `enter` to drill into them.
 
 ## Vendors

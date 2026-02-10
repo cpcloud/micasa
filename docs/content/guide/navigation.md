@@ -77,8 +77,8 @@ tab is highlighted in the tab bar.
 Some columns are drilldowns -- pressing `enter` on them opens a sub-table.
 For example:
 
-- **Log** column on the Maintenance tab opens the service log for that item
-- **Maint** column on the Appliances tab opens maintenance items linked to
+- `Log` column on the Maintenance tab opens the service log for that item
+- `Maint` column on the Appliances tab opens maintenance items linked to
   that appliance
 
 A breadcrumb bar replaces the tab bar while in a detail view (e.g.,
@@ -93,5 +93,5 @@ linked cell, the status bar shows `follow m:1`. Press `enter` to jump to the
 referenced row in the target tab.
 
 Examples:
-- Quotes **Project** column links to the Projects tab
-- Maintenance **Appliance** column links to the Appliances tab
+- Quotes `Project` column links to the Projects tab
+- Maintenance `Appliance` column links to the Appliances tab
