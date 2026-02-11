@@ -459,14 +459,14 @@ func (m *Model) handleEditKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 		if err := m.popUndo(); err != nil {
 			m.setStatusError(err.Error())
 		} else {
-			m.reloadAll()
+			m.reloadAfterMutation()
 		}
 		return nil, true
 	case "r":
 		if err := m.popRedo(); err != nil {
 			m.setStatusError(err.Error())
 		} else {
-			m.reloadAll()
+			m.reloadAfterMutation()
 		}
 		return nil, true
 	case "x":
@@ -625,7 +625,12 @@ func (m *Model) closeDetail() {
 	m.detail = nil
 	m.active = parentIdx
 	if m.store != nil {
-		_ = m.reloadActiveTab()
+		tab := m.activeTab()
+		if tab != nil && tab.Stale {
+			_ = m.reloadIfStale(tab)
+		} else {
+			_ = m.reloadActiveTab()
+		}
 	}
 	// Restore cursor to the parent row.
 	if tab := m.activeTab(); tab != nil {
@@ -643,7 +648,8 @@ func (m *Model) reloadDetailTab() error {
 }
 
 // reloadAll refreshes lookups, house profile, all tabs, detail tab, and
-// dashboard data. Called after any data mutation.
+// dashboard data. Used only at initialization; mutations should call
+// reloadAfterMutation for targeted reload.
 func (m *Model) reloadAll() {
 	if m.store == nil {
 		return
@@ -657,6 +663,41 @@ func (m *Model) reloadAll() {
 	if m.showDashboard {
 		_ = m.loadDashboard()
 	}
+}
+
+// reloadAfterMutation refreshes only the tab the user is looking at and
+// marks all other tabs as stale for lazy reload on navigation. Dashboard
+// is refreshed only when visible. This avoids reloading 4 idle tabs on
+// every save/undo/redo.
+func (m *Model) reloadAfterMutation() {
+	if m.store == nil {
+		return
+	}
+	_ = m.reloadEffectiveTab()
+	m.markNonEffectiveStale()
+	if m.showDashboard {
+		_ = m.loadDashboard()
+	}
+}
+
+// markNonEffectiveStale marks all tabs except the effective (active or
+// detail-parent) tab as needing a reload on next navigation.
+func (m *Model) markNonEffectiveStale() {
+	effectiveIdx := m.active
+	for i := range m.tabs {
+		if i != effectiveIdx {
+			m.tabs[i].Stale = true
+		}
+	}
+}
+
+// reloadIfStale reloads a tab only if it is marked stale. The stale flag
+// is cleared by reloadTab on success.
+func (m *Model) reloadIfStale(tab *Tab) error {
+	if tab == nil || !tab.Stale {
+		return nil
+	}
+	return m.reloadTab(tab)
 }
 
 func (m *Model) toggleDashboard() {
@@ -676,7 +717,12 @@ func (m *Model) nextTab() {
 	}
 	m.active = (m.active + 1) % len(m.tabs)
 	m.status = statusMsg{}
-	_ = m.reloadActiveTab()
+	tab := m.activeTab()
+	if tab != nil && tab.Stale {
+		_ = m.reloadIfStale(tab)
+	} else {
+		_ = m.reloadActiveTab()
+	}
 }
 
 func (m *Model) prevTab() {
@@ -688,7 +734,12 @@ func (m *Model) prevTab() {
 		m.active = len(m.tabs) - 1
 	}
 	m.status = statusMsg{}
-	_ = m.reloadActiveTab()
+	tab := m.activeTab()
+	if tab != nil && tab.Stale {
+		_ = m.reloadIfStale(tab)
+	} else {
+		_ = m.reloadActiveTab()
+	}
 }
 
 func (m *Model) startAddForm() {
@@ -751,8 +802,12 @@ func (m *Model) startCellOrFormEdit() error {
 func (m *Model) navigateToLink(link *columnLink, targetID uint) error {
 	targetIdx := tabIndex(link.TargetTab)
 	m.active = targetIdx
-	_ = m.reloadActiveTab()
 	tab := m.activeTab()
+	if tab != nil && tab.Stale {
+		_ = m.reloadIfStale(tab)
+	} else {
+		_ = m.reloadActiveTab()
+	}
 	if tab == nil {
 		return fmt.Errorf("target tab not found")
 	}
@@ -871,6 +926,7 @@ func (m *Model) reloadTab(tab *Tab) error {
 	tab.CellRows = cellRows
 	tab.Table.SetRows(rows)
 	tab.Rows = meta
+	tab.Stale = false
 	applySorts(tab)
 	m.updateTabViewport(tab)
 	return nil
@@ -959,6 +1015,7 @@ func (m *Model) statusLines() int {
 
 func (m *Model) saveForm() tea.Cmd {
 	m.snapshotForUndo()
+	kind := m.formKind
 	err := m.handleFormSubmit()
 	if err != nil {
 		m.setStatusError(err.Error())
@@ -966,8 +1023,27 @@ func (m *Model) saveForm() tea.Cmd {
 	}
 	m.exitForm()
 	m.setStatusInfo("Saved.")
-	m.reloadAll()
+	m.reloadAfterFormSave(kind)
 	return nil
+}
+
+// reloadAfterFormSave picks the minimal reload strategy based on which
+// form was just saved. House and vendor mutations need broader refreshes;
+// everything else uses the targeted reload.
+func (m *Model) reloadAfterFormSave(kind FormKind) {
+	if m.store == nil {
+		return
+	}
+	switch kind {
+	case formHouse:
+		_ = m.loadHouse()
+		m.reloadAfterMutation()
+	case formVendor:
+		_ = m.loadLookups()
+		m.reloadAfterMutation()
+	default:
+		m.reloadAfterMutation()
+	}
 }
 
 func (m *Model) snapshotForm() {
@@ -1039,6 +1115,7 @@ func (m *Model) submitInlineInput() {
 		}
 	}
 	*ii.FieldPtr = value
+	kind := ii.FormKind
 	m.snapshotForUndo()
 	if err := m.handleFormSubmit(); err != nil {
 		m.setStatusError(err.Error())
@@ -1046,7 +1123,7 @@ func (m *Model) submitInlineInput() {
 	}
 	m.closeInlineInput()
 	m.setStatusInfo("Saved.")
-	m.reloadAll()
+	m.reloadAfterFormSave(kind)
 }
 
 func (m *Model) closeInlineInput() {

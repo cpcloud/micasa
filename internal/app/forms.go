@@ -1113,13 +1113,14 @@ func (m *Model) openDatePicker(
 	m.editID = &id
 	m.formKind = kind
 	m.formData = values
+	savedKind := kind
 	m.openCalendar(dateField, func() {
 		m.snapshotForUndo()
 		if err := m.handleFormSubmit(); err != nil {
 			m.setStatusError(err.Error())
 		} else {
 			m.setStatusInfo("Saved.")
-			m.reloadAll()
+			m.reloadAfterFormSave(savedKind)
 		}
 		m.formKind = formNone
 		m.formData = nil

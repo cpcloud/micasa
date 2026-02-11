@@ -86,6 +86,7 @@ type Tab struct {
 	LastDeleted *uint
 	ShowDeleted bool
 	Sorts       []sortEntry
+	Stale       bool // true when data may be outdated; cleared on reload
 }
 
 type statusKind int

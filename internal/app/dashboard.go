@@ -776,8 +776,13 @@ func (m *Model) dashJump() {
 	entry := nav[m.dashCursor]
 	m.showDashboard = false
 	m.active = tabIndex(entry.Tab)
-	_ = m.reloadActiveTab()
-	if tab := m.activeTab(); tab != nil {
+	tab := m.activeTab()
+	if tab != nil && tab.Stale {
+		_ = m.reloadIfStale(tab)
+	} else {
+		_ = m.reloadActiveTab()
+	}
+	if tab != nil {
 		selectRowByID(tab, entry.ID)
 	}
 }
