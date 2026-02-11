@@ -341,6 +341,10 @@ These have been repeatedly requested. Violating them wastes the user's time.
   branch, re-read the PR title and body (`gh pr view`) and update them if
   they no longer match the actual changes. Don't wait for the user to notice
   stale descriptions.
+- **Respect native shells in CI**: Don't switch Windows CI steps to `bash`
+  just to work around argument-parsing issues. PowerShell is the native
+  shell on Windows runners; fix commands to work under PowerShell instead
+  (e.g. quote arguments, use `--flag value` instead of `--flag=value`).
 
 If the user asks you to learn something, add it to this "Hard rules" section
 so it survives context resets. This file is always injected; external files
