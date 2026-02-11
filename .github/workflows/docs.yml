@@ -1,0 +1,30 @@
+# Copyright 2026 Phillip Cloud
+# Licensed under the Apache License, Version 2.0
+
+name: Docs
+
+on:
+  push:
+    branches: [main]
+    paths: [website/**, docs/**, images/**]
+  pull_request:
+    branches: [main]
+    paths: [website/**, docs/**, images/**]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Docs
+    runs-on: ubuntu-latest
+    concurrency:
+      group: docs-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - uses: cachix/install-nix-action@4e002c8ec80594ecd40e759629461e26c8abed15 # v31
+
+      - name: Build docs
+        run: nix run '.#build-docs'

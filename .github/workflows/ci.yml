@@ -6,8 +6,10 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore: [website/**, docs/**, images/**]
   pull_request:
     branches: [main]
+    paths-ignore: [website/**, docs/**, images/**]
 
 permissions:
   contents: read
@@ -82,20 +84,6 @@ jobs:
       - name: Build with Nix
         run: nix build '.#micasa'
 
-  docs:
-    name: Docs Build
-    runs-on: ubuntu-latest
-    concurrency:
-      group: ci-docs-${{ github.ref }}
-      cancel-in-progress: true
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
-      - uses: cachix/install-nix-action@4e002c8ec80594ecd40e759629461e26c8abed15 # v31
-
-      - name: Build docs
-        run: nix run '.#build-docs'
-
   secrets:
     name: Secret Scan
     runs-on: ubuntu-latest
@@ -131,7 +119,7 @@ jobs:
 
   semantic-release:
     name: Semantic Release
-    needs: [test, pre-commit, nix-build, docs, secrets]
+    needs: [test, pre-commit, nix-build, secrets]
     if: >-
       github.event_name == 'pull_request'
       || !startsWith(github.event.head_commit.message, 'chore(release):')
