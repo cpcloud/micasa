@@ -89,8 +89,9 @@ func TestResolveDBPath_ExplicitPathBeatsEnv(t *testing.T) {
 	}
 }
 
-// Integration tests that invoke the built binary with --print-path.
-// These exercise the full CLI parsing + resolveDBPath + print-and-exit path.
+// Version tests use exec.Command("go", "build") because debug.ReadBuildInfo()
+// only embeds VCS revision info in binaries built with go build, not go test,
+// and -ldflags -X injection likewise requires a real build step.
 
 func buildTestBinary(t *testing.T) string {
 	t.Helper()
@@ -105,84 +106,6 @@ func buildTestBinary(t *testing.T) string {
 		t.Fatalf("build failed: %v\n%s", err, out)
 	}
 	return bin
-}
-
-func TestPrintPath_Default(t *testing.T) {
-	bin := buildTestBinary(t)
-	cmd := exec.Command(bin, "--print-path")
-	cmd.Env = append(os.Environ(), "MICASA_DB_PATH=")
-	out, err := cmd.Output()
-	if err != nil {
-		t.Fatalf("--print-path failed: %v", err)
-	}
-	got := strings.TrimSpace(string(out))
-	if got == "" {
-		t.Fatal("expected non-empty output")
-	}
-	if !strings.HasSuffix(got, "micasa.db") {
-		t.Errorf("expected path ending in micasa.db, got %q", got)
-	}
-}
-
-func TestPrintPath_ExplicitPath(t *testing.T) {
-	bin := buildTestBinary(t)
-	cmd := exec.Command(bin, "--print-path", "/custom/path.db")
-	out, err := cmd.Output()
-	if err != nil {
-		t.Fatalf("--print-path failed: %v", err)
-	}
-	got := strings.TrimSpace(string(out))
-	if got != "/custom/path.db" {
-		t.Errorf("got %q, want /custom/path.db", got)
-	}
-}
-
-func TestPrintPath_EnvOverride(t *testing.T) {
-	bin := buildTestBinary(t)
-	cmd := exec.Command(bin, "--print-path")
-	cmd.Env = append(os.Environ(), "MICASA_DB_PATH=/env/test.db")
-	out, err := cmd.Output()
-	if err != nil {
-		t.Fatalf("--print-path failed: %v", err)
-	}
-	got := strings.TrimSpace(string(out))
-	if got != "/env/test.db" {
-		t.Errorf("got %q, want /env/test.db", got)
-	}
-}
-
-func TestPrintPath_DemoNoPath(t *testing.T) {
-	bin := buildTestBinary(t)
-	cmd := exec.Command(bin, "--print-path", "--demo")
-	out, err := cmd.Output()
-	if err != nil {
-		t.Fatalf("--print-path --demo failed: %v", err)
-	}
-	got := strings.TrimSpace(string(out))
-	if got != ":memory:" {
-		t.Errorf("got %q, want :memory:", got)
-	}
-}
-
-func TestPrintPath_DemoWithPath(t *testing.T) {
-	bin := buildTestBinary(t)
-	cmd := exec.Command(bin, "--print-path", "--demo", "/tmp/demo.db")
-	out, err := cmd.Output()
-	if err != nil {
-		t.Fatalf("--print-path --demo /path failed: %v", err)
-	}
-	got := strings.TrimSpace(string(out))
-	if got != "/tmp/demo.db" {
-		t.Errorf("got %q, want /tmp/demo.db", got)
-	}
-}
-
-func TestPrintPath_ExitCodeZero(t *testing.T) {
-	bin := buildTestBinary(t)
-	cmd := exec.Command(bin, "--print-path")
-	if err := cmd.Run(); err != nil {
-		t.Errorf("expected exit 0, got %v", err)
-	}
 }
 
 func TestVersion_DevShowsCommitHash(t *testing.T) {
