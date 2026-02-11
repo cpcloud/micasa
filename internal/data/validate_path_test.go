@@ -74,10 +74,10 @@ func TestValidateDBPath(t *testing.T) {
 }
 
 func TestValidateDBPathRejectsRandomURLs(t *testing.T) {
-	f := gofakeit.New(42)
+	f := gofakeit.New(testSeed)
 	for i := 0; i < 100; i++ {
 		u := f.URL()
-		t.Run(fmt.Sprintf("seed42_%d", i), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			err := ValidateDBPath(u)
 			if err == nil {
 				t.Errorf("ValidateDBPath(%q) = nil, want rejection", u)
@@ -87,11 +87,10 @@ func TestValidateDBPathRejectsRandomURLs(t *testing.T) {
 }
 
 func TestValidateDBPathRejectsRandomURLsWithQueryParams(t *testing.T) {
-	f := gofakeit.New(99)
+	f := gofakeit.New(testSeed)
 	for i := 0; i < 50; i++ {
-		// Construct URLs with query params that would hit url.ParseQuery.
 		u := fmt.Sprintf("%s?%s=%s", f.URL(), f.Word(), f.Word())
-		t.Run(fmt.Sprintf("seed99_%d", i), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			err := ValidateDBPath(u)
 			if err == nil {
 				t.Errorf("ValidateDBPath(%q) = nil, want rejection", u)
@@ -101,10 +100,10 @@ func TestValidateDBPathRejectsRandomURLsWithQueryParams(t *testing.T) {
 }
 
 func TestOpenRejectsURIs(t *testing.T) {
-	f := gofakeit.New(7)
+	f := gofakeit.New(testSeed)
 	for i := 0; i < 10; i++ {
 		u := f.URL()
-		t.Run(fmt.Sprintf("seed7_%d", i), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			_, err := Open(u)
 			if err == nil {
 				t.Fatalf("Open(%q) should reject URI paths", u)
