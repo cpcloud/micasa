@@ -352,6 +352,9 @@ These have been repeatedly requested. Violating them wastes the user's time.
   the current PR.
 - **CI commits use `ci:` scope**: Use `ci:` (not `fix:`) for CI workflow
   changes unless the user explicitly says otherwise.
+- **Don't mention AGENTS.md in PR descriptions**: When AGENTS.md changes
+  accompany other work, omit them from the PR summary. Only mention
+  AGENTS.md if the PR is solely about agent rules.
 
 If the user asks you to learn something, add it to this "Hard rules" section
 so it survives context resets. This file is always injected; external files
