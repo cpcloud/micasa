@@ -9,7 +9,7 @@ import (
 )
 
 func TestModelWithDemoDataLoadsAllTabs(t *testing.T) {
-	m := newTestModelWithDemoData(t, 77)
+	m := newTestModelWithDemoData(t, testSeed)
 
 	for i, tab := range m.tabs {
 		if len(tab.Table.Rows()) == 0 {
@@ -19,7 +19,7 @@ func TestModelWithDemoDataLoadsAllTabs(t *testing.T) {
 }
 
 func TestModelWithDemoDataDashboard(t *testing.T) {
-	m := newTestModelWithDemoData(t, 77)
+	m := newTestModelWithDemoData(t, testSeed)
 	m.showDashboard = true
 	if err := m.loadDashboardAt(time.Now()); err != nil {
 		t.Fatalf("loadDashboard: %v", err)
@@ -31,7 +31,8 @@ func TestModelWithDemoDataDashboard(t *testing.T) {
 }
 
 func TestModelWithDemoDataVariedSeeds(t *testing.T) {
-	for _, seed := range []uint64{1, 2, 3, 4, 5} {
+	for i := range uint64(5) {
+		seed := testSeed + i
 		m := newTestModelWithDemoData(t, seed)
 		if m == nil {
 			t.Fatalf("seed %d: nil model", seed)

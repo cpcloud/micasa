@@ -8,7 +8,7 @@ import (
 )
 
 func TestSeedDemoDataPopulatesAllEntities(t *testing.T) {
-	store := newTestStoreWithDemoData(t, 99)
+	store := newTestStoreWithDemoData(t, testSeed)
 
 	house, err := store.HouseProfile()
 	if err != nil {
@@ -55,8 +55,8 @@ func TestSeedDemoDataPopulatesAllEntities(t *testing.T) {
 }
 
 func TestSeedDemoDataDeterministic(t *testing.T) {
-	store1 := newTestStoreWithDemoData(t, 42)
-	store2 := newTestStoreWithDemoData(t, 42)
+	store1 := newTestStoreWithDemoData(t, testSeed)
+	store2 := newTestStoreWithDemoData(t, testSeed)
 
 	h1, _ := store1.HouseProfile()
 	h2, _ := store2.HouseProfile()
@@ -68,8 +68,8 @@ func TestSeedDemoDataDeterministic(t *testing.T) {
 
 func TestSeedDemoDataVariety(t *testing.T) {
 	names := make(map[string]bool)
-	for seed := uint64(0); seed < 5; seed++ {
-		store := newTestStoreWithDemoData(t, seed)
+	for i := range uint64(5) {
+		store := newTestStoreWithDemoData(t, testSeed+i)
 		h, _ := store.HouseProfile()
 		names[h.Nickname] = true
 	}
@@ -79,7 +79,7 @@ func TestSeedDemoDataVariety(t *testing.T) {
 }
 
 func TestSeedDemoDataSkipsIfDataExists(t *testing.T) {
-	store := newTestStoreWithDemoData(t, 1)
+	store := newTestStoreWithDemoData(t, testSeed)
 
 	vendors1, _ := store.ListVendors()
 	count1 := len(vendors1)
