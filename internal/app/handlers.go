@@ -107,9 +107,6 @@ func (projectHandler) InlineEdit(m *Model, id uint, col int) error {
 }
 
 func (projectHandler) SubmitForm(m *Model) error {
-	if m.editID != nil {
-		return m.submitEditProjectForm(*m.editID)
-	}
 	return m.submitProjectForm()
 }
 
@@ -177,9 +174,6 @@ func (quoteHandler) InlineEdit(m *Model, id uint, col int) error {
 }
 
 func (quoteHandler) SubmitForm(m *Model) error {
-	if m.editID != nil {
-		return m.submitEditQuoteForm(*m.editID)
-	}
 	return m.submitQuoteForm()
 }
 
@@ -252,9 +246,6 @@ func (maintenanceHandler) InlineEdit(m *Model, id uint, col int) error {
 }
 
 func (maintenanceHandler) SubmitForm(m *Model) error {
-	if m.editID != nil {
-		return m.submitEditMaintenanceForm(*m.editID)
-	}
 	return m.submitMaintenanceForm()
 }
 
@@ -331,9 +322,6 @@ func (applianceHandler) InlineEdit(m *Model, id uint, col int) error {
 }
 
 func (applianceHandler) SubmitForm(m *Model) error {
-	if m.editID != nil {
-		return m.submitEditApplianceForm(*m.editID)
-	}
 	return m.submitApplianceForm()
 }
 
@@ -405,9 +393,6 @@ func (h applianceMaintenanceHandler) InlineEdit(m *Model, id uint, col int) erro
 }
 
 func (h applianceMaintenanceHandler) SubmitForm(m *Model) error {
-	if m.editID != nil {
-		return m.submitEditMaintenanceForm(*m.editID)
-	}
 	return m.submitMaintenanceForm()
 }
 
@@ -466,9 +451,6 @@ func (h serviceLogHandler) InlineEdit(m *Model, id uint, col int) error {
 }
 
 func (h serviceLogHandler) SubmitForm(m *Model) error {
-	if m.editID != nil {
-		return m.submitEditServiceLogForm(*m.editID)
-	}
 	return m.submitServiceLogForm()
 }
 
@@ -544,9 +526,6 @@ func (vendorHandler) InlineEdit(m *Model, id uint, col int) error {
 }
 
 func (vendorHandler) SubmitForm(m *Model) error {
-	if m.editID != nil {
-		return m.submitEditVendorForm(*m.editID)
-	}
 	return m.submitVendorForm()
 }
 

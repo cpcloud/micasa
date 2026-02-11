@@ -121,14 +121,9 @@ func (s *Store) SeedDefaults() error {
 	if err := s.seedProjectTypes(); err != nil {
 		return err
 	}
-	if err := s.seedMaintenanceCategories(); err != nil {
-		return err
-	}
-	return nil
+	return s.seedMaintenanceCategories()
 }
 
-// SeedDemoData populates the database with plausible sample data for testing.
-// It is idempotent: if a house profile already exists, it returns immediately.
 // SeedDemoData populates the database with realistic demo data using a fixed
 // seed so the demo always looks the same. Skips if data already exists.
 func (s *Store) SeedDemoData() error {
@@ -393,10 +388,7 @@ func (s *Store) CreateVendor(vendor Vendor) error {
 }
 
 func (s *Store) UpdateVendor(vendor Vendor) error {
-	return s.db.Model(&Vendor{}).Where("id = ?", vendor.ID).
-		Select("*").
-		Omit("id", "created_at").
-		Updates(vendor).Error
+	return s.updateByID(&Vendor{}, vendor.ID, vendor)
 }
 
 // CountQuotesByVendor returns the number of non-deleted quotes per vendor ID.
@@ -482,10 +474,7 @@ func (s *Store) CreateProject(project Project) error {
 }
 
 func (s *Store) UpdateProject(project Project) error {
-	return s.db.Model(&Project{}).Where("id = ?", project.ID).
-		Select("*").
-		Omit("id", "created_at", "deleted_at").
-		Updates(project).Error
+	return s.updateByID(&Project{}, project.ID, project)
 }
 
 func (s *Store) GetQuote(id uint) (Quote, error) {
@@ -519,10 +508,7 @@ func (s *Store) UpdateQuote(quote Quote, vendor Vendor) error {
 			return err
 		}
 		quote.VendorID = foundVendor.ID
-		return tx.Model(&Quote{}).Where("id = ?", quote.ID).
-			Select("*").
-			Omit("id", "created_at", "deleted_at").
-			Updates(quote).Error
+		return updateByIDWith(tx, &Quote{}, quote.ID, quote)
 	})
 }
 
@@ -541,10 +527,7 @@ func (s *Store) CreateMaintenance(item MaintenanceItem) error {
 }
 
 func (s *Store) UpdateMaintenance(item MaintenanceItem) error {
-	return s.db.Model(&MaintenanceItem{}).Where("id = ?", item.ID).
-		Select("*").
-		Omit("id", "created_at", "deleted_at").
-		Updates(item).Error
+	return s.updateByID(&MaintenanceItem{}, item.ID, item)
 }
 
 func (s *Store) ListAppliances(includeDeleted bool) ([]Appliance, error) {
@@ -570,10 +553,7 @@ func (s *Store) CreateAppliance(item Appliance) error {
 }
 
 func (s *Store) UpdateAppliance(item Appliance) error {
-	return s.db.Model(&Appliance{}).Where("id = ?", item.ID).
-		Select("*").
-		Omit("id", "created_at", "deleted_at").
-		Updates(item).Error
+	return s.updateByID(&Appliance{}, item.ID, item)
 }
 
 // ---------------------------------------------------------------------------
@@ -627,10 +607,7 @@ func (s *Store) UpdateServiceLog(entry ServiceLogEntry, vendor Vendor) error {
 		} else {
 			entry.VendorID = nil
 		}
-		return tx.Model(&ServiceLogEntry{}).Where("id = ?", entry.ID).
-			Select("*").
-			Omit("id", "created_at", "deleted_at").
-			Updates(entry).Error
+		return updateByIDWith(tx, &ServiceLogEntry{}, entry.ID, entry)
 	})
 }
 
@@ -860,6 +837,19 @@ func (s *Store) countByFK(model any, fkColumn string, ids []uint) (map[uint]int,
 		counts[r.FK] = r.Count
 	}
 	return counts, nil
+}
+
+// updateByIDWith updates a record by ID, preserving id, created_at, and
+// deleted_at. Works with both Store.db and transaction handles.
+func updateByIDWith(db *gorm.DB, model any, id uint, values any) error {
+	return db.Model(model).Where("id = ?", id).
+		Select("*").
+		Omit("id", "created_at", "deleted_at").
+		Updates(values).Error
+}
+
+func (s *Store) updateByID(model any, id uint, values any) error {
+	return updateByIDWith(s.db, model, id, values)
 }
 
 func findOrCreateVendor(tx *gorm.DB, vendor Vendor) (Vendor, error) {

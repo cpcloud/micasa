@@ -529,16 +529,11 @@ func (m *Model) submitApplianceForm() error {
 	if err != nil {
 		return err
 	}
-	return m.store.CreateAppliance(item)
-}
-
-func (m *Model) submitEditApplianceForm(id uint) error {
-	item, err := m.parseApplianceFormData()
-	if err != nil {
-		return err
+	if m.editID != nil {
+		item.ID = *m.editID
+		return m.store.UpdateAppliance(item)
 	}
-	item.ID = id
-	return m.store.UpdateAppliance(item)
+	return m.store.CreateAppliance(item)
 }
 
 func (m *Model) parseApplianceFormData() (data.Appliance, error) {
@@ -619,16 +614,11 @@ func (m *Model) submitVendorForm() error {
 	if err != nil {
 		return err
 	}
-	return m.store.CreateVendor(vendor)
-}
-
-func (m *Model) submitEditVendorForm(id uint) error {
-	vendor, err := m.parseVendorFormData()
-	if err != nil {
-		return err
+	if m.editID != nil {
+		vendor.ID = *m.editID
+		return m.store.UpdateVendor(vendor)
 	}
-	vendor.ID = id
-	return m.store.UpdateVendor(vendor)
+	return m.store.CreateVendor(vendor)
 }
 
 func (m *Model) parseVendorFormData() (data.Vendor, error) {
@@ -971,16 +961,11 @@ func (m *Model) submitServiceLogForm() error {
 	if err != nil {
 		return err
 	}
-	return m.store.CreateServiceLog(entry, vendor)
-}
-
-func (m *Model) submitEditServiceLogForm(id uint) error {
-	entry, vendor, err := m.parseServiceLogFormData()
-	if err != nil {
-		return err
+	if m.editID != nil {
+		entry.ID = *m.editID
+		return m.store.UpdateServiceLog(entry, vendor)
 	}
-	entry.ID = id
-	return m.store.UpdateServiceLog(entry, vendor)
+	return m.store.CreateServiceLog(entry, vendor)
 }
 
 func (m *Model) parseServiceLogFormData() (data.ServiceLogEntry, data.Vendor, error) {
@@ -1280,19 +1265,14 @@ func (m *Model) submitHouseForm() error {
 	return nil
 }
 
-func (m *Model) submitEditProjectForm(id uint) error {
-	project, err := m.parseProjectFormData()
-	if err != nil {
-		return err
-	}
-	project.ID = id
-	return m.store.UpdateProject(project)
-}
-
 func (m *Model) submitProjectForm() error {
 	project, err := m.parseProjectFormData()
 	if err != nil {
 		return err
+	}
+	if m.editID != nil {
+		project.ID = *m.editID
+		return m.store.UpdateProject(project)
 	}
 	return m.store.CreateProject(project)
 }
@@ -1330,19 +1310,14 @@ func (m *Model) parseProjectFormData() (data.Project, error) {
 	}, nil
 }
 
-func (m *Model) submitEditQuoteForm(id uint) error {
-	quote, vendor, err := m.parseQuoteFormData()
-	if err != nil {
-		return err
-	}
-	quote.ID = id
-	return m.store.UpdateQuote(quote, vendor)
-}
-
 func (m *Model) submitQuoteForm() error {
 	quote, vendor, err := m.parseQuoteFormData()
 	if err != nil {
 		return err
+	}
+	if m.editID != nil {
+		quote.ID = *m.editID
+		return m.store.UpdateQuote(quote, vendor)
 	}
 	return m.store.CreateQuote(quote, vendor)
 }
@@ -1391,19 +1366,14 @@ func (m *Model) parseQuoteFormData() (data.Quote, data.Vendor, error) {
 	return quote, vendor, nil
 }
 
-func (m *Model) submitEditMaintenanceForm(id uint) error {
-	item, err := m.parseMaintenanceFormData()
-	if err != nil {
-		return err
-	}
-	item.ID = id
-	return m.store.UpdateMaintenance(item)
-}
-
 func (m *Model) submitMaintenanceForm() error {
 	item, err := m.parseMaintenanceFormData()
 	if err != nil {
 		return err
+	}
+	if m.editID != nil {
+		item.ID = *m.editID
+		return m.store.UpdateMaintenance(item)
 	}
 	return m.store.CreateMaintenance(item)
 }
