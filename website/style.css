@@ -420,13 +420,6 @@ section + section {
   margin: 0 auto;
 }
 
-/* --- Tech --- */
-.tech-note {
-  text-align: center;
-  color: var(--warm-gray);
-  font-size: 0.9rem;
-}
-
 /* --- Footer --- */
 footer {
   padding: 3rem 0;
