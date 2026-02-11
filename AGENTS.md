@@ -280,6 +280,9 @@ These have been repeatedly requested. Violating them wastes the user's time.
 - **Pin Actions to version tags**: In GitHub Actions workflows, always use
   versioned tags (e.g. `@v3.93.1`) instead of named refs like `@main` or
   `@latest`.
+- **PR test plans: manual steps only**: Don't list test plan items that CI
+  already covers (vet, tests pass, lint, pre-commit). Only include steps
+  that require manual verification or aren't automated.
 - **Prefer tools over shell commands**: Use the dedicated Read, Write,
   StrReplace, Grep, and Glob tools instead of shell equivalents (`cat`,
   `sed`, `grep`, `find`, `echo >`, etc.). Only use Shell for commands that
