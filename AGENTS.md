@@ -373,6 +373,10 @@ These have been repeatedly requested. Violating them wastes the user's time.
   commands that CI already runs (e.g. `go test ./...`), leave the test
   plan section off the PR description entirely. Only include a test plan
   when there are manual verification steps.
+- **Update test file inventory when adding tests**: When creating new
+  `*_test.go` files, update the test file table in
+  `docs/content/development/testing.md` to include the new file and a
+  brief description of what it covers.
 
 If the user asks you to learn something, add it to this "Hard rules" section
 so it survives context resets. This file is always injected; external files
