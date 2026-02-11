@@ -5,6 +5,7 @@ package app
 
 import (
 	"testing"
+	"time"
 )
 
 func TestReloadAfterMutationMarksOtherTabsStale(t *testing.T) {
@@ -92,5 +93,105 @@ func TestReloadAllClearsAllStaleFlags(t *testing.T) {
 		if m.tabs[i].Stale {
 			t.Errorf("tab %d (%s) should not be stale after reloadAll", i, m.tabs[i].Name)
 		}
+	}
+}
+
+func TestDashJumpClearsStaleFlag(t *testing.T) {
+	m := newTestModelWithDemoData(t, 42)
+	m.width = 120
+	m.height = 40
+
+	// Open the dashboard and load data so we have nav entries.
+	m.showDashboard = true
+	if err := m.loadDashboardAt(time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if m.dashNavCount() == 0 {
+		t.Skip("no dashboard nav entries in demo data")
+	}
+
+	// Mark all tabs stale.
+	for i := range m.tabs {
+		m.tabs[i].Stale = true
+	}
+
+	// Jump to the first dashboard entry.
+	m.dashCursor = 0
+	targetTab := m.dashNav[0].Tab
+	m.dashJump()
+
+	// The target tab should be fresh after the jump.
+	idx := tabIndex(targetTab)
+	if m.tabs[idx].Stale {
+		t.Errorf("tab %d (%s) should not be stale after dashJump", idx, m.tabs[idx].Name)
+	}
+
+	// A different tab should still be stale.
+	otherIdx := (idx + 1) % len(m.tabs)
+	if !m.tabs[otherIdx].Stale {
+		t.Errorf("tab %d (%s) should still be stale after jumping to tab %d",
+			otherIdx, m.tabs[otherIdx].Name, idx)
+	}
+}
+
+func TestNavigateToLinkClearsStaleFlag(t *testing.T) {
+	m := newTestModelWithDemoData(t, 42)
+	m.width = 120
+	m.height = 40
+
+	// Mark all tabs stale.
+	for i := range m.tabs {
+		m.tabs[i].Stale = true
+	}
+
+	// Navigate to the Vendors tab via a link. The target ID doesn't need
+	// to match an actual row — we just verify the tab reload happens.
+	link := &columnLink{TargetTab: tabVendors}
+	_ = m.navigateToLink(link, 1)
+
+	vendorIdx := tabIndex(tabVendors)
+	if m.tabs[vendorIdx].Stale {
+		t.Errorf("vendors tab should not be stale after navigateToLink")
+	}
+
+	// A different tab should still be stale.
+	projIdx := tabIndex(tabProjects)
+	if !m.tabs[projIdx].Stale {
+		t.Errorf("projects tab should still be stale after navigating to vendors")
+	}
+}
+
+func TestCloseDetailClearsStaleParentTab(t *testing.T) {
+	m := newTestModelWithDemoData(t, 42)
+	m.width = 120
+	m.height = 40
+
+	// Switch to Maintenance tab and open a service log detail view.
+	m.active = tabIndex(tabMaintenance)
+	_ = m.reloadActiveTab()
+
+	// We need a maintenance item ID to open the detail.
+	tab := m.activeTab()
+	if tab == nil || len(tab.Rows) == 0 {
+		t.Skip("no maintenance rows in demo data")
+	}
+	itemID := tab.Rows[0].ID
+
+	if err := m.openServiceLogDetail(itemID, "Test Item"); err != nil {
+		t.Fatal(err)
+	}
+	if m.detail == nil {
+		t.Fatal("expected detail view to be open")
+	}
+
+	// Mark the parent (Maintenance) tab stale while in the detail view.
+	maintIdx := tabIndex(tabMaintenance)
+	m.tabs[maintIdx].Stale = true
+
+	// Close the detail — should reload the stale parent tab.
+	m.closeDetail()
+
+	if m.tabs[maintIdx].Stale {
+		t.Error("maintenance tab should not be stale after closeDetail")
 	}
 }
