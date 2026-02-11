@@ -751,7 +751,7 @@ func (m *Model) navigateToLink(link *columnLink, targetID uint) error {
 		return fmt.Errorf("target tab not found")
 	}
 	if selectRowByID(tab, targetID) {
-		m.setStatusInfo(fmt.Sprintf("Followed %s link to ID %d.", link.Relation, targetID))
+		m.setStatusInfo(fmt.Sprintf("Followed link to ID %d.", targetID))
 		return nil
 	}
 	m.setStatusError(fmt.Sprintf("Linked item %d not found (deleted?).", targetID))

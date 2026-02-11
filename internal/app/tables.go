@@ -103,14 +103,14 @@ func quoteColumnSpecs() []columnSpec {
 			Min:   12,
 			Max:   24,
 			Flex:  true,
-			Link:  &columnLink{TargetTab: tabProjects, Relation: "m:1"},
+			Link:  &columnLink{TargetTab: tabProjects},
 		},
 		{
 			Title: "Vendor",
 			Min:   12,
 			Max:   20,
 			Flex:  true,
-			Link:  &columnLink{TargetTab: tabVendors, Relation: "m:1"},
+			Link:  &columnLink{TargetTab: tabVendors},
 		},
 		{Title: "Total", Min: 10, Max: 14, Align: alignRight, Kind: cellMoney},
 		{Title: "Labor", Min: 10, Max: 14, Align: alignRight, Kind: cellMoney},
@@ -130,7 +130,7 @@ func maintenanceColumnSpecs() []columnSpec {
 			Min:   10,
 			Max:   18,
 			Flex:  true,
-			Link:  &columnLink{TargetTab: tabAppliances, Relation: "m:1"},
+			Link:  &columnLink{TargetTab: tabAppliances},
 		},
 		{Title: "Last", Min: 10, Max: 12, Kind: cellDate},
 		{Title: "Next", Min: 10, Max: 12, Kind: cellUrgency},
@@ -196,7 +196,13 @@ func serviceLogColumnSpecs() []columnSpec {
 	return []columnSpec{
 		{Title: "ID", Min: 4, Max: 6, Align: alignRight, Kind: cellReadonly},
 		{Title: "Date", Min: 10, Max: 12, Kind: cellDate},
-		{Title: "Performed By", Min: 12, Max: 22, Flex: true},
+		{
+			Title: "Performed By",
+			Min:   12,
+			Max:   22,
+			Flex:  true,
+			Link:  &columnLink{TargetTab: tabVendors},
+		},
 		{Title: "Cost", Min: 8, Max: 12, Align: alignRight, Kind: cellMoney},
 		{Title: "Notes", Min: 12, Max: 40, Flex: true, Kind: cellNotes},
 	}
@@ -207,8 +213,10 @@ func serviceLogRows(
 ) ([]table.Row, []rowMeta, [][]cell) {
 	return buildRows(entries, func(e data.ServiceLogEntry) rowSpec {
 		performedBy := "Self"
+		var vendorLinkID uint
 		if e.VendorID != nil && e.Vendor.Name != "" {
 			performedBy = e.Vendor.Name
+			vendorLinkID = *e.VendorID
 		}
 		return rowSpec{
 			ID:      e.ID,
@@ -216,7 +224,7 @@ func serviceLogRows(
 			Cells: []cell{
 				{Value: fmt.Sprintf("%d", e.ID), Kind: cellReadonly},
 				{Value: e.ServicedAt.Format(data.DateLayout), Kind: cellDate},
-				{Value: performedBy, Kind: cellText},
+				{Value: performedBy, Kind: cellText, LinkID: vendorLinkID},
 				{Value: centsValue(e.CostCents), Kind: cellMoney},
 				{Value: e.Notes, Kind: cellNotes},
 			},

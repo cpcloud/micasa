@@ -221,9 +221,16 @@ func TestServiceLogColumnSpecs(t *testing.T) {
 	if len(specs) != 5 {
 		t.Fatalf("expected 5 columns, got %d", len(specs))
 	}
-	// Verify the "Performed By" column is flex.
-	if !specs[2].Flex {
+	// Verify the "Performed By" column is flex and linked to vendors.
+	pb := specs[2]
+	if !pb.Flex {
 		t.Fatal("expected 'Performed By' column to be flex")
+	}
+	if pb.Link == nil {
+		t.Fatal("expected 'Performed By' column to link to vendors")
+	}
+	if pb.Link.TargetTab != tabVendors {
+		t.Fatalf("expected link to tabVendors, got %v", pb.Link.TargetTab)
 	}
 }
 
@@ -260,6 +267,22 @@ func TestServiceLogRowsVendorPerformed(t *testing.T) {
 	_, _, cellRows := serviceLogRows(entries)
 	if cellRows[0][2].Value != "Acme Plumbing" {
 		t.Fatalf("expected 'Acme Plumbing', got %q", cellRows[0][2].Value)
+	}
+	if cellRows[0][2].LinkID != 5 {
+		t.Fatalf("expected LinkID=5 for vendor, got %d", cellRows[0][2].LinkID)
+	}
+}
+
+func TestServiceLogRowsSelfHasNoLink(t *testing.T) {
+	entries := []data.ServiceLogEntry{
+		{
+			ID:         1,
+			ServicedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		},
+	}
+	_, _, cellRows := serviceLogRows(entries)
+	if cellRows[0][2].LinkID != 0 {
+		t.Fatalf("expected LinkID=0 for self-performed, got %d", cellRows[0][2].LinkID)
 	}
 }
 

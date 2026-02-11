@@ -53,5 +53,5 @@ form.
 ## Linked quotes
 
 Quotes reference projects. On the Quotes tab, the `Project` column shows
-which project a quote belongs to. The column header shows `m:1` indicating the
-many-to-one relationship.
+which project a quote belongs to. The column header shows `→` indicating it's
+a navigable link.

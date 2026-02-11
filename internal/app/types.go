@@ -143,7 +143,6 @@ type cell struct {
 // columnLink describes a foreign-key relationship to another tab.
 type columnLink struct {
 	TargetTab TabKind
-	Relation  string // "m:1", "1:m", "1:1", "m:n"
 }
 
 type columnSpec struct {

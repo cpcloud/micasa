@@ -152,9 +152,7 @@ func TestQuoteVendorColumnLinksToVendorTab(t *testing.T) {
 	if vendorSpec.Link.TargetTab != tabVendors {
 		t.Fatalf("expected link to tabVendors, got %v", vendorSpec.Link.TargetTab)
 	}
-	if vendorSpec.Link.Relation != "m:1" {
-		t.Fatalf("expected m:1 relation, got %s", vendorSpec.Link.Relation)
-	}
+	// Relation field removed -- TargetTab is sufficient
 }
 
 func TestVendorFormData(t *testing.T) {

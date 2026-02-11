@@ -641,3 +641,36 @@ func TestNavBadgeLabel(t *testing.T) {
 		t.Error("status bar should not contain NORMAL anymore")
 	}
 }
+
+func TestHeaderTitleWidthLink(t *testing.T) {
+	spec := columnSpec{
+		Title: "Project",
+		Link:  &columnLink{TargetTab: tabProjects},
+	}
+	w := headerTitleWidth(spec)
+	// "Project" (7) + " " (1) + "→" (1) = 9
+	expected := lipgloss.Width("Project") + 1 + lipgloss.Width(linkArrow)
+	if w != expected {
+		t.Fatalf("expected width %d, got %d", expected, w)
+	}
+}
+
+func TestHeaderTitleWidthDrilldown(t *testing.T) {
+	spec := columnSpec{
+		Title: "Log",
+		Kind:  cellDrilldown,
+	}
+	w := headerTitleWidth(spec)
+	expected := lipgloss.Width("Log") + 1 + lipgloss.Width(drilldownArrow)
+	if w != expected {
+		t.Fatalf("expected width %d, got %d", expected, w)
+	}
+}
+
+func TestHeaderTitleWidthPlain(t *testing.T) {
+	spec := columnSpec{Title: "Name"}
+	w := headerTitleWidth(spec)
+	if w != lipgloss.Width("Name") {
+		t.Fatalf("expected width %d, got %d", lipgloss.Width("Name"), w)
+	}
+}

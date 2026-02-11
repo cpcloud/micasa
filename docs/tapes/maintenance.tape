@@ -15,6 +15,7 @@ Env NO_COLOR ""
 Env TERM "xterm-256color"
 Env COLORTERM "truecolor"
 Env COLORFGBG "15;0"
+Env PS1 ""
 
 Hide
 Type "micasa --demo"

@@ -336,7 +336,7 @@ func (m *Model) editHint() string {
 	// Show "follow link" hint when on a linked cell with a target.
 	if spec.Link != nil {
 		if c, ok := m.selectedCell(col); ok && c.LinkID > 0 {
-			return "follow " + spec.Link.Relation
+			return "follow " + linkArrow
 		}
 	}
 	if spec.Kind == cellReadonly {
@@ -371,7 +371,7 @@ func (m *Model) enterHint() string {
 	}
 	if spec.Link != nil {
 		if c, ok := m.selectedCell(col); ok && c.LinkID > 0 {
-			return "follow " + spec.Link.Relation
+			return "follow " + linkArrow
 		}
 	}
 	return ""
@@ -492,7 +492,7 @@ func (m *Model) helpView() string {
 				{"s/S", "Sort / clear sorts"},
 				{"/", "Find column"},
 				{"c/C", "Hide / show columns"},
-				{"enter", "Drilldown / follow link / preview"},
+				{"enter", drilldownArrow + " drilldown / " + linkArrow + " follow link / preview"},
 				{"H", "House profile"},
 				{"D", "Summary"},
 				{"i", "Edit mode"},

@@ -58,7 +58,7 @@ Every quote belongs to a project and comes from a vendor. In the UI this
 means:
 
 - The `Project` column is a **live link** -- press `enter` to jump straight to
-  that project. The header shows `m:1` so you know it's navigable.
+  that project. The header shows `→` so you know it's navigable.
 - You can't accidentally create an orphan quote; micasa **requires a project**
   before you can add one.
 - Vendor records are **shared**: the same vendor appears across all their
@@ -91,7 +91,7 @@ piece of equipment), but when present it enables **bidirectional navigation**:
 - See the `Maint` count on the Appliances tab, showing all tasks tied to it
 - Drill down from an appliance to its linked maintenance items
 
-The `Log` column is a **drilldown** -- press `enter` to open the full service
+The `Log` column is a **drilldown** (marked `↘` in the header) -- press `enter` to open the full service
 history for that item.
 
 ## Service Log
@@ -132,7 +132,7 @@ Physical equipment in your home. Each appliance tracks:
 
 Appliances are referenced by maintenance items, so the relationship flows the
 other way: you don't pick maintenance tasks from the appliance form, you pick
-an appliance from the maintenance form. But the `Maint` drilldown column gives
+an appliance from the maintenance form. But the `Maint ↘` column gives
 you the **reverse view** -- from any appliance, see everything you're doing to
 keep it running.
 
@@ -169,7 +169,7 @@ erDiagram
 
 These connections show up in the UI in a few ways:
 
-- **Linked columns** (marked `m:1` in the header) let you press `enter` to
+- **Linked columns** (marked `→` in the header) let you press `enter` to
   jump directly to the related record -- from a quote to its project, from a
   maintenance item to its appliance, etc.
 - **Drilldown columns** (`Log` on Maintenance, `Maint` on Appliances) open a

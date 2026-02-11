@@ -76,7 +76,7 @@ them. The active tab is highlighted in the tab bar.
 
 ## Detail views
 
-Some columns are drilldowns -- pressing `enter` on them opens a sub-table.
+Some columns are drilldowns (marked `↘` in the header) -- pressing `enter` on them opens a sub-table.
 For example:
 
 - `Log` column on the Maintenance tab opens the service log for that item
@@ -98,9 +98,9 @@ right.
 ## Foreign key links
 
 Some columns reference entities in other tabs. These are indicated by a
-relation label in the column header (e.g., `m:1`). When the cursor is on a
-linked cell, the status bar shows `follow m:1`. Press `enter` to jump to the
-referenced row in the target tab.
+`→` arrow in the column header. When the cursor is on a linked cell, the
+status bar shows `follow →`. Press `enter` to jump to the referenced row in
+the target tab.
 
 Examples:
 - Quotes `Project` column links to the Projects tab

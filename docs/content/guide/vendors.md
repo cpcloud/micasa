@@ -37,7 +37,7 @@ quotes and service log entries that reference that vendor.
 
 ## Cross-tab navigation
 
-The `Vendor` column on the Quotes tab is a live `m:1` link. Press `enter` on
+The `Vendor` column on the Quotes tab is a live link (shown with `→` in the header). Press `enter` on
 a vendor name in the Quotes table to jump to that vendor's row in the Vendors
 tab.
 

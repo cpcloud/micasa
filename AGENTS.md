@@ -861,6 +861,22 @@ in case things crash or otherwise go haywire, be diligent about this.
   - Fixed chimney smoke after rebuild: smoke particle system re-queries `smoke-bed` DOM element on each spawn instead of caching stale reference
   - Removed all stick figure / side door CSS (`.stick-figure`, `.side-door`, `.walking`)
 
+## 2026-02-10 Session 32
+
+**User request**: Replace `m:1` with `→` arrow for linked columns, add `↘` for drilldown columns in headers/hints. Audit for missing linked columns.
+
+**Audit findings**: Service log "Performed By" column was missing a vendor link -- when the entry was vendor-performed, there was no way to navigate to the vendor via enter.
+
+**Work done**:
+- Removed `Relation string` field from `columnLink` struct (was always "m:1")
+- Added `linkArrow` (`→`) and `drilldownArrow` (`↘`) constants
+- Headers now show `→` for FK-linked columns and `↘` for drilldown columns
+- Status bar hints: `follow m:1` → `follow →`; help overlay shows `↘ drilldown / → follow link / preview`
+- Service log "Performed By" column now has `Link: &columnLink{TargetTab: tabVendors}` + populates `LinkID` from `VendorID` when present (0 for "Self")
+- Updated all docs (navigation.md, concepts.md, quotes.md, vendors.md, projects.md, appliances.md)
+- 4 new tests: `TestHeaderTitleWidthLink`, `TestHeaderTitleWidthDrilldown`, `TestHeaderTitleWidthPlain`, `TestServiceLogRowsSelfHasNoLink`; updated existing vendor/service-log tests
+- All 170+ tests pass
+
 ## 2026-02-10 Session 31
 
 **User request**: Verify soft-delete/restore composability across all FK relationships and add tests for gaps. Then: learn that nullable FKs with a set value should also be guarded on restore.
@@ -1089,10 +1105,14 @@ in case things crash or otherwise go haywire, be diligent about this.
 - [WEBSITE-REBUILD-ANIM] fixed house rebuild animation snap: smooth deceleration easing + cross-fade replaces hard DOM swap
 - [WEBSITE-SMOKE-SCATTER] shockwave scatter for chimney smoke on house destruction
 - [COL-JUMP] fuzzy column finder via `/` in Nav mode
+- [LINK-ARROWS] `→` for linked columns, `↘` for drilldown in headers; vendor link on service log "Performed By"
 
 # Remaining work
 
 ## Features
+- [LINK-ARROWS] ~~Replace `m:1` with `→` for linked columns and add `↘` for
+  drilldown columns in headers/status bar. Add vendor link on service log
+  "Performed By" column. Audit for missing linked columns.~~ DONE
 - [WEBSITE] Help me build a `github-pages` website for this project. Modern,
   simple, not AI sloppish, whimsical, funny, perhaps even a bit snarky and
   irreverent. Ideally this wouldn't require a bunch of random javascript crap

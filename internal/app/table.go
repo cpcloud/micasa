@@ -13,6 +13,11 @@ import (
 	"github.com/cpcloud/micasa/internal/data"
 )
 
+const (
+	linkArrow      = "→" // FK link to another tab
+	drilldownArrow = "↘" // opens a detail sub-table
+)
+
 // visibleProjection computes the visible-only view of a tab's columns and data.
 // It returns projected specs, cell rows, the translated column cursor (-1 if
 // the real cursor is hidden), remapped sort entries, and the vis-to-full index map.
@@ -73,7 +78,9 @@ func renderHeaderRow(
 		width := safeWidth(widths, i)
 		title := spec.Title
 		if spec.Link != nil {
-			title = title + " " + styles.LinkIndicator.Render(spec.Link.Relation)
+			title = title + " " + styles.LinkIndicator.Render(linkArrow)
+		} else if spec.Kind == cellDrilldown {
+			title = title + " " + styles.LinkIndicator.Render(drilldownArrow)
 		}
 		// Scroll arrows embedded in edge column headers.
 		if i == 0 && hasLeft {
@@ -180,12 +187,14 @@ func viewportSorts(sorts []sortEntry, vpStart int) []sortEntry {
 }
 
 // headerTitleWidth returns the rendered width of a column header including
-// any link relation suffix. Sort indicators are rendered within the
+// any link/drilldown arrow suffix. Sort indicators are rendered within the
 // existing column width so toggling sorts never changes the layout.
 func headerTitleWidth(spec columnSpec) int {
 	w := lipgloss.Width(spec.Title)
 	if spec.Link != nil {
-		w += 1 + lipgloss.Width(spec.Link.Relation) // " m:1"
+		w += 1 + lipgloss.Width(linkArrow) // " →"
+	} else if spec.Kind == cellDrilldown {
+		w += 1 + lipgloss.Width(drilldownArrow) // " ↘"
 	}
 	return w
 }
