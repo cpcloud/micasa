@@ -59,7 +59,9 @@ func (s *Store) ListRecentServiceLogs(limit int) ([]ServiceLogEntry, error) {
 	var entries []ServiceLogEntry
 	err := s.db.
 		Preload("MaintenanceItem").
-		Preload("Vendor").
+		Preload("Vendor", func(q *gorm.DB) *gorm.DB {
+			return q.Unscoped()
+		}).
 		Order("serviced_at desc, id desc").
 		Limit(limit).
 		Find(&entries).Error

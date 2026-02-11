@@ -482,9 +482,9 @@ func (vendorHandler) FormKind() FormKind { return formVendor }
 
 func (vendorHandler) Load(
 	store *data.Store,
-	_ bool,
+	showDeleted bool,
 ) ([]table.Row, []rowMeta, [][]cell, error) {
-	vendors, err := store.ListVendors()
+	vendors, err := store.ListVendors(showDeleted)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -504,12 +504,12 @@ func (vendorHandler) Load(
 	return rows, meta, cellRows, nil
 }
 
-func (vendorHandler) Delete(_ *data.Store, _ uint) error {
-	return fmt.Errorf("vendors cannot be deleted (referenced by quotes and service logs)")
+func (vendorHandler) Delete(store *data.Store, id uint) error {
+	return store.DeleteVendor(id)
 }
 
-func (vendorHandler) Restore(_ *data.Store, _ uint) error {
-	return fmt.Errorf("vendors do not support soft-delete")
+func (vendorHandler) Restore(store *data.Store, id uint) error {
+	return store.RestoreVendor(id)
 }
 
 func (vendorHandler) StartAddForm(m *Model) error {

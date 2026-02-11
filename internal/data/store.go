@@ -367,9 +367,13 @@ func (s *Store) MaintenanceCategories() ([]MaintenanceCategory, error) {
 	return categories, nil
 }
 
-func (s *Store) ListVendors() ([]Vendor, error) {
+func (s *Store) ListVendors(includeDeleted bool) ([]Vendor, error) {
 	var vendors []Vendor
-	if err := s.db.Order("name").Find(&vendors).Error; err != nil {
+	db := s.db.Order("name")
+	if includeDeleted {
+		db = db.Unscoped()
+	}
+	if err := db.Find(&vendors).Error; err != nil {
 		return nil, err
 	}
 	return vendors, nil
@@ -403,7 +407,9 @@ func (s *Store) CountServiceLogsByVendor(vendorIDs []uint) (map[uint]int, error)
 
 func (s *Store) ListProjects(includeDeleted bool) ([]Project, error) {
 	var projects []Project
-	db := s.db.Preload("ProjectType").Preload("PreferredVendor")
+	db := s.db.Preload("ProjectType").Preload("PreferredVendor", func(q *gorm.DB) *gorm.DB {
+		return q.Unscoped()
+	})
 	db = db.Order("updated_at desc")
 	if includeDeleted {
 		db = db.Unscoped()
@@ -416,7 +422,9 @@ func (s *Store) ListProjects(includeDeleted bool) ([]Project, error) {
 
 func (s *Store) ListQuotes(includeDeleted bool) ([]Quote, error) {
 	var quotes []Quote
-	db := s.db.Preload("Vendor")
+	db := s.db.Preload("Vendor", func(q *gorm.DB) *gorm.DB {
+		return q.Unscoped()
+	})
 	db = db.Preload("Project", func(q *gorm.DB) *gorm.DB {
 		return q.Unscoped().Preload("ProjectType")
 	})
@@ -465,7 +473,9 @@ func (s *Store) ListMaintenanceByAppliance(
 
 func (s *Store) GetProject(id uint) (Project, error) {
 	var project Project
-	err := s.db.Preload("ProjectType").Preload("PreferredVendor").First(&project, id).Error
+	err := s.db.Preload("ProjectType").Preload("PreferredVendor", func(q *gorm.DB) *gorm.DB {
+		return q.Unscoped()
+	}).First(&project, id).Error
 	return project, err
 }
 
@@ -479,10 +489,11 @@ func (s *Store) UpdateProject(project Project) error {
 
 func (s *Store) GetQuote(id uint) (Quote, error) {
 	var quote Quote
-	err := s.db.Preload("Vendor").
-		Preload("Project", func(q *gorm.DB) *gorm.DB {
-			return q.Unscoped().Preload("ProjectType")
-		}).
+	err := s.db.Preload("Vendor", func(q *gorm.DB) *gorm.DB {
+		return q.Unscoped()
+	}).Preload("Project", func(q *gorm.DB) *gorm.DB {
+		return q.Unscoped().Preload("ProjectType")
+	}).
 		First(&quote, id).Error
 	return quote, err
 }
@@ -566,7 +577,9 @@ func (s *Store) ListServiceLog(
 ) ([]ServiceLogEntry, error) {
 	var entries []ServiceLogEntry
 	db := s.db.Where("maintenance_item_id = ?", maintenanceItemID).
-		Preload("Vendor").
+		Preload("Vendor", func(q *gorm.DB) *gorm.DB {
+			return q.Unscoped()
+		}).
 		Order("serviced_at desc, id desc")
 	if includeDeleted {
 		db = db.Unscoped()
@@ -579,7 +592,9 @@ func (s *Store) ListServiceLog(
 
 func (s *Store) GetServiceLog(id uint) (ServiceLogEntry, error) {
 	var entry ServiceLogEntry
-	err := s.db.Preload("Vendor").First(&entry, id).Error
+	err := s.db.Preload("Vendor", func(q *gorm.DB) *gorm.DB {
+		return q.Unscoped()
+	}).First(&entry, id).Error
 	return entry, err
 }
 
@@ -623,6 +638,11 @@ func (s *Store) RestoreServiceLog(id uint) error {
 	if err := s.requireParentAlive(&MaintenanceItem{}, entry.MaintenanceItemID); err != nil {
 		return fmt.Errorf("maintenance item is deleted -- restore it first")
 	}
+	if entry.VendorID != nil {
+		if err := s.requireParentAlive(&Vendor{}, *entry.VendorID); err != nil {
+			return fmt.Errorf("vendor is deleted -- restore it first")
+		}
+	}
 	return s.restoreEntity(&ServiceLogEntry{}, DeletionEntityServiceLog, id)
 }
 
@@ -636,6 +656,21 @@ func (s *Store) CountServiceLogs(itemIDs []uint) (map[uint]int, error) {
 // items for each appliance ID.
 func (s *Store) CountMaintenanceByAppliance(applianceIDs []uint) (map[uint]int, error) {
 	return s.countByFK(&MaintenanceItem{}, "appliance_id", applianceIDs)
+}
+
+func (s *Store) DeleteVendor(id uint) error {
+	n, err := s.countDependents(&Quote{}, "vendor_id", id)
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		return fmt.Errorf("vendor has %d active quote(s) -- delete them first", n)
+	}
+	return s.softDelete(&Vendor{}, DeletionEntityVendor, id)
+}
+
+func (s *Store) RestoreVendor(id uint) error {
+	return s.restoreEntity(&Vendor{}, DeletionEntityVendor, id)
 }
 
 func (s *Store) DeleteProject(id uint) error {
@@ -669,17 +704,28 @@ func (s *Store) DeleteAppliance(id uint) error {
 }
 
 func (s *Store) RestoreProject(id uint) error {
+	var project Project
+	if err := s.db.Unscoped().First(&project, id).Error; err != nil {
+		return err
+	}
+	if project.PreferredVendorID != nil {
+		if err := s.requireParentAlive(&Vendor{}, *project.PreferredVendorID); err != nil {
+			return fmt.Errorf("preferred vendor is deleted -- restore it first")
+		}
+	}
 	return s.restoreEntity(&Project{}, DeletionEntityProject, id)
 }
 
 func (s *Store) RestoreQuote(id uint) error {
-	// Look up the quote (including soft-deleted) to find its project.
 	var quote Quote
 	if err := s.db.Unscoped().First(&quote, id).Error; err != nil {
 		return err
 	}
 	if err := s.requireParentAlive(&Project{}, quote.ProjectID); err != nil {
 		return fmt.Errorf("project is deleted -- restore it first")
+	}
+	if err := s.requireParentAlive(&Vendor{}, quote.VendorID); err != nil {
+		return fmt.Errorf("vendor is deleted -- restore it first")
 	}
 	return s.restoreEntity(&Quote{}, DeletionEntityQuote, id)
 }
@@ -856,8 +902,10 @@ func findOrCreateVendor(tx *gorm.DB, vendor Vendor) (Vendor, error) {
 	if strings.TrimSpace(vendor.Name) == "" {
 		return Vendor{}, fmt.Errorf("vendor name is required")
 	}
+	// Search unscoped so we find soft-deleted vendors too -- the unique
+	// index on name spans all rows regardless of deleted_at.
 	var existing Vendor
-	err := tx.Where("name = ?", vendor.Name).First(&existing).Error
+	err := tx.Unscoped().Where("name = ?", vendor.Name).First(&existing).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		if err := tx.Create(&vendor).Error; err != nil {
 			return Vendor{}, err
@@ -866,6 +914,13 @@ func findOrCreateVendor(tx *gorm.DB, vendor Vendor) (Vendor, error) {
 	}
 	if err != nil {
 		return Vendor{}, err
+	}
+	// Restore the vendor if it was soft-deleted.
+	if existing.DeletedAt.Valid {
+		if err := tx.Unscoped().Model(&existing).Update("deleted_at", nil).Error; err != nil {
+			return Vendor{}, err
+		}
+		existing.DeletedAt.Valid = false
 	}
 	updates := map[string]any{}
 	if vendor.ContactName != "" {

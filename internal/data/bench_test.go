@@ -67,7 +67,7 @@ func BenchmarkListVendors(b *testing.B) {
 	store := benchStore(b, 42)
 	b.ResetTimer()
 	for b.Loop() {
-		_, _ = store.ListVendors()
+		_, _ = store.ListVendors(false)
 	}
 }
 

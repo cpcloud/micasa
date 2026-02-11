@@ -21,7 +21,7 @@ func TestSeedDemoDataPopulatesAllEntities(t *testing.T) {
 		t.Error("house year built not set")
 	}
 
-	vendors, err := store.ListVendors()
+	vendors, err := store.ListVendors(false)
 	if err != nil {
 		t.Fatalf("ListVendors: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestSeedDemoDataVariety(t *testing.T) {
 func TestSeedDemoDataSkipsIfDataExists(t *testing.T) {
 	store := newTestStoreWithDemoData(t, testSeed)
 
-	vendors1, _ := store.ListVendors()
+	vendors1, _ := store.ListVendors(false)
 	count1 := len(vendors1)
 
 	// Call again -- should be a no-op.
@@ -89,7 +89,7 @@ func TestSeedDemoDataSkipsIfDataExists(t *testing.T) {
 		t.Fatalf("second SeedDemoData: %v", err)
 	}
 
-	vendors2, _ := store.ListVendors()
+	vendors2, _ := store.ListVendors(false)
 	if len(vendors2) != count1 {
 		t.Errorf("vendor count changed: %d -> %d", count1, len(vendors2))
 	}

@@ -25,6 +25,7 @@ const (
 	DeletionEntityMaintenance = "maintenance"
 	DeletionEntityAppliance   = "appliance"
 	DeletionEntityServiceLog  = "service_log"
+	DeletionEntityVendor      = "vendor"
 )
 
 func ProjectStatuses() []string {
@@ -90,6 +91,7 @@ type Vendor struct {
 	Notes       string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	DeletedAt   gorm.DeletedAt `gorm:"index"`
 }
 
 type Project struct {

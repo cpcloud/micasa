@@ -955,7 +955,7 @@ func (m *Model) loadLookups() error {
 	if err != nil {
 		return err
 	}
-	m.vendors, err = m.store.ListVendors()
+	m.vendors, err = m.store.ListVendors(false)
 	if err != nil {
 		return err
 	}

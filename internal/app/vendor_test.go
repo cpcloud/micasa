@@ -88,17 +88,28 @@ func TestVendorHandlerFormKind(t *testing.T) {
 	}
 }
 
-func TestVendorDeleteReturnsError(t *testing.T) {
+func TestVendorHandlerDeleteRestore(t *testing.T) {
+	m := newTestModelWithStore(t)
 	h := vendorHandler{}
-	if err := h.Delete(nil, 1); err == nil {
-		t.Fatal("expected error from vendor Delete")
+	if err := m.store.CreateVendor(data.Vendor{Name: "Test Co"}); err != nil {
+		t.Fatalf("CreateVendor: %v", err)
 	}
-}
+	vendors, _ := m.store.ListVendors(false)
+	id := vendors[0].ID
 
-func TestVendorRestoreReturnsError(t *testing.T) {
-	h := vendorHandler{}
-	if err := h.Restore(nil, 1); err == nil {
-		t.Fatal("expected error from vendor Restore")
+	if err := h.Delete(m.store, id); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
+	vendors, _ = m.store.ListVendors(false)
+	if len(vendors) != 0 {
+		t.Fatalf("expected 0 vendors after delete, got %d", len(vendors))
+	}
+	if err := h.Restore(m.store, id); err != nil {
+		t.Fatalf("Restore: %v", err)
+	}
+	vendors, _ = m.store.ListVendors(false)
+	if len(vendors) != 1 {
+		t.Fatalf("expected 1 vendor after restore, got %d", len(vendors))
 	}
 }
 

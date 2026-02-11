@@ -307,19 +307,8 @@ func TestVendorHandlerLoadAndSubmit(t *testing.T) {
 	}
 }
 
-func TestVendorHandlerDeleteReturnsError(t *testing.T) {
-	h := vendorHandler{}
-	if err := h.Delete(nil, 1); err == nil {
-		t.Error("expected error from vendor Delete")
-	}
-}
-
-func TestVendorHandlerRestoreReturnsError(t *testing.T) {
-	h := vendorHandler{}
-	if err := h.Restore(nil, 1); err == nil {
-		t.Error("expected error from vendor Restore")
-	}
-}
+// Vendor delete/restore tests moved to vendor_test.go (TestVendorHandlerDeleteRestore)
+// -- they now require a real store.
 
 // ---------------------------------------------------------------------------
 // quoteHandler CRUD

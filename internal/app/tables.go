@@ -319,7 +319,8 @@ func vendorRows(
 			jobCount = fmt.Sprintf("%d", n)
 		}
 		return rowSpec{
-			ID: v.ID,
+			ID:      v.ID,
+			Deleted: v.DeletedAt.Valid,
 			Cells: []cell{
 				{Value: fmt.Sprintf("%d", v.ID), Kind: cellReadonly},
 				{Value: v.Name, Kind: cellText},

@@ -513,7 +513,7 @@ func TestVendorCRUD(t *testing.T) {
 	}
 
 	// List.
-	vendors, err := store.ListVendors()
+	vendors, err := store.ListVendors(false)
 	if err != nil {
 		t.Fatalf("ListVendors: %v", err)
 	}
@@ -554,7 +554,7 @@ func TestCountQuotesByVendor(t *testing.T) {
 	if err := store.CreateVendor(v); err != nil {
 		t.Fatalf("CreateVendor: %v", err)
 	}
-	vendors, _ := store.ListVendors()
+	vendors, _ := store.ListVendors(false)
 	vendorID := vendors[0].ID
 
 	types, _ := store.ProjectTypes()
@@ -598,7 +598,7 @@ func TestCountServiceLogsByVendor(t *testing.T) {
 	if err := store.CreateVendor(v); err != nil {
 		t.Fatalf("CreateVendor: %v", err)
 	}
-	vendors, _ := store.ListVendors()
+	vendors, _ := store.ListVendors(false)
 	vendorID := vendors[0].ID
 
 	cats, _ := store.MaintenanceCategories()
@@ -1229,6 +1229,436 @@ func TestListMaintenanceByApplianceIncludeDeleted(t *testing.T) {
 	items, _ = store.ListMaintenanceByAppliance(appID, true)
 	if len(items) != 1 {
 		t.Fatalf("expected 1 item with deleted, got %d", len(items))
+	}
+}
+
+func TestSoftDeleteRestoreVendor(t *testing.T) {
+	store := newTestStore(t)
+	if err := store.CreateVendor(Vendor{Name: "Test Vendor"}); err != nil {
+		t.Fatalf("CreateVendor: %v", err)
+	}
+	vendors, _ := store.ListVendors(false)
+	if len(vendors) != 1 {
+		t.Fatalf("expected 1 vendor, got %d", len(vendors))
+	}
+	id := vendors[0].ID
+
+	if err := store.DeleteVendor(id); err != nil {
+		t.Fatalf("DeleteVendor: %v", err)
+	}
+	vendors, _ = store.ListVendors(false)
+	if len(vendors) != 0 {
+		t.Fatalf("expected 0 vendors after delete, got %d", len(vendors))
+	}
+	vendors, _ = store.ListVendors(true)
+	if len(vendors) != 1 || !vendors[0].DeletedAt.Valid {
+		t.Fatalf("expected 1 deleted vendor in unscoped list")
+	}
+
+	if err := store.RestoreVendor(id); err != nil {
+		t.Fatalf("RestoreVendor: %v", err)
+	}
+	vendors, _ = store.ListVendors(false)
+	if len(vendors) != 1 {
+		t.Fatalf("expected 1 vendor after restore, got %d", len(vendors))
+	}
+}
+
+func TestDeleteVendorBlockedByQuotes(t *testing.T) {
+	store := newTestStore(t)
+	if err := store.CreateVendor(Vendor{Name: "Blocked Vendor"}); err != nil {
+		t.Fatalf("CreateVendor: %v", err)
+	}
+	vendors, _ := store.ListVendors(false)
+	vendorID := vendors[0].ID
+
+	types, _ := store.ProjectTypes()
+	if err := store.CreateProject(Project{
+		Title: "Test", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}); err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+	projects, _ := store.ListProjects(false)
+	projID := projects[0].ID
+
+	quote := Quote{ProjectID: projID, TotalCents: 1000}
+	if err := store.CreateQuote(quote, Vendor{Name: "Blocked Vendor"}); err != nil {
+		t.Fatalf("CreateQuote: %v", err)
+	}
+
+	err := store.DeleteVendor(vendorID)
+	if err == nil {
+		t.Fatal("expected error deleting vendor with active quotes")
+	}
+	if !strings.Contains(err.Error(), "active quote") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Soft-delete the quote, then vendor deletion should succeed.
+	quotes, _ := store.ListQuotes(false)
+	if err := store.DeleteQuote(quotes[0].ID); err != nil {
+		t.Fatalf("DeleteQuote: %v", err)
+	}
+	if err := store.DeleteVendor(vendorID); err != nil {
+		t.Fatalf("DeleteVendor after quote removed: %v", err)
+	}
+}
+
+func TestRestoreQuoteBlockedByDeletedVendor(t *testing.T) {
+	store := newTestStore(t)
+	if err := store.CreateVendor(Vendor{Name: "Doomed Vendor"}); err != nil {
+		t.Fatalf("CreateVendor: %v", err)
+	}
+	types, _ := store.ProjectTypes()
+	if err := store.CreateProject(Project{
+		Title: "Test", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}); err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+	projects, _ := store.ListProjects(false)
+	projID := projects[0].ID
+	vendors, _ := store.ListVendors(false)
+	vendorID := vendors[0].ID
+
+	quote := Quote{ProjectID: projID, TotalCents: 500}
+	if err := store.CreateQuote(quote, Vendor{Name: "Doomed Vendor"}); err != nil {
+		t.Fatalf("CreateQuote: %v", err)
+	}
+	quotes, _ := store.ListQuotes(false)
+	quoteID := quotes[0].ID
+
+	// Delete quote, then vendor.
+	if err := store.DeleteQuote(quoteID); err != nil {
+		t.Fatalf("DeleteQuote: %v", err)
+	}
+	if err := store.DeleteVendor(vendorID); err != nil {
+		t.Fatalf("DeleteVendor: %v", err)
+	}
+
+	// Restoring the quote should be refused while vendor is deleted.
+	err := store.RestoreQuote(quoteID)
+	if err == nil {
+		t.Fatal("expected error restoring quote with deleted vendor")
+	}
+	if !strings.Contains(err.Error(), "vendor is deleted") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Restore the vendor, then quote restore should succeed.
+	if err := store.RestoreVendor(vendorID); err != nil {
+		t.Fatalf("RestoreVendor: %v", err)
+	}
+	if err := store.RestoreQuote(quoteID); err != nil {
+		t.Fatalf("RestoreQuote after vendor restored: %v", err)
+	}
+}
+
+func TestRestoreServiceLogBlockedByDeletedVendor(t *testing.T) {
+	store := newTestStore(t)
+	if err := store.CreateVendor(Vendor{Name: "Doomed SL Vendor"}); err != nil {
+		t.Fatalf("CreateVendor: %v", err)
+	}
+	vendors, _ := store.ListVendors(false)
+	vendorID := vendors[0].ID
+
+	cats, _ := store.MaintenanceCategories()
+	item := MaintenanceItem{Name: "Test Maint", CategoryID: cats[0].ID}
+	if err := store.CreateMaintenance(item); err != nil {
+		t.Fatalf("CreateMaintenance: %v", err)
+	}
+	items, _ := store.ListMaintenance(false)
+	maintID := items[0].ID
+
+	entry := ServiceLogEntry{
+		MaintenanceItemID: maintID,
+		ServicedAt:        time.Now(),
+	}
+	if err := store.CreateServiceLog(entry, Vendor{Name: "Doomed SL Vendor"}); err != nil {
+		t.Fatalf("CreateServiceLog: %v", err)
+	}
+	logs, _ := store.ListServiceLog(maintID, false)
+	logID := logs[0].ID
+
+	// Delete service log, then vendor.
+	if err := store.DeleteServiceLog(logID); err != nil {
+		t.Fatalf("DeleteServiceLog: %v", err)
+	}
+	if err := store.DeleteVendor(vendorID); err != nil {
+		t.Fatalf("DeleteVendor: %v", err)
+	}
+
+	// Restoring the service log should be refused while vendor is deleted.
+	err := store.RestoreServiceLog(logID)
+	if err == nil {
+		t.Fatal("expected error restoring service log with deleted vendor")
+	}
+	if !strings.Contains(err.Error(), "vendor is deleted") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Restore the vendor, then service log restore should succeed.
+	if err := store.RestoreVendor(vendorID); err != nil {
+		t.Fatalf("RestoreVendor: %v", err)
+	}
+	if err := store.RestoreServiceLog(logID); err != nil {
+		t.Fatalf("RestoreServiceLog after vendor restored: %v", err)
+	}
+}
+
+func TestRestoreServiceLogAllowedWithoutVendor(t *testing.T) {
+	// Service logs without a vendor (self-performed) should restore freely.
+	store := newTestStore(t)
+	cats, _ := store.MaintenanceCategories()
+	item := MaintenanceItem{Name: "Self Maint", CategoryID: cats[0].ID}
+	if err := store.CreateMaintenance(item); err != nil {
+		t.Fatalf("CreateMaintenance: %v", err)
+	}
+	items, _ := store.ListMaintenance(false)
+	maintID := items[0].ID
+
+	entry := ServiceLogEntry{
+		MaintenanceItemID: maintID,
+		ServicedAt:        time.Now(),
+	}
+	if err := store.CreateServiceLog(entry, Vendor{}); err != nil {
+		t.Fatalf("CreateServiceLog: %v", err)
+	}
+	logs, _ := store.ListServiceLog(maintID, false)
+	logID := logs[0].ID
+
+	if err := store.DeleteServiceLog(logID); err != nil {
+		t.Fatalf("DeleteServiceLog: %v", err)
+	}
+	if err := store.RestoreServiceLog(logID); err != nil {
+		t.Fatalf("RestoreServiceLog should succeed with nil VendorID: %v", err)
+	}
+}
+
+func TestRestoreProjectBlockedByDeletedPreferredVendor(t *testing.T) {
+	store := newTestStore(t)
+	if err := store.CreateVendor(Vendor{Name: "Preferred Vendor"}); err != nil {
+		t.Fatalf("CreateVendor: %v", err)
+	}
+	vendors, _ := store.ListVendors(false)
+	vendorID := vendors[0].ID
+
+	types, _ := store.ProjectTypes()
+	project := Project{
+		Title:             "Vendor Project",
+		ProjectTypeID:     types[0].ID,
+		Status:            ProjectStatusPlanned,
+		PreferredVendorID: &vendorID,
+	}
+	if err := store.CreateProject(project); err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+	projects, _ := store.ListProjects(false)
+	projID := projects[0].ID
+
+	// Delete project, then vendor.
+	if err := store.DeleteProject(projID); err != nil {
+		t.Fatalf("DeleteProject: %v", err)
+	}
+	if err := store.DeleteVendor(vendorID); err != nil {
+		t.Fatalf("DeleteVendor: %v", err)
+	}
+
+	// Restoring the project should be refused while preferred vendor is deleted.
+	err := store.RestoreProject(projID)
+	if err == nil {
+		t.Fatal("expected error restoring project with deleted preferred vendor")
+	}
+	if !strings.Contains(err.Error(), "preferred vendor is deleted") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Restore vendor, then project restore should succeed.
+	if err := store.RestoreVendor(vendorID); err != nil {
+		t.Fatalf("RestoreVendor: %v", err)
+	}
+	if err := store.RestoreProject(projID); err != nil {
+		t.Fatalf("RestoreProject after vendor restored: %v", err)
+	}
+}
+
+func TestRestoreProjectAllowedWithoutPreferredVendor(t *testing.T) {
+	// Projects without a preferred vendor should restore freely (existing behavior).
+	store := newTestStore(t)
+	types, _ := store.ProjectTypes()
+	project := Project{
+		Title:         "No Vendor Project",
+		ProjectTypeID: types[0].ID,
+		Status:        ProjectStatusPlanned,
+	}
+	if err := store.CreateProject(project); err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+	projects, _ := store.ListProjects(false)
+	projID := projects[0].ID
+
+	if err := store.DeleteProject(projID); err != nil {
+		t.Fatalf("DeleteProject: %v", err)
+	}
+	if err := store.RestoreProject(projID); err != nil {
+		t.Fatalf("RestoreProject should succeed with nil PreferredVendorID: %v", err)
+	}
+}
+
+func TestVendorQuoteProjectDeleteRestoreChain(t *testing.T) {
+	// Full Vendor → Quote → Project lifecycle exercising guards at every level.
+	store := newTestStore(t)
+
+	if err := store.CreateVendor(Vendor{Name: "Chain Vendor"}); err != nil {
+		t.Fatalf("CreateVendor: %v", err)
+	}
+	vendors, _ := store.ListVendors(false)
+	vendorID := vendors[0].ID
+
+	types, _ := store.ProjectTypes()
+	if err := store.CreateProject(Project{
+		Title: "Chain Project", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}); err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+	projects, _ := store.ListProjects(false)
+	projID := projects[0].ID
+
+	quote := Quote{ProjectID: projID, TotalCents: 1000}
+	if err := store.CreateQuote(quote, Vendor{Name: "Chain Vendor"}); err != nil {
+		t.Fatalf("CreateQuote: %v", err)
+	}
+	quotes, _ := store.ListQuotes(false)
+	quoteID := quotes[0].ID
+
+	// --- Delete bottom-up ---
+	// Can't delete vendor while quote is active.
+	err := store.DeleteVendor(vendorID)
+	if err == nil {
+		t.Fatal("expected error: active quote blocks vendor delete")
+	}
+
+	// Can't delete project while quote is active.
+	err = store.DeleteProject(projID)
+	if err == nil {
+		t.Fatal("expected error: active quote blocks project delete")
+	}
+
+	if err := store.DeleteQuote(quoteID); err != nil {
+		t.Fatalf("DeleteQuote: %v", err)
+	}
+	if err := store.DeleteProject(projID); err != nil {
+		t.Fatalf("DeleteProject: %v", err)
+	}
+	if err := store.DeleteVendor(vendorID); err != nil {
+		t.Fatalf("DeleteVendor: %v", err)
+	}
+
+	// --- Attempt wrong-order restores ---
+	// Can't restore quote while project is deleted.
+	err = store.RestoreQuote(quoteID)
+	if err == nil {
+		t.Fatal("expected error: project is deleted")
+	}
+	if !strings.Contains(err.Error(), "project is deleted") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Restore project; quote restore should still fail because vendor is deleted.
+	if err := store.RestoreProject(projID); err != nil {
+		t.Fatalf("RestoreProject: %v", err)
+	}
+	err = store.RestoreQuote(quoteID)
+	if err == nil {
+		t.Fatal("expected error: vendor is deleted")
+	}
+	if !strings.Contains(err.Error(), "vendor is deleted") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// --- Restore correct order: vendor → quote ---
+	if err := store.RestoreVendor(vendorID); err != nil {
+		t.Fatalf("RestoreVendor: %v", err)
+	}
+	if err := store.RestoreQuote(quoteID); err != nil {
+		t.Fatalf("RestoreQuote: %v", err)
+	}
+
+	// Verify everything is alive.
+	vendors, _ = store.ListVendors(false)
+	if len(vendors) != 1 {
+		t.Fatalf("expected 1 vendor, got %d", len(vendors))
+	}
+	quotes, _ = store.ListQuotes(false)
+	if len(quotes) != 1 {
+		t.Fatalf("expected 1 quote, got %d", len(quotes))
+	}
+}
+
+func TestFindOrCreateVendorRestoresSoftDeleted(t *testing.T) {
+	store := newTestStore(t)
+
+	if err := store.CreateVendor(Vendor{Name: "Revivable Vendor"}); err != nil {
+		t.Fatalf("CreateVendor: %v", err)
+	}
+	vendors, _ := store.ListVendors(false)
+	vendorID := vendors[0].ID
+
+	if err := store.DeleteVendor(vendorID); err != nil {
+		t.Fatalf("DeleteVendor: %v", err)
+	}
+	vendors, _ = store.ListVendors(false)
+	if len(vendors) != 0 {
+		t.Fatalf("expected 0 vendors after delete, got %d", len(vendors))
+	}
+
+	// Creating a quote with the same vendor name should restore the vendor.
+	types, _ := store.ProjectTypes()
+	if err := store.CreateProject(Project{
+		Title: "Test", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}); err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+	projects, _ := store.ListProjects(false)
+	quote := Quote{ProjectID: projects[0].ID, TotalCents: 500}
+	if err := store.CreateQuote(quote, Vendor{Name: "Revivable Vendor"}); err != nil {
+		t.Fatalf("CreateQuote with deleted vendor name: %v", err)
+	}
+
+	// Vendor should be restored.
+	vendors, _ = store.ListVendors(false)
+	if len(vendors) != 1 {
+		t.Fatalf("expected 1 vendor after auto-restore, got %d", len(vendors))
+	}
+	if vendors[0].ID != vendorID {
+		t.Fatalf("expected same vendor ID %d, got %d", vendorID, vendors[0].ID)
+	}
+}
+
+func TestVendorDeletionRecord(t *testing.T) {
+	store := newTestStore(t)
+	if err := store.CreateVendor(Vendor{Name: "Record Vendor"}); err != nil {
+		t.Fatalf("CreateVendor: %v", err)
+	}
+	vendors, _ := store.ListVendors(false)
+	vendorID := vendors[0].ID
+
+	if err := store.DeleteVendor(vendorID); err != nil {
+		t.Fatalf("DeleteVendor: %v", err)
+	}
+	record, err := store.LastDeletion(DeletionEntityVendor)
+	if err != nil {
+		t.Fatalf("LastDeletion: %v", err)
+	}
+	if record.TargetID != vendorID {
+		t.Fatalf("expected target %d, got %d", vendorID, record.TargetID)
+	}
+
+	if err := store.RestoreVendor(vendorID); err != nil {
+		t.Fatalf("RestoreVendor: %v", err)
+	}
+	_, err = store.LastDeletion(DeletionEntityVendor)
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Fatalf("expected ErrRecordNotFound after restore, got %v", err)
 	}
 }
 

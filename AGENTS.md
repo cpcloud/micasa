@@ -324,6 +324,10 @@ These have been repeatedly requested. Violating them wastes the user's time.
   `lipgloss.AdaptiveColor{Light, Dark}`. See `styles.go` for the existing
   palette and roles. When adding or changing styles, always provide both Light
   and Dark variants.
+- **No test plan section in PRs**: CI covers tests, lint, vet, and build.
+  Don't add a "Test plan" section to PR descriptions unless there are
+  genuinely manual-only verification steps (e.g. visual UI/UX checks that
+  can't be automated). Restating what CI does is noise.
 - **No mass-history-cleanup logs**: Don't write detailed session log entries
   for git history rewrites (filter-branch, squash rebases, etc.) -- they
   reference commit hashes that no longer exist and add noise.
