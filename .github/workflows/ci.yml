@@ -33,11 +33,17 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
+      - name: Vet
+        run: go vet ./...
+
       - name: Build
         run: go build ./...
 
       - name: Test
-        run: go test -race -shuffle=on -v ./...
+        run: go test -race -shuffle=on -v -coverprofile=coverage.txt ./...
+
+      - name: Coverage summary
+        run: go tool cover -func=coverage.txt
 
   pre-commit:
     name: Pre-commit
@@ -104,6 +110,20 @@ jobs:
       - uses: trufflesecurity/trufflehog@7635b24fd512a2e817dd3e9dd661caaf035a079d # v3.93.1
         with:
           extra_args: --only-verified
+
+  vuln-scan:
+    name: Vulnerability Scan
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ci-vuln-scan-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - uses: cachix/install-nix-action@4e002c8ec80594ecd40e759629461e26c8abed15 # v31
+
+      - name: Run osv-scanner
+        run: nix run '.#osv-scanner'
 
   # ---------------------------------------------------------------------------
   # Semantic Release (dry-run on PRs, publish on main push)

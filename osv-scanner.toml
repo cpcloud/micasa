@@ -1,0 +1,6 @@
+# Copyright 2026 Phillip Cloud
+# Licensed under the Apache License, Version 2.0
+
+[[IgnoredVulns]]
+id = "GO-2026-4341"
+reason = "net/url.ParseQuery only reached via gorm DSN parsing with a local file path we control"

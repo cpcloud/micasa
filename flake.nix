@@ -138,6 +138,7 @@
             CGO_ENABLED = "0";
             packages = [
               pkgs.go
+              pkgs.osv-scanner
               pkgs.git
               pkgs.hugo
               pkgs.vhs
@@ -275,6 +276,13 @@
               ls -la docs/static/images/*.png
             '';
           };
+          run-osv-scanner = pkgs.writeShellApplication {
+            name = "run-osv-scanner";
+            runtimeInputs = [ pkgs.osv-scanner ];
+            text = ''
+              osv-scanner scan --config osv-scanner.toml --recursive .
+            '';
+          };
           run-pre-commit =
             let
               runtimePath = pkgs.lib.makeBinPath (
@@ -314,6 +322,7 @@
           build-docs = flake-utils.lib.mkApp { drv = self.packages.${system}.build-docs; };
           capture-one = flake-utils.lib.mkApp { drv = self.packages.${system}.capture-one; };
           capture-screenshots = flake-utils.lib.mkApp { drv = self.packages.${system}.capture-screenshots; };
+          osv-scanner = flake-utils.lib.mkApp { drv = self.packages.${system}.run-osv-scanner; };
           pre-commit = flake-utils.lib.mkApp { drv = self.packages.${system}.run-pre-commit; };
         };
 
