@@ -15,6 +15,7 @@ permissions:
   contents: read
 
 env:
+  CGO_ENABLED: "0"
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
@@ -50,7 +51,6 @@ jobs:
 
       - name: Build
         env:
-          CGO_ENABLED: "0"
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           VERSION: ${{ github.event.release.tag_name }}

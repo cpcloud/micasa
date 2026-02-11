@@ -12,6 +12,9 @@ on:
 permissions:
   contents: read
 
+env:
+  CGO_ENABLED: "0"
+
 jobs:
   test:
     name: Build & Test (${{ matrix.os }}, Go ${{ matrix.go-version }})
@@ -46,6 +49,8 @@ jobs:
         env:
           MICASA_TEST_SEED: ${{ github.run_id }}
         run: go test -race -shuffle on -v -coverprofile coverage.txt ./...
+        env:
+          CGO_ENABLED: "1"
 
       - name: Coverage summary
         run: go tool cover -func coverage.txt
