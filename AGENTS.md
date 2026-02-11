@@ -337,6 +337,11 @@ These have been repeatedly requested. Violating them wastes the user's time.
   (`TestThreeLevelDeleteRestoreChain`, `TestRestoreMaintenanceBlockedByDeletedAppliance`,
   `TestRestoreMaintenanceAllowedWithoutAppliance`, etc.) as templates.
 
+- **Keep PR descriptions in sync**: After pushing additional commits to a PR
+  branch, re-read the PR title and body (`gh pr view`) and update them if
+  they no longer match the actual changes. Don't wait for the user to notice
+  stale descriptions.
+
 If the user asks you to learn something, add it to this "Hard rules" section
 so it survives context resets. This file is always injected; external files
 like `LEARNINGS.md` are not.
