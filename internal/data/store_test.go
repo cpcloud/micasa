@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cpcloud/micasa/internal/fake"
 	"gorm.io/gorm"
 )
 
@@ -1244,6 +1245,17 @@ func newTestStore(t *testing.T) *Store {
 	}
 	if err := store.SeedDefaults(); err != nil {
 		t.Fatalf("SeedDefaults error: %v", err)
+	}
+	return store
+}
+
+// newTestStoreWithDemoData creates a store pre-populated with randomized
+// demo data from the given seed.
+func newTestStoreWithDemoData(t *testing.T, seed uint64) *Store {
+	t.Helper()
+	store := newTestStore(t)
+	if err := store.SeedDemoDataFrom(fake.New(seed)); err != nil {
+		t.Fatalf("SeedDemoData: %v", err)
 	}
 	return store
 }

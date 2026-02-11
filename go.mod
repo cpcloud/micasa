@@ -8,6 +8,7 @@ go 1.25.4
 require (
 	github.com/adrg/xdg v0.5.3
 	github.com/alecthomas/kong v1.14.0
+	github.com/brianvoe/gofakeit/v7 v7.14.0
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/huh v0.8.0
