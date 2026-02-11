@@ -436,7 +436,6 @@ func (m *Model) handleNormalEnter() error {
 		}
 	}
 
-	_ = meta // suppress unused warning
 	return nil
 }
 
