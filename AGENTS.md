@@ -280,6 +280,9 @@ These have been repeatedly requested. Violating them wastes the user's time.
 - **Pin Actions to version tags**: In GitHub Actions workflows, always use
   versioned tags (e.g. `@v3.93.1`) instead of named refs like `@main` or
   `@latest`.
+- **No `=` in CI go commands**: PowerShell (Windows runner) misparses `=`
+  in command-line flags. Use space-separated form: `-bench .` not
+  `-bench=.`, `-run '^$'` not `-run='^$'`.
 - **PR test plans: manual steps only**: Don't list test plan items that CI
   already covers (vet, tests pass, lint, pre-commit). Only include steps
   that require manual verification or aren't automated.
