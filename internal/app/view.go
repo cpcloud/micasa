@@ -133,20 +133,23 @@ func (m *Model) buildDashboardOverlay() string {
 	hints := joinWithSeparator(m.helpSeparator(), items...)
 
 	// Budget for dashboardView content: outer box height minus chrome.
-	// Chrome: border (2) + padding (2) + header (1) + blank (1) + blank (1)
-	// + hints (1) = 8 lines.
+	// Chrome: border (2) + padding (2) + title (1) + header (1) + blank (1)
+	// + blank (1) + hints (1) = 9 lines.
 	maxH := m.effectiveHeight() - 4
 	if maxH < 10 {
 		maxH = 10
 	}
-	contentBudget := maxH - 8
+	contentBudget := maxH - 9
 	if contentBudget < 3 {
 		contentBudget = 3
 	}
 	content := m.dashboardView(contentBudget)
 
+	// Title: "Dashboard" left-aligned, header (nickname · date) right-aligned.
+	title := m.styles.HeaderSection.Render("Dashboard")
+
 	boxContent := lipgloss.JoinVertical(
-		lipgloss.Left, header, "", content, "", hints,
+		lipgloss.Left, title, header, "", content, "", hints,
 	)
 
 	return lipgloss.NewStyle().
