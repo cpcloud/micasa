@@ -5,6 +5,7 @@ package app
 
 import (
 	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/bubbles/textinput"
 )
 
 type Mode int
@@ -155,4 +156,17 @@ type columnSpec struct {
 	Link        *columnLink // non-nil if this column references another tab
 	FixedValues []string    // all possible values; used to stabilize column width
 	HideOrder   int         // 0 = visible; >0 = hidden (higher = more recently hidden)
+}
+
+// inlineInputState holds state for a single-field text edit rendered in the
+// status bar, keeping the table visible. Used instead of a full form overlay
+// for simple text/number fields.
+type inlineInputState struct {
+	Input    textinput.Model
+	Title    string
+	EditID   uint
+	FormKind FormKind
+	FormData any
+	FieldPtr *string            // pointer into FormData
+	Validate func(string) error // nil = no validation
 }

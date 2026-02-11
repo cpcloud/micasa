@@ -202,6 +202,9 @@ func (m *Model) tabUnderline() string {
 }
 
 func (m *Model) statusView() string {
+	if m.inlineInput != nil {
+		return m.inlineInputStatusView()
+	}
 	if m.mode == modeForm {
 		dirtyIndicator := m.styles.FormClean.Render("○ saved")
 		if m.formDirty {
@@ -312,6 +315,19 @@ func (m *Model) deletedHint(tab *Tab) string {
 }
 
 // withStatusMessage renders the help line, prepending the status message if set.
+func (m *Model) inlineInputStatusView() string {
+	ii := m.inlineInput
+	title := m.styles.HeaderLabel.Render(ii.Title + ":")
+	input := ii.Input.View()
+	hints := joinWithSeparator(
+		m.helpSeparator(),
+		m.helpItem("enter", "save"),
+		m.helpItem("esc", "cancel"),
+	)
+	prompt := title + " " + input + "  " + hints
+	return m.withStatusMessage(prompt)
+}
+
 func (m *Model) withStatusMessage(helpLine string) string {
 	if m.status.Text == "" {
 		return helpLine

@@ -51,6 +51,7 @@ type Model struct {
 	formSnapshot          string
 	formDirty             bool
 	editID                *uint
+	inlineInput           *inlineInputState
 	undoStack             []undoEntry
 	redoStack             []undoEntry
 	status                statusMsg
@@ -157,6 +158,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.columnFinder != nil {
 		if keyMsg, ok := msg.(tea.KeyMsg); ok {
 			return m, m.handleColumnFinderKey(keyMsg)
+		}
+		return m, nil
+	}
+
+	// Inline text input: absorb all keys.
+	if m.inlineInput != nil {
+		if keyMsg, ok := msg.(tea.KeyMsg); ok {
+			return m.handleInlineInputKey(keyMsg)
 		}
 		return m, nil
 	}
@@ -634,6 +643,50 @@ func (m *Model) reloadDetailTab() error {
 		return nil
 	}
 	return m.reloadTab(&m.detail.Tab)
+}
+
+func (m *Model) handleInlineInputKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch key.String() {
+	case keyEsc:
+		m.closeInlineInput()
+		return m, nil
+	case keyEnter:
+		m.submitInlineInput()
+		return m, nil
+	}
+	var cmd tea.Cmd
+	m.inlineInput.Input, cmd = m.inlineInput.Input.Update(key)
+	return m, cmd
+}
+
+func (m *Model) submitInlineInput() {
+	ii := m.inlineInput
+	if ii == nil {
+		return
+	}
+	val := ii.Input.Value()
+	if ii.Validate != nil {
+		if err := ii.Validate(val); err != nil {
+			m.setStatusError(err.Error())
+			return
+		}
+	}
+	*ii.FieldPtr = val
+	m.snapshotForUndo()
+	if err := m.handleFormSubmit(); err != nil {
+		m.setStatusError(err.Error())
+	} else {
+		m.setStatusInfo("Saved.")
+		m.reloadAll()
+	}
+	m.closeInlineInput()
+}
+
+func (m *Model) closeInlineInput() {
+	m.inlineInput = nil
+	m.formKind = formNone
+	m.formData = nil
+	m.editID = nil
 }
 
 // reloadAll refreshes lookups, house profile, all tabs, detail tab, and

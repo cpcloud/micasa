@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/cpcloud/micasa/internal/data"
@@ -652,22 +653,20 @@ func (m *Model) inlineEditVendor(id uint, col int) error {
 	}
 	values := vendorFormValues(vendor)
 	// Column mapping: 0=ID, 1=Name, 2=Contact, 3=Email, 4=Phone, 5=Website, 6=Quotes(ro), 7=Jobs(ro)
-	var field huh.Field
 	switch col {
 	case 1:
-		field = huh.NewInput().Title("Name").Value(&values.Name).Validate(requiredText("name"))
+		m.openInlineInput(id, formVendor, "Name", "", &values.Name, requiredText("name"), values)
 	case 2:
-		field = huh.NewInput().Title("Contact name").Value(&values.ContactName)
+		m.openInlineInput(id, formVendor, "Contact name", "", &values.ContactName, nil, values)
 	case 3:
-		field = huh.NewInput().Title("Email").Value(&values.Email)
+		m.openInlineInput(id, formVendor, "Email", "", &values.Email, nil, values)
 	case 4:
-		field = huh.NewInput().Title("Phone").Value(&values.Phone)
+		m.openInlineInput(id, formVendor, "Phone", "", &values.Phone, nil, values)
 	case 5:
-		field = huh.NewInput().Title("Website").Value(&values.Website)
+		m.openInlineInput(id, formVendor, "Website", "", &values.Website, nil, values)
 	default:
 		return m.startEditVendorForm(id)
 	}
-	m.openInlineEdit(id, formVendor, field, values)
 	return nil
 }
 
@@ -688,42 +687,56 @@ func (m *Model) inlineEditProject(id uint, col int) error {
 		return fmt.Errorf("load project: %w", err)
 	}
 	values := projectFormValues(project)
-	options := projectTypeOptions(m.projectTypes)
 	// Column mapping: 0=ID, 1=Type, 2=Title, 3=Status, 4=Budget, 5=Actual, 6=Start, 7=End
-	var field huh.Field
 	switch col {
 	case 1:
-		field = huh.NewSelect[uint]().Title("Project type").
+		options := projectTypeOptions(m.projectTypes)
+		field := huh.NewSelect[uint]().Title("Project type").
 			Options(options...).
 			Value(&values.ProjectTypeID)
+		m.openInlineEdit(id, formProject, field, values)
 	case 2:
-		field = huh.NewInput().Title("Title").Value(&values.Title).Validate(requiredText("title"))
+		m.openInlineInput(
+			id,
+			formProject,
+			"Title",
+			"",
+			&values.Title,
+			requiredText("title"),
+			values,
+		)
 	case 3:
-		field = huh.NewSelect[string]().Title("Status").
+		field := huh.NewSelect[string]().Title("Status").
 			Options(statusOptions()...).
 			Value(&values.Status)
+		m.openInlineEdit(id, formProject, field, values)
 	case 4:
-		field = huh.NewInput().
-			Title("Budget").
-			Placeholder("1250.00").
-			Value(&values.Budget).
-			Validate(optionalMoney("budget"))
+		m.openInlineInput(
+			id,
+			formProject,
+			"Budget",
+			"1250.00",
+			&values.Budget,
+			optionalMoney("budget"),
+			values,
+		)
 	case 5:
-		field = huh.NewInput().
-			Title("Actual cost").
-			Placeholder("1400.00").
-			Value(&values.Actual).
-			Validate(optionalMoney("actual cost"))
+		m.openInlineInput(
+			id,
+			formProject,
+			"Actual cost",
+			"1400.00",
+			&values.Actual,
+			optionalMoney("actual cost"),
+			values,
+		)
 	case 6:
 		m.openDatePicker(id, formProject, &values.StartDate, values)
-		return nil
 	case 7:
 		m.openDatePicker(id, formProject, &values.EndDate, values)
-		return nil
 	default:
 		return m.startEditProjectForm(id)
 	}
-	m.openInlineEdit(id, formProject, field, values)
 	return nil
 }
 
@@ -737,50 +750,69 @@ func (m *Model) inlineEditQuote(id uint, col int) error {
 		return err
 	}
 	values := quoteFormValues(quote)
-	projectOpts := projectOptions(projects)
 	// Column mapping: 0=ID, 1=Project, 2=Vendor, 3=Total, 4=Labor, 5=Mat, 6=Other, 7=Recv
-	var field huh.Field
 	switch col {
 	case 1:
-		field = huh.NewSelect[uint]().Title("Project").
+		projectOpts := projectOptions(projects)
+		field := huh.NewSelect[uint]().Title("Project").
 			Options(projectOpts...).
 			Value(&values.ProjectID)
+		m.openInlineEdit(id, formQuote, field, values)
 	case 2:
-		field = huh.NewInput().
-			Title("Vendor name").
-			Value(&values.VendorName).
-			Validate(requiredText("vendor name"))
+		m.openInlineInput(
+			id,
+			formQuote,
+			"Vendor name",
+			"",
+			&values.VendorName,
+			requiredText("vendor name"),
+			values,
+		)
 	case 3:
-		field = huh.NewInput().
-			Title("Total").
-			Placeholder("3250.00").
-			Value(&values.Total).
-			Validate(requiredMoney("total"))
+		m.openInlineInput(
+			id,
+			formQuote,
+			"Total",
+			"3250.00",
+			&values.Total,
+			requiredMoney("total"),
+			values,
+		)
 	case 4:
-		field = huh.NewInput().
-			Title("Labor").
-			Placeholder("2000.00").
-			Value(&values.Labor).
-			Validate(optionalMoney("labor"))
+		m.openInlineInput(
+			id,
+			formQuote,
+			"Labor",
+			"2000.00",
+			&values.Labor,
+			optionalMoney("labor"),
+			values,
+		)
 	case 5:
-		field = huh.NewInput().
-			Title("Materials").
-			Placeholder("1000.00").
-			Value(&values.Materials).
-			Validate(optionalMoney("materials"))
+		m.openInlineInput(
+			id,
+			formQuote,
+			"Materials",
+			"1000.00",
+			&values.Materials,
+			optionalMoney("materials"),
+			values,
+		)
 	case 6:
-		field = huh.NewInput().
-			Title("Other").
-			Placeholder("250.00").
-			Value(&values.Other).
-			Validate(optionalMoney("other costs"))
+		m.openInlineInput(
+			id,
+			formQuote,
+			"Other",
+			"250.00",
+			&values.Other,
+			optionalMoney("other costs"),
+			values,
+		)
 	case 7:
 		m.openDatePicker(id, formQuote, &values.ReceivedDate, values)
-		return nil
 	default:
 		return m.startEditQuoteForm(id)
 	}
-	m.openInlineEdit(id, formQuote, field, values)
 	return nil
 }
 
@@ -790,39 +822,50 @@ func (m *Model) inlineEditMaintenance(id uint, col int) error {
 		return fmt.Errorf("load maintenance item: %w", err)
 	}
 	values := maintenanceFormValues(item)
-	catOptions := maintenanceOptions(m.maintenanceCategories)
 	// Column mapping: 0=ID, 1=Item, 2=Category, 3=Appliance, 4=Last, 5=Next(computed), 6=Every, 7=Log
-	var field huh.Field
 	switch col {
 	case 1:
-		field = huh.NewInput().Title("Item").Value(&values.Name).Validate(requiredText("item"))
+		m.openInlineInput(
+			id,
+			formMaintenance,
+			"Item",
+			"",
+			&values.Name,
+			requiredText("item"),
+			values,
+		)
 	case 2:
-		field = huh.NewSelect[uint]().Title("Category").
+		catOptions := maintenanceOptions(m.maintenanceCategories)
+		field := huh.NewSelect[uint]().Title("Category").
 			Options(catOptions...).
 			Value(&values.CategoryID)
+		m.openInlineEdit(id, formMaintenance, field, values)
 	case 3:
 		appliances, loadErr := m.store.ListAppliances(false)
 		if loadErr != nil {
 			return loadErr
 		}
 		appOpts := applianceOptions(appliances)
-		field = huh.NewSelect[uint]().Title("Appliance").
+		field := huh.NewSelect[uint]().Title("Appliance").
 			Options(appOpts...).
 			Value(&values.ApplianceID)
+		m.openInlineEdit(id, formMaintenance, field, values)
 	case 4:
 		m.openDatePicker(id, formMaintenance, &values.LastServiced, values)
-		return nil
 	case 6:
-		field = huh.NewInput().
-			Title("Interval months").
-			Placeholder("6").
-			Value(&values.IntervalMonths).
-			Validate(optionalInt("interval months"))
+		m.openInlineInput(
+			id,
+			formMaintenance,
+			"Interval months",
+			"6",
+			&values.IntervalMonths,
+			optionalInt("interval months"),
+			values,
+		)
 	default:
 		// Col 0 (ID), 5 (Next Due, computed), 7 (Log) are readonly.
 		return m.startEditMaintenanceForm(id)
 	}
-	m.openInlineEdit(id, formMaintenance, field, values)
 	return nil
 }
 
@@ -833,34 +876,34 @@ func (m *Model) inlineEditAppliance(id uint, col int) error {
 	}
 	values := applianceFormValues(item)
 	// Column mapping: 0=ID, 1=Name, 2=Brand, 3=Model, 4=Serial, 5=Location, 6=Purchased, 7=Age(readonly), 8=Warranty, 9=Cost, 10=Maint(readonly)
-	var field huh.Field
 	switch col {
 	case 1:
-		field = huh.NewInput().Title("Name").Value(&values.Name).Validate(requiredText("name"))
+		m.openInlineInput(id, formAppliance, "Name", "", &values.Name, requiredText("name"), values)
 	case 2:
-		field = huh.NewInput().Title("Brand").Value(&values.Brand)
+		m.openInlineInput(id, formAppliance, "Brand", "", &values.Brand, nil, values)
 	case 3:
-		field = huh.NewInput().Title("Model number").Value(&values.ModelNumber)
+		m.openInlineInput(id, formAppliance, "Model number", "", &values.ModelNumber, nil, values)
 	case 4:
-		field = huh.NewInput().Title("Serial number").Value(&values.SerialNumber)
+		m.openInlineInput(id, formAppliance, "Serial number", "", &values.SerialNumber, nil, values)
 	case 5:
-		field = huh.NewInput().Title("Location").Value(&values.Location)
+		m.openInlineInput(id, formAppliance, "Location", "Kitchen", &values.Location, nil, values)
 	case 6:
 		m.openDatePicker(id, formAppliance, &values.PurchaseDate, values)
-		return nil
 	case 8:
 		m.openDatePicker(id, formAppliance, &values.WarrantyExpiry, values)
-		return nil
 	case 9:
-		field = huh.NewInput().
-			Title("Cost").
-			Placeholder("899.00").
-			Value(&values.Cost).
-			Validate(optionalMoney("cost"))
+		m.openInlineInput(
+			id,
+			formAppliance,
+			"Cost",
+			"899.00",
+			&values.Cost,
+			optionalMoney("cost"),
+			values,
+		)
 	default:
 		return m.startEditApplianceForm(id)
 	}
-	m.openInlineEdit(id, formAppliance, field, values)
 	return nil
 }
 
@@ -978,30 +1021,32 @@ func (m *Model) inlineEditServiceLog(id uint, col int) error {
 		return fmt.Errorf("load service log: %w", err)
 	}
 	values := serviceLogFormValues(entry)
-	vendorOpts := vendorOptions(m.vendors)
 	// Column mapping: 0=ID, 1=Date, 2=Performed By, 3=Cost, 4=Notes
-	var field huh.Field
 	switch col {
 	case 1:
 		m.openDatePicker(id, formServiceLog, &values.ServicedAt, values)
-		return nil
 	case 2:
-		field = huh.NewSelect[uint]().
+		vendorOpts := vendorOptions(m.vendors)
+		field := huh.NewSelect[uint]().
 			Title("Performed by").
 			Options(vendorOpts...).
 			Value(&values.VendorID)
+		m.openInlineEdit(id, formServiceLog, field, values)
 	case 3:
-		field = huh.NewInput().
-			Title("Cost").
-			Placeholder("125.00").
-			Value(&values.Cost).
-			Validate(optionalMoney("cost"))
+		m.openInlineInput(
+			id,
+			formServiceLog,
+			"Cost",
+			"125.00",
+			&values.Cost,
+			optionalMoney("cost"),
+			values,
+		)
 	case 4:
-		field = huh.NewText().Title("Notes").Value(&values.Notes)
+		m.openInlineInput(id, formServiceLog, "Notes", "", &values.Notes, nil, values)
 	default:
 		return m.startEditServiceLogForm(id)
 	}
-	m.openInlineEdit(id, formServiceLog, field, values)
 	return nil
 }
 
@@ -1094,10 +1139,41 @@ func (m *Model) activateForm(kind FormKind, form *huh.Form, values any) {
 	m.snapshotForm()
 }
 
-// openInlineEdit sets up a single-field inline edit form.
+// openInlineEdit sets up a single-field inline edit form (overlay).
+// Used for Select fields where a list picker is needed.
 func (m *Model) openInlineEdit(id uint, kind FormKind, field huh.Field, values any) {
 	m.editID = &id
 	m.activateForm(kind, huh.NewForm(huh.NewGroup(field)), values)
+}
+
+// openInlineInput sets up a single-field text edit rendered in the status bar,
+// keeping the table visible. Used for simple text and number fields.
+func (m *Model) openInlineInput(
+	id uint,
+	kind FormKind,
+	title, placeholder string,
+	fieldPtr *string,
+	validate func(string) error,
+	values any,
+) {
+	ti := textinput.New()
+	ti.SetValue(*fieldPtr)
+	ti.Placeholder = placeholder
+	ti.Focus()
+	ti.Prompt = ""
+	ti.CharLimit = 256
+	m.editID = &id
+	m.formKind = kind
+	m.formData = values
+	m.inlineInput = &inlineInputState{
+		Input:    ti,
+		Title:    title,
+		EditID:   id,
+		FormKind: kind,
+		FormData: values,
+		FieldPtr: fieldPtr,
+		Validate: validate,
+	}
 }
 
 func applyFormDefaults(form *huh.Form) {
