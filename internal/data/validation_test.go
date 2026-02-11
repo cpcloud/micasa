@@ -97,6 +97,164 @@ func TestParseOptionalFloat(t *testing.T) {
 	}
 }
 
+func TestFormatOptionalCents(t *testing.T) {
+	if got := FormatOptionalCents(nil); got != "" {
+		t.Fatalf("FormatOptionalCents(nil) = %q, want empty", got)
+	}
+	cents := int64(123456)
+	if got := FormatOptionalCents(&cents); got != "$1,234.56" {
+		t.Fatalf("FormatOptionalCents = %q, want $1,234.56", got)
+	}
+}
+
+func TestFormatCentsNegative(t *testing.T) {
+	got := FormatCents(-500)
+	if got != "-$5.00" {
+		t.Fatalf("FormatCents(-500) = %q, want -$5.00", got)
+	}
+}
+
+func TestFormatCentsZero(t *testing.T) {
+	got := FormatCents(0)
+	if got != "$0.00" {
+		t.Fatalf("FormatCents(0) = %q, want $0.00", got)
+	}
+}
+
+func TestParseRequiredDate(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"2025-06-11", "2025-06-11"},
+		{" 2025-06-11 ", "2025-06-11"},
+	}
+	for _, tt := range tests {
+		got, err := ParseRequiredDate(tt.input)
+		if err != nil {
+			t.Fatalf("ParseRequiredDate(%q) error: %v", tt.input, err)
+		}
+		if got.Format(DateLayout) != tt.want {
+			t.Fatalf(
+				"ParseRequiredDate(%q) = %s, want %s",
+				tt.input,
+				got.Format(DateLayout),
+				tt.want,
+			)
+		}
+	}
+}
+
+func TestParseRequiredDateInvalid(t *testing.T) {
+	for _, input := range []string{"", "06/11/2025", "not-a-date", "2025-13-01"} {
+		if _, err := ParseRequiredDate(input); err == nil {
+			t.Fatalf("ParseRequiredDate(%q) expected error", input)
+		}
+	}
+}
+
+func TestFormatDate(t *testing.T) {
+	if got := FormatDate(nil); got != "" {
+		t.Fatalf("FormatDate(nil) = %q, want empty", got)
+	}
+	d := time.Date(2025, 6, 11, 0, 0, 0, 0, time.UTC)
+	if got := FormatDate(&d); got != "2025-06-11" {
+		t.Fatalf("FormatDate = %q, want 2025-06-11", got)
+	}
+}
+
+func TestParseRequiredInt(t *testing.T) {
+	tests := []struct {
+		input string
+		want  int
+	}{
+		{"42", 42},
+		{" 7 ", 7},
+		{"0", 0},
+	}
+	for _, tt := range tests {
+		got, err := ParseRequiredInt(tt.input)
+		if err != nil {
+			t.Fatalf("ParseRequiredInt(%q) error: %v", tt.input, err)
+		}
+		if got != tt.want {
+			t.Fatalf("ParseRequiredInt(%q) = %d, want %d", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestParseRequiredIntInvalid(t *testing.T) {
+	for _, input := range []string{"", "abc", "-5", "1.5"} {
+		if _, err := ParseRequiredInt(input); err == nil {
+			t.Fatalf("ParseRequiredInt(%q) expected error", input)
+		}
+	}
+}
+
+func TestParseRequiredFloat(t *testing.T) {
+	tests := []struct {
+		input string
+		want  float64
+	}{
+		{"2.5", 2.5},
+		{" 0 ", 0},
+		{"100", 100},
+	}
+	for _, tt := range tests {
+		got, err := ParseRequiredFloat(tt.input)
+		if err != nil {
+			t.Fatalf("ParseRequiredFloat(%q) error: %v", tt.input, err)
+		}
+		if got != tt.want {
+			t.Fatalf("ParseRequiredFloat(%q) = %f, want %f", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestParseRequiredFloatInvalid(t *testing.T) {
+	for _, input := range []string{"", "abc", "-1.5"} {
+		if _, err := ParseRequiredFloat(input); err == nil {
+			t.Fatalf("ParseRequiredFloat(%q) expected error", input)
+		}
+	}
+}
+
+func TestParseOptionalIntEmpty(t *testing.T) {
+	got, err := ParseOptionalInt("")
+	if err != nil {
+		t.Fatalf("ParseOptionalInt empty error: %v", err)
+	}
+	if got != 0 {
+		t.Fatalf("ParseOptionalInt empty = %d, want 0", got)
+	}
+}
+
+func TestParseOptionalFloatEmpty(t *testing.T) {
+	got, err := ParseOptionalFloat("")
+	if err != nil {
+		t.Fatalf("ParseOptionalFloat empty error: %v", err)
+	}
+	if got != 0 {
+		t.Fatalf("ParseOptionalFloat empty = %f, want 0", got)
+	}
+}
+
+func TestParseOptionalDateEmpty(t *testing.T) {
+	got, err := ParseOptionalDate("")
+	if err != nil {
+		t.Fatalf("ParseOptionalDate empty error: %v", err)
+	}
+	if got != nil {
+		t.Fatalf("ParseOptionalDate empty = %v, want nil", got)
+	}
+}
+
+func TestParseOptionalCentsInvalid(t *testing.T) {
+	if _, err := ParseOptionalCents("abc"); err == nil {
+		t.Fatal("expected error for invalid money")
+	}
+}
+
 func TestComputeNextDue(t *testing.T) {
 	last := time.Date(2024, 10, 10, 0, 0, 0, 0, time.UTC)
 	next := ComputeNextDue(&last, 6)
@@ -105,5 +263,18 @@ func TestComputeNextDue(t *testing.T) {
 	}
 	if next.Format(DateLayout) != "2025-04-10" {
 		t.Fatalf("ComputeNextDue got %s", next.Format(DateLayout))
+	}
+}
+
+func TestComputeNextDueNilDate(t *testing.T) {
+	if got := ComputeNextDue(nil, 6); got != nil {
+		t.Fatalf("expected nil for nil date, got %v", got)
+	}
+}
+
+func TestComputeNextDueZeroInterval(t *testing.T) {
+	d := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	if got := ComputeNextDue(&d, 0); got != nil {
+		t.Fatalf("expected nil for zero interval, got %v", got)
 	}
 }

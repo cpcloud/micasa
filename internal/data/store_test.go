@@ -1026,6 +1026,211 @@ func TestDeleteApplianceAllowedWithMaintenance(t *testing.T) {
 	}
 }
 
+func TestGetAppliance(t *testing.T) {
+	store := newTestStore(t)
+	if err := store.CreateAppliance(Appliance{Name: "Fridge"}); err != nil {
+		t.Fatalf("CreateAppliance: %v", err)
+	}
+	got, err := store.GetAppliance(1)
+	if err != nil {
+		t.Fatalf("GetAppliance: %v", err)
+	}
+	if got.Name != "Fridge" {
+		t.Fatalf("expected name 'Fridge', got %q", got.Name)
+	}
+}
+
+func TestGetApplianceNotFound(t *testing.T) {
+	store := newTestStore(t)
+	_, err := store.GetAppliance(9999)
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Fatalf("expected ErrRecordNotFound, got %v", err)
+	}
+}
+
+func TestUpdateAppliance(t *testing.T) {
+	store := newTestStore(t)
+	if err := store.CreateAppliance(Appliance{Name: "Fridge"}); err != nil {
+		t.Fatalf("CreateAppliance: %v", err)
+	}
+	got, _ := store.GetAppliance(1)
+	got.Brand = "Samsung"
+	if err := store.UpdateAppliance(got); err != nil {
+		t.Fatalf("UpdateAppliance: %v", err)
+	}
+	updated, _ := store.GetAppliance(1)
+	if updated.Brand != "Samsung" {
+		t.Fatalf("expected brand 'Samsung', got %q", updated.Brand)
+	}
+}
+
+func TestListMaintenanceByAppliance(t *testing.T) {
+	store := newTestStore(t)
+	categories, _ := store.MaintenanceCategories()
+	catID := categories[0].ID
+
+	if err := store.CreateAppliance(Appliance{Name: "Fridge"}); err != nil {
+		t.Fatalf("CreateAppliance: %v", err)
+	}
+	appID := uint(1)
+	if err := store.CreateMaintenance(MaintenanceItem{
+		Name:        "Clean coils",
+		CategoryID:  catID,
+		ApplianceID: &appID,
+	}); err != nil {
+		t.Fatalf("CreateMaintenance: %v", err)
+	}
+	// Create a maintenance item without this appliance.
+	if err := store.CreateMaintenance(MaintenanceItem{
+		Name:       "Check smoke detectors",
+		CategoryID: catID,
+	}); err != nil {
+		t.Fatalf("CreateMaintenance: %v", err)
+	}
+
+	items, err := store.ListMaintenanceByAppliance(appID, false)
+	if err != nil {
+		t.Fatalf("ListMaintenanceByAppliance: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(items))
+	}
+	if items[0].Name != "Clean coils" {
+		t.Fatalf("expected 'Clean coils', got %q", items[0].Name)
+	}
+}
+
+func TestCountMaintenanceByAppliance(t *testing.T) {
+	store := newTestStore(t)
+	categories, _ := store.MaintenanceCategories()
+	catID := categories[0].ID
+
+	if err := store.CreateAppliance(Appliance{Name: "Fridge"}); err != nil {
+		t.Fatalf("CreateAppliance: %v", err)
+	}
+	appID := uint(1)
+	for _, name := range []string{"Clean coils", "Replace filter"} {
+		if err := store.CreateMaintenance(MaintenanceItem{
+			Name:        name,
+			CategoryID:  catID,
+			ApplianceID: &appID,
+		}); err != nil {
+			t.Fatalf("CreateMaintenance: %v", err)
+		}
+	}
+
+	counts, err := store.CountMaintenanceByAppliance([]uint{appID})
+	if err != nil {
+		t.Fatalf("CountMaintenanceByAppliance: %v", err)
+	}
+	if counts[appID] != 2 {
+		t.Fatalf("expected count 2, got %d", counts[appID])
+	}
+}
+
+func TestUpdateServiceLog(t *testing.T) {
+	store := newTestStore(t)
+	categories, _ := store.MaintenanceCategories()
+	catID := categories[0].ID
+
+	if err := store.CreateMaintenance(MaintenanceItem{
+		Name:       "HVAC filter",
+		CategoryID: catID,
+	}); err != nil {
+		t.Fatalf("CreateMaintenance: %v", err)
+	}
+	now := time.Now().Truncate(time.Second)
+	entry := ServiceLogEntry{
+		MaintenanceItemID: 1,
+		ServicedAt:        now,
+		Notes:             "initial",
+	}
+	if err := store.CreateServiceLog(entry, Vendor{}); err != nil {
+		t.Fatalf("CreateServiceLog: %v", err)
+	}
+
+	// Update with a new vendor.
+	created, _ := store.GetServiceLog(1)
+	created.Notes = "updated"
+	vendor := Vendor{Name: "HVAC Pros"}
+	if err := store.UpdateServiceLog(created, vendor); err != nil {
+		t.Fatalf("UpdateServiceLog: %v", err)
+	}
+
+	updated, _ := store.GetServiceLog(1)
+	if updated.Notes != "updated" {
+		t.Fatalf("expected 'updated', got %q", updated.Notes)
+	}
+	if updated.VendorID == nil {
+		t.Fatal("expected vendor to be set after update")
+	}
+}
+
+func TestUpdateServiceLogClearVendor(t *testing.T) {
+	store := newTestStore(t)
+	categories, _ := store.MaintenanceCategories()
+	catID := categories[0].ID
+
+	if err := store.CreateMaintenance(MaintenanceItem{
+		Name:       "HVAC filter",
+		CategoryID: catID,
+	}); err != nil {
+		t.Fatalf("CreateMaintenance: %v", err)
+	}
+	now := time.Now().Truncate(time.Second)
+	entry := ServiceLogEntry{
+		MaintenanceItemID: 1,
+		ServicedAt:        now,
+	}
+	vendor := Vendor{Name: "HVAC Pros"}
+	if err := store.CreateServiceLog(entry, vendor); err != nil {
+		t.Fatalf("CreateServiceLog: %v", err)
+	}
+
+	// Update with empty vendor name -- should clear the vendor.
+	created, _ := store.GetServiceLog(1)
+	if err := store.UpdateServiceLog(created, Vendor{}); err != nil {
+		t.Fatalf("UpdateServiceLog: %v", err)
+	}
+	updated, _ := store.GetServiceLog(1)
+	if updated.VendorID != nil {
+		t.Fatal("expected vendor to be cleared")
+	}
+}
+
+func TestListMaintenanceByApplianceIncludeDeleted(t *testing.T) {
+	store := newTestStore(t)
+	categories, _ := store.MaintenanceCategories()
+	catID := categories[0].ID
+
+	if err := store.CreateAppliance(Appliance{Name: "Fridge"}); err != nil {
+		t.Fatalf("CreateAppliance: %v", err)
+	}
+	appID := uint(1)
+	if err := store.CreateMaintenance(MaintenanceItem{
+		Name:        "Clean coils",
+		CategoryID:  catID,
+		ApplianceID: &appID,
+	}); err != nil {
+		t.Fatalf("CreateMaintenance: %v", err)
+	}
+	if err := store.DeleteMaintenance(1); err != nil {
+		t.Fatalf("DeleteMaintenance: %v", err)
+	}
+
+	// Without deleted.
+	items, _ := store.ListMaintenanceByAppliance(appID, false)
+	if len(items) != 0 {
+		t.Fatalf("expected 0 items without deleted, got %d", len(items))
+	}
+
+	// With deleted.
+	items, _ = store.ListMaintenanceByAppliance(appID, true)
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item with deleted, got %d", len(items))
+	}
+}
+
 func newTestStore(t *testing.T) *Store {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "test.db")
