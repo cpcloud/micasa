@@ -204,7 +204,23 @@ func (m *Model) startProjectForm() {
 	if len(options) > 0 {
 		values.ProjectTypeID = options[0].Value
 	}
-	m.openProjectForm(values, options)
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Title").
+				Value(&values.Title).
+				Validate(requiredText("title")),
+			huh.NewSelect[uint]().
+				Title("Project type").
+				Options(options...).
+				Value(&values.ProjectTypeID),
+			huh.NewSelect[string]().
+				Title("Status").
+				Options(statusOptions()...).
+				Value(&values.Status),
+		),
+	)
+	m.activateForm(formProject, form, values)
 }
 
 func (m *Model) startEditProjectForm(id uint) error {
@@ -273,7 +289,24 @@ func (m *Model) startQuoteForm() error {
 	values := &quoteFormData{}
 	options := projectOptions(projects)
 	values.ProjectID = options[0].Value
-	m.openQuoteForm(values, options)
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[uint]().
+				Title("Project").
+				Options(options...).
+				Value(&values.ProjectID),
+			huh.NewInput().
+				Title("Vendor name").
+				Value(&values.VendorName).
+				Validate(requiredText("vendor name")),
+			huh.NewInput().
+				Title("Total").
+				Placeholder("3250.00").
+				Value(&values.Total).
+				Validate(requiredMoney("total")),
+		),
+	)
+	m.activateForm(formQuote, form, values)
 	return nil
 }
 
@@ -345,13 +378,34 @@ func (m *Model) openQuoteForm(values *quoteFormData, projectOpts []huh.Option[ui
 
 func (m *Model) startMaintenanceForm() {
 	values := &maintenanceFormData{}
-	options := maintenanceOptions(m.maintenanceCategories)
-	if len(options) > 0 {
-		values.CategoryID = options[0].Value
+	catOptions := maintenanceOptions(m.maintenanceCategories)
+	if len(catOptions) > 0 {
+		values.CategoryID = catOptions[0].Value
 	}
 	appliances, _ := m.store.ListAppliances(false)
 	appOpts := applianceOptions(appliances)
-	m.openMaintenanceForm(values, options, appOpts)
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Item").
+				Value(&values.Name).
+				Validate(requiredText("item")),
+			huh.NewSelect[uint]().
+				Title("Category").
+				Options(catOptions...).
+				Value(&values.CategoryID),
+			huh.NewSelect[uint]().
+				Title("Appliance").
+				Options(appOpts...).
+				Value(&values.ApplianceID),
+			huh.NewInput().
+				Title("Interval months").
+				Placeholder("6").
+				Value(&values.IntervalMonths).
+				Validate(optionalInt("interval months")),
+		),
+	)
+	m.activateForm(formMaintenance, form, values)
 }
 
 func (m *Model) startEditMaintenanceForm(id uint) error {
@@ -413,7 +467,16 @@ func (m *Model) openMaintenanceForm(
 
 func (m *Model) startApplianceForm() {
 	values := &applianceFormData{}
-	m.openApplianceForm(values)
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Name").
+				Placeholder("Kitchen Refrigerator").
+				Value(&values.Name).
+				Validate(requiredText("name")),
+		),
+	)
+	m.activateForm(formAppliance, form, values)
 }
 
 func (m *Model) startEditApplianceForm(id uint) error {
@@ -509,7 +572,16 @@ func (m *Model) parseApplianceFormData() (data.Appliance, error) {
 
 func (m *Model) startVendorForm() {
 	values := &vendorFormData{}
-	m.openVendorForm(values)
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Name").
+				Placeholder("Acme Plumbing").
+				Value(&values.Name).
+				Validate(requiredText("name")),
+		),
+	)
+	m.activateForm(formVendor, form, values)
 }
 
 func (m *Model) startEditVendorForm(id uint) error {
@@ -798,7 +870,19 @@ func (m *Model) startServiceLogForm(maintenanceItemID uint) error {
 		ServicedAt:        time.Now().Format(data.DateLayout),
 	}
 	vendorOpts := vendorOptions(m.vendors)
-	m.openServiceLogForm(values, vendorOpts)
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Date serviced (YYYY-MM-DD)").
+				Value(&values.ServicedAt).
+				Validate(requiredDate("date serviced")),
+			huh.NewSelect[uint]().
+				Title("Performed by").
+				Options(vendorOpts...).
+				Value(&values.VendorID),
+		),
+	)
+	m.activateForm(formServiceLog, form, values)
 	return nil
 }
 
