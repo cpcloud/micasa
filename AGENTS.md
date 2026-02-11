@@ -337,6 +337,10 @@ These have been repeatedly requested. Violating them wastes the user's time.
   (`TestThreeLevelDeleteRestoreChain`, `TestRestoreMaintenanceBlockedByDeletedAppliance`,
   `TestRestoreMaintenanceAllowedWithoutAppliance`, etc.) as templates.
 
+- **Run `go vet` and `nix run '.#osv-scanner'` before committing**: Run
+  these checks before committing when Go-related files have changed
+  (`.go`, `go.mod`, `go.sum`, `flake.nix`, `osv-scanner.toml`).
+
 If the user asks you to learn something, add it to this "Hard rules" section
 so it survives context resets. This file is always injected; external files
 like `LEARNINGS.md` are not.
