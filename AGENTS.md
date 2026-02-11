@@ -295,6 +295,10 @@ These have been repeatedly requested. Violating them wastes the user's time.
   expected hash from the error without a noisy warning, then paste in the
   real hash.
 - **Run `go mod tidy` before committing** to keep `go.mod`/`go.sum` clean.
+- **Run `go vet` and `nix run .#osv-scanner` before committing** when
+  Go-related files have changed (`.go`, `go.mod`, `go.sum`, `flake.nix`,
+  `osv-scanner.toml`). These catch common Go errors and security
+  vulnerabilities respectively.
 - **Record every user request** as a GitHub issue
   (`gh issue create --repo cpcloud/micasa`) if one doesn't already exist.
   Use conventional-commit-style titles (e.g. `feat(ui): ...`,
