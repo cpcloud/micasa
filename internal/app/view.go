@@ -39,7 +39,7 @@ func (m *Model) buildView() string {
 		base = overlay.Composite(fg, dimBackground(base), overlay.Center, overlay.Center, 0, 0)
 	}
 
-	if m.showHelp {
+	if m.helpViewport != nil {
 		fg := cancelFaint(m.buildHelpOverlay())
 		base = overlay.Composite(fg, dimBackground(base), overlay.Center, overlay.Center, 0, 0)
 	}
@@ -289,6 +289,19 @@ func (m *Model) statusView() string {
 	return m.withStatusMessage(help)
 }
 
+func (m *Model) inlineInputStatusView() string {
+	ii := m.inlineInput
+	title := m.styles.HeaderLabel.Render(ii.Title + ":")
+	input := ii.Input.View()
+	hints := joinWithSeparator(
+		m.helpSeparator(),
+		m.helpItem("enter", "save"),
+		m.helpItem("esc", "cancel"),
+	)
+	prompt := title + " " + input + "  " + hints
+	return m.withStatusMessage(prompt)
+}
+
 // hiddenHint returns a status bar label listing hidden column names when any
 // are hidden, or "" when all are visible.
 func (m *Model) hiddenHint() string {
@@ -315,19 +328,6 @@ func (m *Model) deletedHint(tab *Tab) string {
 }
 
 // withStatusMessage renders the help line, prepending the status message if set.
-func (m *Model) inlineInputStatusView() string {
-	ii := m.inlineInput
-	title := m.styles.HeaderLabel.Render(ii.Title + ":")
-	input := ii.Input.View()
-	hints := joinWithSeparator(
-		m.helpSeparator(),
-		m.helpItem("enter", "save"),
-		m.helpItem("esc", "cancel"),
-	)
-	prompt := title + " " + input + "  " + hints
-	return m.withStatusMessage(prompt)
-}
-
 func (m *Model) withStatusMessage(helpLine string) string {
 	if m.status.Text == "" {
 		return helpLine
@@ -487,7 +487,9 @@ func (m *Model) centerPanel(panel string, minPadTop int) string {
 	return b.String()
 }
 
-func (m *Model) helpView() string {
+// helpContent generates the static help text (keyboard shortcuts).
+// Separated from rendering so it can be set once on the viewport.
+func (m *Model) helpContent() string {
 	type binding struct {
 		key  string
 		desc string
@@ -564,100 +566,51 @@ func (m *Model) helpView() string {
 			b.WriteString("\n")
 		}
 	}
-	// Viewport: border (2) + padding (2) + close hint (2) = 6 lines of chrome.
-	maxH := m.effectiveHeight() - 2
-	if maxH < 10 {
-		maxH = 10
-	}
-	chrome := 6
-	viewH := maxH - chrome
-	if viewH < 3 {
-		viewH = 3
+	return b.String()
+}
+
+// helpView renders the help overlay using a viewport for scrolling.
+func (m *Model) helpView() string {
+	vp := m.helpViewport
+	if vp == nil {
+		return ""
 	}
 
-	content := b.String()
-	lines := strings.Split(content, "\n")
+	content := vp.View()
+	contentW := vp.Width
+	ruleStyle := lipgloss.NewStyle().Foreground(border)
 
-	// Close hint is always visible at the bottom.
+	// Embed a Vim-style scroll indicator in the rule when content overflows.
+	var rule string
+	if vp.TotalLineCount() > vp.Height {
+		var label string
+		switch {
+		case vp.AtTop():
+			label = "Top"
+		case vp.AtBottom():
+			label = "Bot"
+		default:
+			label = fmt.Sprintf("%d%%", int(vp.ScrollPercent()*100))
+		}
+		indicator := lipgloss.NewStyle().Foreground(textDim).Render(" " + label + " ")
+		indicatorW := lipgloss.Width(indicator)
+		rightW := max(0, contentW-indicatorW)
+		rule = ruleStyle.Render(strings.Repeat("─", rightW)) + indicator
+	} else {
+		rule = ruleStyle.Render(strings.Repeat("─", contentW))
+	}
+
 	closeHintStr := joinWithSeparator(
 		m.helpSeparator(),
 		m.helpItem("j/k", "scroll"),
 		m.helpItem("esc", "close"),
 	)
 
-	if len(lines) <= viewH {
-		// Everything fits -- no scrolling needed.
-		m.helpScroll = 0
-		box := lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(accent).
-			Padding(1, 2).
-			Render(content + "\n" + closeHintStr)
-		return box
-	}
-
-	// Clamp scroll offset.
-	maxScroll := len(lines) - viewH
-	if maxScroll < 0 {
-		maxScroll = 0
-	}
-	if m.helpScroll > maxScroll {
-		m.helpScroll = maxScroll
-	}
-	if m.helpScroll < 0 {
-		m.helpScroll = 0
-	}
-
-	visible := lines[m.helpScroll : m.helpScroll+viewH]
-
-	// Scrollbar: thin track with accent thumb proportional to viewport.
-	totalLines := len(lines)
-	thumbSize := viewH * viewH / totalLines
-	if thumbSize < 1 {
-		thumbSize = 1
-	}
-	thumbPos := 0
-	if maxScroll > 0 {
-		thumbPos = m.helpScroll * (viewH - thumbSize) / maxScroll
-	}
-
-	trackStyle := lipgloss.NewStyle().Foreground(border)
-	thumbStyle := lipgloss.NewStyle().Foreground(accent)
-
-	// Find the widest visible line so the scrollbar column is flush right.
-	maxW := 0
-	for _, line := range visible {
-		if w := lipgloss.Width(line); w > maxW {
-			maxW = w
-		}
-	}
-
-	var out strings.Builder
-	for i, line := range visible {
-		w := lipgloss.Width(line)
-		if pad := maxW - w; pad > 0 {
-			line += strings.Repeat(" ", pad)
-		}
-		out.WriteString(line)
-		out.WriteString(" ")
-		if i >= thumbPos && i < thumbPos+thumbSize {
-			out.WriteString(thumbStyle.Render("┃"))
-		} else {
-			out.WriteString(trackStyle.Render("│"))
-		}
-		if i < len(visible)-1 {
-			out.WriteString("\n")
-		}
-	}
-	out.WriteString("\n")
-	out.WriteString(closeHintStr)
-
-	box := lipgloss.NewStyle().
+	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(accent).
 		Padding(1, 2).
-		Render(out.String())
-	return box
+		Render(content + "\n\n" + rule + "\n" + closeHintStr)
 }
 
 // tableView orchestrates the full table rendering: visible projection,

@@ -214,12 +214,68 @@ func TestHouseToggle(t *testing.T) {
 func TestHelpToggle(t *testing.T) {
 	m := newTestModel()
 	sendKey(m, "?")
-	if !m.showHelp {
+	if m.helpViewport == nil {
 		t.Fatal("expected help visible after '?'")
 	}
 	sendKey(m, "?")
-	if m.showHelp {
+	if m.helpViewport != nil {
 		t.Fatal("expected help hidden after second '?'")
+	}
+}
+
+func TestHelpViewportScrolling(t *testing.T) {
+	m := newTestModel()
+	sendKey(m, "?")
+	if m.helpViewport == nil {
+		t.Fatal("expected help visible")
+	}
+
+	// Scroll down and verify offset moves.
+	sendKey(m, "j")
+	if m.helpViewport.YOffset == 0 && m.helpViewport.TotalLineCount() > m.helpViewport.Height {
+		t.Fatal("expected viewport to scroll down on 'j'")
+	}
+
+	// Scroll back up.
+	sendKey(m, "k")
+	if m.helpViewport.YOffset != 0 {
+		t.Fatal("expected viewport at top after scrolling back up")
+	}
+
+	// Go to bottom with G.
+	sendKey(m, "G")
+	if !m.helpViewport.AtBottom() && m.helpViewport.TotalLineCount() > m.helpViewport.Height {
+		t.Fatal("expected viewport at bottom after 'G'")
+	}
+
+	// Go to top with g.
+	sendKey(m, "g")
+	if !m.helpViewport.AtTop() {
+		t.Fatal("expected viewport at top after 'g'")
+	}
+
+	// Esc dismisses.
+	sendKey(m, "esc")
+	if m.helpViewport != nil {
+		t.Fatal("expected help hidden after esc")
+	}
+}
+
+func TestHelpAbsorbsOtherKeys(t *testing.T) {
+	m := newTestModel()
+	sendKey(m, "?")
+	if m.helpViewport == nil {
+		t.Fatal("expected help visible")
+	}
+
+	// Keys that would normally affect the model should be absorbed.
+	sendKey(m, "q")
+	if m.helpViewport == nil {
+		t.Fatal("help should absorb 'q' without quitting")
+	}
+	sendKey(m, "i")
+	if m.mode != modeNormal {
+		t.Fatal("'i' should not switch to edit mode while help is open")
 	}
 }
 

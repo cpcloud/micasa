@@ -6,8 +6,11 @@ package app
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
@@ -20,6 +23,13 @@ const (
 	keyEnter = "enter"
 )
 
+// Key bindings for help viewport (g/G for top/bottom are not in the
+// default viewport keymap).
+var (
+	helpGotoTop    = key.NewBinding(key.WithKeys("g"))
+	helpGotoBottom = key.NewBinding(key.WithKeys("G"))
+)
+
 type Model struct {
 	store                 *data.Store
 	dbPath                string
@@ -29,8 +39,7 @@ type Model struct {
 	detail                *detailContext // non-nil when viewing a detail sub-table
 	width                 int
 	height                int
-	showHelp              bool
-	helpScroll            int
+	helpViewport          *viewport.Model
 	showHouse             bool
 	showDashboard         bool
 	showNotePreview       bool
@@ -106,31 +115,19 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	// Help overlay: scrollable, esc or ? dismisses it.
-	if m.showHelp {
+	// Help overlay: delegate scrolling to the viewport, esc or ? dismisses.
+	if m.helpViewport != nil {
 		if keyMsg, ok := msg.(tea.KeyMsg); ok {
-			switch keyMsg.String() {
-			case keyEsc, "?":
-				m.showHelp = false
-				m.helpScroll = 0
-			case "j", "down":
-				m.helpScroll++
-			case "k", "up":
-				if m.helpScroll > 0 {
-					m.helpScroll--
-				}
-			case "g":
-				m.helpScroll = 0
-			case "G":
-				// Jump to bottom; clamped in view rendering.
-				m.helpScroll = 9999
-			case "d":
-				m.helpScroll += 10
-			case "u":
-				m.helpScroll -= 10
-				if m.helpScroll < 0 {
-					m.helpScroll = 0
-				}
+			switch {
+			case keyMsg.String() == keyEsc || keyMsg.String() == "?":
+				m.helpViewport = nil
+			case key.Matches(keyMsg, helpGotoTop):
+				m.helpViewport.GotoTop()
+			case key.Matches(keyMsg, helpGotoBottom):
+				m.helpViewport.GotoBottom()
+			default:
+				vp, _ := m.helpViewport.Update(keyMsg)
+				m.helpViewport = &vp
 			}
 		}
 		return m, nil
@@ -282,7 +279,7 @@ func (m *Model) handleDashboardKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 func (m *Model) handleCommonKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 	switch key.String() {
 	case "?":
-		m.showHelp = true
+		m.openHelp()
 		return nil, true
 	case "H":
 		m.showHouse = !m.showHouse
@@ -645,50 +642,6 @@ func (m *Model) reloadDetailTab() error {
 	return m.reloadTab(&m.detail.Tab)
 }
 
-func (m *Model) handleInlineInputKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch key.String() {
-	case keyEsc:
-		m.closeInlineInput()
-		return m, nil
-	case keyEnter:
-		m.submitInlineInput()
-		return m, nil
-	}
-	var cmd tea.Cmd
-	m.inlineInput.Input, cmd = m.inlineInput.Input.Update(key)
-	return m, cmd
-}
-
-func (m *Model) submitInlineInput() {
-	ii := m.inlineInput
-	if ii == nil {
-		return
-	}
-	val := ii.Input.Value()
-	if ii.Validate != nil {
-		if err := ii.Validate(val); err != nil {
-			m.setStatusError(err.Error())
-			return
-		}
-	}
-	*ii.FieldPtr = val
-	m.snapshotForUndo()
-	if err := m.handleFormSubmit(); err != nil {
-		m.setStatusError(err.Error())
-	} else {
-		m.setStatusInfo("Saved.")
-		m.reloadAll()
-	}
-	m.closeInlineInput()
-}
-
-func (m *Model) closeInlineInput() {
-	m.inlineInput = nil
-	m.formKind = formNone
-	m.formData = nil
-	m.editID = nil
-}
-
 // reloadAll refreshes lookups, house profile, all tabs, detail tab, and
 // dashboard data. Called after any data mutation.
 func (m *Model) reloadAll() {
@@ -1024,6 +977,83 @@ func (m *Model) snapshotForm() {
 
 func (m *Model) checkFormDirty() {
 	m.formDirty = fmt.Sprintf("%v", m.formData) != m.formSnapshot
+}
+
+// openHelp creates a viewport sized to fit the terminal and populated with
+// the help content. The viewport handles scroll state and key delegation.
+func (m *Model) openHelp() {
+	content := m.helpContent()
+	lines := strings.Split(content, "\n")
+
+	// Chrome: border (2) + padding (2) + gap + rule + hint (4) = 8 lines.
+	maxH := m.effectiveHeight() - 2
+	if maxH < 10 {
+		maxH = 10
+	}
+	viewH := maxH - 8
+	if viewH < 3 {
+		viewH = 3
+	}
+	// If content fits, no scrolling needed.
+	if len(lines) <= viewH {
+		viewH = len(lines)
+	}
+
+	// Lock width to the widest content line so the overlay never resizes.
+	maxW := 0
+	for _, line := range lines {
+		if w := lipgloss.Width(line); w > maxW {
+			maxW = w
+		}
+	}
+
+	vp := viewport.New(maxW, viewH)
+	vp.SetContent(content)
+	// Disable horizontal scroll to avoid conflicts with table navigation.
+	vp.KeyMap.Left.SetEnabled(false)
+	vp.KeyMap.Right.SetEnabled(false)
+	m.helpViewport = &vp
+}
+
+func (m *Model) handleInlineInputKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch key.String() {
+	case keyEsc:
+		m.closeInlineInput()
+		return m, nil
+	case keyEnter:
+		m.submitInlineInput()
+		return m, nil
+	}
+	var cmd tea.Cmd
+	m.inlineInput.Input, cmd = m.inlineInput.Input.Update(key)
+	return m, cmd
+}
+
+func (m *Model) submitInlineInput() {
+	ii := m.inlineInput
+	value := ii.Input.Value()
+	if ii.Validate != nil {
+		if err := ii.Validate(value); err != nil {
+			m.setStatusError(err.Error())
+			return
+		}
+	}
+	*ii.FieldPtr = value
+	m.snapshotForUndo()
+	if err := m.handleFormSubmit(); err != nil {
+		m.setStatusError(err.Error())
+		return
+	}
+	m.closeInlineInput()
+	m.setStatusInfo("Saved.")
+	m.reloadAll()
+}
+
+func (m *Model) closeInlineInput() {
+	m.inlineInput = nil
+	m.formKind = formNone
+	m.formData = nil
+	m.editID = nil
 }
 
 func (m *Model) exitForm() {
