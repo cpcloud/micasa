@@ -4,13 +4,45 @@
 package app
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/cpcloud/micasa/internal/data"
 )
+
+// newTestModelWithStore creates a Model backed by a real in-memory SQLite
+// store with seeded defaults (project types, categories, etc.).
+func newTestModelWithStore(t *testing.T) *Model {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "test.db")
+	store, err := data.Open(path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	if err := store.AutoMigrate(); err != nil {
+		t.Fatalf("AutoMigrate: %v", err)
+	}
+	if err := store.SeedDefaults(); err != nil {
+		t.Fatalf("SeedDefaults: %v", err)
+	}
+	m, err := NewModel(store, Options{DBPath: path})
+	if err != nil {
+		t.Fatalf("NewModel: %v", err)
+	}
+	m.width = 120
+	m.height = 40
+	// Dismiss the initial house form or dashboard so we start in normal mode.
+	if m.mode == modeForm {
+		m.exitForm()
+	}
+	m.showDashboard = false
+	return m
+}
 
 // newTestModel creates a minimal Model for mode tests (no database).
 func newTestModel() *Model {
@@ -258,6 +290,73 @@ func TestHelpViewportScrolling(t *testing.T) {
 	sendKey(m, "esc")
 	if m.helpViewport != nil {
 		t.Fatal("expected help hidden after esc")
+	}
+}
+
+func TestHelpOverlayFixedWidthOnScroll(t *testing.T) {
+	m := newTestModel()
+	m.width = 120
+	m.height = 20 // Small height forces scrolling.
+	sendKey(m, "?")
+	if m.helpViewport == nil {
+		t.Fatal("expected help visible")
+	}
+	if m.helpViewport.TotalLineCount() <= m.helpViewport.Height {
+		t.Skip("help content fits without scrolling at this height")
+	}
+
+	// Measure width at top.
+	widthAtTop := lipgloss.Width(m.helpView())
+
+	// Scroll to middle.
+	for i := 0; i < 5; i++ {
+		sendKey(m, "j")
+	}
+	widthAtMiddle := lipgloss.Width(m.helpView())
+
+	// Scroll to bottom.
+	sendKey(m, "G")
+	widthAtBottom := lipgloss.Width(m.helpView())
+
+	if widthAtTop != widthAtMiddle {
+		t.Fatalf("help width changed from top (%d) to middle (%d)", widthAtTop, widthAtMiddle)
+	}
+	if widthAtTop != widthAtBottom {
+		t.Fatalf("help width changed from top (%d) to bottom (%d)", widthAtTop, widthAtBottom)
+	}
+}
+
+func TestHelpScrollIndicatorChanges(t *testing.T) {
+	m := newTestModel()
+	m.width = 120
+	m.height = 20
+	sendKey(m, "?")
+	if m.helpViewport == nil {
+		t.Fatal("expected help visible")
+	}
+	if m.helpViewport.TotalLineCount() <= m.helpViewport.Height {
+		t.Skip("help content fits without scrolling at this height")
+	}
+
+	viewAtTop := m.helpView()
+	if !strings.Contains(viewAtTop, "Top") {
+		t.Fatal("expected 'Top' indicator when at top of help")
+	}
+
+	sendKey(m, "G")
+	viewAtBottom := m.helpView()
+	if !strings.Contains(viewAtBottom, "Bot") {
+		t.Fatal("expected 'Bot' indicator when at bottom of help")
+	}
+
+	// Scroll back up one line from bottom -- should show percentage.
+	sendKey(m, "k")
+	viewAtMiddle := m.helpView()
+	if strings.Contains(viewAtMiddle, "Top") || strings.Contains(viewAtMiddle, "Bot") {
+		t.Fatal("expected percentage indicator in middle, not Top/Bot")
+	}
+	if !strings.Contains(viewAtMiddle, "%") {
+		t.Fatal("expected '%' in scroll indicator when in middle")
 	}
 }
 
