@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/cpcloud/micasa/internal/fake"
 	"github.com/glebarez/sqlite"
@@ -20,6 +21,9 @@ type Store struct {
 }
 
 func Open(path string) (*Store, error) {
+	if err := ValidateDBPath(path); err != nil {
+		return nil, err
+	}
 	db, err := gorm.Open(
 		sqlite.Open(path),
 		&gorm.Config{
@@ -33,6 +37,60 @@ func Open(path string) (*Store, error) {
 		return nil, fmt.Errorf("enable foreign keys: %w", err)
 	}
 	return &Store{db: db}, nil
+}
+
+// ValidateDBPath rejects paths that could be interpreted as URIs by the
+// SQLite driver. The underlying go-sqlite driver passes query strings
+// through net/url.ParseQuery (subject to CVE GO-2026-4341) and enables
+// SQLITE_OPEN_URI, so both file:// URIs and scheme://... URLs must be
+// blocked. Only plain filesystem paths and the special ":memory:" value
+// are accepted.
+func ValidateDBPath(path string) error {
+	if path == "" {
+		return fmt.Errorf("database path must not be empty")
+	}
+	if path == ":memory:" {
+		return nil
+	}
+	// Reject anything with a URI scheme (letters followed by "://").
+	if i := strings.Index(path, "://"); i > 0 {
+		scheme := path[:i]
+		if isLetterOnly(scheme) {
+			return fmt.Errorf(
+				"database path %q looks like a URI (%s://); only filesystem paths are accepted",
+				path, scheme,
+			)
+		}
+	}
+	// Reject "file:" prefix -- even without "//", SQLite interprets
+	// "file:path?query" as a URI when SQLITE_OPEN_URI is set.
+	if strings.HasPrefix(path, "file:") {
+		return fmt.Errorf(
+			"database path %q uses the file: scheme; pass a plain filesystem path instead",
+			path,
+		)
+	}
+	// Reject paths containing '?' -- the go-sqlite driver splits on '?'
+	// and feeds the remainder to url.ParseQuery.
+	if strings.ContainsRune(path, '?') {
+		return fmt.Errorf(
+			"database path %q contains '?' which would be interpreted as query parameters",
+			path,
+		)
+	}
+	return nil
+}
+
+func isLetterOnly(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	for _, r := range s {
+		if !unicode.IsLetter(r) {
+			return false
+		}
+	}
+	return true
 }
 
 // Close closes the underlying database connection.
