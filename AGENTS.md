@@ -26,8 +26,7 @@ a coding agent on a user's computer.
 - Default expectation: deliver working code, not just a plan. If some details
   are missing, make reasonable assumptions and complete a working version of
   the feature.
-- If you need to count lines feel free to use `tokei`. Not a hard requirement,
-  but may help.
+
 
 # Autonomy and Persistence
 

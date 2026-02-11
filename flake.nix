@@ -138,11 +138,7 @@
             CGO_ENABLED = "0";
             packages = [
               pkgs.go
-              pkgs.gopls
               pkgs.git
-              pkgs.tokei
-              pkgs.fd
-              pkgs.ripgrep-all
               pkgs.hugo
               pkgs.vhs
             ]
