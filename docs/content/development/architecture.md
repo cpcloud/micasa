@@ -44,8 +44,8 @@ internal/
 
 Entity-specific operations (load, delete, add form, edit form, inline edit,
 submit, snapshot, etc.) are encapsulated in the `TabHandler` interface.
-Each entity type (projects, quotes, maintenance, appliances) implements this
-interface as a stateless struct.
+Each entity type (projects, quotes, maintenance, appliances, vendors)
+implements this interface as a stateless struct.
 
 This eliminates scattered `switch tab.Kind` dispatch. Adding a new entity type
 means implementing one interface -- no shotgun surgery across the codebase.

@@ -29,6 +29,7 @@ Only the `Name` is required.
 | `Serial` | text | Serial number | |
 | `Location` | text | Where in the house | E.g., "Kitchen", "Basement" |
 | `Purchased` | date | Purchase date | YYYY-MM-DD |
+| `Age` | computed | Time since purchase | Read-only. E.g., "3y 2m", "8 mo", "<1 mo" |
 | `Warranty` | date | Warranty expiry | Shows on dashboard when expiring |
 | `Cost` | money | Purchase price | Dollar amount |
 | `Maint` | drilldown | Maintenance count | Press `enter` to view linked maintenance |
@@ -49,7 +50,12 @@ column, since it's redundant).
 From the detail view you can add, edit, or delete maintenance items. Press
 `esc` to return to the Appliances table.
 
+## Notes
+
+The edit form includes a `Notes` textarea for free-text annotations. Notes are
+stored on the appliance record but don't appear as a table column.
+
 ## Inline editing
 
-All columns except `ID` and `Maint` support inline editing. Press `e` in Edit
-mode on a cell to edit just that field.
+All columns except `ID`, `Age`, and `Maint` support inline editing. Press `e`
+in Edit mode on a cell to edit just that field.

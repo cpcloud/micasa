@@ -116,7 +116,8 @@ drilling down from the `Log` column), so they **always have context** -- you
 never see a floating service record without knowing what it was for. The
 optional vendor link means you can track whether you did the work yourself or
 hired someone, and if hired, which vendor -- their contact info carries over
-automatically.
+automatically. The `Performed By` column is a **live link** (marked `→`);
+press `enter` to jump to that vendor in the Vendors tab.
 
 ## Appliances
 

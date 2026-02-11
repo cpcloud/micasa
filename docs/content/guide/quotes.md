@@ -33,6 +33,10 @@ is linked to a project.
 | `Other` | money | Other costs | Optional |
 | `Recv` | date | Date received | YYYY-MM-DD |
 
+The edit form also includes a `Notes` textarea for free-text annotations about
+the quote. Notes are stored on the quote record but don't appear as a table
+column.
+
 ## Vendor management
 
 When you add a quote, you enter a vendor name. If a vendor with that name

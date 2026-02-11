@@ -44,11 +44,17 @@ Projects move through these statuses. Each has a distinct color in the table:
 - <span class="status-completed">**completed**</span> -- done
 - <span class="status-abandoned">**abandoned**</span> -- decided not to do it
 
+## Description
+
+The edit form includes a `Description` textarea (in the "Timeline" group) for
+longer notes about the project. The description is stored on the project record
+but doesn't appear as a table column.
+
 ## Inline editing
 
 In Edit mode, press `e` on any non-`ID` column to edit just that cell inline.
 Press `e` on the `ID` column (or any read-only column) to open the full edit
-form.
+form, which includes the description field.
 
 ## Linked quotes
 

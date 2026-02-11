@@ -46,6 +46,12 @@ tab.
 The `Quotes` and `Jobs` columns show how many quotes and service log entries
 reference each vendor. These are read-only aggregate counts.
 
+## Notes
+
+The edit form includes a `Notes` textarea for free-text annotations about the
+vendor. Notes are stored on the vendor record but don't appear as a table
+column.
+
 ## No deletion
 
 Vendors cannot be deleted because they are referenced by quotes and service

@@ -25,14 +25,32 @@ Tests live alongside the code they test:
 | `internal/app/mode_test.go` | Mode transitions, key dispatch, KeyMap switching |
 | `internal/app/sort_test.go` | Sort cycling, comparators, multi-column ordering |
 | `internal/app/handlers_test.go` | TabHandler implementations |
+| `internal/app/handler_crud_test.go` | Handler CRUD operations |
 | `internal/app/detail_test.go` | Detail view open/close, breadcrumbs, scoping |
-| `internal/app/dashboard_test.go` | Dashboard data loading, navigation, view content |
+| `internal/app/dashboard_test.go` | Dashboard navigation and view content |
+| `internal/app/dashboard_load_test.go` | Dashboard data loading |
+| `internal/app/dashboard_rows_test.go` | Dashboard row building |
 | `internal/app/view_test.go` | View rendering, line clamping, viewport |
 | `internal/app/undo_test.go` | Undo/redo stack, cross-stack snapshotting |
 | `internal/app/form_select_test.go` | Select field ordinal jumping |
+| `internal/app/form_validators_test.go` | Form validation helpers |
+| `internal/app/lighter_forms_test.go` | Lighter-weight add forms |
+| `internal/app/inline_edit_dispatch_test.go` | Inline edit column dispatch |
+| `internal/app/inline_input_test.go` | Inline text input editing |
+| `internal/app/calendar_test.go` | Date picker overlay |
+| `internal/app/column_finder_test.go` | Fuzzy column finder |
+| `internal/app/notes_test.go` | Note preview overlay |
+| `internal/app/vendor_test.go` | Vendor tab operations |
+| `internal/app/rows_test.go` | Row building helpers |
+| `internal/app/demo_data_test.go` | Demo data seeding |
+| `internal/app/model_with_store_test.go` | Model integration with store |
+| `internal/app/model_with_demo_data_test.go` | Model with demo data |
 | `internal/data/store_test.go` | CRUD operations, queries |
 | `internal/data/dashboard_test.go` | Dashboard-specific queries |
 | `internal/data/validation_test.go` | Parsing helpers |
+| `internal/data/validate_path_test.go` | Database path validation |
+| `internal/data/vendor_upsert_test.go` | Vendor upsert logic |
+| `internal/data/seed_demo_test.go` | Demo data seeding |
 
 ## Test philosophy
 

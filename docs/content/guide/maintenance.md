@@ -68,8 +68,26 @@ Maintenance table.
 
 The "Performed By" field is a select. The first option is always "Self
 (homeowner)." All existing vendors appear as additional options. To add a new
-vendor, create one via the Quotes form first -- vendors are shared across
-quotes and service logs.
+vendor, create one via the Quotes form or Vendors tab first -- vendors are
+shared across quotes and service logs.
+
+The `Performed By` column is also a foreign key link (shown with `→` in the
+header). In Normal mode, press `enter` on a vendor name to jump to that
+vendor's row in the Vendors tab.
+
+## Additional form fields
+
+The edit form includes fields that don't appear as table columns:
+
+| Field | Type | Description |
+|------:|------|-------------|
+| `Manual URL` | text | Link to the product or service manual |
+| `Manual notes` | text | Free-text manual excerpts or reminders |
+| `Cost` | money | Estimated or typical cost per service |
+| `Notes` | text | General notes about this maintenance item |
+
+These fields are accessible when editing a maintenance item (press `e` on the
+`ID` column or any read-only column to open the full form).
 
 ## Appliance link
 

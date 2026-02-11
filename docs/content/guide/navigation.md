@@ -104,4 +104,6 @@ the target tab.
 
 Examples:
 - Quotes `Project` column links to the Projects tab
+- Quotes `Vendor` column links to the Vendors tab
 - Maintenance `Appliance` column links to the Appliances tab
+- Service log `Performed By` column links to the Vendors tab
