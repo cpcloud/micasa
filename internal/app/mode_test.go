@@ -4,45 +4,13 @@
 package app
 
 import (
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/cpcloud/micasa/internal/data"
 )
-
-// newTestModelWithStore creates a Model backed by a real in-memory SQLite
-// store with seeded defaults (project types, categories, etc.).
-func newTestModelWithStore(t *testing.T) *Model {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), "test.db")
-	store, err := data.Open(path)
-	if err != nil {
-		t.Fatalf("Open: %v", err)
-	}
-	t.Cleanup(func() { _ = store.Close() })
-	if err := store.AutoMigrate(); err != nil {
-		t.Fatalf("AutoMigrate: %v", err)
-	}
-	if err := store.SeedDefaults(); err != nil {
-		t.Fatalf("SeedDefaults: %v", err)
-	}
-	m, err := NewModel(store, Options{DBPath: path})
-	if err != nil {
-		t.Fatalf("NewModel: %v", err)
-	}
-	m.width = 120
-	m.height = 40
-	// Dismiss the initial house form or dashboard so we start in normal mode.
-	if m.mode == modeForm {
-		m.exitForm()
-	}
-	m.showDashboard = false
-	return m
-}
 
 // newTestModel creates a minimal Model for mode tests (no database).
 func newTestModel() *Model {
