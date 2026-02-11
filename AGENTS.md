@@ -359,6 +359,10 @@ These have been repeatedly requested. Violating them wastes the user's time.
 - **Don't mention AGENTS.md in PR descriptions**: When AGENTS.md changes
   accompany other work, omit them from the PR summary. Only mention
   AGENTS.md if the PR is solely about agent rules.
+- **PR test plans: omit when CI-only**: If the test plan consists only of
+  commands that CI already runs (e.g. `go test ./...`), leave the test
+  plan section off the PR description entirely. Only include a test plan
+  when there are manual verification steps.
 
 If the user asks you to learn something, add it to this "Hard rules" section
 so it survives context resets. This file is always injected; external files
