@@ -1226,8 +1226,7 @@ func normalizeDocument(doc *Document, sourcePath string) error {
 		return fmt.Errorf("document path must be a file")
 	}
 
-	// #nosec G304 -- path is validated above.
-	content, err := os.ReadFile(absPath)
+	content, err := os.ReadFile(absPath) //nolint:gosec // user-selected local file via TUI picker
 	if err != nil {
 		return fmt.Errorf("read document: %w", err)
 	}
