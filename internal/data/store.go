@@ -113,6 +113,9 @@ func (s *Store) AutoMigrate() error {
 		&Appliance{},
 		&MaintenanceItem{},
 		&ServiceLogEntry{},
+		&ProjectCommitment{},
+		&ProjectInvoice{},
+		&ProjectPayment{},
 		&DeletionRecord{},
 	)
 }
@@ -658,6 +661,272 @@ func (s *Store) CountMaintenanceByAppliance(applianceIDs []uint) (map[uint]int, 
 	return s.countByFK(&MaintenanceItem{}, "appliance_id", applianceIDs)
 }
 
+type ProjectFinanceSummary struct {
+	CommittedCents  int64
+	InvoicedCents   int64
+	PaidCents       int64
+	OutstandingCents int64
+}
+
+func (s *Store) ListProjectCommitments(
+	projectID uint,
+	includeDeleted bool,
+) ([]ProjectCommitment, error) {
+	var commitments []ProjectCommitment
+	db := s.db.Where("project_id = ?", projectID).
+		Preload("Quote", func(q *gorm.DB) *gorm.DB {
+			return q.Unscoped()
+		}).
+		Preload("Vendor", func(q *gorm.DB) *gorm.DB {
+			return q.Unscoped()
+		}).
+		Order("committed_at desc, id desc")
+	if includeDeleted {
+		db = db.Unscoped()
+	}
+	if err := db.Find(&commitments).Error; err != nil {
+		return nil, err
+	}
+	return commitments, nil
+}
+
+func (s *Store) GetProjectCommitment(id uint) (ProjectCommitment, error) {
+	var commitment ProjectCommitment
+	err := s.db.Preload("Quote", func(q *gorm.DB) *gorm.DB {
+		return q.Unscoped()
+	}).Preload("Vendor", func(q *gorm.DB) *gorm.DB {
+		return q.Unscoped()
+	}).First(&commitment, id).Error
+	return commitment, err
+}
+
+func (s *Store) CreateProjectCommitment(commitment ProjectCommitment) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := validateCommitmentLinks(tx, commitment); err != nil {
+			return err
+		}
+		return tx.Create(&commitment).Error
+	})
+}
+
+func (s *Store) UpdateProjectCommitment(commitment ProjectCommitment) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := validateCommitmentLinks(tx, commitment); err != nil {
+			return err
+		}
+		return updateByIDWith(tx, &ProjectCommitment{}, commitment.ID, commitment)
+	})
+}
+
+func (s *Store) DeleteProjectCommitment(id uint) error {
+	n, err := s.countDependents(&ProjectInvoice{}, "commitment_id", id)
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		return fmt.Errorf("commitment has %d active invoice(s) -- delete them first", n)
+	}
+	return s.softDelete(&ProjectCommitment{}, DeletionEntityCommitment, id)
+}
+
+func (s *Store) RestoreProjectCommitment(id uint) error {
+	var commitment ProjectCommitment
+	if err := s.db.Unscoped().First(&commitment, id).Error; err != nil {
+		return err
+	}
+	if err := s.requireParentAlive(&Project{}, commitment.ProjectID); err != nil {
+		return fmt.Errorf("project is deleted -- restore it first")
+	}
+	if commitment.QuoteID != nil {
+		if err := s.requireParentAlive(&Quote{}, *commitment.QuoteID); err != nil {
+			return fmt.Errorf("quote is deleted -- restore it first")
+		}
+	}
+	if commitment.VendorID != nil {
+		if err := s.requireParentAlive(&Vendor{}, *commitment.VendorID); err != nil {
+			return fmt.Errorf("vendor is deleted -- restore it first")
+		}
+	}
+	return s.restoreEntity(&ProjectCommitment{}, DeletionEntityCommitment, id)
+}
+
+func (s *Store) ListProjectInvoices(projectID uint, includeDeleted bool) ([]ProjectInvoice, error) {
+	var invoices []ProjectInvoice
+	db := s.db.Where("project_id = ?", projectID).
+		Preload("Commitment", func(q *gorm.DB) *gorm.DB {
+			return q.Unscoped()
+		}).
+		Preload("Vendor", func(q *gorm.DB) *gorm.DB {
+			return q.Unscoped()
+		}).
+		Order("issued_date desc, id desc")
+	if includeDeleted {
+		db = db.Unscoped()
+	}
+	if err := db.Find(&invoices).Error; err != nil {
+		return nil, err
+	}
+	return invoices, nil
+}
+
+func (s *Store) GetProjectInvoice(id uint) (ProjectInvoice, error) {
+	var invoice ProjectInvoice
+	err := s.db.Preload("Commitment", func(q *gorm.DB) *gorm.DB {
+		return q.Unscoped()
+	}).Preload("Vendor", func(q *gorm.DB) *gorm.DB {
+		return q.Unscoped()
+	}).First(&invoice, id).Error
+	return invoice, err
+}
+
+func (s *Store) CreateProjectInvoice(invoice ProjectInvoice) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := normalizeAndValidateInvoice(tx, &invoice); err != nil {
+			return err
+		}
+		return tx.Create(&invoice).Error
+	})
+}
+
+func (s *Store) UpdateProjectInvoice(invoice ProjectInvoice) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := normalizeAndValidateInvoice(tx, &invoice); err != nil {
+			return err
+		}
+		return updateByIDWith(tx, &ProjectInvoice{}, invoice.ID, invoice)
+	})
+}
+
+func (s *Store) DeleteProjectInvoice(id uint) error {
+	n, err := s.countDependents(&ProjectPayment{}, "invoice_id", id)
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		return fmt.Errorf("invoice has %d active payment(s) -- delete them first", n)
+	}
+	return s.softDelete(&ProjectInvoice{}, DeletionEntityInvoice, id)
+}
+
+func (s *Store) RestoreProjectInvoice(id uint) error {
+	var invoice ProjectInvoice
+	if err := s.db.Unscoped().First(&invoice, id).Error; err != nil {
+		return err
+	}
+	if err := s.requireParentAlive(&Project{}, invoice.ProjectID); err != nil {
+		return fmt.Errorf("project is deleted -- restore it first")
+	}
+	if invoice.CommitmentID != nil {
+		if err := s.requireParentAlive(&ProjectCommitment{}, *invoice.CommitmentID); err != nil {
+			return fmt.Errorf("commitment is deleted -- restore it first")
+		}
+	}
+	if invoice.VendorID != nil {
+		if err := s.requireParentAlive(&Vendor{}, *invoice.VendorID); err != nil {
+			return fmt.Errorf("vendor is deleted -- restore it first")
+		}
+	}
+	return s.restoreEntity(&ProjectInvoice{}, DeletionEntityInvoice, id)
+}
+
+func (s *Store) ListProjectPayments(projectID uint, includeDeleted bool) ([]ProjectPayment, error) {
+	var payments []ProjectPayment
+	db := s.db.Where("project_id = ?", projectID).
+		Preload("Invoice", func(q *gorm.DB) *gorm.DB {
+			return q.Unscoped()
+		}).
+		Preload("Vendor", func(q *gorm.DB) *gorm.DB {
+			return q.Unscoped()
+		}).
+		Order("paid_at desc, id desc")
+	if includeDeleted {
+		db = db.Unscoped()
+	}
+	if err := db.Find(&payments).Error; err != nil {
+		return nil, err
+	}
+	return payments, nil
+}
+
+func (s *Store) GetProjectPayment(id uint) (ProjectPayment, error) {
+	var payment ProjectPayment
+	err := s.db.Preload("Invoice", func(q *gorm.DB) *gorm.DB {
+		return q.Unscoped()
+	}).Preload("Vendor", func(q *gorm.DB) *gorm.DB {
+		return q.Unscoped()
+	}).First(&payment, id).Error
+	return payment, err
+}
+
+func (s *Store) CreateProjectPayment(payment ProjectPayment) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := validatePaymentLinks(tx, payment); err != nil {
+			return err
+		}
+		return tx.Create(&payment).Error
+	})
+}
+
+func (s *Store) UpdateProjectPayment(payment ProjectPayment) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := validatePaymentLinks(tx, payment); err != nil {
+			return err
+		}
+		return updateByIDWith(tx, &ProjectPayment{}, payment.ID, payment)
+	})
+}
+
+func (s *Store) DeleteProjectPayment(id uint) error {
+	return s.softDelete(&ProjectPayment{}, DeletionEntityPayment, id)
+}
+
+func (s *Store) RestoreProjectPayment(id uint) error {
+	var payment ProjectPayment
+	if err := s.db.Unscoped().First(&payment, id).Error; err != nil {
+		return err
+	}
+	if err := s.requireParentAlive(&Project{}, payment.ProjectID); err != nil {
+		return fmt.Errorf("project is deleted -- restore it first")
+	}
+	if payment.InvoiceID != nil {
+		if err := s.requireParentAlive(&ProjectInvoice{}, *payment.InvoiceID); err != nil {
+			return fmt.Errorf("invoice is deleted -- restore it first")
+		}
+	}
+	if payment.VendorID != nil {
+		if err := s.requireParentAlive(&Vendor{}, *payment.VendorID); err != nil {
+			return fmt.Errorf("vendor is deleted -- restore it first")
+		}
+	}
+	return s.restoreEntity(&ProjectPayment{}, DeletionEntityPayment, id)
+}
+
+func (s *Store) ProjectFinanceSummary(projectID uint) (ProjectFinanceSummary, error) {
+	committed, err := s.sumProjectColumn(&ProjectCommitment{}, "amt_ct", projectID, "")
+	if err != nil {
+		return ProjectFinanceSummary{}, err
+	}
+	invoiced, err := s.sumProjectColumn(
+		&ProjectInvoice{},
+		"tot_ct",
+		projectID,
+		"status <> '"+InvoiceStatusVoided+"'",
+	)
+	if err != nil {
+		return ProjectFinanceSummary{}, err
+	}
+	paid, err := s.sumProjectColumn(&ProjectPayment{}, "amt_ct", projectID, "")
+	if err != nil {
+		return ProjectFinanceSummary{}, err
+	}
+	return ProjectFinanceSummary{
+		CommittedCents:  committed,
+		InvoicedCents:   invoiced,
+		PaidCents:       paid,
+		OutstandingCents: invoiced - paid,
+	}, nil
+}
+
 func (s *Store) DeleteVendor(id uint) error {
 	n, err := s.countDependents(&Quote{}, "vendor_id", id)
 	if err != nil {
@@ -883,6 +1152,117 @@ func (s *Store) countByFK(model any, fkColumn string, ids []uint) (map[uint]int,
 		counts[r.FK] = r.Count
 	}
 	return counts, nil
+}
+
+func validateCommitmentLinks(tx *gorm.DB, commitment ProjectCommitment) error {
+	if err := tx.First(&Project{}, commitment.ProjectID).Error; err != nil {
+		return err
+	}
+	if commitment.QuoteID != nil {
+		var quote Quote
+		if err := tx.First(&quote, *commitment.QuoteID).Error; err != nil {
+			return err
+		}
+		if quote.ProjectID != commitment.ProjectID {
+			return fmt.Errorf("quote does not belong to project")
+		}
+	}
+	if commitment.VendorID != nil {
+		if err := tx.First(&Vendor{}, *commitment.VendorID).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func normalizeAndValidateInvoice(tx *gorm.DB, invoice *ProjectInvoice) error {
+	if err := tx.First(&Project{}, invoice.ProjectID).Error; err != nil {
+		return err
+	}
+	if invoice.Status == "" {
+		invoice.Status = InvoiceStatusDraft
+	}
+	if !isInvoiceStatus(invoice.Status) {
+		return fmt.Errorf("invalid invoice status %q", invoice.Status)
+	}
+	if invoice.CommitmentID != nil {
+		var commitment ProjectCommitment
+		if err := tx.First(&commitment, *invoice.CommitmentID).Error; err != nil {
+			return err
+		}
+		if commitment.ProjectID != invoice.ProjectID {
+			return fmt.Errorf("commitment does not belong to project")
+		}
+	}
+	if invoice.VendorID != nil {
+		if err := tx.First(&Vendor{}, *invoice.VendorID).Error; err != nil {
+			return err
+		}
+	}
+	// Keep Total as an explicit persisted value, but default it from components.
+	if invoice.TotalCents == 0 {
+		invoice.TotalCents = invoice.SubtotalCents +
+			optionalCents(invoice.TaxCents) +
+			optionalCents(invoice.ShippingCents) +
+			optionalCents(invoice.AdjustmentCents)
+	}
+	return nil
+}
+
+func validatePaymentLinks(tx *gorm.DB, payment ProjectPayment) error {
+	if err := tx.First(&Project{}, payment.ProjectID).Error; err != nil {
+		return err
+	}
+	if payment.InvoiceID != nil {
+		var invoice ProjectInvoice
+		if err := tx.First(&invoice, *payment.InvoiceID).Error; err != nil {
+			return err
+		}
+		if invoice.ProjectID != payment.ProjectID {
+			return fmt.Errorf("invoice does not belong to project")
+		}
+	}
+	if payment.VendorID != nil {
+		if err := tx.First(&Vendor{}, *payment.VendorID).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Store) sumProjectColumn(
+	model any,
+	column string,
+	projectID uint,
+	extraWhere string,
+) (int64, error) {
+	var total int64
+	db := s.db.Model(model).
+		Select("COALESCE(SUM(" + column + "), 0)").
+		Where("project_id = ?", projectID)
+	if extraWhere != "" {
+		db = db.Where(extraWhere)
+	}
+	if err := db.Scan(&total).Error; err != nil {
+		return 0, err
+	}
+	return total, nil
+}
+
+func optionalCents(value *int64) int64 {
+	if value == nil {
+		return 0
+	}
+	return *value
+}
+
+func isInvoiceStatus(status string) bool {
+	for _, s := range InvoiceStatuses() {
+		if status == s {
+			return true
+		}
+	}
+	return false
 }
 
 // updateByIDWith updates a record by ID, preserving id, created_at, and

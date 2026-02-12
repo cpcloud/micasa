@@ -42,6 +42,9 @@ run migrations manually.
 | `maintenance_categories` | Pre-seeded maintenance categories |
 | `appliances`           | Physical equipment |
 | `service_log_entries`  | Service history per maintenance item |
+| `project_commitments`  | Planned/committed spend records per project |
+| `project_invoices`     | Detailed invoices linked to projects |
+| `project_payments`     | Payment history linked to projects/invoices |
 | `deletion_records`     | Audit trail for soft deletes/restores |
 
 ### Pre-seeded data

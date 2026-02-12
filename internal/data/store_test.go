@@ -988,6 +988,156 @@ func TestVendorDeletionRecord(t *testing.T) {
 	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }
 
+func TestProjectFinanceLifecycleAndSummary(t *testing.T) {
+	store := newTestStore(t)
+	require.NoError(t, store.CreateVendor(Vendor{Name: "Finance Vendor"}))
+	vendors, err := store.ListVendors(false)
+	require.NoError(t, err)
+	require.Len(t, vendors, 1)
+	vendorID := vendors[0].ID
+
+	types, err := store.ProjectTypes()
+	require.NoError(t, err)
+	require.NoError(t, store.CreateProject(Project{
+		Title: "Finance Project", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}))
+	projects, err := store.ListProjects(false)
+	require.NoError(t, err)
+	require.Len(t, projects, 1)
+	projectID := projects[0].ID
+
+	require.NoError(t, store.CreateQuote(
+		Quote{ProjectID: projectID, TotalCents: 100000},
+		Vendor{Name: "Finance Vendor"},
+	))
+	quotes, err := store.ListQuotes(false)
+	require.NoError(t, err)
+	require.Len(t, quotes, 1)
+	quoteID := quotes[0].ID
+
+	committedAt := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
+	require.NoError(t, store.CreateProjectCommitment(ProjectCommitment{
+		ProjectID:   projectID,
+		QuoteID:     &quoteID,
+		VendorID:    &vendorID,
+		Description: "Initial accepted scope",
+		AmountCents: 100000,
+		CommittedAt: &committedAt,
+	}))
+	commitments, err := store.ListProjectCommitments(projectID, false)
+	require.NoError(t, err)
+	require.Len(t, commitments, 1)
+	commitmentID := commitments[0].ID
+
+	tax := int64(10000)
+	require.NoError(t, store.CreateProjectInvoice(ProjectInvoice{
+		ProjectID:     projectID,
+		CommitmentID:  &commitmentID,
+		VendorID:      &vendorID,
+		InvoiceNumber: "INV-001",
+		SubtotalCents: 100000,
+		TaxCents:      &tax,
+		Status:        InvoiceStatusIssued,
+	}))
+	invoices, err := store.ListProjectInvoices(projectID, false)
+	require.NoError(t, err)
+	require.Len(t, invoices, 1)
+	invoiceID := invoices[0].ID
+	assert.Equal(t, int64(110000), invoices[0].TotalCents)
+
+	require.NoError(t, store.CreateProjectPayment(ProjectPayment{
+		ProjectID:   projectID,
+		InvoiceID:   &invoiceID,
+		VendorID:    &vendorID,
+		AmountCents: 50000,
+		PaidAt:      time.Date(2026, 2, 10, 0, 0, 0, 0, time.UTC),
+		Method:      "check",
+		Reference:   "CHK-100",
+	}))
+
+	summary, err := store.ProjectFinanceSummary(projectID)
+	require.NoError(t, err)
+	assert.Equal(t, int64(100000), summary.CommittedCents)
+	assert.Equal(t, int64(110000), summary.InvoicedCents)
+	assert.Equal(t, int64(50000), summary.PaidCents)
+	assert.Equal(t, int64(60000), summary.OutstandingCents)
+}
+
+func TestDeleteProjectInvoiceBlockedByActivePayments(t *testing.T) {
+	store := newTestStore(t)
+	require.NoError(t, store.CreateVendor(Vendor{Name: "Invoice Vendor"}))
+	vendors, _ := store.ListVendors(false)
+	vendorID := vendors[0].ID
+	types, _ := store.ProjectTypes()
+	require.NoError(t, store.CreateProject(Project{
+		Title: "Invoice Project", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}))
+	projects, _ := store.ListProjects(false)
+	projectID := projects[0].ID
+
+	require.NoError(t, store.CreateProjectInvoice(ProjectInvoice{
+		ProjectID:     projectID,
+		VendorID:      &vendorID,
+		InvoiceNumber: "INV-100",
+		SubtotalCents: 75000,
+		TotalCents:    75000,
+		Status:        InvoiceStatusIssued,
+	}))
+	invoices, _ := store.ListProjectInvoices(projectID, false)
+	invoiceID := invoices[0].ID
+
+	require.NoError(t, store.CreateProjectPayment(ProjectPayment{
+		ProjectID:   projectID,
+		InvoiceID:   &invoiceID,
+		VendorID:    &vendorID,
+		AmountCents: 25000,
+		PaidAt:      time.Now(),
+	}))
+
+	require.ErrorContains(t, store.DeleteProjectInvoice(invoiceID), "active payment")
+}
+
+func TestRestorePaymentBlockedByDeletedInvoice(t *testing.T) {
+	store := newTestStore(t)
+	require.NoError(t, store.CreateVendor(Vendor{Name: "Restore Vendor"}))
+	vendors, _ := store.ListVendors(false)
+	vendorID := vendors[0].ID
+	types, _ := store.ProjectTypes()
+	require.NoError(t, store.CreateProject(Project{
+		Title: "Restore Finance", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}))
+	projects, _ := store.ListProjects(false)
+	projectID := projects[0].ID
+
+	require.NoError(t, store.CreateProjectInvoice(ProjectInvoice{
+		ProjectID:     projectID,
+		VendorID:      &vendorID,
+		InvoiceNumber: "INV-200",
+		SubtotalCents: 90000,
+		TotalCents:    90000,
+		Status:        InvoiceStatusIssued,
+	}))
+	invoices, _ := store.ListProjectInvoices(projectID, false)
+	invoiceID := invoices[0].ID
+
+	require.NoError(t, store.CreateProjectPayment(ProjectPayment{
+		ProjectID:   projectID,
+		InvoiceID:   &invoiceID,
+		VendorID:    &vendorID,
+		AmountCents: 30000,
+		PaidAt:      time.Now(),
+	}))
+	payments, _ := store.ListProjectPayments(projectID, false)
+	paymentID := payments[0].ID
+
+	require.NoError(t, store.DeleteProjectPayment(paymentID))
+	require.NoError(t, store.DeleteProjectInvoice(invoiceID))
+	require.ErrorContains(t, store.RestoreProjectPayment(paymentID), "invoice is deleted")
+
+	require.NoError(t, store.RestoreProjectInvoice(invoiceID))
+	require.NoError(t, store.RestoreProjectPayment(paymentID))
+}
+
 func newTestStore(t *testing.T) *Store {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "test.db")
