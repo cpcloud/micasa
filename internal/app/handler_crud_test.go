@@ -146,6 +146,188 @@ func TestProjectHandlerSnapshot(t *testing.T) {
 	}
 }
 
+func TestProjectTabStatusFiltersRows(t *testing.T) {
+	m := newTestModelWithStore(t)
+	types, _ := m.store.ProjectTypes()
+
+	for _, p := range []data.Project{
+		{
+			Title:         "Kitchen Plan",
+			ProjectTypeID: types[0].ID,
+			Status:        data.ProjectStatusPlanned,
+		},
+		{
+			Title:         "Fence Done",
+			ProjectTypeID: types[0].ID,
+			Status:        data.ProjectStatusCompleted,
+		},
+		{
+			Title:         "Basement Work",
+			ProjectTypeID: types[0].ID,
+			Status:        data.ProjectStatusInProgress,
+		},
+		{
+			Title:         "Old Patio Idea",
+			ProjectTypeID: types[0].ID,
+			Status:        data.ProjectStatusAbandoned,
+		},
+	} {
+		if err := m.store.CreateProject(p); err != nil {
+			t.Fatalf("CreateProject(%q): %v", p.Title, err)
+		}
+	}
+
+	m.active = tabIndex(tabProjects)
+	if err := m.reloadActiveTab(); err != nil {
+		t.Fatalf("reloadActiveTab: %v", err)
+	}
+	tab := m.activeTab()
+	if tab == nil {
+		t.Fatal("expected active projects tab")
+	}
+	if len(tab.Rows) != 4 {
+		t.Fatalf("expected 4 rows before filtering, got %d", len(tab.Rows))
+	}
+
+	tab.HideCompleted = true
+	if err := m.reloadActiveTab(); err != nil {
+		t.Fatalf("reloadActiveTab with HideCompleted: %v", err)
+	}
+	if len(tab.Rows) != 3 {
+		t.Fatalf("expected 3 rows with completed hidden, got %d", len(tab.Rows))
+	}
+	for i, cells := range tab.CellRows {
+		if len(cells) > 3 && cells[3].Value == data.ProjectStatusCompleted {
+			t.Fatalf("row %d still has completed status after filtering", i)
+		}
+	}
+
+	tab.HideCompleted = false
+	tab.HideAbandoned = true
+	if err := m.reloadActiveTab(); err != nil {
+		t.Fatalf("reloadActiveTab with HideAbandoned: %v", err)
+	}
+	if len(tab.Rows) != 3 {
+		t.Fatalf("expected 3 rows with abandoned hidden, got %d", len(tab.Rows))
+	}
+	for i, cells := range tab.CellRows {
+		if len(cells) > 3 && cells[3].Value == data.ProjectStatusAbandoned {
+			t.Fatalf("row %d still has abandoned status after filtering", i)
+		}
+	}
+
+	tab.HideAbandoned = false
+	tab.HideCompleted = true
+	tab.HideAbandoned = true
+	if err := m.reloadActiveTab(); err != nil {
+		t.Fatalf("reloadActiveTab with settled filters: %v", err)
+	}
+	if len(tab.Rows) != 2 {
+		t.Fatalf("expected 2 rows with settled hidden, got %d", len(tab.Rows))
+	}
+	for i, cells := range tab.CellRows {
+		if len(cells) <= 3 {
+			continue
+		}
+		status := cells[3].Value
+		if status == data.ProjectStatusCompleted || status == data.ProjectStatusAbandoned {
+			t.Fatalf("row %d still has settled status %q after filtering", i, status)
+		}
+	}
+
+	tab.HideCompleted = false
+	tab.HideAbandoned = false
+	if err := m.reloadActiveTab(); err != nil {
+		t.Fatalf("reloadActiveTab after clearing filters: %v", err)
+	}
+	if len(tab.Rows) != 4 {
+		t.Fatalf("expected 4 rows after showing all projects, got %d", len(tab.Rows))
+	}
+}
+
+func TestProjectStatusFilterToggleKeysReloadRows(t *testing.T) {
+	m := newTestModelWithStore(t)
+	types, _ := m.store.ProjectTypes()
+
+	if err := m.store.CreateProject(data.Project{
+		Title:         "Done Project",
+		ProjectTypeID: types[0].ID,
+		Status:        data.ProjectStatusCompleted,
+	}); err != nil {
+		t.Fatalf("CreateProject completed: %v", err)
+	}
+	if err := m.store.CreateProject(data.Project{
+		Title:         "Live Project",
+		ProjectTypeID: types[0].ID,
+		Status:        data.ProjectStatusInProgress,
+	}); err != nil {
+		t.Fatalf("CreateProject in-progress: %v", err)
+	}
+	if err := m.store.CreateProject(data.Project{
+		Title:         "Abandoned Project",
+		ProjectTypeID: types[0].ID,
+		Status:        data.ProjectStatusAbandoned,
+	}); err != nil {
+		t.Fatalf("CreateProject abandoned: %v", err)
+	}
+
+	m.active = tabIndex(tabProjects)
+	if err := m.reloadActiveTab(); err != nil {
+		t.Fatalf("reloadActiveTab: %v", err)
+	}
+	if got := len(m.activeTab().Rows); got != 3 {
+		t.Fatalf("expected 3 rows before toggles, got %d", got)
+	}
+
+	sendKey(m, "z")
+	if got := len(m.activeTab().Rows); got != 2 {
+		t.Fatalf("expected 2 rows after hiding completed, got %d", got)
+	}
+	if m.activeTab().HideCompleted != true {
+		t.Fatal("HideCompleted should be enabled after first toggle")
+	}
+
+	sendKey(m, "a")
+	if got := len(m.activeTab().Rows); got != 1 {
+		t.Fatalf("expected 1 row after hiding abandoned too, got %d", got)
+	}
+	if !m.activeTab().HideAbandoned {
+		t.Fatal("HideAbandoned should be enabled after toggle")
+	}
+
+	sendKey(m, "t")
+	if got := len(m.activeTab().Rows); got != 3 {
+		t.Fatalf("expected 3 rows after clearing settled filters, got %d", got)
+	}
+	if m.activeTab().HideCompleted || m.activeTab().HideAbandoned {
+		t.Fatal("settled toggle should disable both filters when both are active")
+	}
+
+	sendKey(m, "t")
+	if got := len(m.activeTab().Rows); got != 1 {
+		t.Fatalf("expected 1 row after settled-only filter, got %d", got)
+	}
+	if !m.activeTab().HideCompleted || !m.activeTab().HideAbandoned {
+		t.Fatal("settled toggle should enable both filters")
+	}
+
+	sendKey(m, "z")
+	if m.activeTab().HideCompleted {
+		t.Fatal("HideCompleted should be disabled after toggling z")
+	}
+	if got := len(m.activeTab().Rows); got != 2 {
+		t.Fatalf("expected 2 rows when only abandoned filter is active, got %d", got)
+	}
+
+	sendKey(m, "a")
+	if m.activeTab().HideAbandoned {
+		t.Fatal("HideAbandoned should be disabled after toggling a")
+	}
+	if got := len(m.activeTab().Rows); got != 3 {
+		t.Fatalf("expected 3 rows after clearing individual filters, got %d", got)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // applianceHandler CRUD
 // ---------------------------------------------------------------------------

@@ -241,36 +241,7 @@ func (m *Model) statusView() string {
 
 	var help string
 	if m.mode == modeNormal {
-		items := []string{modeBadge}
-		if m.detail == nil {
-			items = append(items, m.helpItem("tab", "switch"))
-		}
-		items = append(items,
-			m.helpItem("h/l", "col"),
-			m.helpItem("s", "sort"),
-		)
-		if hint := m.enterHint(); hint != "" {
-			items = append(items, m.helpItem("enter", hint))
-		}
-		items = append(items,
-			m.helpItem("/", "find col"),
-			m.helpItem("c", "hide col"),
-		)
-		if hint := m.hiddenHint(); hint != "" {
-			items = append(items, hint)
-		}
-		items = append(items,
-			m.helpItem("i", "edit"),
-			m.helpItem("D", "summary"),
-			m.helpItem("H", "house"),
-			m.helpItem("?", "help"),
-		)
-		if m.detail != nil {
-			items = append(items, m.helpItem("esc", "back"))
-		} else {
-			items = append(items, m.helpItem("q", "quit"))
-		}
-		help = joinWithSeparator(m.helpSeparator(), items...)
+		help = m.normalModeStatusHelp(modeBadge)
 	} else {
 		help = joinWithSeparator(
 			m.helpSeparator(),
@@ -325,6 +296,240 @@ func (m *Model) deletedHint(tab *Tab) string {
 		label = m.styles.DeletedLabel.Render("deleted")
 	}
 	return strings.TrimSpace(fmt.Sprintf("%s %s", key, label))
+}
+
+type statusHint struct {
+	id       string
+	full     string
+	compact  string
+	priority int
+	required bool
+}
+
+func (m *Model) normalModeStatusHelp(modeBadge string) string {
+	hints := m.normalModeStatusHints(modeBadge)
+	return m.renderStatusHints(hints)
+}
+
+func (m *Model) normalModeStatusHints(modeBadge string) []statusHint {
+	hints := []statusHint{
+		{
+			id:       "mode",
+			full:     modeBadge,
+			priority: 0,
+			required: true,
+		},
+	}
+	if m.detail == nil {
+		hints = append(hints, statusHint{
+			id:       "tab",
+			full:     m.helpItem("tab", "switch"),
+			compact:  m.helpItem("tab", "tabs"),
+			priority: 4,
+		})
+	}
+	hints = append(hints,
+		statusHint{id: "col", full: m.helpItem("h/l", "col"), priority: 1},
+		statusHint{id: "sort", full: m.helpItem("s", "sort"), priority: 2},
+	)
+	if hint, ok := m.projectStatusStateHint(); ok {
+		hints = append(hints,
+			statusHint{
+				id:       "project-state",
+				full:     hint.full,
+				compact:  hint.compact,
+				priority: 1,
+			},
+			statusHint{
+				id:       "project-filter-keys",
+				full:     m.helpItem("z/a/t", "filters"),
+				compact:  m.helpItem("t", "settled"),
+				priority: 4,
+			},
+		)
+	}
+	if hint := m.enterHint(); hint != "" {
+		hints = append(hints, statusHint{
+			id:       "enter",
+			full:     m.helpItem("enter", hint),
+			compact:  m.helpItem("enter", "open"),
+			priority: 2,
+		})
+	}
+	hints = append(hints,
+		statusHint{
+			id:       "find",
+			full:     m.helpItem("/", "find col"),
+			compact:  m.helpItem("/", "find"),
+			priority: 4,
+		},
+		statusHint{
+			id:       "hide",
+			full:     m.helpItem("c", "hide col"),
+			compact:  m.helpItem("c", "hide"),
+			priority: 4,
+		},
+	)
+	if hint := m.hiddenHint(); hint != "" {
+		hints = append(hints, statusHint{
+			id:       "hidden",
+			full:     hint,
+			priority: 6,
+		})
+	}
+	hints = append(hints,
+		statusHint{id: "edit", full: m.helpItem("i", "edit"), priority: 2},
+		statusHint{
+			id:       "help",
+			full:     m.helpItem("?", "help"),
+			compact:  m.helpItem("?", "more"),
+			priority: 0,
+			required: true,
+		},
+	)
+	if m.detail != nil {
+		hints = append(hints, statusHint{
+			id:       "exit",
+			full:     m.helpItem("esc", "back"),
+			compact:  m.renderKeys("esc"),
+			priority: 0,
+			required: true,
+		})
+	} else {
+		hints = append(hints, statusHint{
+			id:       "exit",
+			full:     m.helpItem("q", "quit"),
+			compact:  m.renderKeys("q"),
+			priority: 0,
+			required: true,
+		})
+	}
+	return hints
+}
+
+func (m *Model) projectStatusStateHint() (statusHint, bool) {
+	if m.detail != nil {
+		return statusHint{}, false
+	}
+	tab := m.activeTab()
+	if tab == nil || tab.Kind != tabProjects {
+		return statusHint{}, false
+	}
+	state := "all"
+	stateStyle := m.styles.HeaderHint
+	switch {
+	case tab.HideCompleted && tab.HideAbandoned:
+		state = "settled"
+		stateStyle = m.styles.HeaderValue
+	case tab.HideCompleted:
+		state = "no completed"
+		stateStyle = m.styles.HeaderValue
+	case tab.HideAbandoned:
+		state = "no abandoned"
+		stateStyle = m.styles.HeaderValue
+	}
+	return statusHint{
+		full: strings.TrimSpace(
+			fmt.Sprintf("%s %s", m.styles.HeaderHint.Render("status"), stateStyle.Render(state)),
+		),
+		compact: stateStyle.Render(state),
+	}, true
+}
+
+func (m *Model) renderStatusHints(hints []statusHint) string {
+	if len(hints) == 0 {
+		return ""
+	}
+	maxW := m.effectiveWidth()
+	sep := m.helpSeparator()
+	compact := make([]bool, len(hints))
+	dropped := make([]bool, len(hints))
+	maxPriority := 0
+	for _, hint := range hints {
+		if hint.priority > maxPriority {
+			maxPriority = hint.priority
+		}
+	}
+	build := func() string {
+		parts := make([]string, 0, len(hints))
+		for i, hint := range hints {
+			if dropped[i] {
+				continue
+			}
+			value := hint.full
+			if compact[i] && hint.compact != "" {
+				value = hint.compact
+			}
+			parts = append(parts, value)
+		}
+		return joinWithSeparator(sep, parts...)
+	}
+
+	line := build()
+	if lipgloss.Width(line) <= maxW {
+		return line
+	}
+
+	for priority := maxPriority; priority >= 0; priority-- {
+		for i := len(hints) - 1; i >= 0; i-- {
+			hint := hints[i]
+			if hint.required || hint.priority != priority || hint.compact == "" || compact[i] {
+				continue
+			}
+			compact[i] = true
+			line = build()
+			if lipgloss.Width(line) <= maxW {
+				return line
+			}
+		}
+	}
+
+	for priority := maxPriority; priority >= 0; priority-- {
+		for i := len(hints) - 1; i >= 0; i-- {
+			hint := hints[i]
+			if hint.priority != priority || hint.compact == "" || compact[i] {
+				continue
+			}
+			compact[i] = true
+			line = build()
+			if lipgloss.Width(line) <= maxW {
+				return line
+			}
+		}
+	}
+
+	droppedAny := false
+	for priority := maxPriority; priority >= 0; priority-- {
+		for i := len(hints) - 1; i >= 0; i-- {
+			hint := hints[i]
+			if hint.required || hint.priority != priority || dropped[i] {
+				continue
+			}
+			dropped[i] = true
+			droppedAny = true
+			if droppedAny {
+				if helpIdx := statusHintIndex(hints, "help"); helpIdx >= 0 &&
+					hints[helpIdx].compact != "" {
+					compact[helpIdx] = true
+				}
+			}
+			line = build()
+			if lipgloss.Width(line) <= maxW {
+				return line
+			}
+		}
+	}
+
+	return line
+}
+
+func statusHintIndex(hints []statusHint, id string) int {
+	for i, hint := range hints {
+		if hint.id == id {
+			return i
+		}
+	}
+	return -1
 }
 
 // withStatusMessage renders the help line, prepending the status message if set.
@@ -508,6 +713,9 @@ func (m *Model) helpContent() string {
 				{"d/u", "Half page down/up"},
 				{"tab", "Switch tabs"},
 				{"s/S", "Sort / clear sorts"},
+				{"z", "Hide/show completed projects"},
+				{"a", "Hide/show abandoned projects"},
+				{"t", "Hide/show settled projects"},
 				{"/", "Find column"},
 				{"c/C", "Hide / show columns"},
 				{"enter", drilldownArrow + " drilldown / " + linkArrow + " follow link / preview"},

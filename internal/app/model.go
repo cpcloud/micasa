@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -347,6 +348,18 @@ func (m *Model) handleNormalKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 			applySorts(tab)
 		}
 		return nil, true
+	case "z":
+		if m.toggleHideCompletedProjects() {
+			return nil, true
+		}
+	case "a":
+		if m.toggleHideAbandonedProjects() {
+			return nil, true
+		}
+	case "t":
+		if m.toggleHideSettledProjects() {
+			return nil, true
+		}
 	case "c":
 		m.hideCurrentColumn()
 		return nil, true
@@ -882,6 +895,64 @@ func (m *Model) toggleShowDeleted() {
 	_ = m.reloadEffectiveTab()
 }
 
+func (m *Model) toggleHideCompletedProjects() bool {
+	tab := m.projectTabForStatusFilter()
+	if tab == nil {
+		return false
+	}
+	tab.HideCompleted = !tab.HideCompleted
+	if tab.HideCompleted {
+		m.setStatusInfo("Completed projects hidden.")
+	} else {
+		m.setStatusInfo("Completed projects shown.")
+	}
+	_ = m.reloadActiveTab()
+	return true
+}
+
+func (m *Model) toggleHideAbandonedProjects() bool {
+	tab := m.projectTabForStatusFilter()
+	if tab == nil {
+		return false
+	}
+	tab.HideAbandoned = !tab.HideAbandoned
+	if tab.HideAbandoned {
+		m.setStatusInfo("Abandoned projects hidden.")
+	} else {
+		m.setStatusInfo("Abandoned projects shown.")
+	}
+	_ = m.reloadActiveTab()
+	return true
+}
+
+func (m *Model) toggleHideSettledProjects() bool {
+	tab := m.projectTabForStatusFilter()
+	if tab == nil {
+		return false
+	}
+	settledHidden := !tab.HideCompleted || !tab.HideAbandoned
+	tab.HideCompleted = settledHidden
+	tab.HideAbandoned = settledHidden
+	if settledHidden {
+		m.setStatusInfo("Settled projects hidden.")
+	} else {
+		m.setStatusInfo("Settled projects shown.")
+	}
+	_ = m.reloadActiveTab()
+	return true
+}
+
+func (m *Model) projectTabForStatusFilter() *Tab {
+	if m.detail != nil {
+		return nil
+	}
+	tab := m.activeTab()
+	if tab == nil || tab.Kind != tabProjects {
+		return nil
+	}
+	return tab
+}
+
 func (m *Model) selectedRowMeta() (rowMeta, bool) {
 	tab := m.effectiveTab()
 	if tab == nil || len(tab.Rows) == 0 {
@@ -922,6 +993,15 @@ func (m *Model) reloadTab(tab *Tab) error {
 	if err != nil {
 		return err
 	}
+	if tab.Kind == tabProjects && (tab.HideCompleted || tab.HideAbandoned) {
+		rows, meta, cellRows = filterProjectRowsByStatusFlags(
+			rows,
+			meta,
+			cellRows,
+			tab.HideCompleted,
+			tab.HideAbandoned,
+		)
+	}
 	tab.CellRows = cellRows
 	tab.Table.SetRows(rows)
 	tab.Rows = meta
@@ -929,6 +1009,37 @@ func (m *Model) reloadTab(tab *Tab) error {
 	applySorts(tab)
 	m.updateTabViewport(tab)
 	return nil
+}
+
+func filterProjectRowsByStatusFlags(
+	rows []table.Row,
+	meta []rowMeta,
+	cellRows [][]cell,
+	hideCompleted bool,
+	hideAbandoned bool,
+) ([]table.Row, []rowMeta, [][]cell) {
+	const projectStatusCol = 3
+	if len(rows) != len(meta) || len(rows) != len(cellRows) {
+		return rows, meta, cellRows
+	}
+	filteredRows := rows[:0]
+	filteredMeta := meta[:0]
+	filteredCells := cellRows[:0]
+	for i := range rows {
+		if len(cellRows[i]) > projectStatusCol {
+			status := cellRows[i][projectStatusCol].Value
+			if hideCompleted && status == data.ProjectStatusCompleted {
+				continue
+			}
+			if hideAbandoned && status == data.ProjectStatusAbandoned {
+				continue
+			}
+		}
+		filteredRows = append(filteredRows, rows[i])
+		filteredMeta = append(filteredMeta, meta[i])
+		filteredCells = append(filteredCells, cellRows[i])
+	}
+	return filteredRows, filteredMeta, filteredCells
 }
 
 func (m *Model) loadHouse() error {

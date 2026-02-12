@@ -642,6 +642,79 @@ func TestNavBadgeLabel(t *testing.T) {
 	}
 }
 
+func TestStatusViewProjectStatusSummaryOnlyOnProjectsTab(t *testing.T) {
+	m := newTestModel()
+	m.width = 120
+	m.height = 40
+
+	status := m.statusView()
+	for _, label := range []string{"status", "all"} {
+		if !strings.Contains(status, label) {
+			t.Fatalf("expected %q summary on projects tab", label)
+		}
+	}
+
+	m.active = tabIndex(tabQuotes)
+	status = m.statusView()
+	for _, label := range []string{"status", "all", "filters"} {
+		if strings.Contains(status, label) {
+			t.Fatalf("did not expect %q project status summary on non-project tab", label)
+		}
+	}
+}
+
+func TestStatusViewProjectStatusSummaryReflectsActiveFilters(t *testing.T) {
+	m := newTestModel()
+	m.width = 120
+	m.height = 40
+	tab := m.activeTab()
+	if tab == nil || tab.Kind != tabProjects {
+		t.Fatal("expected projects tab to be active")
+	}
+
+	tab.HideCompleted = true
+	status := m.statusView()
+	if !strings.Contains(status, "no completed") {
+		t.Fatalf("expected no completed summary when completed is hidden, got %q", status)
+	}
+	if strings.Contains(status, "no abandoned") {
+		t.Fatalf("did not expect no abandoned summary, got %q", status)
+	}
+
+	tab.HideAbandoned = true
+	status = m.statusView()
+	if !strings.Contains(status, "settled") {
+		t.Fatalf("expected settled summary when both filters are active, got %q", status)
+	}
+}
+
+func TestStatusViewUsesMoreLabelWhenHintsCollapse(t *testing.T) {
+	m := newTestModel()
+	m.width = 70
+	m.height = 40
+	status := m.statusView()
+	if !strings.Contains(status, "more") {
+		t.Fatalf("expected collapsed hint label to include more, got %q", status)
+	}
+	if strings.Contains(status, "find col") {
+		t.Fatalf("did not expect low-priority find hint after collapse, got %q", status)
+	}
+}
+
+func TestHelpContentIncludesProjectStatusFilterShortcuts(t *testing.T) {
+	m := newTestModel()
+	help := m.helpContent()
+	for _, snippet := range []string{
+		"Hide/show completed projects",
+		"Hide/show abandoned projects",
+		"Hide/show settled projects",
+	} {
+		if !strings.Contains(help, snippet) {
+			t.Fatalf("expected help content to include %q", snippet)
+		}
+	}
+}
+
 func TestHeaderTitleWidthLink(t *testing.T) {
 	spec := columnSpec{
 		Title: "Project",
