@@ -988,6 +988,83 @@ func TestVendorDeletionRecord(t *testing.T) {
 	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }
 
+func TestUnicodeRoundTrip(t *testing.T) {
+	store := newTestStore(t)
+
+	tests := []struct {
+		name     string
+		nickname string
+		city     string
+	}{
+		{"accented Latin", "Casa de Garc\u00eda", "San Jos\u00e9"},
+		{"CJK characters", "\u6211\u7684\u5bb6", "\u6771\u4eac"},      // 我的家, 東京
+		{"emoji", "Home \U0001f3e0", "City \u2605"},                   // 🏠, ★
+		{"mixed scripts", "Haus M\u00fcller \u2014 \u6771\u4eac", ""}, // Haus Müller — 東京
+		{"fraction and section", "\u00bd acre lot", "\u00a75 district"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Delete existing profile (if any) so we can create fresh.
+			store.db.Where("1 = 1").Delete(&HouseProfile{})
+
+			profile := HouseProfile{Nickname: tt.nickname, City: tt.city}
+			require.NoError(t, store.CreateHouseProfile(profile))
+
+			fetched, err := store.HouseProfile()
+			require.NoError(t, err)
+			assert.Equal(t, tt.nickname, fetched.Nickname, "nickname round-trip")
+			assert.Equal(t, tt.city, fetched.City, "city round-trip")
+		})
+	}
+}
+
+func TestUnicodeRoundTripVendor(t *testing.T) {
+	store := newTestStore(t)
+
+	names := []string{
+		"Garc\u00eda Plumbing",                 // García
+		"M\u00fcller HVAC",                     // Müller
+		"\u6771\u829d\u30b5\u30fc\u30d3\u30b9", // 東芝サービス
+		"O'Brien & Sons",
+	}
+
+	for _, name := range names {
+		t.Run(name, func(t *testing.T) {
+			require.NoError(t, store.CreateVendor(Vendor{Name: name}))
+		})
+	}
+
+	vendors, err := store.ListVendors(false)
+	require.NoError(t, err)
+	vendorNames := make([]string, len(vendors))
+	for i, v := range vendors {
+		vendorNames[i] = v.Name
+	}
+	for _, name := range names {
+		assert.Contains(t, vendorNames, name, "vendor %q should survive round-trip", name)
+	}
+}
+
+func TestUnicodeRoundTripNotes(t *testing.T) {
+	store := newTestStore(t)
+	types, err := store.ProjectTypes()
+	require.NoError(t, err)
+
+	notes := "Technician Jos\u00e9 used \u00bd-inch fittings per \u00a75.2"
+	require.NoError(t, store.CreateProject(Project{
+		Title:         "Unicode notes test",
+		ProjectTypeID: types[0].ID,
+		Status:        ProjectStatusPlanned,
+		Description:   notes,
+	}))
+
+	projects, err := store.ListProjects(false)
+	require.NoError(t, err)
+	require.NotEmpty(t, projects)
+	assert.Equal(t, notes, projects[len(projects)-1].Description)
+}
+
 func newTestStore(t *testing.T) *Store {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "test.db")

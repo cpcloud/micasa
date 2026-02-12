@@ -101,7 +101,7 @@ func renderMiniTable(rows []dashRow, colGap int, cursor int, selected lipgloss.S
 	widths := make([]int, nCols)
 	for _, r := range rows {
 		for i, c := range r.Cells {
-			if w := len(c.Text); w > widths[i] {
+			if w := lipgloss.Width(c.Text); w > widths[i] {
 				widths[i] = w
 			}
 		}
@@ -113,7 +113,7 @@ func renderMiniTable(rows []dashRow, colGap int, cursor int, selected lipgloss.S
 		parts := make([]string, len(r.Cells))
 		for i, c := range r.Cells {
 			styled := c.Style.Render(c.Text)
-			textWidth := len(c.Text)
+			textWidth := lipgloss.Width(c.Text)
 			pad := widths[i] - textWidth
 			if pad < 0 {
 				pad = 0

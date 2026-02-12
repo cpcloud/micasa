@@ -149,6 +149,8 @@ var applianceBrands = []string{
 	"PureAir",
 	"IronGuard",
 	"ClearView",
+	"\u6771\u829d",     // 東芝 (Toshiba) — CJK wide characters
+	"Electrolux\u00ae", // Electrolux® — registered trademark symbol
 }
 
 var applianceLocations = []string{
@@ -207,6 +209,9 @@ var vendorAdjectives = []string{
 	"Sparks",
 	"Hartley",
 	"Apex",
+	"Garc\u00eda",   // García — accented Latin
+	"M\u00fcller",   // Müller — umlaut
+	"Gonz\u00e1lez", // González — accented Latin
 }
 
 // ---------------------------------------------------------------------------
@@ -348,4 +353,7 @@ var serviceLogNotes = []string{
 	"Previous repair holding up well",
 	"Adjusted per manufacturer specs",
 	"Left notes for next service visit",
+	"Technician Jos\u00e9 completed the work",    // José — accented Latin
+	"Used \u00bd-inch copper fittings",           // ½ — fraction symbol
+	"Checked per \u00a75.2 of the building code", // §5.2 — section sign
 }

@@ -334,7 +334,63 @@ func TestRenderMiniTable(t *testing.T) {
 	lines := renderMiniTable(rows, 3, -1, lipgloss.NewStyle())
 	require.Len(t, lines, 2)
 	// Both lines should have the same visible width due to column alignment.
-	assert.Equal(t, len(lines[0]), len(lines[1]))
+	assert.Equal(t, lipgloss.Width(lines[0]), lipgloss.Width(lines[1]))
+}
+
+func TestRenderMiniTableUnicode(t *testing.T) {
+	plain := lipgloss.NewStyle()
+
+	t.Run("accented Latin", func(t *testing.T) {
+		rows := []dashRow{
+			{Cells: []dashCell{
+				{Text: "Garc\u00eda Plumbing", Style: plain},
+				{Text: "3 days overdue", Style: plain, Align: alignRight},
+			}},
+			{Cells: []dashCell{
+				{Text: "HVAC Filter", Style: plain},
+				{Text: "in 14 days", Style: plain, Align: alignRight},
+			}},
+		}
+		lines := renderMiniTable(rows, 3, -1, plain)
+		require.Len(t, lines, 2)
+		assert.Equal(t, lipgloss.Width(lines[0]), lipgloss.Width(lines[1]),
+			"rows with accented characters should align")
+	})
+
+	t.Run("CJK wide characters", func(t *testing.T) {
+		// CJK characters occupy 2 terminal cells each.
+		rows := []dashRow{
+			{Cells: []dashCell{
+				{Text: "\u6771\u829d\u88fd\u54c1", Style: plain}, // 東芝製品 = 8 cells
+				{Text: "$500", Style: plain, Align: alignRight},
+			}},
+			{Cells: []dashCell{
+				{Text: "Short", Style: plain}, // 5 cells
+				{Text: "$1,000", Style: plain, Align: alignRight},
+			}},
+		}
+		lines := renderMiniTable(rows, 3, -1, plain)
+		require.Len(t, lines, 2)
+		assert.Equal(t, lipgloss.Width(lines[0]), lipgloss.Width(lines[1]),
+			"rows with CJK characters should align")
+	})
+
+	t.Run("emoji", func(t *testing.T) {
+		rows := []dashRow{
+			{Cells: []dashCell{
+				{Text: "Check \u2705", Style: plain},
+				{Text: "done", Style: plain},
+			}},
+			{Cells: []dashCell{
+				{Text: "Long task name", Style: plain},
+				{Text: "pending", Style: plain},
+			}},
+		}
+		lines := renderMiniTable(rows, 3, -1, plain)
+		require.Len(t, lines, 2)
+		assert.Equal(t, lipgloss.Width(lines[0]), lipgloss.Width(lines[1]),
+			"rows with emoji should align")
+	})
 }
 
 func TestDistributeDashRows(t *testing.T) {
