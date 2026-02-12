@@ -45,6 +45,9 @@ Complete reference of every keybinding in micasa, organized by mode.
 |-----|--------|
 | `s` | Cycle sort on current column (none -> asc -> desc -> none) |
 | `S` | Clear all sorts |
+| `z` | Projects tab: toggle hiding completed projects |
+| `a` | Projects tab: toggle hiding abandoned projects |
+| `t` | Projects tab: toggle hiding settled projects (`completed` + `abandoned`) |
 | `/` | Jump to column (fuzzy find) |
 | `c` | Hide current column |
 | `C` | Show all hidden columns |

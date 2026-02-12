@@ -365,13 +365,86 @@ func TestEscClearsStatusInNormalMode(t *testing.T) {
 	}
 }
 
+func TestProjectStatusFilterToggleKeys(t *testing.T) {
+	m := newTestModel()
+	tab := m.activeTab()
+	if tab == nil || tab.Kind != tabProjects {
+		t.Fatal("expected projects tab to be active")
+	}
+	if tab.HideCompleted || tab.HideAbandoned {
+		t.Fatal("project status filters should start disabled")
+	}
+
+	sendKey(m, "z")
+	if !tab.HideCompleted {
+		t.Fatal("expected HideCompleted enabled after first z")
+	}
+	if m.status.Text != "Completed projects hidden." {
+		t.Fatalf("unexpected status after hide: %q", m.status.Text)
+	}
+
+	sendKey(m, "z")
+	if tab.HideCompleted {
+		t.Fatal("expected HideCompleted disabled after second z")
+	}
+	if m.status.Text != "Completed projects shown." {
+		t.Fatalf("unexpected status after show: %q", m.status.Text)
+	}
+
+	sendKey(m, "a")
+	if !tab.HideAbandoned {
+		t.Fatal("expected HideAbandoned enabled after first a")
+	}
+	if m.status.Text != "Abandoned projects hidden." {
+		t.Fatalf("unexpected status after hide abandoned: %q", m.status.Text)
+	}
+	sendKey(m, "a")
+	if tab.HideAbandoned {
+		t.Fatal("expected HideAbandoned disabled after second a")
+	}
+
+	sendKey(m, "t")
+	if !tab.HideCompleted || !tab.HideAbandoned {
+		t.Fatal("expected settled toggle to enable both completed and abandoned filters")
+	}
+	if m.status.Text != "Settled projects hidden." {
+		t.Fatalf("unexpected status after hide settled: %q", m.status.Text)
+	}
+	sendKey(m, "t")
+	if tab.HideCompleted || tab.HideAbandoned {
+		t.Fatal("expected settled toggle to disable both filters on second press")
+	}
+}
+
+func TestProjectStatusFilterToggleIgnoredOutsideProjects(t *testing.T) {
+	m := newTestModel()
+	m.active = tabIndex(tabQuotes)
+	tab := m.activeTab()
+	if tab == nil || tab.Kind != tabQuotes {
+		t.Fatal("expected quotes tab to be active")
+	}
+
+	for _, key := range []string{"z", "a", "t"} {
+		_, handled := m.handleNormalKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)})
+		if handled {
+			t.Fatalf("expected %s to be ignored outside projects tab", key)
+		}
+	}
+	if tab.HideCompleted || tab.HideAbandoned {
+		t.Fatal("project status filters should remain disabled on non-project tabs")
+	}
+	if m.status.Text != "" {
+		t.Fatalf("expected no status change, got %q", m.status.Text)
+	}
+}
+
 func TestKeyDispatchEditModeOnly(t *testing.T) {
 	m := newTestModel()
 
-	// 'a' should not be handled in normal mode.
-	_, handled := m.handleNormalKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a")})
+	// 'p' should not be handled in normal mode.
+	_, handled := m.handleNormalKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("p")})
 	if handled {
-		t.Fatal("'a' should not be handled in normal mode")
+		t.Fatal("'p' should not be handled in normal mode")
 	}
 
 	// 'esc' should be handled in edit mode (back to normal).

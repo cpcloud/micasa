@@ -44,6 +44,14 @@ Projects move through these statuses. Each has a distinct color in the table:
 - <span class="status-completed">**completed**</span> -- done
 - <span class="status-abandoned">**abandoned**</span> -- decided not to do it
 
+## Status filters
+
+In Normal mode on the Projects tab:
+
+- Press `z` to toggle hiding projects with status `completed`
+- Press `a` to toggle hiding projects with status `abandoned`
+- Press `t` to toggle hiding **settled projects** (`completed` + `abandoned`)
+
 ## Description
 
 The edit form includes a `Description` textarea (in the "Timeline" group) for
