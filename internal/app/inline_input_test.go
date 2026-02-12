@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestOpenInlineInputSetsState(t *testing.T) {
@@ -16,21 +18,12 @@ func TestOpenInlineInputSetsState(t *testing.T) {
 	var field string
 	m.openInlineInput(42, formVendor, "Name", "Acme", &field, nil, &vendorFormData{})
 
-	if m.inlineInput == nil {
-		t.Fatal("expected inlineInput to be set")
-	}
-	if m.inlineInput.Title != "Name" {
-		t.Fatalf("expected title 'Name', got %q", m.inlineInput.Title)
-	}
-	if m.inlineInput.EditID != 42 {
-		t.Fatalf("expected editID 42, got %d", m.inlineInput.EditID)
-	}
-	if m.formKind != formVendor {
-		t.Fatalf("expected formKind formVendor, got %d", m.formKind)
-	}
-	if m.editID == nil || *m.editID != 42 {
-		t.Fatal("expected model editID to be set to 42")
-	}
+	require.NotNil(t, m.inlineInput)
+	assert.Equal(t, "Name", m.inlineInput.Title)
+	assert.Equal(t, uint(42), m.inlineInput.EditID)
+	assert.Equal(t, formVendor, m.formKind)
+	require.NotNil(t, m.editID)
+	assert.Equal(t, uint(42), *m.editID)
 }
 
 func TestInlineInputEscCloses(t *testing.T) {
@@ -40,15 +33,9 @@ func TestInlineInputEscCloses(t *testing.T) {
 
 	sendKey(m, "esc")
 
-	if m.inlineInput != nil {
-		t.Fatal("expected inlineInput to be nil after esc")
-	}
-	if m.formKind != formNone {
-		t.Fatalf("expected formKind reset, got %d", m.formKind)
-	}
-	if m.editID != nil {
-		t.Fatal("expected editID to be nil after esc")
-	}
+	assert.Nil(t, m.inlineInput)
+	assert.Equal(t, formNone, m.formKind)
+	assert.Nil(t, m.editID)
 }
 
 func TestInlineInputAbsorbsKeys(t *testing.T) {
@@ -59,15 +46,11 @@ func TestInlineInputAbsorbsKeys(t *testing.T) {
 	// Keys that would normally switch tabs or enter edit mode should be absorbed.
 	initialActive := m.active
 	sendKey(m, "tab")
-	if m.active != initialActive {
-		t.Fatal("tab should be absorbed by inline input")
-	}
+	assert.Equal(t, initialActive, m.active, "tab should be absorbed by inline input")
 
 	// 'q' should not quit -- inline input should still be active.
 	sendKey(m, "q")
-	if m.inlineInput == nil {
-		t.Fatal("inline input should still be active after pressing q")
-	}
+	assert.NotNil(t, m.inlineInput, "inline input should still be active after pressing q")
 }
 
 func TestInlineInputTypingUpdatesValue(t *testing.T) {
@@ -80,10 +63,7 @@ func TestInlineInputTypingUpdatesValue(t *testing.T) {
 		m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{ch}})
 	}
 
-	got := m.inlineInput.Input.Value()
-	if got != "hello" {
-		t.Fatalf("expected input value 'hello', got %q", got)
-	}
+	assert.Equal(t, "hello", m.inlineInput.Input.Value())
 }
 
 func TestInlineInputValidationBlocksSubmit(t *testing.T) {
@@ -101,15 +81,9 @@ func TestInlineInputValidationBlocksSubmit(t *testing.T) {
 	sendKey(m, "enter")
 
 	// Inline input should still be open (validation failed).
-	if m.inlineInput == nil {
-		t.Fatal("expected inlineInput to remain open after validation failure")
-	}
-	if m.status.Kind != statusError {
-		t.Fatalf("expected error status after validation failure, got %v", m.status.Kind)
-	}
-	if !strings.Contains(m.status.Text, "required") {
-		t.Fatalf("expected error about 'required', got %q", m.status.Text)
-	}
+	require.NotNil(t, m.inlineInput)
+	assert.Equal(t, statusError, m.status.Kind)
+	assert.Contains(t, m.status.Text, "required")
 }
 
 func TestInlineInputStatusViewRendersPrompt(t *testing.T) {
@@ -120,9 +94,7 @@ func TestInlineInputStatusViewRendersPrompt(t *testing.T) {
 	m.openInlineInput(1, formVendor, "Name", "", &field, nil, &vendorFormData{})
 
 	status := m.statusView()
-	if !strings.Contains(status, "Name:") {
-		t.Fatalf("expected status to contain 'Name:', got %q", status)
-	}
+	assert.Contains(t, status, "Name:")
 }
 
 func TestInlineInputPreservesExistingValue(t *testing.T) {
@@ -130,10 +102,7 @@ func TestInlineInputPreservesExistingValue(t *testing.T) {
 	field := "existing value"
 	m.openInlineInput(1, formVendor, "Name", "", &field, nil, &vendorFormData{})
 
-	got := m.inlineInput.Input.Value()
-	if got != "existing value" {
-		t.Fatalf("expected input to show existing value, got %q", got)
-	}
+	assert.Equal(t, "existing value", m.inlineInput.Input.Value())
 }
 
 func TestInlineInputPlaceholder(t *testing.T) {
@@ -141,10 +110,7 @@ func TestInlineInputPlaceholder(t *testing.T) {
 	var field string
 	m.openInlineInput(1, formAppliance, "Cost", "899.00", &field, nil, &applianceFormData{})
 
-	placeholder := m.inlineInput.Input.Placeholder
-	if placeholder != "899.00" {
-		t.Fatalf("expected placeholder '899.00', got %q", placeholder)
-	}
+	assert.Equal(t, "899.00", m.inlineInput.Input.Placeholder)
 }
 
 func TestInlineInputTableStaysVisible(t *testing.T) {
@@ -155,17 +121,18 @@ func TestInlineInputTableStaysVisible(t *testing.T) {
 	m.openInlineInput(1, formVendor, "Name", "", &field, nil, &vendorFormData{})
 
 	// The model should NOT be in modeForm, so the table stays visible.
-	if m.mode == modeForm {
-		t.Fatal("inline input should not switch to modeForm")
-	}
+	assert.NotEqual(t, modeForm, m.mode, "inline input should not switch to modeForm")
 
 	// buildBaseView should render the table, not a form.
 	view := m.buildBaseView()
 	// The table view includes column headers from the active tab.
 	tab := m.activeTab()
 	if tab != nil && len(tab.Specs) > 0 {
-		if !strings.Contains(view, tab.Specs[0].Title) {
-			t.Fatal("expected table to be visible during inline input")
-		}
+		assert.Contains(
+			t,
+			view,
+			tab.Specs[0].Title,
+			"expected table to be visible during inline input",
+		)
 	}
 }

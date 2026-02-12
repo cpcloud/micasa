@@ -6,6 +6,9 @@ package app
 import (
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestReloadAfterMutationMarksOtherTabsStale(t *testing.T) {
@@ -18,15 +21,17 @@ func TestReloadAfterMutationMarksOtherTabsStale(t *testing.T) {
 	m.reloadAfterMutation()
 
 	// Active tab (0) should NOT be stale.
-	if m.tabs[0].Stale {
-		t.Error("active tab should not be stale after reloadAfterMutation")
-	}
+	assert.False(t, m.tabs[0].Stale, "active tab should not be stale after reloadAfterMutation")
 
 	// All other tabs should be stale.
 	for i := 1; i < len(m.tabs); i++ {
-		if !m.tabs[i].Stale {
-			t.Errorf("tab %d (%s) should be stale after mutation on tab 0", i, m.tabs[i].Name)
-		}
+		assert.Truef(
+			t,
+			m.tabs[i].Stale,
+			"tab %d (%s) should be stale after mutation on tab 0",
+			i,
+			m.tabs[i].Name,
+		)
 	}
 }
 
@@ -41,19 +46,13 @@ func TestNavigatingToStaleTabClearsStaleFlag(t *testing.T) {
 
 	// Navigate to the next tab.
 	m.nextTab()
-	if m.active != 1 {
-		t.Fatalf("expected active=1, got %d", m.active)
-	}
+	require.Equal(t, 1, m.active)
 
 	// After navigation, the new active tab should not be stale.
-	if m.tabs[1].Stale {
-		t.Error("tab 1 should not be stale after navigating to it")
-	}
+	assert.False(t, m.tabs[1].Stale, "tab 1 should not be stale after navigating to it")
 
 	// But tab 2 should still be stale (we haven't visited it).
-	if !m.tabs[2].Stale {
-		t.Error("tab 2 should still be stale")
-	}
+	assert.True(t, m.tabs[2].Stale, "tab 2 should still be stale")
 }
 
 func TestPrevTabClearsStaleFlag(t *testing.T) {
@@ -67,12 +66,8 @@ func TestPrevTabClearsStaleFlag(t *testing.T) {
 
 	// Navigate backward.
 	m.prevTab()
-	if m.active != 1 {
-		t.Fatalf("expected active=1, got %d", m.active)
-	}
-	if m.tabs[1].Stale {
-		t.Error("tab 1 should not be stale after navigating to it via prevTab")
-	}
+	require.Equal(t, 1, m.active)
+	assert.False(t, m.tabs[1].Stale, "tab 1 should not be stale after navigating to it via prevTab")
 }
 
 func TestReloadAllClearsAllStaleFlags(t *testing.T) {
@@ -90,9 +85,13 @@ func TestReloadAllClearsAllStaleFlags(t *testing.T) {
 
 	// After reloadAll, no tabs should be stale (they were all freshly loaded).
 	for i := range m.tabs {
-		if m.tabs[i].Stale {
-			t.Errorf("tab %d (%s) should not be stale after reloadAll", i, m.tabs[i].Name)
-		}
+		assert.Falsef(
+			t,
+			m.tabs[i].Stale,
+			"tab %d (%s) should not be stale after reloadAll",
+			i,
+			m.tabs[i].Name,
+		)
 	}
 }
 
@@ -103,9 +102,7 @@ func TestDashJumpClearsStaleFlag(t *testing.T) {
 
 	// Open the dashboard and load data so we have nav entries.
 	m.showDashboard = true
-	if err := m.loadDashboardAt(time.Now()); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, m.loadDashboardAt(time.Now()))
 	if m.dashNavCount() == 0 {
 		t.Skip("no dashboard nav entries in demo data")
 	}
@@ -122,16 +119,24 @@ func TestDashJumpClearsStaleFlag(t *testing.T) {
 
 	// The target tab should be fresh after the jump.
 	idx := tabIndex(targetTab)
-	if m.tabs[idx].Stale {
-		t.Errorf("tab %d (%s) should not be stale after dashJump", idx, m.tabs[idx].Name)
-	}
+	assert.Falsef(
+		t,
+		m.tabs[idx].Stale,
+		"tab %d (%s) should not be stale after dashJump",
+		idx,
+		m.tabs[idx].Name,
+	)
 
 	// A different tab should still be stale.
 	otherIdx := (idx + 1) % len(m.tabs)
-	if !m.tabs[otherIdx].Stale {
-		t.Errorf("tab %d (%s) should still be stale after jumping to tab %d",
-			otherIdx, m.tabs[otherIdx].Name, idx)
-	}
+	assert.Truef(
+		t,
+		m.tabs[otherIdx].Stale,
+		"tab %d (%s) should still be stale after jumping to tab %d",
+		otherIdx,
+		m.tabs[otherIdx].Name,
+		idx,
+	)
 }
 
 func TestNavigateToLinkClearsStaleFlag(t *testing.T) {
@@ -150,15 +155,15 @@ func TestNavigateToLinkClearsStaleFlag(t *testing.T) {
 	_ = m.navigateToLink(link, 1)
 
 	vendorIdx := tabIndex(tabVendors)
-	if m.tabs[vendorIdx].Stale {
-		t.Errorf("vendors tab should not be stale after navigateToLink")
-	}
+	assert.False(t, m.tabs[vendorIdx].Stale, "vendors tab should not be stale after navigateToLink")
 
 	// A different tab should still be stale.
 	projIdx := tabIndex(tabProjects)
-	if !m.tabs[projIdx].Stale {
-		t.Errorf("projects tab should still be stale after navigating to vendors")
-	}
+	assert.True(
+		t,
+		m.tabs[projIdx].Stale,
+		"projects tab should still be stale after navigating to vendors",
+	)
 }
 
 func TestCloseDetailClearsStaleParentTab(t *testing.T) {
@@ -177,12 +182,8 @@ func TestCloseDetailClearsStaleParentTab(t *testing.T) {
 	}
 	itemID := tab.Rows[0].ID
 
-	if err := m.openServiceLogDetail(itemID, "Test Item"); err != nil {
-		t.Fatal(err)
-	}
-	if m.detail == nil {
-		t.Fatal("expected detail view to be open")
-	}
+	require.NoError(t, m.openServiceLogDetail(itemID, "Test Item"))
+	require.NotNil(t, m.detail, "expected detail view to be open")
 
 	// Mark the parent (Maintenance) tab stale while in the detail view.
 	maintIdx := tabIndex(tabMaintenance)
@@ -191,7 +192,5 @@ func TestCloseDetailClearsStaleParentTab(t *testing.T) {
 	// Close the detail — should reload the stale parent tab.
 	m.closeDetail()
 
-	if m.tabs[maintIdx].Stale {
-		t.Error("maintenance tab should not be stale after closeDetail")
-	}
+	assert.False(t, m.tabs[maintIdx].Stale, "maintenance tab should not be stale after closeDetail")
 }

@@ -6,6 +6,9 @@ package data
 import (
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestListMaintenanceWithSchedule(t *testing.T) {
@@ -28,15 +31,9 @@ func TestListMaintenanceWithSchedule(t *testing.T) {
 	})
 
 	items, err := store.ListMaintenanceWithSchedule()
-	if err != nil {
-		t.Fatalf("ListMaintenanceWithSchedule: %v", err)
-	}
-	if len(items) != 1 {
-		t.Fatalf("expected 1 item, got %d", len(items))
-	}
-	if items[0].Name != "With Interval" {
-		t.Fatalf("expected 'With Interval', got %q", items[0].Name)
-	}
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	assert.Equal(t, "With Interval", items[0].Name)
 }
 
 func TestListActiveProjects(t *testing.T) {
@@ -49,19 +46,13 @@ func TestListActiveProjects(t *testing.T) {
 	store.db.Create(&Project{Title: "D", ProjectTypeID: pt.ID, Status: ProjectStatusIdeating})
 
 	projects, err := store.ListActiveProjects()
-	if err != nil {
-		t.Fatalf("ListActiveProjects: %v", err)
-	}
-	if len(projects) != 2 {
-		t.Fatalf("expected 2 active projects, got %d", len(projects))
-	}
+	require.NoError(t, err)
+	require.Len(t, projects, 2)
 	names := map[string]bool{}
 	for _, p := range projects {
 		names[p.Title] = true
 	}
-	if !names["A"] || !names["B"] {
-		t.Fatalf("expected projects A and B, got %v", names)
-	}
+	assert.True(t, names["A"] && names["B"], "expected projects A and B, got %v", names)
 }
 
 func TestListExpiringWarranties(t *testing.T) {
@@ -83,12 +74,8 @@ func TestListExpiringWarranties(t *testing.T) {
 	store.db.Create(&Appliance{Name: "None"})
 
 	apps, err := store.ListExpiringWarranties(now, 30*24*time.Hour, 90*24*time.Hour)
-	if err != nil {
-		t.Fatalf("ListExpiringWarranties: %v", err)
-	}
-	if len(apps) != 2 {
-		t.Fatalf("expected 2 expiring, got %d", len(apps))
-	}
+	require.NoError(t, err)
+	require.Len(t, apps, 2)
 }
 
 func TestListRecentServiceLogs(t *testing.T) {
@@ -106,16 +93,10 @@ func TestListRecentServiceLogs(t *testing.T) {
 	}
 
 	entries, err := store.ListRecentServiceLogs(5)
-	if err != nil {
-		t.Fatalf("ListRecentServiceLogs: %v", err)
-	}
-	if len(entries) != 5 {
-		t.Fatalf("expected 5, got %d", len(entries))
-	}
+	require.NoError(t, err)
+	require.Len(t, entries, 5)
 	// Most recent should be first.
-	if entries[0].ServicedAt.Month() != 10 {
-		t.Fatalf("expected most recent (Oct), got %v", entries[0].ServicedAt)
-	}
+	assert.Equal(t, time.October, entries[0].ServicedAt.Month())
 }
 
 func TestYTDSpending(t *testing.T) {
@@ -142,12 +123,8 @@ func TestYTDSpending(t *testing.T) {
 
 	yearStart := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	spend, err := store.YTDServiceSpendCents(yearStart)
-	if err != nil {
-		t.Fatalf("YTDServiceSpendCents: %v", err)
-	}
-	if spend != 5000 {
-		t.Fatalf("expected 5000, got %d", spend)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, int64(5000), spend)
 
 	// Projects.
 	var pt ProjectType
@@ -162,10 +139,6 @@ func TestYTDSpending(t *testing.T) {
 	})
 
 	projSpend, err := store.YTDProjectSpendCents()
-	if err != nil {
-		t.Fatalf("YTDProjectSpendCents: %v", err)
-	}
-	if projSpend != 30000 {
-		t.Fatalf("expected 30000, got %d", projSpend)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, int64(30000), projSpend)
 }

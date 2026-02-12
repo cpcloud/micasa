@@ -10,40 +10,31 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestResolveDBPath_ExplicitPath(t *testing.T) {
 	c := cli{DBPath: "/custom/path.db"}
 	got, err := resolveDBPath(c)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != "/custom/path.db" {
-		t.Errorf("got %q, want /custom/path.db", got)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "/custom/path.db", got)
 }
 
 func TestResolveDBPath_ExplicitPathWithDemo(t *testing.T) {
 	// Explicit path takes precedence even when --demo is set.
 	c := cli{DBPath: "/tmp/demo.db", Demo: true}
 	got, err := resolveDBPath(c)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != "/tmp/demo.db" {
-		t.Errorf("got %q, want /tmp/demo.db", got)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "/tmp/demo.db", got)
 }
 
 func TestResolveDBPath_DemoNoPath(t *testing.T) {
 	c := cli{Demo: true}
 	got, err := resolveDBPath(c)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != ":memory:" {
-		t.Errorf("got %q, want :memory:", got)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, ":memory:", got)
 }
 
 func TestResolveDBPath_Default(t *testing.T) {
@@ -52,15 +43,14 @@ func TestResolveDBPath_Default(t *testing.T) {
 	t.Setenv("MICASA_DB_PATH", "")
 	c := cli{}
 	got, err := resolveDBPath(c)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got == "" {
-		t.Fatal("expected non-empty default path")
-	}
-	if !strings.HasSuffix(got, "micasa.db") {
-		t.Errorf("expected path ending in micasa.db, got %q", got)
-	}
+	require.NoError(t, err)
+	assert.NotEmpty(t, got)
+	assert.True(
+		t,
+		strings.HasSuffix(got, "micasa.db"),
+		"expected path ending in micasa.db, got %q",
+		got,
+	)
 }
 
 func TestResolveDBPath_EnvOverride(t *testing.T) {
@@ -68,12 +58,8 @@ func TestResolveDBPath_EnvOverride(t *testing.T) {
 	t.Setenv("MICASA_DB_PATH", "/env/override.db")
 	c := cli{}
 	got, err := resolveDBPath(c)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != "/env/override.db" {
-		t.Errorf("got %q, want /env/override.db", got)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "/env/override.db", got)
 }
 
 func TestResolveDBPath_ExplicitPathBeatsEnv(t *testing.T) {
@@ -81,12 +67,8 @@ func TestResolveDBPath_ExplicitPathBeatsEnv(t *testing.T) {
 	t.Setenv("MICASA_DB_PATH", "/env/override.db")
 	c := cli{DBPath: "/explicit/wins.db"}
 	got, err := resolveDBPath(c)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != "/explicit/wins.db" {
-		t.Errorf("got %q, want /explicit/wins.db", got)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "/explicit/wins.db", got)
 }
 
 // Version tests use exec.Command("go", "build") because debug.ReadBuildInfo()
@@ -102,9 +84,8 @@ func buildTestBinary(t *testing.T) string {
 	bin := filepath.Join(t.TempDir(), "micasa"+ext)
 	cmd := exec.Command("go", "build", "-o", bin, ".")
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("build failed: %v\n%s", err, out)
-	}
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "build failed:\n%s", out)
 	return bin
 }
 
@@ -116,21 +97,11 @@ func TestVersion_DevShowsCommitHash(t *testing.T) {
 	}
 	bin := buildTestBinary(t)
 	out, err := exec.Command(bin, "--version").Output()
-	if err != nil {
-		t.Fatalf("--version failed: %v", err)
-	}
+	require.NoError(t, err, "--version failed")
 	got := strings.TrimSpace(string(out))
 	// Built inside a git repo: expect a hex hash, possibly with -dirty.
-	if got == "dev" {
-		t.Error("expected commit hash, got bare dev")
-	}
-	hash := strings.TrimSuffix(got, "-dirty")
-	for _, c := range hash {
-		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
-			t.Errorf("expected hex hash, got %q", got)
-			break
-		}
-	}
+	assert.NotEqual(t, "dev", got, "expected commit hash, got bare dev")
+	assert.Regexp(t, `^[0-9a-f]+(-dirty)?$`, got, "expected hex hash, got %q", got)
 }
 
 func TestVersion_Injected(t *testing.T) {
@@ -143,15 +114,9 @@ func TestVersion_Injected(t *testing.T) {
 		"-ldflags", "-X main.version=1.2.3",
 		"-o", bin, ".")
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("build failed: %v\n%s", err, out)
-	}
-	out, err := exec.Command(bin, "--version").Output()
-	if err != nil {
-		t.Fatalf("--version failed: %v", err)
-	}
-	got := strings.TrimSpace(string(out))
-	if got != "1.2.3" {
-		t.Errorf("got %q, want 1.2.3", got)
-	}
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "build failed:\n%s", out)
+	verOut, err := exec.Command(bin, "--version").Output()
+	require.NoError(t, err, "--version failed")
+	assert.Equal(t, "1.2.3", strings.TrimSpace(string(verOut)))
 }

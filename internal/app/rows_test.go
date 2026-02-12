@@ -7,28 +7,23 @@ import (
 	"testing"
 	"time"
 
+	"github.com/charmbracelet/bubbles/table"
 	"github.com/cpcloud/micasa/internal/data"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
 
 func TestDateValue(t *testing.T) {
-	if got := dateValue(nil); got != "" {
-		t.Fatalf("dateValue(nil) = %q, want empty", got)
-	}
+	assert.Empty(t, dateValue(nil))
 	d := time.Date(2025, 6, 11, 0, 0, 0, 0, time.UTC)
-	if got := dateValue(&d); got != "2025-06-11" {
-		t.Fatalf("dateValue = %q, want 2025-06-11", got)
-	}
+	assert.Equal(t, "2025-06-11", dateValue(&d))
 }
 
 func TestCentsValue(t *testing.T) {
-	if got := centsValue(nil); got != "" {
-		t.Fatalf("centsValue(nil) = %q, want empty", got)
-	}
+	assert.Empty(t, centsValue(nil))
 	c := int64(123456)
-	if got := centsValue(&c); got != "$1,234.56" {
-		t.Fatalf("centsValue = %q, want $1,234.56", got)
-	}
+	assert.Equal(t, "$1,234.56", centsValue(&c))
 }
 
 func TestProjectRows(t *testing.T) {
@@ -46,28 +41,13 @@ func TestProjectRows(t *testing.T) {
 		},
 	}
 	rows, meta, cells := projectRows(projects)
-	if len(rows) != 1 {
-		t.Fatalf("expected 1 row, got %d", len(rows))
-	}
-	if meta[0].ID != 1 || meta[0].Deleted {
-		t.Fatalf("unexpected meta: %+v", meta[0])
-	}
-	// Title is at col 2.
-	if cells[0][2].Value != "Kitchen" {
-		t.Fatalf("title cell = %q", cells[0][2].Value)
-	}
-	// Budget is at col 4.
-	if cells[0][4].Value != "$1,000.00" {
-		t.Fatalf("budget cell = %q", cells[0][4].Value)
-	}
-	// Start date at col 6.
-	if cells[0][6].Value != "2025-03-01" {
-		t.Fatalf("start date cell = %q", cells[0][6].Value)
-	}
-	// Rows and cells should have the same values.
-	if rows[0][2] != "Kitchen" {
-		t.Fatalf("row title = %q", rows[0][2])
-	}
+	require.Len(t, rows, 1)
+	assert.Equal(t, uint(1), meta[0].ID)
+	assert.False(t, meta[0].Deleted)
+	assert.Equal(t, "Kitchen", cells[0][2].Value)
+	assert.Equal(t, "$1,000.00", cells[0][4].Value)
+	assert.Equal(t, "2025-03-01", cells[0][6].Value)
+	assert.Equal(t, "Kitchen", rows[0][2])
 }
 
 func TestProjectRowsDeleted(t *testing.T) {
@@ -79,9 +59,7 @@ func TestProjectRowsDeleted(t *testing.T) {
 		},
 	}
 	_, meta, _ := projectRows(projects)
-	if !meta[0].Deleted {
-		t.Fatal("expected deleted=true")
-	}
+	assert.True(t, meta[0].Deleted)
 }
 
 func TestQuoteRows(t *testing.T) {
@@ -98,27 +76,12 @@ func TestQuoteRows(t *testing.T) {
 		},
 	}
 	rows, meta, cells := quoteRows(quotes)
-	if len(rows) != 1 {
-		t.Fatalf("expected 1 row, got %d", len(rows))
-	}
-	if meta[0].ID != 1 {
-		t.Fatalf("unexpected ID: %d", meta[0].ID)
-	}
-	// Project name at col 1.
-	if cells[0][1].Value != "Kitchen" {
-		t.Fatalf("project cell = %q", cells[0][1].Value)
-	}
-	if cells[0][1].LinkID != 1 {
-		t.Fatalf("project linkID = %d, want 1", cells[0][1].LinkID)
-	}
-	// Vendor name at col 2.
-	if cells[0][2].Value != "ContractorCo" {
-		t.Fatalf("vendor cell = %q", cells[0][2].Value)
-	}
-	// Total at col 3.
-	if cells[0][3].Value != "$500.00" {
-		t.Fatalf("total cell = %q", cells[0][3].Value)
-	}
+	require.Len(t, rows, 1)
+	assert.Equal(t, uint(1), meta[0].ID)
+	assert.Equal(t, "Kitchen", cells[0][1].Value)
+	assert.Equal(t, uint(1), cells[0][1].LinkID)
+	assert.Equal(t, "ContractorCo", cells[0][2].Value)
+	assert.Equal(t, "$500.00", cells[0][3].Value)
 }
 
 func TestQuoteRowsFallbackProjectName(t *testing.T) {
@@ -130,9 +93,7 @@ func TestQuoteRowsFallbackProjectName(t *testing.T) {
 		},
 	}
 	_, _, cells := quoteRows(quotes)
-	if cells[0][1].Value != "Project 42" {
-		t.Fatalf("expected fallback project name, got %q", cells[0][1].Value)
-	}
+	assert.Equal(t, "Project 42", cells[0][1].Value)
 }
 
 func TestMaintenanceRows(t *testing.T) {
@@ -151,32 +112,14 @@ func TestMaintenanceRows(t *testing.T) {
 	}
 	logCounts := map[uint]int{1: 4}
 	rows, meta, cells := maintenanceRows(items, logCounts)
-	if len(rows) != 1 {
-		t.Fatalf("expected 1 row, got %d", len(rows))
-	}
-	if meta[0].ID != 1 {
-		t.Fatalf("unexpected ID: %d", meta[0].ID)
-	}
-	// Name at col 1.
-	if cells[0][1].Value != "HVAC Filter" {
-		t.Fatalf("name cell = %q", cells[0][1].Value)
-	}
-	// Category at col 2.
-	if cells[0][2].Value != "HVAC" {
-		t.Fatalf("category cell = %q", cells[0][2].Value)
-	}
-	// Appliance at col 3.
-	if cells[0][3].Value != "AC Unit" || cells[0][3].LinkID != 5 {
-		t.Fatalf("appliance cell = %q linkID=%d", cells[0][3].Value, cells[0][3].LinkID)
-	}
-	// Interval at col 6.
-	if cells[0][6].Value != "3 mo" {
-		t.Fatalf("interval cell = %q", cells[0][6].Value)
-	}
-	// Log count at col 7 (drilldown).
-	if cells[0][7].Value != "4" {
-		t.Fatalf("log count cell = %q", cells[0][7].Value)
-	}
+	require.Len(t, rows, 1)
+	assert.Equal(t, uint(1), meta[0].ID)
+	assert.Equal(t, "HVAC Filter", cells[0][1].Value)
+	assert.Equal(t, "HVAC", cells[0][2].Value)
+	assert.Equal(t, "AC Unit", cells[0][3].Value)
+	assert.Equal(t, uint(5), cells[0][3].LinkID)
+	assert.Equal(t, "3 mo", cells[0][6].Value)
+	assert.Equal(t, "4", cells[0][7].Value)
 }
 
 func TestMaintenanceRowsNoAppliance(t *testing.T) {
@@ -184,12 +127,8 @@ func TestMaintenanceRowsNoAppliance(t *testing.T) {
 		{ID: 1, Name: "Gutters", Category: data.MaintenanceCategory{Name: "Exterior"}},
 	}
 	_, _, cells := maintenanceRows(items, nil)
-	if cells[0][3].Value != "" {
-		t.Fatalf("expected empty appliance cell, got %q", cells[0][3].Value)
-	}
-	if cells[0][3].LinkID != 0 {
-		t.Fatalf("expected zero linkID, got %d", cells[0][3].LinkID)
-	}
+	assert.Empty(t, cells[0][3].Value)
+	assert.Zero(t, cells[0][3].LinkID)
 }
 
 func TestApplianceRows(t *testing.T) {
@@ -208,36 +147,14 @@ func TestApplianceRows(t *testing.T) {
 	}
 	maintCounts := map[uint]int{1: 2}
 	rows, meta, cells := applianceRows(items, maintCounts, now)
-	if len(rows) != 1 {
-		t.Fatalf("expected 1 row, got %d", len(rows))
-	}
-	if meta[0].ID != 1 {
-		t.Fatalf("unexpected ID: %d", meta[0].ID)
-	}
-	// Name at col 1.
-	if cells[0][1].Value != "Fridge" {
-		t.Fatalf("name = %q", cells[0][1].Value)
-	}
-	// Brand at col 2.
-	if cells[0][2].Value != "Samsung" {
-		t.Fatalf("brand = %q", cells[0][2].Value)
-	}
-	// Purchase date at col 6.
-	if cells[0][6].Value != "2023-06-15" {
-		t.Fatalf("purchase date = %q", cells[0][6].Value)
-	}
-	// Age at col 7.
-	if cells[0][7].Value != "2y" {
-		t.Fatalf("age = %q, want '2y'", cells[0][7].Value)
-	}
-	// Cost at col 9.
-	if cells[0][9].Value != "$899.00" {
-		t.Fatalf("cost = %q", cells[0][9].Value)
-	}
-	// Maint count at col 10 (drilldown).
-	if cells[0][10].Value != "2" {
-		t.Fatalf("maint count = %q", cells[0][10].Value)
-	}
+	require.Len(t, rows, 1)
+	assert.Equal(t, uint(1), meta[0].ID)
+	assert.Equal(t, "Fridge", cells[0][1].Value)
+	assert.Equal(t, "Samsung", cells[0][2].Value)
+	assert.Equal(t, "2023-06-15", cells[0][6].Value)
+	assert.Equal(t, "2y", cells[0][7].Value)
+	assert.Equal(t, "$899.00", cells[0][9].Value)
+	assert.Equal(t, "2", cells[0][10].Value)
 }
 
 func TestApplianceRowsNoOptionalFields(t *testing.T) {
@@ -246,25 +163,17 @@ func TestApplianceRowsNoOptionalFields(t *testing.T) {
 		{ID: 1, Name: "Lamp"},
 	}
 	_, _, cells := applianceRows(items, nil, now)
-	if cells[0][6].Value != "" {
-		t.Fatalf("expected empty purchase date, got %q", cells[0][6].Value)
-	}
-	if cells[0][7].Value != "" {
-		t.Fatalf("expected empty age, got %q", cells[0][7].Value)
-	}
-	if cells[0][9].Value != "" {
-		t.Fatalf("expected empty cost, got %q", cells[0][9].Value)
-	}
-	if cells[0][10].Value != "" {
-		t.Fatalf("expected empty maint count, got %q", cells[0][10].Value)
-	}
+	assert.Empty(t, cells[0][6].Value, "expected empty purchase date")
+	assert.Empty(t, cells[0][7].Value, "expected empty age")
+	assert.Empty(t, cells[0][9].Value, "expected empty cost")
+	assert.Empty(t, cells[0][10].Value, "expected empty maint count")
 }
 
 func TestBuildRowsEmpty(t *testing.T) {
 	rows, meta, cells := projectRows(nil)
-	if len(rows) != 0 || len(meta) != 0 || len(cells) != 0 {
-		t.Fatal("expected empty slices for nil input")
-	}
+	assert.Empty(t, rows)
+	assert.Empty(t, meta)
+	assert.Empty(t, cells)
 }
 
 func TestCellsToRow(t *testing.T) {
@@ -274,7 +183,5 @@ func TestCellsToRow(t *testing.T) {
 		{Value: "$100.00"},
 	}
 	row := cellsToRow(cells)
-	if len(row) != 3 || row[0] != "1" || row[1] != "hello" || row[2] != "$100.00" {
-		t.Fatalf("unexpected row: %v", row)
-	}
+	assert.Equal(t, table.Row{"1", "hello", "$100.00"}, row)
 }

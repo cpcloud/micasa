@@ -8,6 +8,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestWithOrdinals(t *testing.T) {
@@ -19,9 +21,7 @@ func TestWithOrdinals(t *testing.T) {
 		})
 		want := []string{"1. alpha", "2. beta", "3. gamma"}
 		for i, opt := range opts {
-			if opt.Key != want[i] {
-				t.Errorf("option %d Key = %q, want %q", i, opt.Key, want[i])
-			}
+			assert.Equalf(t, want[i], opt.Key, "option %d", i)
 		}
 	})
 
@@ -30,12 +30,8 @@ func TestWithOrdinals(t *testing.T) {
 			huh.NewOption("First", uint(1)),
 			huh.NewOption("Second", uint(2)),
 		})
-		if opts[0].Key != "1. First" {
-			t.Errorf("option 0 Key = %q, want %q", opts[0].Key, "1. First")
-		}
-		if opts[1].Key != "2. Second" {
-			t.Errorf("option 1 Key = %q, want %q", opts[1].Key, "2. Second")
-		}
+		assert.Equal(t, "1. First", opts[0].Key)
+		assert.Equal(t, "2. Second", opts[1].Key)
 	})
 
 	t.Run("double-digit ordinals", func(t *testing.T) {
@@ -44,12 +40,8 @@ func TestWithOrdinals(t *testing.T) {
 			opts[i] = huh.NewOption("item", "v")
 		}
 		opts = withOrdinals(opts)
-		if opts[9].Key != "10. item" {
-			t.Errorf("option 9 Key = %q, want %q", opts[9].Key, "10. item")
-		}
-		if opts[11].Key != "12. item" {
-			t.Errorf("option 11 Key = %q, want %q", opts[11].Key, "12. item")
-		}
+		assert.Equal(t, "10. item", opts[9].Key)
+		assert.Equal(t, "12. item", opts[11].Key)
 	})
 }
 
@@ -107,10 +99,8 @@ func TestSelectOrdinal(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			n, ok := selectOrdinal(tt.msg)
-			if n != tt.wantN || ok != tt.wantOk {
-				t.Errorf("selectOrdinal() = (%d, %v), want (%d, %v)",
-					n, ok, tt.wantN, tt.wantOk)
-			}
+			assert.Equal(t, tt.wantN, n)
+			assert.Equal(t, tt.wantOk, ok)
 		})
 	}
 }
@@ -128,9 +118,7 @@ func TestIsSelectField(t *testing.T) {
 		form := huh.NewForm(huh.NewGroup(sel))
 		form.Init()
 
-		if !isSelectField(form) {
-			t.Error("expected isSelectField=true for a Select field")
-		}
+		assert.True(t, isSelectField(form))
 	})
 
 	t.Run("input field returns false", func(t *testing.T) {
@@ -139,9 +127,7 @@ func TestIsSelectField(t *testing.T) {
 		form := huh.NewForm(huh.NewGroup(inp))
 		form.Init()
 
-		if isSelectField(form) {
-			t.Error("expected isSelectField=false for an Input field")
-		}
+		assert.False(t, isSelectField(form))
 	})
 }
 
@@ -158,10 +144,7 @@ func TestSelectOptionCount(t *testing.T) {
 	form.Init()
 
 	field := form.GetFocusedField()
-	count := selectOptionCount(field)
-	if count != 3 {
-		t.Errorf("selectOptionCount = %d, want 3", count)
-	}
+	assert.Equal(t, 3, selectOptionCount(field))
 }
 
 func TestSelectOptionCountForInput(t *testing.T) {
@@ -171,10 +154,7 @@ func TestSelectOptionCountForInput(t *testing.T) {
 	form.Init()
 
 	field := form.GetFocusedField()
-	count := selectOptionCount(field)
-	if count != -1 {
-		t.Errorf("selectOptionCount = %d, want -1 for Input", count)
-	}
+	assert.Equal(t, -1, selectOptionCount(field))
 }
 
 func TestJumpSelectToOrdinal(t *testing.T) {
@@ -194,9 +174,7 @@ func TestJumpSelectToOrdinal(t *testing.T) {
 		m := &Model{form: form}
 		m.jumpSelectToOrdinal(2) // should jump to "Beta"
 
-		if val != "b" {
-			t.Errorf("expected val=%q after jumping to ordinal 2, got %q", "b", val)
-		}
+		assert.Equal(t, "b", val)
 	})
 
 	t.Run("ordinal 1 selects first option", func(t *testing.T) {
@@ -215,9 +193,7 @@ func TestJumpSelectToOrdinal(t *testing.T) {
 		m := &Model{form: form}
 		m.jumpSelectToOrdinal(1)
 
-		if val != "a" {
-			t.Errorf("expected val=%q after jumping to ordinal 1, got %q", "a", val)
-		}
+		assert.Equal(t, "a", val)
 	})
 
 	t.Run("ordinal exceeding option count is ignored", func(t *testing.T) {
@@ -235,9 +211,7 @@ func TestJumpSelectToOrdinal(t *testing.T) {
 		m := &Model{form: form}
 		m.jumpSelectToOrdinal(5) // exceeds 2 options
 
-		if val != "a" {
-			t.Errorf("expected val=%q (unchanged) when ordinal exceeds count, got %q", "a", val)
-		}
+		assert.Equal(t, "a", val, "value should be unchanged when ordinal exceeds count")
 	})
 
 	t.Run("works with uint select", func(t *testing.T) {
@@ -256,8 +230,6 @@ func TestJumpSelectToOrdinal(t *testing.T) {
 		m := &Model{form: form}
 		m.jumpSelectToOrdinal(3)
 
-		if val != 30 {
-			t.Errorf("expected val=%d after jumping to ordinal 3, got %d", 30, val)
-		}
+		require.Equal(t, uint(30), val)
 	})
 }

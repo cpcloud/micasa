@@ -5,6 +5,9 @@ package fake
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewDeterministicSeed(t *testing.T) {
@@ -13,60 +16,38 @@ func TestNewDeterministicSeed(t *testing.T) {
 
 	v1 := h1.Vendor()
 	v2 := h2.Vendor()
-	if v1.Name != v2.Name {
-		t.Errorf("same seed produced different vendors: %q vs %q", v1.Name, v2.Name)
-	}
+	assert.Equal(t, v1.Name, v2.Name, "same seed should produce identical vendors")
 }
 
 func TestHouseProfile(t *testing.T) {
 	h := New(1)
 	house := h.HouseProfile()
 
-	if house.Nickname == "" {
-		t.Error("expected non-empty nickname")
-	}
-	if house.City == "" {
-		t.Error("expected non-empty city")
-	}
-	if house.YearBuilt < 1920 || house.YearBuilt > 2024 {
-		t.Errorf("year built %d out of range", house.YearBuilt)
-	}
-	if house.SquareFeet < 800 || house.SquareFeet > 4500 {
-		t.Errorf("sqft %d out of range", house.SquareFeet)
-	}
-	if house.Bedrooms < 1 || house.Bedrooms > 6 {
-		t.Errorf("bedrooms %d out of range", house.Bedrooms)
-	}
-	if house.InsuranceRenewal == nil {
-		t.Error("expected insurance renewal date")
-	}
+	assert.NotEmpty(t, house.Nickname)
+	assert.NotEmpty(t, house.City)
+	assert.GreaterOrEqual(t, house.YearBuilt, 1920)
+	assert.LessOrEqual(t, house.YearBuilt, 2024)
+	assert.GreaterOrEqual(t, house.SquareFeet, 800)
+	assert.LessOrEqual(t, house.SquareFeet, 4500)
+	assert.GreaterOrEqual(t, house.Bedrooms, 1)
+	assert.LessOrEqual(t, house.Bedrooms, 6)
+	assert.NotNil(t, house.InsuranceRenewal)
 }
 
 func TestVendor(t *testing.T) {
 	h := New(2)
 	v := h.Vendor()
 
-	if v.Name == "" {
-		t.Error("expected non-empty vendor name")
-	}
-	if v.ContactName == "" {
-		t.Error("expected non-empty contact name")
-	}
-	if v.Phone == "" {
-		t.Error("expected non-empty phone")
-	}
-	if v.Email == "" {
-		t.Error("expected non-empty email")
-	}
+	assert.NotEmpty(t, v.Name)
+	assert.NotEmpty(t, v.ContactName)
+	assert.NotEmpty(t, v.Phone)
+	assert.NotEmpty(t, v.Email)
 }
 
 func TestVendorForTrade(t *testing.T) {
 	h := New(3)
 	v := h.VendorForTrade("Plumbing")
-
-	if v.Name == "" {
-		t.Error("expected non-empty name")
-	}
+	assert.NotEmpty(t, v.Name)
 }
 
 func TestProject(t *testing.T) {
@@ -74,15 +55,9 @@ func TestProject(t *testing.T) {
 
 	for _, typeName := range ProjectTypes() {
 		p := h.Project(typeName)
-		if p.Title == "" {
-			t.Errorf("empty title for type %q", typeName)
-		}
-		if p.TypeName != typeName {
-			t.Errorf("type name = %q, want %q", p.TypeName, typeName)
-		}
-		if p.Description == "" {
-			t.Errorf("empty description for type %q", typeName)
-		}
+		assert.NotEmpty(t, p.Title, "type %q", typeName)
+		assert.Equal(t, typeName, p.TypeName)
+		assert.NotEmpty(t, p.Description, "type %q", typeName)
 	}
 }
 
@@ -91,12 +66,8 @@ func TestProjectCompletedHasEndDateAndActual(t *testing.T) {
 		h := New(seed)
 		p := h.Project("Plumbing")
 		if p.Status == StatusCompleted {
-			if p.EndDate == nil {
-				t.Error("completed project should have end date")
-			}
-			if p.ActualCents == nil {
-				t.Error("completed project should have actual cost")
-			}
+			require.NotNil(t, p.EndDate, "completed project should have end date")
+			require.NotNil(t, p.ActualCents, "completed project should have actual cost")
 			return
 		}
 	}
@@ -106,36 +77,20 @@ func TestProjectCompletedHasEndDateAndActual(t *testing.T) {
 func TestProjectUnknownType(t *testing.T) {
 	h := New(5)
 	p := h.Project("Unknown")
-	if p.Title == "" {
-		t.Error("expected fallback title for unknown type")
-	}
+	assert.NotEmpty(t, p.Title, "expected fallback title for unknown type")
 }
 
 func TestAppliance(t *testing.T) {
 	h := New(6)
 	a := h.Appliance()
 
-	if a.Name == "" {
-		t.Error("expected non-empty name")
-	}
-	if a.Brand == "" {
-		t.Error("expected non-empty brand")
-	}
-	if a.ModelNumber == "" {
-		t.Error("expected non-empty model number")
-	}
-	if a.SerialNumber == "" {
-		t.Error("expected non-empty serial number")
-	}
-	if a.Location == "" {
-		t.Error("expected non-empty location")
-	}
-	if a.PurchaseDate == nil {
-		t.Error("expected purchase date")
-	}
-	if a.CostCents == nil {
-		t.Error("expected cost")
-	}
+	assert.NotEmpty(t, a.Name)
+	assert.NotEmpty(t, a.Brand)
+	assert.NotEmpty(t, a.ModelNumber)
+	assert.NotEmpty(t, a.SerialNumber)
+	assert.NotEmpty(t, a.Location)
+	assert.NotNil(t, a.PurchaseDate)
+	assert.NotNil(t, a.CostCents)
 }
 
 func TestMaintenanceItem(t *testing.T) {
@@ -143,57 +98,36 @@ func TestMaintenanceItem(t *testing.T) {
 
 	for _, cat := range MaintenanceCategories() {
 		m := h.MaintenanceItem(cat)
-		if m.Name == "" {
-			t.Errorf("empty name for category %q", cat)
-		}
-		if m.IntervalMonths <= 0 {
-			t.Errorf("interval %d for category %q", m.IntervalMonths, cat)
-		}
+		assert.NotEmpty(t, m.Name, "category %q", cat)
+		assert.Positive(t, m.IntervalMonths, "category %q", cat)
 	}
 }
 
 func TestMaintenanceItemUnknownCategory(t *testing.T) {
 	h := New(8)
 	m := h.MaintenanceItem("Unknown")
-	if m.Name == "" {
-		t.Error("expected fallback name")
-	}
-	if m.IntervalMonths != 12 {
-		t.Errorf("expected 12-month interval for unknown, got %d", m.IntervalMonths)
-	}
+	assert.NotEmpty(t, m.Name)
+	assert.Equal(t, 12, m.IntervalMonths)
 }
 
 func TestServiceLogEntry(t *testing.T) {
 	h := New(9)
 	e := h.ServiceLogEntry()
 
-	if e.ServicedAt.IsZero() {
-		t.Error("expected non-zero serviced at")
-	}
-	if e.CostCents == nil {
-		t.Error("expected cost")
-	}
-	if e.Notes == "" {
-		t.Error("expected notes")
-	}
+	assert.NotZero(t, e.ServicedAt)
+	assert.NotNil(t, e.CostCents)
+	assert.NotEmpty(t, e.Notes)
 }
 
 func TestQuote(t *testing.T) {
 	h := New(10)
 	q := h.Quote()
 
-	if q.TotalCents <= 0 {
-		t.Error("expected positive total")
-	}
-	if q.LaborCents == nil || q.MaterialsCents == nil {
-		t.Error("expected labor and materials breakdown")
-	}
-	if *q.LaborCents+*q.MaterialsCents != q.TotalCents {
-		t.Error("labor + materials should equal total")
-	}
-	if q.ReceivedDate == nil {
-		t.Error("expected received date")
-	}
+	assert.Positive(t, q.TotalCents)
+	require.NotNil(t, q.LaborCents)
+	require.NotNil(t, q.MaterialsCents)
+	assert.Equal(t, q.TotalCents, *q.LaborCents+*q.MaterialsCents)
+	assert.NotNil(t, q.ReceivedDate)
 }
 
 func TestVarietyAcrossSeeds(t *testing.T) {
@@ -203,24 +137,19 @@ func TestVarietyAcrossSeeds(t *testing.T) {
 		v := h.Vendor()
 		names[v.Name] = true
 	}
-	if len(names) < 10 {
-		t.Errorf("expected variety, got only %d unique names from 20 seeds", len(names))
-	}
+	assert.GreaterOrEqual(t, len(names), 10, "expected variety from 20 seeds")
 }
 
 func TestVendorTrades(t *testing.T) {
 	trades := VendorTrades()
-	if len(trades) == 0 {
-		t.Error("expected non-empty trades list")
-	}
+	assert.NotEmpty(t, trades)
 }
 
 func TestIntN(t *testing.T) {
 	h := New(42)
 	for i := 0; i < 100; i++ {
 		v := h.IntN(5)
-		if v < 0 || v >= 5 {
-			t.Errorf("IntN(5) = %d, out of range", v)
-		}
+		assert.GreaterOrEqual(t, v, 0)
+		assert.Less(t, v, 5)
 	}
 }

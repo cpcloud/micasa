@@ -5,12 +5,13 @@ package app
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/cpcloud/micasa/internal/data"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDaysUntil(t *testing.T) {
@@ -28,10 +29,7 @@ func TestDaysUntil(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := daysUntil(now, tt.target)
-			if got != tt.want {
-				t.Errorf("daysUntil(%v, %v) = %d, want %d", now, tt.target, got, tt.want)
-			}
+			assert.Equal(t, tt.want, daysUntil(now, tt.target))
 		})
 	}
 }
@@ -50,11 +48,8 @@ func TestDaysText(t *testing.T) {
 		{1, false, "in 1 day"},
 	}
 	for _, tt := range tests {
-		got := daysText(tt.days, tt.overdue)
-		if got != tt.want {
-			t.Errorf("daysText(%d, %v) = %q, want %q",
-				tt.days, tt.overdue, got, tt.want)
-		}
+		assert.Equalf(t, tt.want, daysText(tt.days, tt.overdue),
+			"daysText(%d, %v)", tt.days, tt.overdue)
 	}
 }
 
@@ -67,23 +62,16 @@ func TestSortByDays(t *testing.T) {
 	}
 	sortByDays(items)
 	for i := 1; i < len(items); i++ {
-		if items[i].DaysFromNow < items[i-1].DaysFromNow {
-			t.Fatalf("not sorted: items[%d]=%d < items[%d]=%d",
-				i, items[i].DaysFromNow, i-1, items[i-1].DaysFromNow)
-		}
+		assert.GreaterOrEqualf(t, items[i].DaysFromNow, items[i-1].DaysFromNow,
+			"not sorted: items[%d]=%d < items[%d]=%d",
+			i, items[i].DaysFromNow, i-1, items[i-1].DaysFromNow)
 	}
 }
 
 func TestCapSlice(t *testing.T) {
-	if got := capSlice([]int{1, 2, 3, 4, 5}, 3); len(got) != 3 {
-		t.Fatalf("expected 3, got %d", len(got))
-	}
-	if got := capSlice([]int{1, 2}, 5); len(got) != 2 {
-		t.Fatalf("expected 2, got %d", len(got))
-	}
-	if got := capSlice([]int{1, 2, 3}, -1); len(got) != 0 {
-		t.Fatalf("expected 0, got %d", len(got))
-	}
+	assert.Len(t, capSlice([]int{1, 2, 3, 4, 5}, 3), 3)
+	assert.Len(t, capSlice([]int{1, 2}, 5), 2)
+	assert.Empty(t, capSlice([]int{1, 2, 3}, -1))
 }
 
 func TestDashboardToggle(t *testing.T) {
@@ -91,13 +79,9 @@ func TestDashboardToggle(t *testing.T) {
 	m.showDashboard = false
 
 	sendKey(m, "D")
-	if !m.showDashboard {
-		t.Fatal("expected showDashboard=true after D")
-	}
+	assert.True(t, m.showDashboard)
 	sendKey(m, "D")
-	if m.showDashboard {
-		t.Fatal("expected showDashboard=false after second D")
-	}
+	assert.False(t, m.showDashboard)
 }
 
 func TestDashboardDismissedByTab(t *testing.T) {
@@ -105,9 +89,7 @@ func TestDashboardDismissedByTab(t *testing.T) {
 	m.showDashboard = true
 
 	sendKey(m, "tab")
-	if m.showDashboard {
-		t.Fatal("expected showDashboard=false after tab")
-	}
+	assert.False(t, m.showDashboard)
 }
 
 func TestDashboardDismissedByShiftTab(t *testing.T) {
@@ -115,9 +97,7 @@ func TestDashboardDismissedByShiftTab(t *testing.T) {
 	m.showDashboard = true
 
 	sendKey(m, "shift+tab")
-	if m.showDashboard {
-		t.Fatal("expected showDashboard=false after shift+tab")
-	}
+	assert.False(t, m.showDashboard)
 }
 
 func TestDashboardNavigation(t *testing.T) {
@@ -135,34 +115,22 @@ func TestDashboardNavigation(t *testing.T) {
 
 	// j moves down.
 	sendKey(m, "j")
-	if m.dashCursor != 1 {
-		t.Fatalf("expected cursor 1 after j, got %d", m.dashCursor)
-	}
+	assert.Equal(t, 1, m.dashCursor)
 	// k moves up.
 	sendKey(m, "k")
-	if m.dashCursor != 0 {
-		t.Fatalf("expected cursor 0 after k, got %d", m.dashCursor)
-	}
+	assert.Equal(t, 0, m.dashCursor)
 	// k at 0 stays at 0 (no wrap).
 	sendKey(m, "k")
-	if m.dashCursor != 0 {
-		t.Fatalf("expected cursor 0 after k at top, got %d", m.dashCursor)
-	}
+	assert.Equal(t, 0, m.dashCursor)
 	// G jumps to bottom.
 	sendKey(m, "G")
-	if m.dashCursor != 4 {
-		t.Fatalf("expected cursor 4 after G, got %d", m.dashCursor)
-	}
+	assert.Equal(t, 4, m.dashCursor)
 	// j at bottom stays at bottom.
 	sendKey(m, "j")
-	if m.dashCursor != 4 {
-		t.Fatalf("expected cursor 4 after j at bottom, got %d", m.dashCursor)
-	}
+	assert.Equal(t, 4, m.dashCursor)
 	// g jumps to top.
 	sendKey(m, "g")
-	if m.dashCursor != 0 {
-		t.Fatalf("expected cursor 0 after g, got %d", m.dashCursor)
-	}
+	assert.Equal(t, 0, m.dashCursor)
 }
 
 func TestDashboardJump(t *testing.T) {
@@ -175,12 +143,8 @@ func TestDashboardJump(t *testing.T) {
 	m.dashCursor = 1
 
 	m.dashJump()
-	if m.showDashboard {
-		t.Fatal("expected dashboard dismissed after jump")
-	}
-	if m.active != tabIndex(tabProjects) {
-		t.Fatalf("expected active tab %d, got %d", tabIndex(tabProjects), m.active)
-	}
+	assert.False(t, m.showDashboard)
+	assert.Equal(t, tabIndex(tabProjects), m.active)
 }
 
 func TestDashboardEnterKeyJumps(t *testing.T) {
@@ -192,14 +156,9 @@ func TestDashboardEnterKeyJumps(t *testing.T) {
 	}
 	m.dashCursor = 1
 
-	// enter via sendKey should go through handleDashboardKeys and jump.
 	sendKey(m, "enter")
-	if m.showDashboard {
-		t.Fatal("expected dashboard dismissed after enter")
-	}
-	if m.active != tabIndex(tabProjects) {
-		t.Fatalf("expected active tab %d, got %d", tabIndex(tabProjects), m.active)
-	}
+	assert.False(t, m.showDashboard)
+	assert.Equal(t, tabIndex(tabProjects), m.active)
 }
 
 func TestDashboardBlocksTableKeys(t *testing.T) {
@@ -212,34 +171,22 @@ func TestDashboardBlocksTableKeys(t *testing.T) {
 	// h/l should not move column cursor.
 	colBefore := m.tabs[m.active].ColCursor
 	sendKey(m, "l")
-	if m.tabs[m.active].ColCursor != colBefore {
-		t.Error("l should be blocked on dashboard")
-	}
+	assert.Equal(t, colBefore, m.tabs[m.active].ColCursor, "l should be blocked on dashboard")
 	sendKey(m, "h")
-	if m.tabs[m.active].ColCursor != colBefore {
-		t.Error("h should be blocked on dashboard")
-	}
+	assert.Equal(t, colBefore, m.tabs[m.active].ColCursor, "h should be blocked on dashboard")
 
 	// s should not add a sort.
 	sortsBefore := len(m.tabs[m.active].Sorts)
 	sendKey(m, "s")
-	if len(m.tabs[m.active].Sorts) != sortsBefore {
-		t.Error("s should be blocked on dashboard")
-	}
+	assert.Equal(t, sortsBefore, len(m.tabs[m.active].Sorts), "s should be blocked on dashboard")
 
 	// i should not enter edit mode.
 	sendKey(m, "i")
-	if m.mode != modeNormal {
-		t.Error("i should be blocked on dashboard")
-	}
+	assert.Equal(t, modeNormal, m.mode, "i should be blocked on dashboard")
 
 	// Dashboard should still be showing.
-	if !m.showDashboard {
-		t.Error("dashboard should still be showing after blocked keys")
-	}
-	if m.active != startTab {
-		t.Error("active tab should not have changed")
-	}
+	assert.True(t, m.showDashboard)
+	assert.Equal(t, startTab, m.active)
 }
 
 func TestDashboardViewEmptySections(t *testing.T) {
@@ -252,9 +199,7 @@ func TestDashboardViewEmptySections(t *testing.T) {
 
 	view := m.dashboardView(50)
 	// Empty dashboard returns empty string -- silence is success.
-	if view != "" {
-		t.Errorf("expected empty string for empty dashboard, got %q", view)
-	}
+	assert.Empty(t, view)
 }
 
 func TestDashboardViewWithData(t *testing.T) {
@@ -284,18 +229,10 @@ func TestDashboardViewWithData(t *testing.T) {
 	m.buildDashNav()
 
 	view := m.dashboardView(50)
-	if !strings.Contains(view, "HVAC Filter") {
-		t.Error("expected overdue item in view")
-	}
-	if !strings.Contains(view, "Kitchen Remodel") {
-		t.Error("expected active project in view")
-	}
-	if !strings.Contains(view, "overdue") {
-		t.Error("expected 'overdue' label in view")
-	}
-	if !strings.Contains(view, "$500.00") {
-		t.Error("expected service spend in view")
-	}
+	assert.Contains(t, view, "HVAC Filter")
+	assert.Contains(t, view, "Kitchen Remodel")
+	assert.Contains(t, view, "overdue")
+	assert.Contains(t, view, "$500.00")
 }
 
 func TestDashboardOverlay(t *testing.T) {
@@ -307,14 +244,9 @@ func TestDashboardOverlay(t *testing.T) {
 	m.dashNav = nil
 
 	ov := m.buildDashboardOverlay()
-	// Header shows today's date (no "Dashboard" title -- tab bar handles that).
 	today := time.Now().Format("Monday, Jan 2")
-	if !strings.Contains(ov, today) {
-		t.Errorf("expected today's date %q in overlay header", today)
-	}
-	if !strings.Contains(ov, "help") {
-		t.Error("expected help hint in overlay")
-	}
+	assert.Contains(t, ov, today)
+	assert.Contains(t, ov, "help")
 }
 
 func TestDashboardOverlayComposite(t *testing.T) {
@@ -325,11 +257,8 @@ func TestDashboardOverlayComposite(t *testing.T) {
 	m.dashboard = dashboardData{}
 	m.dashNav = nil
 
-	// buildView should produce a composited result without panicking.
 	view := m.buildView()
-	if view == "" {
-		t.Error("expected non-empty composited view")
-	}
+	assert.NotEmpty(t, view)
 }
 
 func TestDashboardStatusBarShowsNormal(t *testing.T) {
@@ -337,12 +266,8 @@ func TestDashboardStatusBarShowsNormal(t *testing.T) {
 	m.width = 120
 	m.height = 40
 	m.showDashboard = true
-	// statusView always shows normal-mode status; dashboard hints are
-	// in the overlay, not the status bar.
 	status := m.statusView()
-	if !strings.Contains(status, "NAV") {
-		t.Error("expected NAV badge in status bar")
-	}
+	assert.Contains(t, status, "NAV")
 }
 
 func TestBuildDashNav(t *testing.T) {
@@ -364,18 +289,13 @@ func TestBuildDashNav(t *testing.T) {
 	}
 	m.buildDashNav()
 
-	if len(m.dashNav) != 3 {
-		t.Fatalf("expected 3 nav entries, got %d", len(m.dashNav))
-	}
-	if m.dashNav[0].Tab != tabMaintenance || m.dashNav[0].ID != 10 {
-		t.Errorf("nav[0] = %+v, want maintenance/10", m.dashNav[0])
-	}
-	if m.dashNav[1].Tab != tabProjects || m.dashNav[1].ID != 20 {
-		t.Errorf("nav[1] = %+v, want projects/20", m.dashNav[1])
-	}
-	if m.dashNav[2].Tab != tabAppliances || m.dashNav[2].ID != 30 {
-		t.Errorf("nav[2] = %+v, want appliances/30", m.dashNav[2])
-	}
+	require.Len(t, m.dashNav, 3)
+	assert.Equal(t, tabMaintenance, m.dashNav[0].Tab)
+	assert.Equal(t, uint(10), m.dashNav[0].ID)
+	assert.Equal(t, tabProjects, m.dashNav[1].Tab)
+	assert.Equal(t, uint(20), m.dashNav[1].ID)
+	assert.Equal(t, tabAppliances, m.dashNav[2].Tab)
+	assert.Equal(t, uint(30), m.dashNav[2].ID)
 }
 
 func TestRenderMiniTable(t *testing.T) {
@@ -390,15 +310,9 @@ func TestRenderMiniTable(t *testing.T) {
 		}},
 	}
 	lines := renderMiniTable(rows, 3, -1, lipgloss.NewStyle())
-	if len(lines) != 2 {
-		t.Fatalf("expected 2 lines, got %d", len(lines))
-	}
+	require.Len(t, lines, 2)
 	// Both lines should have the same visible width due to column alignment.
-	w0 := len(lines[0])
-	w1 := len(lines[1])
-	if w0 != w1 {
-		t.Errorf("lines have different widths: %d vs %d", w0, w1)
-	}
+	assert.Equal(t, len(lines[0]), len(lines[1]))
 }
 
 func TestDistributeDashRows(t *testing.T) {
@@ -408,9 +322,8 @@ func TestDistributeDashRows(t *testing.T) {
 			{rows: make([]dashRow, 5)},
 		}
 		got := distributeDashRows(sections, 20)
-		if got[0] != 3 || got[1] != 5 {
-			t.Errorf("expected [3,5], got %v", got)
-		}
+		assert.Equal(t, 3, got[0])
+		assert.Equal(t, 5, got[1])
 	})
 
 	t.Run("proportional trimming", func(t *testing.T) {
@@ -419,17 +332,8 @@ func TestDistributeDashRows(t *testing.T) {
 			{rows: make([]dashRow, 2)},
 		}
 		got := distributeDashRows(sections, 6)
-		// 6 avail, 2 sections get min 1 each, 4 remaining.
-		// Section 0 has 9 extra, section 1 has 1 extra, total excess = 10.
-		// Proportional: s0 gets 1 + 9*4/10=4 = 5, s1 gets 1 + 1*4/10=1 = 1+0=1.
-		// Rounding leftover: 6-6=0. Total = 6.
-		if got[0]+got[1] != 6 {
-			t.Errorf("expected total 6, got %d (%v)", got[0]+got[1], got)
-		}
-		// Larger section should get more rows.
-		if got[0] <= got[1] {
-			t.Errorf("expected s0 > s1, got %v", got)
-		}
+		assert.Equal(t, 6, got[0]+got[1])
+		assert.Greater(t, got[0], got[1])
 	})
 
 	t.Run("minimum 1 per section", func(t *testing.T) {
@@ -440,9 +344,7 @@ func TestDistributeDashRows(t *testing.T) {
 		}
 		got := distributeDashRows(sections, 3)
 		for i, g := range got {
-			if g < 1 {
-				t.Errorf("section %d got %d rows, expected >= 1", i, g)
-			}
+			assert.GreaterOrEqualf(t, g, 1, "section %d got %d rows", i, g)
 		}
 	})
 }
@@ -458,12 +360,9 @@ func TestDashboardViewSkipsEmptySections(t *testing.T) {
 	m.buildDashNav()
 
 	view := m.dashboardView(50)
-	if !strings.Contains(view, "Spending") {
-		t.Error("expected spending section")
-	}
-	if strings.Contains(view, "Overdue") || strings.Contains(view, "Active Projects") {
-		t.Error("empty sections should not appear")
-	}
+	assert.Contains(t, view, "Spending")
+	assert.NotContains(t, view, "Overdue")
+	assert.NotContains(t, view, "Active Projects")
 }
 
 func TestDashboardViewTrimRows(t *testing.T) {
@@ -493,25 +392,22 @@ func TestDashboardViewTrimRows(t *testing.T) {
 	// With a generous budget, all rows appear.
 	bigView := m.dashboardView(100)
 	for i := 1; i <= 8; i++ {
-		if !strings.Contains(bigView, fmt.Sprintf("Task %d", i)) {
-			t.Errorf("expected Task %d in big-budget view", i)
-		}
+		assert.Containsf(
+			t,
+			bigView,
+			fmt.Sprintf("Task %d", i),
+			"expected Task %d in big-budget view",
+			i,
+		)
 	}
 
 	// With a tiny budget, rows are trimmed but at least 1 per section.
 	m.buildDashNav()
 	m.dashCursor = 0
 	smallView := m.dashboardView(6)
-	// Should still have content from both sections.
-	hasMaint := strings.Contains(smallView, "Task")
-	hasProj := strings.Contains(smallView, "Proj")
-	if !hasMaint || !hasProj {
-		t.Errorf("expected both sections represented, maint=%v proj=%v", hasMaint, hasProj)
-	}
-	// Nav should be trimmed too.
-	if len(m.dashNav) >= 13 {
-		t.Errorf("expected nav trimmed, got %d entries", len(m.dashNav))
-	}
+	assert.Contains(t, smallView, "Task")
+	assert.Contains(t, smallView, "Proj")
+	assert.Less(t, len(m.dashNav), 13, "expected nav trimmed")
 }
 
 func TestDashboardNavRebuiltFromTrimmedView(t *testing.T) {
@@ -533,13 +429,8 @@ func TestDashboardNavRebuiltFromTrimmedView(t *testing.T) {
 	// Render with a tiny budget: forces trimming.
 	_ = m.dashboardView(5)
 
-	// Nav should be trimmed and cursor clamped.
-	if len(m.dashNav) > 5 {
-		t.Errorf("expected nav <= 5, got %d", len(m.dashNav))
-	}
-	if m.dashCursor >= len(m.dashNav) {
-		t.Errorf("cursor %d should be < nav length %d", m.dashCursor, len(m.dashNav))
-	}
+	assert.LessOrEqual(t, len(m.dashNav), 5)
+	assert.Less(t, m.dashCursor, len(m.dashNav))
 }
 
 func TestDashboardDefaultOnLaunchWithHouse(t *testing.T) {
@@ -548,7 +439,5 @@ func TestDashboardDefaultOnLaunchWithHouse(t *testing.T) {
 	m.house = data.HouseProfile{Nickname: "Test"}
 	m.showDashboard = true
 
-	if !m.showDashboard {
-		t.Fatal("expected dashboard on launch when house exists")
-	}
+	assert.True(t, m.showDashboard)
 }

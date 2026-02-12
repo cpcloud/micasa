@@ -9,6 +9,7 @@ import (
 
 	"github.com/cpcloud/micasa/internal/data"
 	"github.com/cpcloud/micasa/internal/fake"
+	"github.com/stretchr/testify/require"
 )
 
 // newTestModelWithDemoData creates a Model backed by a real SQLite store,
@@ -18,24 +19,14 @@ func newTestModelWithDemoData(t *testing.T, seed uint64) *Model {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "test.db")
 	store, err := data.Open(path)
-	if err != nil {
-		t.Fatalf("Open: %v", err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
-	if err := store.AutoMigrate(); err != nil {
-		t.Fatalf("AutoMigrate: %v", err)
-	}
-	if err := store.SeedDefaults(); err != nil {
-		t.Fatalf("SeedDefaults: %v", err)
-	}
+	require.NoError(t, store.AutoMigrate())
+	require.NoError(t, store.SeedDefaults())
 	h := fake.New(seed)
-	if err := store.SeedDemoDataFrom(h); err != nil {
-		t.Fatalf("SeedDemoData: %v", err)
-	}
+	require.NoError(t, store.SeedDemoDataFrom(h))
 	m, err := NewModel(store, Options{DBPath: path})
-	if err != nil {
-		t.Fatalf("NewModel: %v", err)
-	}
+	require.NoError(t, err)
 	m.width = 120
 	m.height = 40
 	if m.mode == modeForm {
