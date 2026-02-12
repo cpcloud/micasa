@@ -46,9 +46,9 @@ jobs:
         run: echo "MICASA_TEST_SEED=${{ github.run_id }}"
 
       - name: Test
-        run: go test -race -shuffle on -v -coverprofile coverage.txt ./...
+        run: go test ${{ runner.os != 'Windows' && '-race' || '' }} -shuffle on -v -coverprofile coverage.txt ./...
         env:
-          CGO_ENABLED: "1"
+          CGO_ENABLED: ${{ runner.os != 'Windows' && '1' || '0' }}
           MICASA_TEST_SEED: ${{ github.run_id }}
 
       - name: Benchmarks (smoke)
