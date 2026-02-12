@@ -261,6 +261,9 @@ These have been repeatedly requested. Violating them wastes the user's time.
 - **Treat "upstream" conceptually**: When the user says "rebase on upstream",
   use the repository's canonical mainline remote even if it is not literally
   named `upstream` (for example `origin/main` when no `upstream` remote exists).
+- **Use `--body-file` for `gh` PR/issue bodies**: Write the body to a
+  temp file and pass `--body-file` instead of `--body`. This avoids
+  shell-quoting issues that silently corrupt markdown.
 - **Quote nix flake refs**: Always single-quote flake references that
   contain `#` so the shell doesn't treat `#` as a comment. Examples:
   `nix shell 'nixpkgs#vhs'`, `nix run '.#capture-screenshots'`,
