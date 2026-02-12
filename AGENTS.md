@@ -312,6 +312,13 @@ These have been repeatedly requested. Violating them wastes the user's time.
   expected hash from the error without a noisy warning, then paste in the
   real hash.
 - **Run `go mod tidy` before committing** to keep `go.mod`/`go.sum` clean.
+- **Use `testify/assert` and `testify/require` for all test assertions**:
+  All tests use `github.com/stretchr/testify`. Use `require` for
+  preconditions that must hold for the test to continue (setup errors,
+  nil checks) and `assert` for the actual assertions under test. Do not
+  use bare `t.Fatal`, `t.Fatalf`, `t.Error`, or `t.Errorf` for
+  assertions — strong justification is needed to deviate from this
+  pattern.
 - **Run `go vet` and `nix run .#osv-scanner` before committing** when
   Go-related files have changed (`.go`, `go.mod`, `go.sum`, `flake.nix`,
   `osv-scanner.toml`). These catch common Go errors and security

@@ -122,7 +122,7 @@ func TestUndoKeyIgnoredInNormalMode(t *testing.T) {
 	m.pushUndo(undoEntry{
 		Description: "test",
 		Restore: func() error {
-			t.Fatal("should not be called in Normal mode")
+			assert.Fail(t, "should not be called in Normal mode")
 			return nil
 		},
 	})
@@ -192,7 +192,7 @@ func TestRedoKeyIgnoredInNormalMode(t *testing.T) {
 	m.pushRedo(undoEntry{
 		Description: "test",
 		Restore: func() error {
-			t.Fatal("should not be called in Normal mode")
+			assert.Fail(t, "should not be called in Normal mode")
 			return nil
 		},
 	})

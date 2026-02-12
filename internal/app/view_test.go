@@ -356,14 +356,8 @@ func TestRenderHiddenBadgesStableWidthAcrossCursorMoves(t *testing.T) {
 	startW := lipgloss.Width(start)
 	middleW := lipgloss.Width(middle)
 	endW := lipgloss.Width(end)
-	if startW != middleW || middleW != endW {
-		t.Fatalf(
-			"expected stable hidden badge widths, got start=%d middle=%d end=%d",
-			startW,
-			middleW,
-			endW,
-		)
-	}
+	assert.Equal(t, startW, middleW, "start vs middle badge width")
+	assert.Equal(t, middleW, endW, "middle vs end badge width")
 }
 
 func TestColumnWidthsFixedValuesStillStabilize(t *testing.T) {
