@@ -6,6 +6,7 @@ package app
 import (
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -223,7 +224,8 @@ func (m *Model) handleColumnFinderKey(key tea.KeyMsg) tea.Cmd {
 		return nil
 	case "backspace":
 		if len(cf.Query) > 0 {
-			cf.Query = cf.Query[:len(cf.Query)-1]
+			_, size := utf8.DecodeLastRuneInString(cf.Query)
+			cf.Query = cf.Query[:len(cf.Query)-size]
 			cf.refilter()
 		}
 		return nil
