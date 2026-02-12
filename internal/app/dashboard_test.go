@@ -198,7 +198,7 @@ func TestDashboardViewEmptySections(t *testing.T) {
 	m.dashNav = nil
 	m.dashCursor = 0
 
-	view := m.dashboardView(50)
+	view := m.dashboardView(50, 120)
 	// Empty dashboard returns empty string -- silence is success.
 	assert.Empty(t, view)
 }
@@ -229,11 +229,55 @@ func TestDashboardViewWithData(t *testing.T) {
 	}
 	m.buildDashNav()
 
-	view := m.dashboardView(50)
+	view := m.dashboardView(50, 120)
 	assert.Contains(t, view, "HVAC Filter")
 	assert.Contains(t, view, "Kitchen Remodel")
 	assert.Contains(t, view, "overdue")
 	assert.Contains(t, view, "$500.00")
+}
+
+func TestDashboardViewFitsOverlayWidth(t *testing.T) {
+	m := newTestModel()
+	m.width = 80
+	m.height = 40
+
+	// Build data with long names that would wrap without truncation.
+	now := time.Date(2026, 2, 8, 0, 0, 0, 0, time.UTC)
+	overdueDue := time.Date(2026, 1, 25, 0, 0, 0, 0, time.UTC)
+	lastSrv := time.Date(2025, 10, 25, 0, 0, 0, 0, time.UTC)
+
+	m.dashboard = dashboardData{
+		Overdue: []maintenanceUrgency{{
+			Item: data.MaintenanceItem{
+				Name:           "Refrigerator coil cleaning and deep inspection",
+				LastServicedAt: &lastSrv,
+			},
+			NextDue:       overdueDue,
+			DaysFromNow:   daysUntil(now, overdueDue),
+			ApplianceName: "Kitchen Refrigerator",
+		}},
+		ActiveProjects: []data.Project{{
+			Title:  "Kitchen countertop upgrade with premium materials",
+			Status: data.ProjectStatusInProgress,
+		}},
+	}
+	m.buildDashNav()
+
+	// Simulate the overlay's inner width: contentW = min(width-12, 72),
+	// innerW = contentW - 4.
+	contentW := m.effectiveWidth() - 12
+	if contentW > 72 {
+		contentW = 72
+	}
+	innerW := contentW - 4
+
+	view := m.dashboardView(50, innerW)
+	for i, line := range strings.Split(view, "\n") {
+		w := lipgloss.Width(line)
+		assert.LessOrEqual(t, w, innerW,
+			"line %d width %d exceeds overlay inner width %d: %q",
+			i, w, innerW, line)
+	}
 }
 
 func TestDashboardOverlay(t *testing.T) {
@@ -260,6 +304,47 @@ func TestDashboardOverlayComposite(t *testing.T) {
 
 	view := m.buildView()
 	assert.NotEmpty(t, view)
+}
+
+func TestDashboardOverlayFitsHeight(t *testing.T) {
+	m := newTestModel()
+	m.width = 80
+	m.height = 30
+	m.showDashboard = true
+
+	// Lots of data to stress the height budget.
+	overdue := make([]maintenanceUrgency, 12)
+	for i := range overdue {
+		overdue[i] = maintenanceUrgency{
+			Item: data.MaintenanceItem{
+				ID:   uint(i + 1),
+				Name: fmt.Sprintf("Long maintenance task %d", i+1),
+			},
+			DaysFromNow:   -(i + 1),
+			ApplianceName: "Big Appliance",
+		}
+	}
+	projects := make([]data.Project, 8)
+	for i := range projects {
+		projects[i] = data.Project{
+			Title:  fmt.Sprintf("Project with a fairly long name %d", i+1),
+			Status: data.ProjectStatusInProgress,
+		}
+		projects[i].ID = uint(100 + i)
+	}
+	m.dashboard = dashboardData{
+		Overdue:           overdue,
+		ActiveProjects:    projects,
+		ServiceSpendCents: 50000,
+		ProjectSpendCents: 100000,
+	}
+	m.buildDashNav()
+
+	overlay := m.buildDashboardOverlay()
+	overlayH := lipgloss.Height(overlay)
+	maxH := m.effectiveHeight() - 4
+	assert.LessOrEqual(t, overlayH, maxH,
+		"overlay height %d exceeds max %d", overlayH, maxH)
 }
 
 func TestDashboardOverlayDimsSurroundingContent(t *testing.T) {
@@ -331,7 +416,7 @@ func TestRenderMiniTable(t *testing.T) {
 			{Text: "7", Style: lipgloss.NewStyle(), Align: alignRight},
 		}},
 	}
-	lines := renderMiniTable(rows, 3, -1, lipgloss.NewStyle())
+	lines := renderMiniTable(rows, 3, 0, -1, lipgloss.NewStyle())
 	require.Len(t, lines, 2)
 	// Both lines should have the same visible width due to column alignment.
 	assert.Equal(t, lipgloss.Width(lines[0]), lipgloss.Width(lines[1]))
@@ -351,7 +436,7 @@ func TestRenderMiniTableUnicode(t *testing.T) {
 				{Text: "in 14 days", Style: plain, Align: alignRight},
 			}},
 		}
-		lines := renderMiniTable(rows, 3, -1, plain)
+		lines := renderMiniTable(rows, 3, 0, -1, plain)
 		require.Len(t, lines, 2)
 		assert.Equal(t, lipgloss.Width(lines[0]), lipgloss.Width(lines[1]),
 			"rows with accented characters should align")
@@ -369,7 +454,7 @@ func TestRenderMiniTableUnicode(t *testing.T) {
 				{Text: "$1,000", Style: plain, Align: alignRight},
 			}},
 		}
-		lines := renderMiniTable(rows, 3, -1, plain)
+		lines := renderMiniTable(rows, 3, 0, -1, plain)
 		require.Len(t, lines, 2)
 		assert.Equal(t, lipgloss.Width(lines[0]), lipgloss.Width(lines[1]),
 			"rows with CJK characters should align")
@@ -386,11 +471,104 @@ func TestRenderMiniTableUnicode(t *testing.T) {
 				{Text: "pending", Style: plain},
 			}},
 		}
-		lines := renderMiniTable(rows, 3, -1, plain)
+		lines := renderMiniTable(rows, 3, 0, -1, plain)
 		require.Len(t, lines, 2)
 		assert.Equal(t, lipgloss.Width(lines[0]), lipgloss.Width(lines[1]),
 			"rows with emoji should align")
 	})
+}
+
+func TestRenderMiniTableTruncatesOnNarrowWidth(t *testing.T) {
+	plain := lipgloss.NewStyle()
+	rows := []dashRow{
+		{Cells: []dashCell{
+			{Text: "Very long maintenance item name here", Style: plain},
+			{Text: "3 days overdue", Style: plain, Align: alignRight},
+		}},
+		{Cells: []dashCell{
+			{Text: "Another long name for testing", Style: plain},
+			{Text: "in 14 days", Style: plain, Align: alignRight},
+		}},
+	}
+
+	// Without width cap, rows are as wide as content demands.
+	uncapped := renderMiniTable(rows, 3, 0, -1, plain)
+	require.Len(t, uncapped, 2)
+	uncappedWidth := lipgloss.Width(uncapped[0])
+
+	// With a tight width cap, rows should be truncated.
+	capped := renderMiniTable(rows, 3, 40, -1, plain)
+	require.Len(t, capped, 2)
+	for i, line := range capped {
+		w := lipgloss.Width(line)
+		assert.LessOrEqual(t, w, 40,
+			"line %d width %d exceeds maxWidth 40", i, w)
+	}
+
+	// Capped should be narrower than uncapped.
+	assert.Less(t, lipgloss.Width(capped[0]), uncappedWidth,
+		"capped lines should be narrower")
+
+	// Truncated first column should contain an ellipsis.
+	assert.Contains(t, capped[0], "\u2026", "truncated line should contain ellipsis")
+}
+
+func TestTruncateToWidth(t *testing.T) {
+	tests := []struct {
+		name  string
+		text  string
+		maxW  int
+		check func(t *testing.T, result string)
+	}{
+		{
+			name: "fits within width",
+			text: "hello",
+			maxW: 10,
+			check: func(t *testing.T, result string) {
+				assert.Equal(t, "hello", result)
+			},
+		},
+		{
+			name: "truncated with ellipsis",
+			text: "very long text here",
+			maxW: 10,
+			check: func(t *testing.T, result string) {
+				assert.LessOrEqual(t, lipgloss.Width(result), 10)
+				assert.Contains(t, result, "\u2026")
+			},
+		},
+		{
+			name: "CJK truncation",
+			text: "\u6771\u829d\u88fd\u54c1\u682a\u5f0f\u4f1a\u793e", // 東芝製品株式会社
+			maxW: 8,
+			check: func(t *testing.T, result string) {
+				assert.LessOrEqual(t, lipgloss.Width(result), 8)
+				assert.Contains(t, result, "\u2026")
+			},
+		},
+		{
+			name: "width 1 returns ellipsis",
+			text: "hello",
+			maxW: 1,
+			check: func(t *testing.T, result string) {
+				assert.Equal(t, "\u2026", result)
+			},
+		},
+		{
+			name: "width 0 returns empty",
+			text: "hello",
+			maxW: 0,
+			check: func(t *testing.T, result string) {
+				assert.Empty(t, result)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := truncateToWidth(tt.text, tt.maxW)
+			tt.check(t, result)
+		})
+	}
 }
 
 func TestDistributeProportional(t *testing.T) {
@@ -472,7 +650,7 @@ func TestDashboardViewSkipsEmptySections(t *testing.T) {
 	}
 	m.buildDashNav()
 
-	view := m.dashboardView(50)
+	view := m.dashboardView(50, 120)
 	assert.Contains(t, view, "Spending")
 	assert.NotContains(t, view, "Overdue")
 	assert.NotContains(t, view, "Active Projects")
@@ -503,7 +681,7 @@ func TestDashboardViewTrimRows(t *testing.T) {
 	m.buildDashNav()
 
 	// With a generous budget, all rows appear.
-	bigView := m.dashboardView(100)
+	bigView := m.dashboardView(100, 120)
 	for i := 1; i <= 8; i++ {
 		assert.Containsf(
 			t,
@@ -517,7 +695,7 @@ func TestDashboardViewTrimRows(t *testing.T) {
 	// With a tiny budget, rows are trimmed but at least 1 per section.
 	m.buildDashNav()
 	m.dashCursor = 0
-	smallView := m.dashboardView(6)
+	smallView := m.dashboardView(6, 120)
 	assert.Contains(t, smallView, "Task")
 	assert.Contains(t, smallView, "Proj")
 	assert.Less(t, len(m.dashNav), 13, "expected nav trimmed")
@@ -540,7 +718,7 @@ func TestDashboardNavRebuiltFromTrimmedView(t *testing.T) {
 	m.dashCursor = 9 // at the end
 
 	// Render with a tiny budget: forces trimming.
-	_ = m.dashboardView(5)
+	_ = m.dashboardView(5, 120)
 
 	assert.LessOrEqual(t, len(m.dashNav), 5)
 	assert.Less(t, m.dashCursor, len(m.dashNav))
