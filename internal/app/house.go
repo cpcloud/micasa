@@ -10,6 +10,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/cpcloud/micasa/internal/data"
+	"github.com/dustin/go-humanize"
 )
 
 func (m *Model) houseView() string {
@@ -203,14 +204,14 @@ func sqftLabel(sqft int) string {
 	if sqft == 0 {
 		return ""
 	}
-	return fmt.Sprintf("%d ft\u00B2", sqft)
+	return fmt.Sprintf("%s ft\u00B2", humanize.Comma(int64(sqft)))
 }
 
 func lotLabel(sqft int) string {
 	if sqft == 0 {
 		return ""
 	}
-	return fmt.Sprintf("%d ft\u00B2 lot", sqft)
+	return fmt.Sprintf("%s ft\u00B2 lot", humanize.Comma(int64(sqft)))
 }
 
 func formatInt(value int) string {

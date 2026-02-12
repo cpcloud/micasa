@@ -9,6 +9,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/cpcloud/micasa/internal/data"
+	"github.com/dustin/go-humanize"
 )
 
 // baseTableKeyMap returns the default table KeyMap with b/f removed from
@@ -402,7 +403,7 @@ func documentRows(items []data.Document) ([]table.Row, []rowMeta, [][]cell) {
 				{Value: d.FileName, Kind: cellText},
 				{Value: displayDocumentKind(d.EntityKind), Kind: cellText},
 				{Value: ref, Kind: cellText},
-				{Value: formatSize(d.SizeBytes), Kind: cellReadonly},
+				{Value: humanize.IBytes(uint64(d.SizeBytes)), Kind: cellReadonly},
 			},
 		}
 	})
@@ -413,18 +414,6 @@ func displayDocumentKind(kind string) string {
 		return "none"
 	}
 	return kind
-}
-
-func formatSize(size int64) string {
-	if size < 1024 {
-		return fmt.Sprintf("%d B", size)
-	}
-	kb := float64(size) / 1024.0
-	if kb < 1024 {
-		return fmt.Sprintf("%.1f KB", kb)
-	}
-	mb := kb / 1024.0
-	return fmt.Sprintf("%.1f MB", mb)
 }
 
 func specsToColumns(specs []columnSpec) []table.Column {
