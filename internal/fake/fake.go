@@ -267,7 +267,8 @@ func (h *HomeFaker) Project(typeName string) Project {
 func (h *HomeFaker) Appliance() Appliance {
 	name := h.pick(applianceNames)
 	brand := h.pick(applianceBrands)
-	prefix := strings.ToUpper(brand[:2])
+	runes := []rune(brand)
+	prefix := strings.ToUpper(string(runes[:2]))
 	purchDate := h.f.DateRange(
 		time.Now().AddDate(-10, 0, 0),
 		time.Now().AddDate(-1, 0, 0),
