@@ -36,6 +36,12 @@ What that means in practice:
 The bar is the same regardless of how the code was written: does it solve a
 real problem, follow the project's patterns, and come with tests?
 
+## Code review
+
+PRs will likely get an initial review from an AI agent before a human looks at
+them. This is an experimental workflow -- the project is built with AI tooling
+and reviewed with it too. A human always makes the final call on merging.
+
 ## Scope
 
 micasa is an end-user application, not a library. PRs that refactor internals
