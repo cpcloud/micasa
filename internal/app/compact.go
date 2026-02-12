@@ -45,9 +45,5 @@ func compactMoneyValue(v string) string {
 	if err != nil {
 		return v
 	}
-	// Strip the dollar sign -- table cells show bare numbers; the $ lives
-	// in the column header.
-	compact := data.FormatCompactCents(cents)
-	compact = strings.TrimPrefix(compact, "$")
-	return compact
+	return data.FormatCompactCents(cents)
 }
