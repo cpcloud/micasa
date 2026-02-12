@@ -401,6 +401,9 @@ These have been repeatedly requested. Violating them wastes the user's time.
 - **Don't mention AGENTS.md in PR descriptions**: When AGENTS.md changes
   accompany other work, omit them from the PR summary. Only mention
   AGENTS.md if the PR is solely about agent rules.
+- **AGENTS.md changes go on the working branch**: When updating AGENTS.md,
+  only edit it in the worktree/branch where the related work lives. Never
+  make AGENTS.md changes as uncommitted edits in the main checkout.
 - **PR test plans: omit when CI-only**: If the test plan consists only of
   commands that CI already runs (e.g. `go test ./...`), leave the test
   plan section off the PR description entirely. Only include a test plan
