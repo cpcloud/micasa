@@ -97,8 +97,8 @@ type Vendor struct {
 }
 
 type Project struct {
-	ID                uint `gorm:"primaryKey"`
-	HouseProfileID    *uint `gorm:"column:house_id;index"`
+	ID                uint         `gorm:"primaryKey"`
+	HouseProfileID    *uint        `gorm:"column:house_id;index"`
 	HouseProfile      HouseProfile `gorm:"constraint:OnDelete:SET NULL;"`
 	Title             string
 	ProjectTypeID     uint
@@ -117,8 +117,8 @@ type Project struct {
 }
 
 type Quote struct {
-	ID             uint `gorm:"primaryKey"`
-	HouseProfileID *uint `gorm:"column:house_id;index"`
+	ID             uint         `gorm:"primaryKey"`
+	HouseProfileID *uint        `gorm:"column:house_id;index"`
 	HouseProfile   HouseProfile `gorm:"constraint:OnDelete:SET NULL;"`
 	ProjectID      uint
 	Project        Project `gorm:"constraint:OnDelete:RESTRICT;"`
@@ -143,8 +143,8 @@ type MaintenanceCategory struct {
 }
 
 type Appliance struct {
-	ID             uint `gorm:"primaryKey"`
-	HouseProfileID *uint `gorm:"column:house_id;index"`
+	ID             uint         `gorm:"primaryKey"`
+	HouseProfileID *uint        `gorm:"column:house_id;index"`
 	HouseProfile   HouseProfile `gorm:"constraint:OnDelete:SET NULL;"`
 	Name           string
 	Brand          string
@@ -161,8 +161,8 @@ type Appliance struct {
 }
 
 type MaintenanceItem struct {
-	ID             uint `gorm:"primaryKey"`
-	HouseProfileID *uint `gorm:"column:house_id;index"`
+	ID             uint         `gorm:"primaryKey"`
+	HouseProfileID *uint        `gorm:"column:house_id;index"`
 	HouseProfile   HouseProfile `gorm:"constraint:OnDelete:SET NULL;"`
 	Name           string
 	CategoryID     uint
@@ -182,9 +182,9 @@ type MaintenanceItem struct {
 
 type ServiceLogEntry struct {
 	ID                uint            `gorm:"primaryKey"`
-	HouseProfileID    *uint `gorm:"column:house_id;index"`
-	HouseProfile      HouseProfile `gorm:"constraint:OnDelete:SET NULL;"`
-	MaintenanceItemID uint        `gorm:"index"`
+	HouseProfileID    *uint           `gorm:"column:house_id;index"`
+	HouseProfile      HouseProfile    `gorm:"constraint:OnDelete:SET NULL;"`
+	MaintenanceItemID uint            `gorm:"index"`
 	MaintenanceItem   MaintenanceItem `gorm:"constraint:OnDelete:CASCADE;"`
 	ServicedAt        time.Time
 	VendorID          *uint

@@ -207,11 +207,11 @@ func (s *Store) SeedDemoDataFrom(h *fake.HomeFaker) error {
 		fv := h.VendorForTrade(trade)
 		vendors[i] = Vendor{
 			HouseProfileID: &houseID,
-			Name:        fv.Name,
-			ContactName: fv.ContactName,
-			Phone:       fv.Phone,
-			Email:       fv.Email,
-			Website:     fv.Website,
+			Name:           fv.Name,
+			ContactName:    fv.ContactName,
+			Phone:          fv.Phone,
+			Email:          fv.Email,
+			Website:        fv.Website,
 		}
 		if err := s.db.Create(&vendors[i]).Error; err != nil {
 			return fmt.Errorf("seed vendor %s: %w", vendors[i].Name, err)
@@ -225,14 +225,14 @@ func (s *Store) SeedDemoDataFrom(h *fake.HomeFaker) error {
 		fp := h.Project(typeName)
 		projects[i] = Project{
 			HouseProfileID: &houseID,
-			Title:         fp.Title,
-			ProjectTypeID: typeID(typeName),
-			Status:        fp.Status,
-			Description:   fp.Description,
-			StartDate:     fp.StartDate,
-			EndDate:       fp.EndDate,
-			BudgetCents:   fp.BudgetCents,
-			ActualCents:   fp.ActualCents,
+			Title:          fp.Title,
+			ProjectTypeID:  typeID(typeName),
+			Status:         fp.Status,
+			Description:    fp.Description,
+			StartDate:      fp.StartDate,
+			EndDate:        fp.EndDate,
+			BudgetCents:    fp.BudgetCents,
+			ActualCents:    fp.ActualCents,
 		}
 		if err := s.db.Create(&projects[i]).Error; err != nil {
 			return fmt.Errorf("seed project %s: %w", projects[i].Title, err)
@@ -1160,9 +1160,9 @@ func (s *Store) restoreByID(model any, id uint) error {
 func (s *Store) logDeletion(entity string, id uint, houseID *uint) error {
 	record := DeletionRecord{
 		HouseProfileID: houseID,
-		Entity:    entity,
-		TargetID:  id,
-		DeletedAt: time.Now(),
+		Entity:         entity,
+		TargetID:       id,
+		DeletedAt:      time.Now(),
 	}
 	return s.db.Create(&record).Error
 }
@@ -1207,10 +1207,6 @@ func updateByIDWith(db *gorm.DB, model any, id uint, values any) error {
 		Select("*").
 		Omit("id", "created_at", "deleted_at").
 		Updates(values).Error
-}
-
-func (s *Store) updateByID(model any, id uint, values any) error {
-	return updateByIDWith(s.db, model, id, values)
 }
 
 func findOrCreateVendor(tx *gorm.DB, vendor Vendor, houseProfileID *uint) (Vendor, error) {
