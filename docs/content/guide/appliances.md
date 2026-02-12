@@ -8,7 +8,7 @@ linkTitle = "Appliances"
 The Appliances tab tracks physical equipment in your home -- everything from
 the water heater to the dishwasher.
 
-![Appliances table](/docs/images/appliances.png)
+![Appliances table](/docs/images/appliances.webp)
 
 ## Adding an appliance
 

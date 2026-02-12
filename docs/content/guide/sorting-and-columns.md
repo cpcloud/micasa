@@ -5,7 +5,7 @@ description = "Multi-column sorting, column hiding, and horizontal scrolling."
 linkTitle = "Sorting & Columns"
 +++
 
-![Sorting with indicators](/docs/images/sorting.png)
+![Sorting with indicators](/docs/images/sorting.webp)
 
 ## Multi-column sorting
 

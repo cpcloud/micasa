@@ -8,7 +8,7 @@ linkTitle = "House Profile"
 The house profile holds your home's physical and financial details. There's
 exactly one per database.
 
-![House profile](/docs/images/house-profile.png)
+![House profile](/docs/images/house-profile.webp)
 
 ## First-time setup
 

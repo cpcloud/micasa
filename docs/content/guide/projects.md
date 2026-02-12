@@ -8,7 +8,7 @@ linkTitle = "Projects"
 The Projects tab tracks things you want to do to your house, from small
 repairs to major renovations.
 
-![Projects table](/docs/images/projects.png)
+![Projects table](/docs/images/projects.webp)
 
 ## Adding a project
 

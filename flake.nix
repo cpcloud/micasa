@@ -239,13 +239,13 @@
 
               vhs "$tape"
 
-              # Extract last frame from GIF as PNG
+              # Extract last frame from GIF as lossless WebP
               magick "$OUT/$name.gif" -coalesce "$TMPDIR/$name-frame-%04d.png"
               last=$(printf '%s\n' "$TMPDIR/$name-frame"-*.png | sort -t- -k3 -n | tail -1)
-              mv "$last" "$OUT/$name.png"
+              magick "$last" -quality 100 -define webp:lossless=true "$OUT/$name.webp"
               rm -f "$OUT/$name.gif"
 
-              echo "$name -> $OUT/$name.png"
+              echo "$name -> $OUT/$name.webp"
             '';
           };
 
@@ -275,7 +275,7 @@
 
               echo ""
               echo "Done! Screenshots in docs/static/images/"
-              ls -la docs/static/images/*.png
+              ls -la docs/static/images/*.webp
             '';
           };
           run-osv-scanner = pkgs.writeShellApplication {
