@@ -284,6 +284,13 @@ These have been repeatedly requested. Violating them wastes the user's time.
 - **Pin Actions to version tags**: In GitHub Actions workflows, always use
   versioned tags (e.g. `@v3.93.1`) instead of named refs like `@main` or
   `@latest`.
+- **Avoid CI trigger phrases in commits/PRs**: GitHub Actions recognises
+  `[skip ci]`, `[ci skip]`, `[no ci]`, `[skip actions]`, and
+  `[actions skip]` anywhere in a commit message, PR title, or PR body and
+  will suppress workflow runs. Never include these tokens in commit
+  messages, PR titles, or PR bodies unless you *intend* to suppress CI.
+  When *referring* to the mechanism, paraphrase (e.g. "the standard no-ci
+  marker") instead of writing the literal token.
 - **No `=` in CI go commands**: PowerShell (Windows runner) misparses `=`
   in command-line flags. Use space-separated form: `-bench .` not
   `-bench=.`, `-run '^$'` not `-run='^$'`.
