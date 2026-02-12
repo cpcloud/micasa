@@ -267,8 +267,7 @@ func (h *HomeFaker) Project(typeName string) Project {
 func (h *HomeFaker) Appliance() Appliance {
 	name := h.pick(applianceNames)
 	brand := h.pick(applianceBrands)
-	runes := []rune(brand)
-	prefix := strings.ToUpper(string(runes[:2]))
+	prefix := brandPrefix(brand)
 	purchDate := h.f.DateRange(
 		time.Now().AddDate(-10, 0, 0),
 		time.Now().AddDate(-1, 0, 0),
@@ -396,4 +395,10 @@ func MaintenanceCategories() []string {
 // VendorTrades returns the list of vendor trade specializations.
 func VendorTrades() []string {
 	return append([]string{}, vendorTrades...)
+}
+
+// brandPrefix returns the first two characters of a brand, uppercased.
+func brandPrefix(brand string) string {
+	runes := []rune(brand)
+	return strings.ToUpper(string(runes[:2]))
 }
