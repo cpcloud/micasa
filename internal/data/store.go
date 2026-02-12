@@ -1228,11 +1228,14 @@ func validateDocumentTarget(tx *gorm.DB, doc Document) error {
 }
 
 func sha256File(path string) (string, error) {
+	// #nosec G304 -- normalizeDocument resolves and validates this local file path.
 	f, err := os.Open(path)
 	if err != nil {
 		return "", fmt.Errorf("open document for hashing: %w", err)
 	}
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 	hash := sha256.New()
 	if _, err := io.Copy(hash, f); err != nil {
 		return "", fmt.Errorf("hash document: %w", err)

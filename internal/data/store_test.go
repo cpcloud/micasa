@@ -1076,7 +1076,7 @@ func TestDocumentCRUDAndMetadata(t *testing.T) {
 	projectID := projects[0].ID
 
 	filePath := filepath.Join(t.TempDir(), "invoice.pdf")
-	require.NoError(t, os.WriteFile(filePath, []byte("fake pdf content"), 0o644))
+	require.NoError(t, os.WriteFile(filePath, []byte("fake pdf content"), 0o600))
 
 	require.NoError(t, store.CreateDocument(Document{
 		Title:      "Quote PDF",
@@ -1119,7 +1119,7 @@ func TestRestoreDocumentBlockedByDeletedTarget(t *testing.T) {
 	projectID := projects[0].ID
 
 	filePath := filepath.Join(t.TempDir(), "note.txt")
-	require.NoError(t, os.WriteFile(filePath, []byte("note"), 0o644))
+	require.NoError(t, os.WriteFile(filePath, []byte("note"), 0o600))
 
 	require.NoError(t, store.CreateDocument(Document{
 		Title:      "Project Note",
@@ -1141,7 +1141,7 @@ func TestRestoreDocumentBlockedByDeletedTarget(t *testing.T) {
 func TestCreateDocumentRejectsInvalidEntityKind(t *testing.T) {
 	store := newTestStore(t)
 	filePath := filepath.Join(t.TempDir(), "doc.txt")
-	require.NoError(t, os.WriteFile(filePath, []byte("hello"), 0o644))
+	require.NoError(t, os.WriteFile(filePath, []byte("hello"), 0o600))
 	id := uint(1)
 	err := store.CreateDocument(Document{
 		Title:      "Bad Link",
