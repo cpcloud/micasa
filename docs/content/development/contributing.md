@@ -30,8 +30,7 @@ real problem, follow the project's patterns, and come with tests?
 
 micasa is an end-user application, not a library. PRs that refactor internals
 into importable packages, add a public Go API, or otherwise repackage micasa
-for use as a dependency will be closed. If you want to build something on top
-of the data layer, fork it.
+for use as a dependency will be closed.
 
 ## Setup
 
