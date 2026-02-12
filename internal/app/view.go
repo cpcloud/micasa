@@ -881,6 +881,9 @@ func (m *Model) tableView(tab *Tab) string {
 		effectiveHeight = 2
 	}
 	displayCells := compactMoneyCells(vp.Cells)
+	if m.magMode {
+		displayCells = magTransformCells(displayCells)
+	}
 	rows := renderRows(
 		vp.Specs,
 		displayCells,

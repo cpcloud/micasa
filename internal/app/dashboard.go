@@ -639,8 +639,14 @@ func (m *Model) dashProjectRows() []dashRow {
 		budgetText := ""
 		budgetStyle := m.styles.Money
 		if p.BudgetCents != nil {
-			act := data.FormatCompactOptionalCents(p.ActualCents)
-			bud := data.FormatCompactCents(*p.BudgetCents)
+			fmtCents := data.FormatCompactCents
+			fmtOpt := data.FormatCompactOptionalCents
+			if m.magMode {
+				fmtCents = magCents
+				fmtOpt = magOptionalCents
+			}
+			act := fmtOpt(p.ActualCents)
+			bud := fmtCents(*p.BudgetCents)
 			if act != "" {
 				budgetText = act + " / " + bud
 				if p.ActualCents != nil && *p.ActualCents > *p.BudgetCents {
@@ -726,22 +732,26 @@ func (m *Model) dashSpendingLine() string {
 	if total == 0 {
 		return ""
 	}
+	fmtCents := data.FormatCompactCents
+	if m.magMode {
+		fmtCents = magCents
+	}
 	var parts []string
 	if d.ServiceSpendCents > 0 {
 		parts = append(parts,
 			m.styles.DashLabel.Render("Maintenance ")+
-				m.styles.Money.Render(data.FormatCompactCents(d.ServiceSpendCents)))
+				m.styles.Money.Render(fmtCents(d.ServiceSpendCents)))
 	}
 	if d.ProjectSpendCents > 0 {
 		parts = append(parts,
 			m.styles.DashLabel.Render("Projects ")+
-				m.styles.Money.Render(data.FormatCompactCents(d.ProjectSpendCents)))
+				m.styles.Money.Render(fmtCents(d.ProjectSpendCents)))
 	}
 	sep := m.styles.DashLabel.Render(" \u00b7 ")
 	line := strings.Join(parts, sep)
 	if d.ServiceSpendCents > 0 && d.ProjectSpendCents > 0 {
 		line += sep + m.styles.DashLabel.Render("Total ") +
-			m.styles.Money.Render(data.FormatCompactCents(total))
+			m.styles.Money.Render(fmtCents(total))
 	}
 	return line
 }

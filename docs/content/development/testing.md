@@ -39,6 +39,7 @@ Tests live alongside the code they test:
 | `internal/app/inline_input_test.go` | Inline text input editing |
 | `internal/app/calendar_test.go` | Date picker overlay |
 | `internal/app/column_finder_test.go` | Fuzzy column finder |
+| `internal/app/mag_test.go` | Mag mode (order-of-magnitude easter egg) |
 | `internal/app/notes_test.go` | Note preview overlay |
 | `internal/app/vendor_test.go` | Vendor tab operations |
 | `internal/app/rows_test.go` | Row building helpers |

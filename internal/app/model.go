@@ -64,6 +64,7 @@ type Model struct {
 	inlineInput           *inlineInputState
 	undoStack             []undoEntry
 	redoStack             []undoEntry
+	magMode               bool // easter egg: display numbers as order-of-magnitude
 	status                statusMsg
 	projectTypes          []data.ProjectType
 	maintenanceCategories []data.MaintenanceCategory
@@ -288,6 +289,9 @@ func (m *Model) handleCommonKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 	case "tab":
 		m.showHouse = !m.showHouse
 		m.resizeTables()
+		return nil, true
+	case "m":
+		m.magMode = !m.magMode
 		return nil, true
 	case "h", "left":
 		if tab := m.effectiveTab(); tab != nil {
