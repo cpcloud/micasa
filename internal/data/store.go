@@ -7,7 +7,6 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"io"
 	"mime"
 	"os"
 	"path/filepath"
@@ -338,17 +337,20 @@ func (s *Store) SeedDemoDataFrom(h *fake.HomeFaker) error {
 	}
 
 	// Documents: attach a few representative records so the Documents tab is
-	// populated in demo mode.
+	// populated in demo mode. Content is a short placeholder since demo
+	// documents don't need real file data.
+	demoContent := []byte("(demo placeholder)")
+	demoChecksum := fmt.Sprintf("%x", sha256.Sum256(demoContent))
 	var demoDocs []Document
 	if len(projects) > 0 {
 		projectID := projects[0].ID
 		demoDocs = append(demoDocs, Document{
 			Title:          "Kitchen proposal PDF",
-			FilePath:       "/demo/docs/kitchen-proposal.pdf",
 			FileName:       "kitchen-proposal.pdf",
 			MIMEType:       "application/pdf",
-			SizeBytes:      218344,
-			ChecksumSHA256: "demo-kitchen-proposal",
+			SizeBytes:      int64(len(demoContent)),
+			ChecksumSHA256: demoChecksum,
+			Content:        demoContent,
 			EntityKind:     DocumentEntityProject,
 			EntityID:       &projectID,
 			Notes:          "Initial concept and rough scope",
@@ -358,11 +360,11 @@ func (s *Store) SeedDemoDataFrom(h *fake.HomeFaker) error {
 		applianceID := appliances[0].ID
 		demoDocs = append(demoDocs, Document{
 			Title:          "Appliance manual",
-			FilePath:       "/demo/docs/appliance-manual.pdf",
 			FileName:       "appliance-manual.pdf",
 			MIMEType:       "application/pdf",
-			SizeBytes:      542211,
-			ChecksumSHA256: "demo-appliance-manual",
+			SizeBytes:      int64(len(demoContent)),
+			ChecksumSHA256: demoChecksum,
+			Content:        demoContent,
 			EntityKind:     DocumentEntityAppliance,
 			EntityID:       &applianceID,
 			Notes:          "Manufacturer manual for quick lookup",
@@ -370,11 +372,11 @@ func (s *Store) SeedDemoDataFrom(h *fake.HomeFaker) error {
 	}
 	demoDocs = append(demoDocs, Document{
 		Title:          "Warranty card photo",
-		FilePath:       "/demo/docs/warranty-card.jpg",
 		FileName:       "warranty-card.jpg",
 		MIMEType:       "image/jpeg",
-		SizeBytes:      98442,
-		ChecksumSHA256: "demo-warranty-card",
+		SizeBytes:      int64(len(demoContent)),
+		ChecksumSHA256: demoChecksum,
+		Content:        demoContent,
 		EntityKind:     DocumentEntityNone,
 		Notes:          "Loose file not yet linked",
 	})
@@ -796,9 +798,16 @@ func (s *Store) CountMaintenanceByAppliance(applianceIDs []uint) (map[uint]int, 
 	return s.countByFK(&MaintenanceItem{}, ColApplianceID, applianceIDs)
 }
 
+// listDocumentColumns enumerates every Document column except the BLOB
+// content, so list queries never load large payloads into memory.
+var listDocumentColumns = []string{
+	"id", "title", "file_name", "mime_type", "size_bytes", "sha256",
+	"entity_kind", "entity_id", "notes", "created_at", "updated_at", "deleted_at",
+}
+
 func (s *Store) ListDocuments(includeDeleted bool) ([]Document, error) {
 	var docs []Document
-	db := s.db.Order("updated_at desc")
+	db := s.db.Select(listDocumentColumns).Order("updated_at desc")
 	if includeDeleted {
 		db = db.Unscoped()
 	}
@@ -808,18 +817,35 @@ func (s *Store) ListDocuments(includeDeleted bool) ([]Document, error) {
 	return docs, nil
 }
 
+// GetDocument retrieves a document's metadata (without content).
 func (s *Store) GetDocument(id uint) (Document, error) {
 	var doc Document
-	if err := s.db.First(&doc, id).Error; err != nil {
+	if err := s.db.Select(listDocumentColumns).First(&doc, id).Error; err != nil {
 		return Document{}, err
 	}
 	return doc, nil
 }
 
-func (s *Store) CreateDocument(doc Document) error {
+// GetDocumentContent retrieves only the BLOB content and filename for a
+// document. Use this for the extract-on-demand cache -- it avoids loading
+// metadata that ListDocuments already provides.
+func (s *Store) GetDocumentContent(id uint) ([]byte, string, error) {
+	var doc Document
+	err := s.db.Select("content", "file_name", "sha256").First(&doc, id).Error
+	if err != nil {
+		return nil, "", err
+	}
+	return doc.Content, doc.FileName, nil
+}
+
+// CreateDocument imports a file from sourcePath into the database as a BLOB.
+func (s *Store) CreateDocument(doc Document, sourcePath string) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		if err := normalizeDocument(&doc); err != nil {
+		if err := normalizeDocument(&doc, sourcePath); err != nil {
 			return err
+		}
+		if len(doc.Content) == 0 {
+			return fmt.Errorf("document file is required")
 		}
 		if err := validateDocumentTarget(tx, doc); err != nil {
 			return err
@@ -828,9 +854,11 @@ func (s *Store) CreateDocument(doc Document) error {
 	})
 }
 
-func (s *Store) UpdateDocument(doc Document) error {
+// UpdateDocument updates metadata and optionally replaces content if
+// sourcePath is non-empty.
+func (s *Store) UpdateDocument(doc Document, sourcePath string) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		if err := normalizeDocument(&doc); err != nil {
+		if err := normalizeDocument(&doc, sourcePath); err != nil {
 			return err
 		}
 		if err := validateDocumentTarget(tx, doc); err != nil {
@@ -1162,9 +1190,12 @@ func findOrCreateVendor(tx *gorm.DB, vendor Vendor) (Vendor, error) {
 	return existing, nil
 }
 
-func normalizeDocument(doc *Document) error {
+// normalizeDocument validates required fields and, when a source file path is
+// provided, reads the content into the BLOB field and populates derived
+// metadata (filename, size, MIME type, checksum). On updates where no new
+// file is supplied these fields are left untouched.
+func normalizeDocument(doc *Document, sourcePath string) error {
 	doc.Title = strings.TrimSpace(doc.Title)
-	doc.FilePath = strings.TrimSpace(doc.FilePath)
 	doc.EntityKind = strings.TrimSpace(doc.EntityKind)
 	doc.Notes = strings.TrimSpace(doc.Notes)
 	if doc.EntityKind == DocumentEntityNone {
@@ -1176,10 +1207,14 @@ func normalizeDocument(doc *Document) error {
 	if doc.Title == "" {
 		return fmt.Errorf("document title is required")
 	}
-	if doc.FilePath == "" {
-		return fmt.Errorf("document path is required")
+
+	sourcePath = strings.TrimSpace(sourcePath)
+	if sourcePath == "" {
+		// No new file -- keep existing BLOB content and metadata.
+		return nil
 	}
-	absPath, err := filepath.Abs(doc.FilePath)
+
+	absPath, err := filepath.Abs(sourcePath)
 	if err != nil {
 		return fmt.Errorf("resolve document path: %w", err)
 	}
@@ -1190,15 +1225,19 @@ func normalizeDocument(doc *Document) error {
 	if info.IsDir() {
 		return fmt.Errorf("document path must be a file")
 	}
-	checksum, err := sha256File(absPath)
+
+	// #nosec G304 -- path is validated above.
+	content, err := os.ReadFile(absPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("read document: %w", err)
 	}
-	doc.FilePath = absPath
+	checksum := fmt.Sprintf("%x", sha256.Sum256(content))
+
 	doc.FileName = info.Name()
 	doc.SizeBytes = info.Size()
 	doc.MIMEType = mime.TypeByExtension(strings.ToLower(filepath.Ext(info.Name())))
 	doc.ChecksumSHA256 = checksum
+	doc.Content = content
 	return nil
 }
 
@@ -1225,20 +1264,4 @@ func validateDocumentTarget(tx *gorm.DB, doc Document) error {
 	default:
 		return fmt.Errorf("invalid document entity kind %q", doc.EntityKind)
 	}
-}
-
-func sha256File(path string) (string, error) {
-	// #nosec G304 -- normalizeDocument resolves and validates this local file path.
-	f, err := os.Open(path)
-	if err != nil {
-		return "", fmt.Errorf("open document for hashing: %w", err)
-	}
-	defer func() {
-		_ = f.Close()
-	}()
-	hash := sha256.New()
-	if _, err := io.Copy(hash, f); err != nil {
-		return "", fmt.Errorf("hash document: %w", err)
-	}
-	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }

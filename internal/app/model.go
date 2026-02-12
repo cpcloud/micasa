@@ -593,6 +593,11 @@ func (m *Model) handleEditKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 			m.reloadAfterMutation()
 		}
 		return nil, true
+	case "o":
+		if cmd := m.openSelectedDocument(); cmd != nil {
+			return cmd, true
+		}
+		return nil, true
 	case "x":
 		m.toggleShowDeleted()
 		return nil, true

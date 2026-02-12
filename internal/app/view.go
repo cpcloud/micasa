@@ -406,6 +406,11 @@ func (m *Model) editModeStatusHelp(modeBadge string) string {
 			priority: 2,
 		},
 	}
+	if tab := m.effectiveTab(); tab != nil && tab.Kind == tabDocuments {
+		hints = append(hints, statusHint{
+			id: "open", full: m.helpItem("o", "open"), priority: 2,
+		})
+	}
 	hints = append(hints, m.deletedStatusHint(m.effectiveTab()))
 	hints = append(hints, statusHint{
 		id:       "exit",
