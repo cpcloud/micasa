@@ -23,9 +23,9 @@ Enter
 Sleep 4s
 Type "D"
 Sleep 0.5s
-Tab
+Type "f"
 Sleep 0.5s
-Tab
+Type "f"
 Sleep 0.8s
 Type "lllllll"
 Sleep 0.5s

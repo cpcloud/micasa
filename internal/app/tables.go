@@ -11,15 +11,26 @@ import (
 	"github.com/cpcloud/micasa/internal/data"
 )
 
-// normalTableKeyMap returns the default table KeyMap with full vim bindings.
+// baseTableKeyMap returns the default table KeyMap with b/f removed from
+// page-up/page-down so those keys can be used for tab navigation.
+func baseTableKeyMap() table.KeyMap {
+	km := table.DefaultKeyMap()
+	km.PageDown.SetKeys("pgdown")
+	km.PageDown.SetHelp("pgdn", "page down")
+	km.PageUp.SetKeys("pgup")
+	km.PageUp.SetHelp("pgup", "page up")
+	return km
+}
+
+// normalTableKeyMap returns the table KeyMap for normal (nav) mode.
 func normalTableKeyMap() table.KeyMap {
-	return table.DefaultKeyMap()
+	return baseTableKeyMap()
 }
 
 // editTableKeyMap returns a table KeyMap with d/u stripped from half-page
 // bindings so they can be used for delete/undo without conflicting.
 func editTableKeyMap() table.KeyMap {
-	km := table.DefaultKeyMap()
+	km := baseTableKeyMap()
 	km.HalfPageDown.SetKeys("ctrl+d")
 	km.HalfPageDown.SetHelp("ctrl+d", "½ page down")
 	km.HalfPageUp.SetKeys("ctrl+u")

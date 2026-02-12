@@ -85,19 +85,19 @@ func TestDashboardToggle(t *testing.T) {
 	assert.False(t, m.showDashboard)
 }
 
-func TestDashboardDismissedByTab(t *testing.T) {
+func TestDashboardDismissedByForward(t *testing.T) {
 	m := newTestModel()
 	m.showDashboard = true
 
-	sendKey(m, "tab")
+	sendKey(m, "f")
 	assert.False(t, m.showDashboard)
 }
 
-func TestDashboardDismissedByShiftTab(t *testing.T) {
+func TestDashboardDismissedByBack(t *testing.T) {
 	m := newTestModel()
 	m.showDashboard = true
 
-	sendKey(m, "shift+tab")
+	sendKey(m, "b")
 	assert.False(t, m.showDashboard)
 }
 

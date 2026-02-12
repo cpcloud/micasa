@@ -346,8 +346,8 @@ func (m *Model) normalModeStatusHints(modeBadge string) []statusHint {
 	if m.detail == nil {
 		hints = append(hints, statusHint{
 			id:       "tab",
-			full:     m.helpItem("tab", "switch"),
-			compact:  m.helpItem("tab", "tabs"),
+			full:     m.helpItem("b/f", "switch"),
+			compact:  m.helpItem("b/f", "tabs"),
 			priority: 4,
 		})
 	}
@@ -728,7 +728,7 @@ func (m *Model) helpContent() string {
 				{"^/$", "First/last column"},
 				{"g/G", "First/last row"},
 				{"d/u", "Half page down/up"},
-				{"tab", "Switch tabs"},
+				{"b/f", "Switch tabs"},
 				{"s/S", "Sort / clear sorts"},
 				{"z", "Hide/show completed projects"},
 				{"a", "Hide/show abandoned projects"},
@@ -736,7 +736,7 @@ func (m *Model) helpContent() string {
 				{"/", "Find column"},
 				{"c/C", "Hide / show columns"},
 				{"enter", drilldownArrow + " drilldown / " + linkArrow + " follow link / preview"},
-				{"H", "House profile"},
+				{"tab", "House profile"},
 				{"D", "Summary"},
 				{"i", "Edit mode"},
 				{"?", "Help"},

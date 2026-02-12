@@ -183,11 +183,11 @@ func TestHouseToggle(t *testing.T) {
 	m := newTestModel()
 	m.hasHouse = true
 	assert.False(t, m.showHouse, "expected house hidden initially")
-	// Capital H toggles house in both modes.
-	sendKey(m, "H")
-	assert.True(t, m.showHouse, "expected house shown after 'H'")
-	sendKey(m, "H")
-	assert.False(t, m.showHouse, "expected house hidden after second 'H'")
+	// Tab toggles house in both modes.
+	sendKey(m, "tab")
+	assert.True(t, m.showHouse, "expected house shown after tab")
+	sendKey(m, "tab")
+	assert.False(t, m.showHouse, "expected house hidden after second tab")
 }
 
 func TestHelpToggle(t *testing.T) {
@@ -401,14 +401,25 @@ func TestModeAfterFormExit(t *testing.T) {
 	)
 }
 
-func TestTabSwitchBlockedInEditMode(t *testing.T) {
+func TestTabTogglesHouseInEditMode(t *testing.T) {
+	m := newTestModel()
+	m.hasHouse = true
+	m.enterEditMode()
+	// tab toggles house profile in both modes via handleCommonKeys.
+	assert.False(t, m.showHouse)
+	_, handled := m.handleCommonKeys(tea.KeyMsg{Type: tea.KeyTab})
+	assert.True(t, handled, "tab should be handled by common keys")
+	assert.True(t, m.showHouse, "tab should toggle house in edit mode")
+}
+
+func TestTabSwitchKeysBlockedInEditMode(t *testing.T) {
 	m := newTestModel()
 	m.enterEditMode()
-	// tab should not be handled by handleCommonKeys or handleEditKeys.
-	_, handled := m.handleCommonKeys(tea.KeyMsg{Type: tea.KeyTab})
-	assert.False(t, handled, "tab should not be handled in edit mode (common keys)")
-	_, handled = m.handleEditKeys(tea.KeyMsg{Type: tea.KeyTab})
-	assert.False(t, handled, "tab should not be handled in edit mode (edit keys)")
+	// b/f (tab-switch keys) should not be handled in edit mode.
+	_, handled := m.handleEditKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("b")})
+	assert.False(t, handled, "b should not be handled in edit mode")
+	_, handled = m.handleEditKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("f")})
+	assert.False(t, handled, "f should not be handled in edit mode")
 }
 
 func TestModeBadgeFixedWidth(t *testing.T) {

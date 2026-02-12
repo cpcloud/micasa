@@ -83,7 +83,7 @@ func TestTabSwitchBlockedInDetailView(t *testing.T) {
 	_ = m.openServiceLogDetail(1, "Test")
 
 	before := m.active
-	sendKey(m, "tab")
+	sendKey(m, "f")
 	assert.Equal(t, before, m.active, "tab switch should be blocked while in detail view")
 }
 

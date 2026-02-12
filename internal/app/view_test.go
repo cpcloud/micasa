@@ -514,7 +514,7 @@ func TestNavBadgeLabel(t *testing.T) {
 
 func TestStatusViewProjectStatusSummaryOnlyOnProjectsTab(t *testing.T) {
 	m := newTestModel()
-	m.width = 120
+	m.width = 160
 	m.height = 40
 
 	status := m.statusView()
@@ -537,7 +537,7 @@ func TestStatusViewProjectStatusSummaryOnlyOnProjectsTab(t *testing.T) {
 
 func TestStatusViewProjectStatusSummaryReflectsActiveFilters(t *testing.T) {
 	m := newTestModel()
-	m.width = 120
+	m.width = 160
 	m.height = 40
 	tab := m.activeTab()
 	require.NotNil(t, tab)

@@ -50,7 +50,7 @@ Type "s"
 Sleep 1.5s
 
 # Maintenance tab
-Tab
+Type "f"
 Sleep 2s
 Type "j"
 Sleep 0.5s
@@ -76,7 +76,7 @@ Escape
 Sleep 1.5s
 
 # Appliances tab
-Tab
+Type "f"
 Sleep 2s
 Type "j"
 Sleep 0.5s
@@ -86,9 +86,9 @@ Type "j"
 Sleep 1s
 
 # House profile toggle
-Type "H"
+Tab
 Sleep 3s
-Type "H"
+Tab
 Sleep 1.5s
 
 # Help overlay

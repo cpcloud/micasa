@@ -23,7 +23,7 @@ Enter
 Sleep 4s
 Type "D"
 Sleep 0.5s
-Type "H"
+Tab
 Sleep 3s
 Show
 

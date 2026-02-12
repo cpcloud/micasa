@@ -43,10 +43,10 @@ func TestInlineInputAbsorbsKeys(t *testing.T) {
 	var field string
 	m.openInlineInput(1, formVendor, "Name", "", &field, nil, &vendorFormData{})
 
-	// Keys that would normally switch tabs or enter edit mode should be absorbed.
-	initialActive := m.active
+	// Keys that would normally toggle house profile or switch tabs should be absorbed.
+	showHouseBefore := m.showHouse
 	sendKey(m, "tab")
-	assert.Equal(t, initialActive, m.active, "tab should be absorbed by inline input")
+	assert.Equal(t, showHouseBefore, m.showHouse, "tab should be absorbed by inline input")
 
 	// 'q' should not quit -- inline input should still be active.
 	sendKey(m, "q")

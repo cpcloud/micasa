@@ -282,7 +282,7 @@ func (m *Model) handleCommonKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 	case "?":
 		m.openHelp()
 		return nil, true
-	case "H":
+	case "tab":
 		m.showHouse = !m.showHouse
 		m.resizeTables()
 		return nil, true
@@ -320,7 +320,7 @@ func (m *Model) handleNormalKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 	case "D":
 		m.toggleDashboard()
 		return nil, true
-	case "tab":
+	case "f":
 		if m.detail == nil {
 			if m.showDashboard {
 				m.showDashboard = false
@@ -328,7 +328,7 @@ func (m *Model) handleNormalKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 			m.nextTab()
 		}
 		return nil, true
-	case "shift+tab":
+	case "b":
 		if m.detail == nil {
 			if m.showDashboard {
 				m.showDashboard = false
