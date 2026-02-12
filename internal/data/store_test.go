@@ -1080,11 +1080,10 @@ func TestDocumentCRUDAndMetadata(t *testing.T) {
 
 	require.NoError(t, store.CreateDocument(Document{
 		Title:      "Quote PDF",
-		FilePath:   filePath,
 		EntityKind: DocumentEntityProject,
 		EntityID:   &projectID,
 		Notes:      "first draft",
-	}))
+	}, filePath))
 	docs, err := store.ListDocuments(false)
 	require.NoError(t, err)
 	require.Len(t, docs, 1)
@@ -1097,6 +1096,8 @@ func TestDocumentCRUDAndMetadata(t *testing.T) {
 	assert.Equal(t, DocumentEntityProject, doc.EntityKind)
 	require.NotNil(t, doc.EntityID)
 	assert.Equal(t, projectID, *doc.EntityID)
+	// Content is excluded from list queries.
+	assert.Empty(t, doc.Content)
 
 	require.NoError(t, store.DeleteDocument(doc.ID))
 	docs, err = store.ListDocuments(false)
@@ -1123,10 +1124,9 @@ func TestRestoreDocumentBlockedByDeletedTarget(t *testing.T) {
 
 	require.NoError(t, store.CreateDocument(Document{
 		Title:      "Project Note",
-		FilePath:   filePath,
 		EntityKind: DocumentEntityProject,
 		EntityID:   &projectID,
-	}))
+	}, filePath))
 	docs, _ := store.ListDocuments(false)
 	docID := docs[0].ID
 
@@ -1145,11 +1145,53 @@ func TestCreateDocumentRejectsInvalidEntityKind(t *testing.T) {
 	id := uint(1)
 	err := store.CreateDocument(Document{
 		Title:      "Bad Link",
-		FilePath:   filePath,
 		EntityKind: "bogus",
 		EntityID:   &id,
-	})
+	}, filePath)
 	require.ErrorContains(t, err, "invalid document entity kind")
+}
+
+func TestDocumentBLOBStorageAndExtract(t *testing.T) {
+	store := newTestStore(t)
+
+	content := []byte("this is a test PDF")
+	filePath := filepath.Join(t.TempDir(), "report.pdf")
+	require.NoError(t, os.WriteFile(filePath, content, 0o600))
+
+	require.NoError(t, store.CreateDocument(Document{
+		Title: "Test Report",
+	}, filePath))
+
+	docs, err := store.ListDocuments(false)
+	require.NoError(t, err)
+	require.Len(t, docs, 1)
+	assert.Equal(t, int64(len(content)), docs[0].SizeBytes)
+
+	// GetDocumentContent loads the BLOB.
+	blob, fileName, err := store.GetDocumentContent(docs[0].ID)
+	require.NoError(t, err)
+	assert.Equal(t, content, blob)
+	assert.Equal(t, "report.pdf", fileName)
+
+	// ExtractDocument writes to cache and returns a path.
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	cachePath, err := store.ExtractDocument(docs[0].ID)
+	require.NoError(t, err)
+	assert.FileExists(t, cachePath)
+	cached, err := os.ReadFile(cachePath) //nolint:gosec // test-only: path from ExtractDocument
+	require.NoError(t, err)
+	assert.Equal(t, content, cached)
+
+	// Second call is a cache hit (same path, no error).
+	cachePath2, err := store.ExtractDocument(docs[0].ID)
+	require.NoError(t, err)
+	assert.Equal(t, cachePath, cachePath2)
+}
+
+func TestCreateDocumentRequiresFile(t *testing.T) {
+	store := newTestStore(t)
+	err := store.CreateDocument(Document{Title: "No File"}, "")
+	require.ErrorContains(t, err, "document file is required")
 }
 
 func newTestStore(t *testing.T) *Store {

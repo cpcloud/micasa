@@ -798,7 +798,8 @@ func (documentHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
 		FormKind:    formDocument,
 		EntityID:    id,
 		Restore: func() error {
-			return store.UpdateDocument(doc)
+			// Metadata-only restore: no new file to import.
+			return store.UpdateDocument(doc, "")
 		},
 	}, true
 }

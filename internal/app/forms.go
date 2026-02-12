@@ -116,7 +116,7 @@ type applianceFormData struct {
 
 type documentFormData struct {
 	Title      string
-	FilePath   string
+	SourcePath string // filesystem path to import from (empty on metadata-only edits)
 	EntityKind string
 	EntityID   string
 	Notes      string
@@ -663,6 +663,11 @@ func (m *Model) startEditDocumentForm(id uint) error {
 }
 
 func (m *Model) openDocumentForm(values *documentFormData) {
+	filePickerValidation := requiredText("document file")
+	if m.editID != nil {
+		// Editing: file picker is optional (keep existing content if blank).
+		filePickerValidation = nil
+	}
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
@@ -672,12 +677,12 @@ func (m *Model) openDocumentForm(values *documentFormData) {
 				Validate(requiredText("title")),
 			huh.NewFilePicker().
 				Title("Document file").
-				Description("Use picker search to quickly find the file").
+				Description("Pick a file to import (leave blank to keep current)").
 				FileAllowed(true).
 				DirAllowed(false).
 				ShowHidden(false).
-				Value(&values.FilePath).
-				Validate(requiredText("document file")),
+				Value(&values.SourcePath).
+				Validate(filePickerValidation),
 		).Title("File"),
 		huh.NewGroup(
 			huh.NewSelect[string]().
@@ -696,21 +701,21 @@ func (m *Model) openDocumentForm(values *documentFormData) {
 }
 
 func (m *Model) submitDocumentForm() error {
-	doc, err := m.parseDocumentFormData()
+	doc, sourcePath, err := m.parseDocumentFormData()
 	if err != nil {
 		return err
 	}
 	if m.editID != nil {
 		doc.ID = *m.editID
-		return m.store.UpdateDocument(doc)
+		return m.store.UpdateDocument(doc, sourcePath)
 	}
-	return m.store.CreateDocument(doc)
+	return m.store.CreateDocument(doc, sourcePath)
 }
 
-func (m *Model) parseDocumentFormData() (data.Document, error) {
+func (m *Model) parseDocumentFormData() (data.Document, string, error) {
 	values, ok := m.formData.(*documentFormData)
 	if !ok {
-		return data.Document{}, fmt.Errorf("unexpected document form data")
+		return data.Document{}, "", fmt.Errorf("unexpected document form data")
 	}
 	entityKind := strings.TrimSpace(values.EntityKind)
 	if entityKind == "none" {
@@ -721,11 +726,13 @@ func (m *Model) parseDocumentFormData() (data.Document, error) {
 	entityIDText := strings.TrimSpace(values.EntityID)
 	if entityKind != "" {
 		if entityIDText == "" {
-			return data.Document{}, fmt.Errorf("linked record id is required")
+			return data.Document{}, "", fmt.Errorf("linked record id is required")
 		}
 		parsed, err := data.ParseRequiredInt(entityIDText)
 		if err != nil {
-			return data.Document{}, fmt.Errorf("linked record id should be a positive whole number")
+			return data.Document{}, "", fmt.Errorf(
+				"linked record id should be a positive whole number",
+			)
 		}
 		id := uint(parsed)
 		entityID = &id
@@ -733,11 +740,10 @@ func (m *Model) parseDocumentFormData() (data.Document, error) {
 
 	return data.Document{
 		Title:      strings.TrimSpace(values.Title),
-		FilePath:   strings.TrimSpace(values.FilePath),
 		EntityKind: entityKind,
 		EntityID:   entityID,
 		Notes:      strings.TrimSpace(values.Notes),
-	}, nil
+	}, strings.TrimSpace(values.SourcePath), nil
 }
 
 func documentFormValues(doc data.Document) *documentFormData {
@@ -747,7 +753,6 @@ func documentFormValues(doc data.Document) *documentFormData {
 	}
 	return &documentFormData{
 		Title:      doc.Title,
-		FilePath:   doc.FilePath,
 		EntityKind: displayDocumentKind(doc.EntityKind),
 		EntityID:   entityID,
 		Notes:      doc.Notes,

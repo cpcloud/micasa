@@ -22,3 +22,13 @@ func DefaultDBPath() (string, error) {
 	// On Windows:   %LOCALAPPDATA%/micasa/micasa.db
 	return xdg.DataFile(filepath.Join(AppName, AppName+".db"))
 }
+
+// DocumentCacheDir returns the directory used for extracted document BLOBs.
+// On Linux: $XDG_CACHE_HOME/micasa/documents (default ~/.cache/micasa/documents)
+func DocumentCacheDir() (string, error) {
+	dir := filepath.Join(xdg.CacheHome, AppName, "documents")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", err
+	}
+	return dir, nil
+}

@@ -231,11 +231,11 @@ type ServiceLogEntry struct {
 type Document struct {
 	ID             uint `gorm:"primaryKey"`
 	Title          string
-	FilePath       string `gorm:"column:file_path"`
 	FileName       string `gorm:"column:file_name"`
 	MIMEType       string `gorm:"column:mime_type"`
 	SizeBytes      int64  `gorm:"column:size_bytes"`
 	ChecksumSHA256 string `gorm:"column:sha256"`
+	Content        []byte `gorm:"column:content;type:BLOB"`
 	EntityKind     string `gorm:"column:entity_kind;index"`
 	EntityID       *uint  `gorm:"column:entity_id;index"`
 	Notes          string
