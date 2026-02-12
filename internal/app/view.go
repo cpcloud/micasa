@@ -169,10 +169,11 @@ func (m *Model) buildDashboardOverlay() string {
 	content := m.dashboardView(contentBudget, innerW)
 
 	// Title: "Dashboard" left-aligned, header (nickname · date) right-aligned.
-	title := m.styles.HeaderSection.Render("Dashboard")
+	title := m.styles.HeaderTitle.Render(" Dashboard ")
 
+	rule := m.styles.DashRule.Render(strings.Repeat("─", innerW))
 	boxContent := lipgloss.JoinVertical(
-		lipgloss.Left, title, header, "", content, "", hints,
+		lipgloss.Left, title, header, rule, content, "", hints,
 	)
 
 	return lipgloss.NewStyle().

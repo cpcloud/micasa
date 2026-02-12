@@ -157,7 +157,11 @@ func renderMiniTable(
 				parts[i] = styled + strings.Repeat(" ", pad)
 			}
 		}
-		line := "  " + strings.Join(parts, gap)
+		prefix := "  "
+		if rowIdx == cursor {
+			prefix = "\u25b8 "
+		}
+		line := prefix + strings.Join(parts, gap)
 		if rowIdx == cursor {
 			line = selected.Render(line)
 		}
@@ -398,7 +402,7 @@ func (m *Model) dashboardView(budget, maxWidth int) string {
 		if len(sections) > 0 {
 			fixedLines++ // blank before spending
 		}
-		fixedLines += 2 // header + data
+		fixedLines += 3 // rule + header + data
 	}
 
 	// Distribute remaining budget among data rows.
@@ -449,8 +453,9 @@ func (m *Model) dashboardView(budget, maxWidth int) string {
 	}
 
 	if spendLine != "" {
+		rule := m.styles.DashRule.Render(strings.Repeat("─", maxWidth))
 		header := m.styles.DashSection.Render("Spending (YTD)")
-		allLines = append(allLines, header+"\n  "+spendLine)
+		allLines = append(allLines, rule+"\n"+header+"\n  "+spendLine)
 	}
 
 	// Update nav to match the trimmed view.
@@ -482,7 +487,11 @@ func (m *Model) renderMaintSection(
 		if rendered > 0 {
 			lines = append(lines, "")
 		}
-		lines = append(lines, m.styles.DashSection.Render(subTitle))
+		sectionStyle := m.styles.DashSection
+		if subTitle == "Overdue" {
+			sectionStyle = m.styles.DashSectionWarn
+		}
+		lines = append(lines, sectionStyle.Render(subTitle))
 		subRows := capSlice(s.rows[offset:offset+s.subCounts[si]], subN)
 		localCursor := -1
 		if cursor >= 0 && cursor < subN {

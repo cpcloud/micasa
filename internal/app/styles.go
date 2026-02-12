@@ -41,6 +41,8 @@ type Styles struct {
 	HiddenRight     lipgloss.Style // hidden cols to the right of cursor
 	DashSubtitle    lipgloss.Style // dashboard subtitle (house name, date)
 	DashSection     lipgloss.Style // dashboard section header
+	DashSectionWarn lipgloss.Style // dashboard section header (overdue/warning)
+	DashRule        lipgloss.Style // dashboard horizontal rule
 	DashLabel       lipgloss.Style // dashboard dim label text
 	DashValue       lipgloss.Style // dashboard bright value text
 	DashOverdue     lipgloss.Style // overdue maintenance item
@@ -202,6 +204,13 @@ func DefaultStyles() Styles {
 			Background(accent).
 			Padding(0, 1).
 			Bold(true),
+		DashSectionWarn: lipgloss.NewStyle().
+			Foreground(onAccent).
+			Background(danger).
+			Padding(0, 1).
+			Bold(true),
+		DashRule: lipgloss.NewStyle().
+			Foreground(border),
 		DashLabel: lipgloss.NewStyle().
 			Foreground(textDim),
 		DashValue: lipgloss.NewStyle().
