@@ -635,3 +635,24 @@ func TestDrilldownHint(t *testing.T) {
 			"kind=%v title=%s", tt.kind, tt.title)
 	}
 }
+
+func TestNavigateToLinkClosesDetailStack(t *testing.T) {
+	m := newTestModelWithDemoData(t, 42)
+	m.active = tabIndex(tabVendors)
+
+	vendors, err := m.store.ListVendors(false)
+	require.NoError(t, err)
+	require.NotEmpty(t, vendors)
+
+	// Drill into vendor quotes.
+	require.NoError(t, m.openVendorQuoteDetail(vendors[0].ID, vendors[0].Name))
+	require.True(t, m.inDetail())
+
+	// Follow the Project link from the detail view.
+	link := &columnLink{TargetTab: tabProjects}
+	require.NoError(t, m.navigateToLink(link, 1))
+
+	// Detail stack should be fully collapsed and we should be on Projects.
+	assert.False(t, m.inDetail(), "detail stack should be closed after navigateToLink")
+	assert.Equal(t, tabIndex(tabProjects), m.active)
+}

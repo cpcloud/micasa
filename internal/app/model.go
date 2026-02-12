@@ -925,18 +925,18 @@ func (m *Model) startCellOrFormEdit() error {
 	return tab.Handler.InlineEdit(m, meta.ID, col)
 }
 
-// navigateToLink switches to the target tab and selects the row matching the FK.
+// navigateToLink closes any open drilldown stack, switches to the target tab,
+// and selects the row matching the FK.
 func (m *Model) navigateToLink(link *columnLink, targetID uint) error {
+	m.closeAllDetails()
 	m.switchToTab(tabIndex(link.TargetTab))
 	tab := m.activeTab()
 	if tab == nil {
 		return fmt.Errorf("target tab not found")
 	}
-	if selectRowByID(tab, targetID) {
-		m.setStatusInfo(fmt.Sprintf("Followed link to ID %d.", targetID))
-		return nil
+	if !selectRowByID(tab, targetID) {
+		m.setStatusError(fmt.Sprintf("Linked item %d not found (deleted?).", targetID))
 	}
-	m.setStatusError(fmt.Sprintf("Linked item %d not found (deleted?).", targetID))
 	return nil
 }
 
