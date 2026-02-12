@@ -334,6 +334,10 @@ These have been repeatedly requested. Violating them wastes the user's time.
 - **Re-record demo after UI/UX changes**: Run `nix run '.#record-demo'`
   after any UI or UX feature work. This updates `images/demo.gif` (used in
   README). Commit the GIF with the feature.
+- **PR demo GIF for TUI changes**: When a PR includes TUI changes, record
+  a one-off demo GIF showing the feature and embed it in the PR summary.
+  This is separate from the repo-wide `record-demo` GIF — it's a quick
+  capture focused on the specific change for reviewer context.
 - **Screenshots: test one before capturing all**: When iterating on
   screenshot themes or capture settings, modify the `capture-screenshots`
   script to only run a single capture (e.g. just `dashboard`) and inspect the
