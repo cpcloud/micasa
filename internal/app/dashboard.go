@@ -4,8 +4,10 @@
 package app
 
 import (
+	"cmp"
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 	"time"
 
@@ -455,111 +457,57 @@ func (m *Model) renderMaintSection(
 	return lines
 }
 
-// distributeDashRows allocates avail row slots across sections proportionally,
-// giving each section at least 1 row. Returns per-section limits.
-func distributeDashRows(sections []dashSection, avail int) []int {
-	n := len(sections)
+// distributeProportional allocates avail slots across buckets proportionally,
+// giving each non-empty bucket at least 1. Used for both section-level and
+// sub-section-level row budgeting.
+func distributeProportional(counts []int, avail int) []int {
+	n := len(counts)
 	if n == 0 {
 		return nil
-	}
-	limits := make([]int, n)
-	totalRaw := 0
-	for _, s := range sections {
-		totalRaw += len(s.rows)
-	}
-
-	if avail >= totalRaw {
-		// Everything fits.
-		for i, s := range sections {
-			limits[i] = len(s.rows)
-		}
-		return limits
-	}
-
-	// Give each section at least 1 row.
-	remaining := avail
-	for i := range sections {
-		limits[i] = 1
-		remaining--
-	}
-	if remaining < 0 {
-		remaining = 0
-	}
-
-	// Distribute the rest proportionally to each section's raw count.
-	excess := totalRaw - n // total "extra" rows beyond the 1 minimum
-	if excess > 0 && remaining > 0 {
-		for i, s := range sections {
-			extra := len(s.rows) - 1
-			share := extra * remaining / excess
-			limits[i] += share
-		}
-	}
-
-	// Rounding may leave us short; give leftover to largest sections first.
-	allocated := 0
-	for _, l := range limits {
-		allocated += l
-	}
-	for allocated < avail {
-		best := -1
-		bestGap := 0
-		for i, s := range sections {
-			gap := len(s.rows) - limits[i]
-			if gap > bestGap {
-				bestGap = gap
-				best = i
-			}
-		}
-		if best < 0 {
-			break
-		}
-		limits[best]++
-		allocated++
-	}
-
-	return limits
-}
-
-// distributeSubLimits splits limit rows across sub-sections proportionally.
-func distributeSubLimits(subCounts []int, limit int) []int {
-	n := len(subCounts)
-	if n == 0 {
-		return nil
-	}
-	total := 0
-	for _, c := range subCounts {
-		total += c
 	}
 	result := make([]int, n)
-	if limit >= total {
-		copy(result, subCounts)
+	total := 0
+	for _, c := range counts {
+		total += c
+	}
+	if avail >= total {
+		copy(result, counts)
 		return result
 	}
-	// Give each non-empty sub-section at least 1.
-	remaining := limit
-	for i, c := range subCounts {
+
+	// Give each non-empty bucket at least 1.
+	nonEmpty := 0
+	remaining := avail
+	for i, c := range counts {
 		if c > 0 && remaining > 0 {
 			result[i] = 1
 			remaining--
+			nonEmpty++
 		}
 	}
-	if remaining > 0 && total > n {
-		for i, c := range subCounts {
+
+	// Distribute the rest proportionally to each bucket's raw count.
+	excess := total - nonEmpty
+	if excess > 0 && remaining > 0 {
+		for i, c := range counts {
 			extra := c - 1
-			share := extra * remaining / (total - n)
+			if extra <= 0 {
+				continue
+			}
+			share := extra * remaining / excess
 			result[i] += share
 		}
 	}
-	// Distribute rounding leftover.
+
+	// Rounding may leave us short; give leftover to largest buckets first.
 	allocated := 0
 	for _, r := range result {
 		allocated += r
 	}
-	for allocated < limit {
+	for allocated < avail {
 		best := -1
 		bestGap := 0
-		for i, c := range subCounts {
+		for i, c := range counts {
 			gap := c - result[i]
 			if gap > bestGap {
 				bestGap = gap
@@ -573,6 +521,20 @@ func distributeSubLimits(subCounts []int, limit int) []int {
 		allocated++
 	}
 	return result
+}
+
+// distributeDashRows allocates avail row slots across sections proportionally.
+func distributeDashRows(sections []dashSection, avail int) []int {
+	counts := make([]int, len(sections))
+	for i, s := range sections {
+		counts[i] = len(s.rows)
+	}
+	return distributeProportional(counts, avail)
+}
+
+// distributeSubLimits splits limit rows across sub-sections proportionally.
+func distributeSubLimits(subCounts []int, limit int) []int {
+	return distributeProportional(subCounts, limit)
 }
 
 // ---------------------------------------------------------------------------
@@ -608,7 +570,7 @@ func (m *Model) dashMaintRows() []dashRow {
 				{Text: appliance, Style: m.styles.DashLabel},
 				{
 					Text:  daysText(e.DaysFromNow, overdue),
-					Style: daysStyle(e.DaysFromNow, overdue),
+					Style: m.daysStyle(e.DaysFromNow, overdue),
 					Align: alignRight,
 				},
 				{Text: lastSrv, Style: m.styles.DashLabel, Align: alignRight},
@@ -669,7 +631,7 @@ func (m *Model) dashExpiringRows() []dashRow {
 				},
 				{
 					Text:  daysText(w.DaysFromNow, overdue),
-					Style: daysStyle(w.DaysFromNow, overdue),
+					Style: m.daysStyle(w.DaysFromNow, overdue),
 					Align: alignRight,
 				},
 			},
@@ -698,7 +660,7 @@ func (m *Model) dashExpiringRows() []dashRow {
 				},
 				{
 					Text:  daysText(ins.DaysFromNow, overdue),
-					Style: daysStyle(ins.DaysFromNow, overdue),
+					Style: m.daysStyle(ins.DaysFromNow, overdue),
 					Align: alignRight,
 				},
 			},
@@ -775,14 +737,8 @@ func (m *Model) dashJump() {
 	}
 	entry := nav[m.dashCursor]
 	m.showDashboard = false
-	m.active = tabIndex(entry.Tab)
-	tab := m.activeTab()
-	if tab != nil && tab.Stale {
-		_ = m.reloadIfStale(tab)
-	} else {
-		_ = m.reloadActiveTab()
-	}
-	if tab != nil {
+	m.switchToTab(tabIndex(entry.Tab))
+	if tab := m.activeTab(); tab != nil {
 		selectRowByID(tab, entry.ID)
 	}
 }
@@ -810,12 +766,13 @@ func daysText(days int, overdue bool) string {
 	return fmt.Sprintf("in %d %s", abs, unit)
 }
 
-// daysStyle returns the appropriate style for a timing label.
-func daysStyle(days int, overdue bool) lipgloss.Style {
+// daysStyle returns the appropriate style for a timing label, using the
+// Styles struct to stay consistent with the colorblind-safe palette.
+func (m *Model) daysStyle(days int, overdue bool) lipgloss.Style {
 	if days == 0 || overdue {
-		return lipgloss.NewStyle().Foreground(danger).Bold(true)
+		return m.styles.DashOverdue
 	}
-	return lipgloss.NewStyle().Foreground(warning)
+	return m.styles.DashUpcoming
 }
 
 // daysUntil returns the number of whole days from now to target. Negative
@@ -829,11 +786,9 @@ func daysUntil(now, target time.Time) int {
 }
 
 func sortByDays(items []maintenanceUrgency) {
-	for i := 1; i < len(items); i++ {
-		for j := i; j > 0 && items[j].DaysFromNow < items[j-1].DaysFromNow; j-- {
-			items[j], items[j-1] = items[j-1], items[j]
-		}
-	}
+	slices.SortFunc(items, func(a, b maintenanceUrgency) int {
+		return cmp.Compare(a.DaysFromNow, b.DaysFromNow)
+	})
 }
 
 func capSlice[T any](s []T, maxLen int) []T {

@@ -723,11 +723,10 @@ func (m *Model) toggleDashboard() {
 	}
 }
 
-func (m *Model) nextTab() {
-	if len(m.tabs) == 0 {
-		return
-	}
-	m.active = (m.active + 1) % len(m.tabs)
+// switchToTab sets the active tab index, reloads it (lazy if stale), and
+// clears the status message. Centralizes the reload-after-switch pattern.
+func (m *Model) switchToTab(idx int) {
+	m.active = idx
 	m.status = statusMsg{}
 	tab := m.activeTab()
 	if tab != nil && tab.Stale {
@@ -737,21 +736,22 @@ func (m *Model) nextTab() {
 	}
 }
 
+func (m *Model) nextTab() {
+	if len(m.tabs) == 0 {
+		return
+	}
+	m.switchToTab((m.active + 1) % len(m.tabs))
+}
+
 func (m *Model) prevTab() {
 	if len(m.tabs) == 0 {
 		return
 	}
-	m.active--
-	if m.active < 0 {
-		m.active = len(m.tabs) - 1
+	idx := m.active - 1
+	if idx < 0 {
+		idx = len(m.tabs) - 1
 	}
-	m.status = statusMsg{}
-	tab := m.activeTab()
-	if tab != nil && tab.Stale {
-		_ = m.reloadIfStale(tab)
-	} else {
-		_ = m.reloadActiveTab()
-	}
+	m.switchToTab(idx)
 }
 
 func (m *Model) startAddForm() {
@@ -812,14 +812,8 @@ func (m *Model) startCellOrFormEdit() error {
 
 // navigateToLink switches to the target tab and selects the row matching the FK.
 func (m *Model) navigateToLink(link *columnLink, targetID uint) error {
-	targetIdx := tabIndex(link.TargetTab)
-	m.active = targetIdx
+	m.switchToTab(tabIndex(link.TargetTab))
 	tab := m.activeTab()
-	if tab != nil && tab.Stale {
-		_ = m.reloadIfStale(tab)
-	} else {
-		_ = m.reloadActiveTab()
-	}
 	if tab == nil {
 		return fmt.Errorf("target tab not found")
 	}
@@ -1293,6 +1287,20 @@ func (m *Model) effectiveHeight() int {
 		return m.height
 	}
 	return defaultHeight
+}
+
+// overlayContentWidth returns the clamped content width for overlay boxes
+// (dashboard, note preview). Accounts for border (2), padding (4), and
+// breathing room (6) = 12 total, clamped to [30, 72].
+func (m *Model) overlayContentWidth() int {
+	w := m.effectiveWidth() - 12
+	if w > 72 {
+		w = 72
+	}
+	if w < 30 {
+		w = 30
+	}
+	return w
 }
 
 func (m *Model) terminalTooSmall() bool {
