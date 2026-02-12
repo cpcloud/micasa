@@ -7,9 +7,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestMagValueMoney(t *testing.T) {
+func TestMagFormatMoneyWithUnit(t *testing.T) {
 	tests := []struct {
 		name  string
 		value string
@@ -18,9 +19,6 @@ func TestMagValueMoney(t *testing.T) {
 		{"thousands", "$5,234.23", "$ \U0001F8213"},
 		{"hundreds", "$500.00", "$ \U0001F8212"},
 		{"millions", "$1,000,000.00", "$ \U0001F8216"},
-		{"tens", "$42.00", "$ \U0001F8211"},
-		{"single digit", "$7.50", "$ \U0001F8210"},
-		{"sub-dollar", "$0.50", "$ \U0001F821-1"},
 		{"zero", "$0.00", "$ \U0001F8210"},
 		{"negative", "-$5.00", "-$ \U0001F8210"},
 		{"negative large", "-$12,345.00", "-$ \U0001F8214"},
@@ -28,12 +26,36 @@ func TestMagValueMoney(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := cell{Value: tt.value, Kind: cellMoney}
-			assert.Equal(t, tt.want, magValue(c))
+			assert.Equal(t, tt.want, magFormat(c, true))
 		})
 	}
 }
 
-func TestMagValueDrilldown(t *testing.T) {
+func TestMagFormatMoneyWithoutUnit(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		want  string
+	}{
+		{"thousands", "$5,234.23", "\U0001F8213"},
+		{"hundreds", "$500.00", "\U0001F8212"},
+		{"millions", "$1,000,000.00", "\U0001F8216"},
+		{"tens", "$42.00", "\U0001F8211"},
+		{"single digit", "$7.50", "\U0001F8210"},
+		{"sub-dollar", "$0.50", "\U0001F821-1"},
+		{"zero", "$0.00", "\U0001F8210"},
+		{"negative", "-$5.00", "-\U0001F8210"},
+		{"negative large", "-$12,345.00", "-\U0001F8214"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := cell{Value: tt.value, Kind: cellMoney}
+			assert.Equal(t, tt.want, magFormat(c, false))
+		})
+	}
+}
+
+func TestMagFormatDrilldown(t *testing.T) {
 	tests := []struct {
 		name  string
 		value string
@@ -46,18 +68,17 @@ func TestMagValueDrilldown(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := cell{Value: tt.value, Kind: cellDrilldown}
-			assert.Equal(t, tt.want, magValue(c))
+			assert.Equal(t, tt.want, magFormat(c, false))
 		})
 	}
 }
 
-func TestMagValueSkipsReadonly(t *testing.T) {
-	// IDs and other readonly cells should not be transformed.
+func TestMagFormatSkipsReadonly(t *testing.T) {
 	c := cell{Value: "42", Kind: cellReadonly}
-	assert.Equal(t, "42", magValue(c))
+	assert.Equal(t, "42", magFormat(c, false))
 }
 
-func TestMagValueSkipsNonNumeric(t *testing.T) {
+func TestMagFormatSkipsNonNumeric(t *testing.T) {
 	tests := []struct {
 		name  string
 		value string
@@ -76,12 +97,12 @@ func TestMagValueSkipsNonNumeric(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := cell{Value: tt.value, Kind: tt.kind}
-			assert.Equal(t, tt.value, magValue(c), "value should be unchanged")
+			assert.Equal(t, tt.value, magFormat(c, false), "value should be unchanged")
 		})
 	}
 }
 
-func TestMagTransformCells(t *testing.T) {
+func TestMagTransformCellsStripsUnit(t *testing.T) {
 	rows := [][]cell{
 		{
 			{Value: "1", Kind: cellReadonly},
@@ -106,9 +127,9 @@ func TestMagTransformCells(t *testing.T) {
 	assert.Equal(t, "Kitchen Remodel", out[0][1].Value)
 	assert.Equal(t, "Deck", out[1][1].Value)
 
-	// Money cells transformed.
-	assert.Equal(t, "$ \U0001F8213", out[0][2].Value)
-	assert.Equal(t, "$ \U0001F8212", out[1][2].Value)
+	// Money cells: magnitude only, no $ prefix.
+	assert.Equal(t, "\U0001F8213", out[0][2].Value)
+	assert.Equal(t, "\U0001F8212", out[1][2].Value)
 
 	// Drilldown counts transformed.
 	assert.Equal(t, "\U0001F8210", out[0][3].Value)
@@ -116,6 +137,40 @@ func TestMagTransformCells(t *testing.T) {
 
 	// Original rows are not modified.
 	assert.Equal(t, "$5,234.23", rows[0][2].Value)
+}
+
+func TestMagAnnotateSpecs(t *testing.T) {
+	styles := DefaultStyles()
+	specs := []columnSpec{
+		{Title: "Name", Kind: cellText},
+		{Title: "Total", Kind: cellMoney},
+		{Title: "Labor", Kind: cellMoney},
+		{Title: "ID", Kind: cellReadonly},
+	}
+	out := magAnnotateSpecs(specs, styles)
+
+	// Non-money columns unchanged.
+	assert.Equal(t, "Name", out[0].Title)
+	assert.Equal(t, "ID", out[3].Title)
+
+	// Money columns get styled "$" suffix.
+	assert.Contains(t, out[1].Title, "Total")
+	assert.Contains(t, out[1].Title, "$")
+	assert.Contains(t, out[2].Title, "Labor")
+	assert.Contains(t, out[2].Title, "$")
+
+	// Original specs unmodified.
+	assert.Equal(t, "Total", specs[1].Title)
+}
+
+func TestMagAnnotateSpecsPreservesLength(t *testing.T) {
+	styles := DefaultStyles()
+	specs := []columnSpec{
+		{Title: "A", Kind: cellText},
+		{Title: "B", Kind: cellMoney},
+	}
+	out := magAnnotateSpecs(specs, styles)
+	require.Len(t, out, 2)
 }
 
 func TestMagModeToggle(t *testing.T) {
@@ -135,7 +190,7 @@ func TestMagModeWorksInEditMode(t *testing.T) {
 	assert.True(t, m.magMode)
 }
 
-func TestMagCents(t *testing.T) {
+func TestMagCentsIncludesUnit(t *testing.T) {
 	assert.Equal(t, "$ \U0001F8213", magCents(523423))
 	assert.Equal(t, "$ \U0001F8212", magCents(50000))
 	assert.Equal(t, "$ \U0001F8210", magCents(100))
