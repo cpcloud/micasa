@@ -9,10 +9,24 @@ import (
 	"github.com/cpcloud/micasa/internal/data"
 )
 
+// annotateMoneyHeaders returns a copy of specs with a styled green "$"
+// appended to money column titles. The unit lives in the header so cell
+// values can be bare numbers.
+func annotateMoneyHeaders(specs []columnSpec, styles Styles) []columnSpec {
+	out := make([]columnSpec, len(specs))
+	copy(out, specs)
+	for i, spec := range out {
+		if spec.Kind == cellMoney {
+			out[i].Title = spec.Title + " " + styles.Money.Render("$")
+		}
+	}
+	return out
+}
+
 // compactMoneyCells returns a copy of the cell grid with money values
-// replaced by their compact representation (e.g. "$1.2k"). The original
-// cells are not modified so sorting continues to work on full-precision
-// values.
+// replaced by their compact representation (e.g. "1.2k") without the $
+// prefix (the $ lives in the column header). The original cells are not
+// modified so sorting continues to work on full-precision values.
 func compactMoneyCells(rows [][]cell) [][]cell {
 	out := make([][]cell, len(rows))
 	for i, row := range rows {
@@ -34,8 +48,8 @@ func compactMoneyCells(rows [][]cell) [][]cell {
 }
 
 // compactMoneyValue converts a full-precision money string like "$1,234.56"
-// or "1,234.56" to compact form using data.FormatCompactCents. Returns the
-// original value unchanged if it can't be parsed.
+// to compact form without the $ prefix (e.g. "5.2k", "100.00"). The $
+// prefix is handled by the column header annotation instead.
 func compactMoneyValue(v string) string {
 	v = strings.TrimSpace(v)
 	if v == "" || v == "—" {
@@ -45,5 +59,6 @@ func compactMoneyValue(v string) string {
 	if err != nil {
 		return v
 	}
-	return data.FormatCompactCents(cents)
+	compact := data.FormatCompactCents(cents)
+	return strings.TrimPrefix(compact, "$")
 }
