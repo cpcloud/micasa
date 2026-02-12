@@ -101,6 +101,7 @@ Sleep 1s
 Type "D"
 Sleep 3s
 
-# Quit
+# Quit (hidden so the post-exit terminal doesn't leak into the recording)
+Hide
 Type "q"
 Sleep 1s
