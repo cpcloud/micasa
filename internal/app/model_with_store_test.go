@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/cpcloud/micasa/internal/data"
+	"github.com/stretchr/testify/require"
 )
 
 // newTestModelWithStore creates a Model backed by a real in-memory SQLite
@@ -19,29 +20,18 @@ func newTestModelWithStore(t *testing.T) *Model {
 
 	path := filepath.Join(t.TempDir(), "test.db")
 	store, err := data.Open(path)
-	if err != nil {
-		t.Fatalf("Open: %v", err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
 
-	if err := store.AutoMigrate(); err != nil {
-		t.Fatalf("AutoMigrate: %v", err)
-	}
-	if err := store.SeedDefaults(); err != nil {
-		t.Fatalf("SeedDefaults: %v", err)
-	}
+	require.NoError(t, store.AutoMigrate())
+	require.NoError(t, store.SeedDefaults())
 
-	// Create a house profile so NewModel doesn't open the house form.
-	if err := store.CreateHouseProfile(data.HouseProfile{
+	require.NoError(t, store.CreateHouseProfile(data.HouseProfile{
 		Nickname: "Test House",
-	}); err != nil {
-		t.Fatalf("CreateHouseProfile: %v", err)
-	}
+	}))
 
 	m, err := NewModel(store, Options{DBPath: path})
-	if err != nil {
-		t.Fatalf("NewModel: %v", err)
-	}
+	require.NoError(t, err)
 	m.width = 120
 	m.height = 40
 	m.showDashboard = false

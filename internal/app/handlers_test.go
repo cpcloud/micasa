@@ -3,14 +3,17 @@
 
 package app
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
 
 func TestAllTabsHaveHandlers(t *testing.T) {
 	m := newTestModel()
 	for i, tab := range m.tabs {
-		if tab.Handler == nil {
-			t.Fatalf("tab %d (%s) has nil handler", i, tab.Name)
-		}
+		require.NotNilf(t, tab.Handler, "tab %d (%s) has nil handler", i, tab.Name)
 	}
 }
 
@@ -28,32 +31,25 @@ func TestHandlerForFormKind(t *testing.T) {
 
 	for _, tc := range cases {
 		handler := m.handlerForFormKind(tc.kind)
-		if handler == nil {
-			t.Fatalf("expected handler for %s, got nil", tc.name)
-		}
-		if handler.FormKind() != tc.kind {
-			t.Fatalf(
-				"handler for %s returned FormKind %d, want %d",
-				tc.name,
-				handler.FormKind(),
-				tc.kind,
-			)
-		}
+		require.NotNilf(t, handler, "expected handler for %s", tc.name)
+		assert.Equalf(
+			t,
+			tc.kind,
+			handler.FormKind(),
+			"handler for %s returned wrong FormKind",
+			tc.name,
+		)
 	}
 }
 
 func TestHandlerForFormKindHouseReturnsNil(t *testing.T) {
 	m := newTestModel()
-	if h := m.handlerForFormKind(formHouse); h != nil {
-		t.Fatal("expected nil handler for formHouse")
-	}
+	assert.Nil(t, m.handlerForFormKind(formHouse))
 }
 
 func TestHandlerForFormKindUnknownReturnsNil(t *testing.T) {
 	m := newTestModel()
-	if h := m.handlerForFormKind(formNone); h != nil {
-		t.Fatal("expected nil handler for formNone")
-	}
+	assert.Nil(t, m.handlerForFormKind(formNone))
 }
 
 func TestHandlerFormKindMatchesTabKind(t *testing.T) {
@@ -69,13 +65,7 @@ func TestHandlerFormKindMatchesTabKind(t *testing.T) {
 		if !ok {
 			continue
 		}
-		if tab.Handler.FormKind() != want {
-			t.Fatalf(
-				"tab %s handler FormKind() = %d, want %d",
-				tab.Name,
-				tab.Handler.FormKind(),
-				want,
-			)
-		}
+		assert.Equalf(t, want, tab.Handler.FormKind(),
+			"tab %s handler FormKind() mismatch", tab.Name)
 	}
 }

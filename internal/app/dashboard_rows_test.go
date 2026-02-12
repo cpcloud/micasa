@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/cpcloud/micasa/internal/data"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDashMaintRowsOverdueAndUpcoming(t *testing.T) {
@@ -32,37 +34,24 @@ func TestDashMaintRowsOverdueAndUpcoming(t *testing.T) {
 	}
 
 	rows := m.dashMaintRows()
-	if len(rows) != 2 {
-		t.Fatalf("expected 2 rows, got %d", len(rows))
-	}
+	require.Len(t, rows, 2)
 
 	// First row: overdue item.
-	if rows[0].Cells[0].Text != "Replace Filter" {
-		t.Errorf("row[0] name = %q", rows[0].Cells[0].Text)
-	}
-	if rows[0].Cells[1].Text != "Furnace" {
-		t.Errorf("row[0] appliance = %q", rows[0].Cells[1].Text)
-	}
-	if rows[0].Target == nil || rows[0].Target.Tab != tabMaintenance {
-		t.Error("expected target pointing to maintenance tab")
-	}
+	assert.Equal(t, "Replace Filter", rows[0].Cells[0].Text)
+	assert.Equal(t, "Furnace", rows[0].Cells[1].Text)
+	require.NotNil(t, rows[0].Target)
+	assert.Equal(t, tabMaintenance, rows[0].Target.Tab)
 
 	// Second row: upcoming item, no appliance.
-	if rows[1].Cells[0].Text != "Check Pump" {
-		t.Errorf("row[1] name = %q", rows[1].Cells[0].Text)
-	}
-	if rows[1].Cells[1].Text != "" {
-		t.Errorf("row[1] appliance = %q, want empty", rows[1].Cells[1].Text)
-	}
+	assert.Equal(t, "Check Pump", rows[1].Cells[0].Text)
+	assert.Empty(t, rows[1].Cells[1].Text)
 }
 
 func TestDashMaintRowsEmpty(t *testing.T) {
 	m := newTestModel()
 	m.dashboard = dashboardData{}
 	rows := m.dashMaintRows()
-	if rows != nil {
-		t.Errorf("expected nil rows for empty maintenance, got %d", len(rows))
-	}
+	assert.Nil(t, rows)
 }
 
 func TestDashMaintRowsLastServicedAt(t *testing.T) {
@@ -82,13 +71,8 @@ func TestDashMaintRowsLastServicedAt(t *testing.T) {
 	}
 
 	rows := m.dashMaintRows()
-	if len(rows) != 1 {
-		t.Fatal("expected 1 row")
-	}
-	// Last column should show the formatted date.
-	if rows[0].Cells[3].Text != "2025-12-25" {
-		t.Errorf("last serviced = %q, want 2025-12-25", rows[0].Cells[3].Text)
-	}
+	require.Len(t, rows, 1)
+	assert.Equal(t, "2025-12-25", rows[0].Cells[3].Text)
 }
 
 func TestDashProjectRowsBudgetFormatting(t *testing.T) {
@@ -109,15 +93,8 @@ func TestDashProjectRowsBudgetFormatting(t *testing.T) {
 	}
 
 	rows := m.dashProjectRows()
-	if len(rows) != 1 {
-		t.Fatal("expected 1 row")
-	}
-
-	budgetCell := rows[0].Cells[2]
-	// Should show "actual / budget" format.
-	if budgetCell.Text == "" {
-		t.Error("expected budget text")
-	}
+	require.Len(t, rows, 1)
+	assert.NotEmpty(t, rows[0].Cells[2].Text, "expected budget text")
 }
 
 func TestDashProjectRowsBudgetOnly(t *testing.T) {
@@ -134,13 +111,8 @@ func TestDashProjectRowsBudgetOnly(t *testing.T) {
 	}
 
 	rows := m.dashProjectRows()
-	if len(rows) != 1 {
-		t.Fatal("expected 1 row")
-	}
-	// No actual, so just budget.
-	if rows[0].Cells[2].Text == "" {
-		t.Error("expected budget-only text")
-	}
+	require.Len(t, rows, 1)
+	assert.NotEmpty(t, rows[0].Cells[2].Text, "expected budget-only text")
 }
 
 func TestDashProjectRowsNoBudget(t *testing.T) {
@@ -155,12 +127,8 @@ func TestDashProjectRowsNoBudget(t *testing.T) {
 	}
 
 	rows := m.dashProjectRows()
-	if len(rows) != 1 {
-		t.Fatal("expected 1 row")
-	}
-	if rows[0].Cells[2].Text != "" {
-		t.Errorf("expected empty budget, got %q", rows[0].Cells[2].Text)
-	}
+	require.Len(t, rows, 1)
+	assert.Empty(t, rows[0].Cells[2].Text)
 }
 
 func TestDashExpiringRowsOverdueAndUpcoming(t *testing.T) {
@@ -184,28 +152,19 @@ func TestDashExpiringRowsOverdueAndUpcoming(t *testing.T) {
 	}
 
 	rows := m.dashExpiringRows()
-	if len(rows) != 2 {
-		t.Fatalf("expected 2 rows, got %d", len(rows))
-	}
-	if rows[0].Cells[0].Text != "Fridge warranty" {
-		t.Errorf("row[0] = %q", rows[0].Cells[0].Text)
-	}
-	if rows[1].Cells[0].Text != "Oven warranty" {
-		t.Errorf("row[1] = %q", rows[1].Cells[0].Text)
-	}
+	require.Len(t, rows, 2)
+	assert.Equal(t, "Fridge warranty", rows[0].Cells[0].Text)
+	assert.Equal(t, "Oven warranty", rows[1].Cells[0].Text)
 	// Both should have nav targets.
-	if rows[0].Target == nil || rows[0].Target.Tab != tabAppliances {
-		t.Error("expected appliance nav target on row 0")
-	}
+	require.NotNil(t, rows[0].Target)
+	assert.Equal(t, tabAppliances, rows[0].Target.Tab)
 }
 
 func TestDashExpiringRowsEmpty(t *testing.T) {
 	m := newTestModel()
 	m.dashboard = dashboardData{}
 	rows := m.dashExpiringRows()
-	if rows != nil {
-		t.Error("expected nil rows for no expiring warranties")
-	}
+	assert.Nil(t, rows)
 }
 
 // ---------------------------------------------------------------------------
@@ -214,9 +173,7 @@ func TestDashExpiringRowsEmpty(t *testing.T) {
 
 func TestOverheadSingleSection(t *testing.T) {
 	s := dashSection{title: "Projects", rows: make([]dashRow, 3)}
-	if got := s.overhead(); got != 1 {
-		t.Errorf("overhead = %d, want 1", got)
-	}
+	assert.Equal(t, 1, s.overhead())
 }
 
 func TestOverheadSubSections(t *testing.T) {
@@ -226,9 +183,7 @@ func TestOverheadSubSections(t *testing.T) {
 		subCounts: []int{3, 2},
 	}
 	// 2 sub-headers + 1 blank separator = 3
-	if got := s.overhead(); got != 3 {
-		t.Errorf("overhead = %d, want 3", got)
-	}
+	assert.Equal(t, 3, s.overhead())
 }
 
 func TestOverheadSubSectionsOneEmpty(t *testing.T) {
@@ -238,9 +193,7 @@ func TestOverheadSubSectionsOneEmpty(t *testing.T) {
 		subCounts: []int{3, 0},
 	}
 	// Only 1 non-empty sub-section -> overhead = 1.
-	if got := s.overhead(); got != 1 {
-		t.Errorf("overhead = %d, want 1", got)
-	}
+	assert.Equal(t, 1, s.overhead())
 }
 
 func TestOverheadAllSubSectionsEmpty(t *testing.T) {
@@ -249,7 +202,5 @@ func TestOverheadAllSubSectionsEmpty(t *testing.T) {
 		subTitles: []string{"Overdue", "Upcoming"},
 		subCounts: []int{0, 0},
 	}
-	if got := s.overhead(); got != 1 {
-		t.Errorf("overhead = %d, want 1", got)
-	}
+	assert.Equal(t, 1, s.overhead())
 }

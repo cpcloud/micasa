@@ -4,69 +4,50 @@
 package app
 
 import (
-	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFuzzyMatch_ExactPrefix(t *testing.T) {
 	score, positions := fuzzyMatch("Pro", "Projects")
-	if score == 0 {
-		t.Fatal("expected match")
-	}
-	if len(positions) != 3 || positions[0] != 0 || positions[1] != 1 || positions[2] != 2 {
-		t.Errorf("positions = %v, want [0,1,2]", positions)
-	}
+	assert.NotZero(t, score)
+	assert.Equal(t, []int{0, 1, 2}, positions)
 }
 
 func TestFuzzyMatch_CaseInsensitive(t *testing.T) {
 	score, _ := fuzzyMatch("pro", "Projects")
-	if score == 0 {
-		t.Fatal("expected case-insensitive match")
-	}
+	assert.NotZero(t, score)
 }
 
 func TestFuzzyMatch_NonContiguous(t *testing.T) {
 	score, positions := fuzzyMatch("pj", "Projects")
-	if score == 0 {
-		t.Fatal("expected match for non-contiguous chars")
-	}
-	if len(positions) != 2 {
-		t.Fatalf("positions length = %d, want 2", len(positions))
-	}
-	if positions[0] != 0 {
-		t.Errorf("first match at %d, want 0", positions[0])
-	}
+	assert.NotZero(t, score)
+	require.Len(t, positions, 2)
+	assert.Equal(t, 0, positions[0])
 }
 
 func TestFuzzyMatch_NoMatch(t *testing.T) {
 	score, _ := fuzzyMatch("xyz", "Projects")
-	if score != 0 {
-		t.Fatal("expected no match")
-	}
+	assert.Zero(t, score)
 }
 
 func TestFuzzyMatch_EmptyQuery(t *testing.T) {
 	score, _ := fuzzyMatch("", "Projects")
-	if score == 0 {
-		t.Fatal("empty query should match everything")
-	}
+	assert.NotZero(t, score, "empty query should match everything")
 }
 
 func TestFuzzyMatch_QueryLongerThanTarget(t *testing.T) {
 	score, _ := fuzzyMatch("very long query", "ID")
-	if score != 0 {
-		t.Fatal("query longer than target should not match")
-	}
+	assert.Zero(t, score)
 }
 
 func TestFuzzyMatch_PrefixScoresHigher(t *testing.T) {
 	prefixScore, _ := fuzzyMatch("na", "Name")
 	midScore, _ := fuzzyMatch("na", "Maintenance")
-	if prefixScore <= midScore {
-		t.Errorf("prefix match (%d) should score higher than mid match (%d)", prefixScore, midScore)
-	}
+	assert.Greater(t, prefixScore, midScore)
 }
 
 func TestSortFuzzyMatches_ScoreDescending(t *testing.T) {
@@ -76,10 +57,9 @@ func TestSortFuzzyMatches_ScoreDescending(t *testing.T) {
 		{Entry: columnFinderEntry{FullIndex: 2, Title: "C"}, Score: 20},
 	}
 	sortFuzzyMatches(matches)
-	if matches[0].Score != 30 || matches[1].Score != 20 || matches[2].Score != 10 {
-		t.Errorf("expected descending scores, got %d %d %d",
-			matches[0].Score, matches[1].Score, matches[2].Score)
-	}
+	assert.Equal(t, 30, matches[0].Score)
+	assert.Equal(t, 20, matches[1].Score)
+	assert.Equal(t, 10, matches[2].Score)
 }
 
 func TestSortFuzzyMatches_TiebreakByIndex(t *testing.T) {
@@ -88,9 +68,8 @@ func TestSortFuzzyMatches_TiebreakByIndex(t *testing.T) {
 		{Entry: columnFinderEntry{FullIndex: 2, Title: "B"}, Score: 10},
 	}
 	sortFuzzyMatches(matches)
-	if matches[0].Entry.FullIndex != 2 || matches[1].Entry.FullIndex != 5 {
-		t.Error("equal scores should sort by FullIndex ascending")
-	}
+	assert.Equal(t, 2, matches[0].Entry.FullIndex)
+	assert.Equal(t, 5, matches[1].Entry.FullIndex)
 }
 
 func TestColumnFinderState_RefilterEmpty(t *testing.T) {
@@ -102,9 +81,7 @@ func TestColumnFinderState_RefilterEmpty(t *testing.T) {
 		},
 	}
 	cf.refilter()
-	if len(cf.Matches) != 3 {
-		t.Fatalf("empty query should show all %d columns, got %d", 3, len(cf.Matches))
-	}
+	assert.Len(t, cf.Matches, 3)
 }
 
 func TestColumnFinderState_RefilterNarrows(t *testing.T) {
@@ -118,13 +95,9 @@ func TestColumnFinderState_RefilterNarrows(t *testing.T) {
 	}
 	cf.Query = "na"
 	cf.refilter()
-	if len(cf.Matches) != 2 {
-		t.Fatalf("expected 2 matches for 'na', got %d", len(cf.Matches))
-	}
+	require.Len(t, cf.Matches, 2)
 	// "Name" should score higher than "Maintenance" because of prefix.
-	if cf.Matches[0].Entry.Title != "Name" {
-		t.Errorf("expected Name first, got %s", cf.Matches[0].Entry.Title)
-	}
+	assert.Equal(t, "Name", cf.Matches[0].Entry.Title)
 }
 
 func TestColumnFinderState_CursorClamps(t *testing.T) {
@@ -136,46 +109,33 @@ func TestColumnFinderState_CursorClamps(t *testing.T) {
 		Cursor: 5,
 	}
 	cf.refilter()
-	if cf.Cursor != 1 {
-		t.Errorf("cursor should clamp to %d, got %d", 1, cf.Cursor)
-	}
+	assert.Equal(t, 1, cf.Cursor)
 }
 
 func TestOpenColumnFinder(t *testing.T) {
 	m := newTestModel()
 	m.openColumnFinder()
-	if m.columnFinder == nil {
-		t.Fatal("columnFinder should be non-nil after open")
-	}
-	if len(m.columnFinder.All) == 0 {
-		t.Fatal("columnFinder.All should have entries")
-	}
+	require.NotNil(t, m.columnFinder)
+	assert.NotEmpty(t, m.columnFinder.All)
 }
 
 func TestColumnFinderJump(t *testing.T) {
 	m := newTestModel()
 	tab := m.effectiveTab()
-	if tab == nil {
-		t.Fatal("no effective tab")
-	}
+	require.NotNil(t, tab)
 	origCol := tab.ColCursor
 
 	m.openColumnFinder()
-	// Move cursor to the last match and jump.
 	cf := m.columnFinder
 	cf.Cursor = len(cf.Matches) - 1
 	targetIdx := cf.Matches[cf.Cursor].Entry.FullIndex
 
 	m.columnFinderJump()
-	if m.columnFinder != nil {
-		t.Fatal("columnFinder should be nil after jump")
+	assert.Nil(t, m.columnFinder)
+	if origCol != targetIdx {
+		assert.NotEqual(t, origCol, tab.ColCursor, "ColCursor should have moved")
 	}
-	if tab.ColCursor == origCol && origCol != targetIdx {
-		t.Error("ColCursor should have moved")
-	}
-	if tab.ColCursor != targetIdx {
-		t.Errorf("ColCursor = %d, want %d", tab.ColCursor, targetIdx)
-	}
+	assert.Equal(t, targetIdx, tab.ColCursor)
 }
 
 func TestColumnFinderJump_UnhidesHiddenColumn(t *testing.T) {
@@ -200,26 +160,18 @@ func TestColumnFinderJump_UnhidesHiddenColumn(t *testing.T) {
 			break
 		}
 	}
-	if !found {
-		t.Fatal("hidden column should still appear in finder")
-	}
+	require.True(t, found, "hidden column should still appear in finder")
 
 	m.columnFinderJump()
-	if tab.Specs[2].HideOrder != 0 {
-		t.Error("jumping to hidden column should unhide it")
-	}
-	if tab.ColCursor != 2 {
-		t.Errorf("ColCursor = %d, want 2", tab.ColCursor)
-	}
+	assert.Equal(t, 0, tab.Specs[2].HideOrder, "jumping to hidden column should unhide it")
+	assert.Equal(t, 2, tab.ColCursor)
 }
 
 func TestHandleColumnFinderKey_EscCloses(t *testing.T) {
 	m := newTestModel()
 	m.openColumnFinder()
 	m.handleColumnFinderKey(tea.KeyMsg{Type: tea.KeyEscape})
-	if m.columnFinder != nil {
-		t.Fatal("esc should close the column finder")
-	}
+	assert.Nil(t, m.columnFinder)
 }
 
 func TestHandleColumnFinderKey_Typing(t *testing.T) {
@@ -232,11 +184,9 @@ func TestHandleColumnFinderKey_Typing(t *testing.T) {
 	m.handleColumnFinderKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
 	m.handleColumnFinderKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
 
-	if cf.Query != "st" {
-		t.Errorf("query = %q, want %q", cf.Query, "st")
-	}
-	if len(cf.Matches) >= initial && initial > 1 {
-		t.Error("typing should narrow matches")
+	assert.Equal(t, "st", cf.Query)
+	if initial > 1 {
+		assert.Less(t, len(cf.Matches), initial, "typing should narrow matches")
 	}
 }
 
@@ -247,14 +197,10 @@ func TestHandleColumnFinderKey_Backspace(t *testing.T) {
 
 	m.handleColumnFinderKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
 	m.handleColumnFinderKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'b'}})
-	if cf.Query != "ab" {
-		t.Fatalf("query = %q, want %q", cf.Query, "ab")
-	}
+	require.Equal(t, "ab", cf.Query)
 
 	m.handleColumnFinderKey(tea.KeyMsg{Type: tea.KeyBackspace})
-	if cf.Query != "a" {
-		t.Errorf("after backspace query = %q, want %q", cf.Query, "a")
-	}
+	assert.Equal(t, "a", cf.Query)
 }
 
 func TestHandleColumnFinderKey_CtrlU(t *testing.T) {
@@ -265,9 +211,7 @@ func TestHandleColumnFinderKey_CtrlU(t *testing.T) {
 	m.handleColumnFinderKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'f'}})
 	m.handleColumnFinderKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
 	m.handleColumnFinderKey(tea.KeyMsg{Type: tea.KeyCtrlU})
-	if cf.Query != "" {
-		t.Errorf("ctrl+u should clear query, got %q", cf.Query)
-	}
+	assert.Empty(t, cf.Query)
 }
 
 func TestHandleColumnFinderKey_Navigation(t *testing.T) {
@@ -278,25 +222,17 @@ func TestHandleColumnFinderKey_Navigation(t *testing.T) {
 		t.Skip("need at least 2 columns")
 	}
 
-	if cf.Cursor != 0 {
-		t.Fatalf("initial cursor = %d, want 0", cf.Cursor)
-	}
+	assert.Equal(t, 0, cf.Cursor)
 
 	m.handleColumnFinderKey(tea.KeyMsg{Type: tea.KeyDown})
-	if cf.Cursor != 1 {
-		t.Errorf("after down cursor = %d, want 1", cf.Cursor)
-	}
+	assert.Equal(t, 1, cf.Cursor)
 
 	m.handleColumnFinderKey(tea.KeyMsg{Type: tea.KeyUp})
-	if cf.Cursor != 0 {
-		t.Errorf("after up cursor = %d, want 0", cf.Cursor)
-	}
+	assert.Equal(t, 0, cf.Cursor)
 
 	// Should clamp at top.
 	m.handleColumnFinderKey(tea.KeyMsg{Type: tea.KeyUp})
-	if cf.Cursor != 0 {
-		t.Errorf("should clamp at 0, got %d", cf.Cursor)
-	}
+	assert.Equal(t, 0, cf.Cursor)
 }
 
 func TestBuildColumnFinderOverlay_ShowsColumns(t *testing.T) {
@@ -305,12 +241,8 @@ func TestBuildColumnFinderOverlay_ShowsColumns(t *testing.T) {
 	m.height = 24
 	m.openColumnFinder()
 	rendered := m.buildColumnFinderOverlay()
-	if rendered == "" {
-		t.Fatal("overlay should not be empty")
-	}
-	if !strings.Contains(rendered, "Jump to Column") {
-		t.Error("overlay should contain title")
-	}
+	assert.NotEmpty(t, rendered)
+	assert.Contains(t, rendered, "Jump to Column")
 }
 
 func TestHighlightFuzzyMatch(t *testing.T) {
@@ -321,42 +253,29 @@ func TestHighlightFuzzyMatch(t *testing.T) {
 		Positions: []int{0, 1},
 	}
 	result := highlightFuzzyMatch(match, styles)
-	// Should contain the full title text somewhere in the styled output.
-	if !strings.Contains(result, "St") {
-		t.Error("highlighted output should contain matched chars")
-	}
-	if !strings.Contains(result, "atus") {
-		t.Error("highlighted output should contain unmatched chars")
-	}
+	assert.Contains(t, result, "St")
+	assert.Contains(t, result, "atus")
 }
 
 func TestSlashBlockedOnDashboard(t *testing.T) {
 	m := newTestModel()
 	m.showDashboard = true
 	cmd, handled := m.handleDashboardKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
-	if !handled {
-		t.Error("/ should be blocked on dashboard")
-	}
-	if cmd != nil {
-		t.Error("blocked key should return nil cmd")
-	}
+	assert.True(t, handled, "/ should be blocked on dashboard")
+	assert.Nil(t, cmd)
 }
 
 func TestSlashOpensColumnFinder(t *testing.T) {
 	m := newTestModel()
 	sendKey(m, "/")
-	if m.columnFinder == nil {
-		t.Fatal("/ in Normal mode should open column finder")
-	}
+	assert.NotNil(t, m.columnFinder, "/ in Normal mode should open column finder")
 }
 
 func TestSlashBlockedInEditMode(t *testing.T) {
 	m := newTestModel()
 	m.mode = modeEdit
 	sendKey(m, "/")
-	if m.columnFinder != nil {
-		t.Fatal("/ should not open column finder in Edit mode")
-	}
+	assert.Nil(t, m.columnFinder, "/ should not open column finder in Edit mode")
 }
 
 func TestColumnFinderEnterJumps(t *testing.T) {
@@ -371,11 +290,7 @@ func TestColumnFinderEnterJumps(t *testing.T) {
 	target := cf.Matches[1].Entry.FullIndex
 
 	m.handleColumnFinderKey(tea.KeyMsg{Type: tea.KeyEnter})
-	if m.columnFinder != nil {
-		t.Fatal("enter should close column finder")
-	}
+	assert.Nil(t, m.columnFinder)
 	tab := m.effectiveTab()
-	if tab.ColCursor != target {
-		t.Errorf("ColCursor = %d, want %d", tab.ColCursor, target)
-	}
+	assert.Equal(t, target, tab.ColCursor)
 }

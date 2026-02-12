@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func newSortTab() *Tab {
@@ -50,21 +52,18 @@ func TestToggleSortCycle(t *testing.T) {
 
 	// none -> asc
 	toggleSort(tab, 1)
-	if len(tab.Sorts) != 1 || tab.Sorts[0].Dir != sortAsc || tab.Sorts[0].Col != 1 {
-		t.Fatalf("expected [col=1 asc], got %+v", tab.Sorts)
-	}
+	require.Len(t, tab.Sorts, 1)
+	assert.Equal(t, sortAsc, tab.Sorts[0].Dir)
+	assert.Equal(t, 1, tab.Sorts[0].Col)
 
 	// asc -> desc
 	toggleSort(tab, 1)
-	if len(tab.Sorts) != 1 || tab.Sorts[0].Dir != sortDesc {
-		t.Fatalf("expected [col=1 desc], got %+v", tab.Sorts)
-	}
+	require.Len(t, tab.Sorts, 1)
+	assert.Equal(t, sortDesc, tab.Sorts[0].Dir)
 
 	// desc -> none (removed)
 	toggleSort(tab, 1)
-	if len(tab.Sorts) != 0 {
-		t.Fatalf("expected empty sorts, got %+v", tab.Sorts)
-	}
+	assert.Empty(t, tab.Sorts)
 }
 
 func TestToggleSortMultiColumn(t *testing.T) {
@@ -72,21 +71,14 @@ func TestToggleSortMultiColumn(t *testing.T) {
 	toggleSort(tab, 0) // col 0 asc
 	toggleSort(tab, 2) // col 2 asc
 
-	if len(tab.Sorts) != 2 {
-		t.Fatalf("expected 2 sorts, got %d", len(tab.Sorts))
-	}
-	if tab.Sorts[0].Col != 0 || tab.Sorts[1].Col != 2 {
-		t.Fatalf("expected cols [0, 2], got %+v", tab.Sorts)
-	}
+	require.Len(t, tab.Sorts, 2)
+	assert.Equal(t, 0, tab.Sorts[0].Col)
+	assert.Equal(t, 2, tab.Sorts[1].Col)
 
 	// Toggle col 0 to desc; col 2 stays asc.
 	toggleSort(tab, 0)
-	if tab.Sorts[0].Dir != sortDesc {
-		t.Fatalf("expected col 0 desc, got %+v", tab.Sorts[0])
-	}
-	if tab.Sorts[1].Dir != sortAsc {
-		t.Fatalf("expected col 2 still asc, got %+v", tab.Sorts[1])
-	}
+	assert.Equal(t, sortDesc, tab.Sorts[0].Dir)
+	assert.Equal(t, sortAsc, tab.Sorts[1].Dir)
 }
 
 func TestClearSorts(t *testing.T) {
@@ -94,9 +86,7 @@ func TestClearSorts(t *testing.T) {
 	toggleSort(tab, 0)
 	toggleSort(tab, 1)
 	clearSorts(tab)
-	if len(tab.Sorts) != 0 {
-		t.Fatalf("expected empty sorts after clear, got %+v", tab.Sorts)
-	}
+	assert.Empty(t, tab.Sorts)
 }
 
 func TestApplySortsDefaultPK(t *testing.T) {
@@ -105,10 +95,7 @@ func TestApplySortsDefaultPK(t *testing.T) {
 	applySorts(tab)
 
 	ids := collectIDs(tab)
-	expected := []uint{1, 2, 3}
-	if !equalIDs(ids, expected) {
-		t.Fatalf("expected IDs %v, got %v", expected, ids)
-	}
+	assert.Equal(t, []uint{1, 2, 3}, ids)
 }
 
 func TestApplySortsByNameAsc(t *testing.T) {
@@ -117,10 +104,7 @@ func TestApplySortsByNameAsc(t *testing.T) {
 	applySorts(tab)
 
 	names := collectCol(tab, 1)
-	expected := []string{"Alice", "Bob", "Charlie"}
-	if !equalStrings(names, expected) {
-		t.Fatalf("expected %v, got %v", expected, names)
-	}
+	assert.Equal(t, []string{"Alice", "Bob", "Charlie"}, names)
 }
 
 func TestApplySortsByNameDesc(t *testing.T) {
@@ -130,10 +114,7 @@ func TestApplySortsByNameDesc(t *testing.T) {
 	applySorts(tab)
 
 	names := collectCol(tab, 1)
-	expected := []string{"Charlie", "Bob", "Alice"}
-	if !equalStrings(names, expected) {
-		t.Fatalf("expected %v, got %v", expected, names)
-	}
+	assert.Equal(t, []string{"Charlie", "Bob", "Alice"}, names)
 }
 
 func TestApplySortsByMoneyAsc(t *testing.T) {
@@ -142,10 +123,7 @@ func TestApplySortsByMoneyAsc(t *testing.T) {
 	applySorts(tab)
 
 	costs := collectCol(tab, 2)
-	expected := []string{"$50.00", "$200.00", "$1,000.00"}
-	if !equalStrings(costs, expected) {
-		t.Fatalf("expected %v, got %v", expected, costs)
-	}
+	assert.Equal(t, []string{"$50.00", "$200.00", "$1,000.00"}, costs)
 }
 
 func TestApplySortsByDateDesc(t *testing.T) {
@@ -155,10 +133,7 @@ func TestApplySortsByDateDesc(t *testing.T) {
 	applySorts(tab)
 
 	dates := collectCol(tab, 3)
-	expected := []string{"2025-03-01", "2025-02-10", "2025-01-15"}
-	if !equalStrings(dates, expected) {
-		t.Fatalf("expected %v, got %v", expected, dates)
-	}
+	assert.Equal(t, []string{"2025-03-01", "2025-02-10", "2025-01-15"}, dates)
 }
 
 func TestApplySortsEmptyLastRegardlessOfDirection(t *testing.T) {
@@ -177,18 +152,14 @@ func TestApplySortsEmptyLastRegardlessOfDirection(t *testing.T) {
 	applySorts(tab)
 
 	names := collectCol(tab, 0)
-	if names[2] != "" {
-		t.Fatalf("expected empty value last, got %v", names)
-	}
+	assert.Empty(t, names[2], "expected empty value last")
 
 	// Now desc: empty should still be last.
 	toggleSort(tab, 0) // desc
 	applySorts(tab)
 
 	names = collectCol(tab, 0)
-	if names[2] != "" {
-		t.Fatalf("expected empty value last in desc, got %v", names)
-	}
+	assert.Empty(t, names[2], "expected empty value last in desc")
 }
 
 func TestApplySortsMultiKey(t *testing.T) {
@@ -210,17 +181,12 @@ func TestApplySortsMultiKey(t *testing.T) {
 	applySorts(tab)
 
 	names := collectCol(tab, 1)
-	expected := []string{"Alex", "Yuri", "Mia", "Zara"}
-	if !equalStrings(names, expected) {
-		t.Fatalf("expected %v, got %v", expected, names)
-	}
+	assert.Equal(t, []string{"Alex", "Yuri", "Mia", "Zara"}, names)
 }
 
 func TestSortIndicatorSingle(t *testing.T) {
 	sorts := []sortEntry{{Col: 2, Dir: sortAsc}}
-	if got := sortIndicator(sorts, 2); got != "\u25b2" {
-		t.Fatalf("expected ▲ (no number for single sort), got %q", got)
-	}
+	assert.Equal(t, "\u25b2", sortIndicator(sorts, 2))
 }
 
 func TestSortIndicatorMulti(t *testing.T) {
@@ -228,31 +194,23 @@ func TestSortIndicatorMulti(t *testing.T) {
 		{Col: 2, Dir: sortAsc},
 		{Col: 5, Dir: sortDesc},
 	}
-	if got := sortIndicator(sorts, 2); got != "\u25b21" {
-		t.Fatalf("expected ▲1, got %q", got)
-	}
-	if got := sortIndicator(sorts, 5); got != "\u25bc2" {
-		t.Fatalf("expected ▼2, got %q", got)
-	}
-	if got := sortIndicator(sorts, 0); got != "" {
-		t.Fatalf("expected empty, got %q", got)
-	}
+	assert.Equal(t, "\u25b21", sortIndicator(sorts, 2))
+	assert.Equal(t, "\u25bc2", sortIndicator(sorts, 5))
+	assert.Empty(t, sortIndicator(sorts, 0))
 }
 
 func TestPKTiebreaker(t *testing.T) {
 	// Col 0 not in stack: gets appended.
 	sorts := []sortEntry{{Col: 2, Dir: sortAsc}}
 	result := withPKTiebreaker(sorts)
-	if len(result) != 2 || result[1].Col != 0 || result[1].Dir != sortAsc {
-		t.Fatalf("expected PK appended, got %+v", result)
-	}
+	require.Len(t, result, 2)
+	assert.Equal(t, 0, result[1].Col)
+	assert.Equal(t, sortAsc, result[1].Dir)
 
 	// Col 0 already in stack: unchanged.
 	sorts = []sortEntry{{Col: 0, Dir: sortDesc}, {Col: 3, Dir: sortAsc}}
 	result = withPKTiebreaker(sorts)
-	if len(result) != 2 {
-		t.Fatalf("expected no append when PK present, got %+v", result)
-	}
+	assert.Len(t, result, 2)
 }
 
 func TestSortKeyOnlyInNormalMode(t *testing.T) {
@@ -260,9 +218,7 @@ func TestSortKeyOnlyInNormalMode(t *testing.T) {
 	m.enterEditMode()
 	key := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("s")}
 	_, handled := m.handleEditKeys(key)
-	if handled {
-		t.Fatal("s should not be handled in Edit mode")
-	}
+	assert.False(t, handled, "s should not be handled in Edit mode")
 }
 
 // helpers
@@ -283,28 +239,4 @@ func collectCol(tab *Tab, col int) []string {
 		}
 	}
 	return vals
-}
-
-func equalIDs(a, b []uint) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
-func equalStrings(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }

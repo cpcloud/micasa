@@ -5,53 +5,34 @@ package data
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSeedDemoDataPopulatesAllEntities(t *testing.T) {
 	store := newTestStoreWithDemoData(t, testSeed)
 
 	house, err := store.HouseProfile()
-	if err != nil {
-		t.Fatalf("HouseProfile: %v", err)
-	}
-	if house.Nickname == "" {
-		t.Error("house nickname empty")
-	}
-	if house.YearBuilt == 0 {
-		t.Error("house year built not set")
-	}
+	require.NoError(t, err)
+	assert.NotEmpty(t, house.Nickname)
+	assert.NotZero(t, house.YearBuilt)
 
 	vendors, err := store.ListVendors(false)
-	if err != nil {
-		t.Fatalf("ListVendors: %v", err)
-	}
-	if len(vendors) == 0 {
-		t.Error("no vendors seeded")
-	}
+	require.NoError(t, err)
+	assert.NotEmpty(t, vendors)
 
 	projects, err := store.ListProjects(false)
-	if err != nil {
-		t.Fatalf("ListProjects: %v", err)
-	}
-	if len(projects) == 0 {
-		t.Error("no projects seeded")
-	}
+	require.NoError(t, err)
+	assert.NotEmpty(t, projects)
 
 	appliances, err := store.ListAppliances(false)
-	if err != nil {
-		t.Fatalf("ListAppliances: %v", err)
-	}
-	if len(appliances) == 0 {
-		t.Error("no appliances seeded")
-	}
+	require.NoError(t, err)
+	assert.NotEmpty(t, appliances)
 
 	maint, err := store.ListMaintenance(false)
-	if err != nil {
-		t.Fatalf("ListMaintenance: %v", err)
-	}
-	if len(maint) == 0 {
-		t.Error("no maintenance items seeded")
-	}
+	require.NoError(t, err)
+	assert.NotEmpty(t, maint)
 }
 
 func TestSeedDemoDataDeterministic(t *testing.T) {
@@ -61,9 +42,7 @@ func TestSeedDemoDataDeterministic(t *testing.T) {
 	h1, _ := store1.HouseProfile()
 	h2, _ := store2.HouseProfile()
 
-	if h1.Nickname != h2.Nickname {
-		t.Errorf("same seed produced different house names: %q vs %q", h1.Nickname, h2.Nickname)
-	}
+	assert.Equal(t, h1.Nickname, h2.Nickname, "same seed should produce identical house names")
 }
 
 func TestSeedDemoDataVariety(t *testing.T) {
@@ -73,9 +52,7 @@ func TestSeedDemoDataVariety(t *testing.T) {
 		h, _ := store.HouseProfile()
 		names[h.Nickname] = true
 	}
-	if len(names) < 3 {
-		t.Errorf("expected variety across seeds, got only %d unique house names", len(names))
-	}
+	assert.GreaterOrEqual(t, len(names), 3, "expected variety across seeds")
 }
 
 func TestSeedDemoDataSkipsIfDataExists(t *testing.T) {
@@ -84,13 +61,8 @@ func TestSeedDemoDataSkipsIfDataExists(t *testing.T) {
 	vendors1, _ := store.ListVendors(false)
 	count1 := len(vendors1)
 
-	// Call again -- should be a no-op.
-	if err := store.SeedDemoData(); err != nil {
-		t.Fatalf("second SeedDemoData: %v", err)
-	}
+	require.NoError(t, store.SeedDemoData())
 
 	vendors2, _ := store.ListVendors(false)
-	if len(vendors2) != count1 {
-		t.Errorf("vendor count changed: %d -> %d", count1, len(vendors2))
-	}
+	assert.Equal(t, count1, len(vendors2))
 }

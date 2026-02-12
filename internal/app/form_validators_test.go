@@ -8,116 +8,87 @@ import (
 	"time"
 
 	"github.com/cpcloud/micasa/internal/data"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRequiredTextRejectsEmpty(t *testing.T) {
 	validate := requiredText("title")
-	if err := validate(""); err == nil {
-		t.Fatal("expected error for empty string")
-	}
-	if err := validate("  "); err == nil {
-		t.Fatal("expected error for whitespace-only string")
-	}
+	assert.Error(t, validate(""))
+	assert.Error(t, validate("  "))
 }
 
 func TestRequiredTextAcceptsNonEmpty(t *testing.T) {
 	validate := requiredText("title")
-	if err := validate("hello"); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	assert.NoError(t, validate("hello"))
 }
 
 func TestOptionalIntAcceptsValid(t *testing.T) {
 	validate := optionalInt("months")
 	for _, input := range []string{"", "0", "12", "  7  "} {
-		if err := validate(input); err != nil {
-			t.Fatalf("optionalInt(%q) unexpected error: %v", input, err)
-		}
+		assert.NoErrorf(t, validate(input), "optionalInt(%q)", input)
 	}
 }
 
 func TestOptionalIntRejectsInvalid(t *testing.T) {
 	validate := optionalInt("months")
 	for _, input := range []string{"abc", "-1", "1.5"} {
-		if err := validate(input); err == nil {
-			t.Fatalf("optionalInt(%q) expected error", input)
-		}
+		assert.Errorf(t, validate(input), "optionalInt(%q) expected error", input)
 	}
 }
 
 func TestOptionalFloatAcceptsValid(t *testing.T) {
 	validate := optionalFloat("bathrooms")
 	for _, input := range []string{"", "0", "2.5", "  3  "} {
-		if err := validate(input); err != nil {
-			t.Fatalf("optionalFloat(%q) unexpected error: %v", input, err)
-		}
+		assert.NoErrorf(t, validate(input), "optionalFloat(%q)", input)
 	}
 }
 
 func TestOptionalFloatRejectsInvalid(t *testing.T) {
 	validate := optionalFloat("bathrooms")
 	for _, input := range []string{"abc", "-1.5"} {
-		if err := validate(input); err == nil {
-			t.Fatalf("optionalFloat(%q) expected error", input)
-		}
+		assert.Errorf(t, validate(input), "optionalFloat(%q) expected error", input)
 	}
 }
 
 func TestOptionalDateAcceptsValid(t *testing.T) {
 	validate := optionalDate("start date")
 	for _, input := range []string{"", "2025-06-11"} {
-		if err := validate(input); err != nil {
-			t.Fatalf("optionalDate(%q) unexpected error: %v", input, err)
-		}
+		assert.NoErrorf(t, validate(input), "optionalDate(%q)", input)
 	}
 }
 
 func TestOptionalDateRejectsInvalid(t *testing.T) {
 	validate := optionalDate("start date")
 	for _, input := range []string{"06/11/2025", "not-a-date"} {
-		if err := validate(input); err == nil {
-			t.Fatalf("optionalDate(%q) expected error", input)
-		}
+		assert.Errorf(t, validate(input), "optionalDate(%q) expected error", input)
 	}
 }
 
 func TestOptionalMoneyAcceptsValid(t *testing.T) {
 	validate := optionalMoney("budget")
 	for _, input := range []string{"", "100", "1250.00", "$5,000.50"} {
-		if err := validate(input); err != nil {
-			t.Fatalf("optionalMoney(%q) unexpected error: %v", input, err)
-		}
+		assert.NoErrorf(t, validate(input), "optionalMoney(%q)", input)
 	}
 }
 
 func TestOptionalMoneyRejectsInvalid(t *testing.T) {
 	validate := optionalMoney("budget")
-	if err := validate("abc"); err == nil {
-		t.Fatal("expected error for invalid money")
-	}
+	assert.Error(t, validate("abc"))
 }
 
 func TestRequiredMoneyAcceptsValid(t *testing.T) {
 	validate := requiredMoney("total")
-	if err := validate("1250.00"); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	assert.NoError(t, validate("1250.00"))
 }
 
 func TestRequiredMoneyRejectsEmpty(t *testing.T) {
 	validate := requiredMoney("total")
-	if err := validate(""); err == nil {
-		t.Fatal("expected error for empty string")
-	}
+	assert.Error(t, validate(""))
 }
 
 func TestIntToString(t *testing.T) {
-	if got := intToString(0); got != "" {
-		t.Fatalf("intToString(0) = %q, want empty", got)
-	}
-	if got := intToString(42); got != "42" {
-		t.Fatalf("intToString(42) = %q, want 42", got)
-	}
+	assert.Empty(t, intToString(0))
+	assert.Equal(t, "42", intToString(42))
 }
 
 func TestProjectFormValues(t *testing.T) {
@@ -132,18 +103,10 @@ func TestProjectFormValues(t *testing.T) {
 		Description:   "Full gut renovation",
 	}
 	got := projectFormValues(project)
-	if got.Title != "Kitchen Remodel" {
-		t.Fatalf("Title = %q", got.Title)
-	}
-	if got.Budget != "$5,000.00" {
-		t.Fatalf("Budget = %q", got.Budget)
-	}
-	if got.StartDate != "2025-03-01" {
-		t.Fatalf("StartDate = %q", got.StartDate)
-	}
-	if got.Actual != "" {
-		t.Fatalf("Actual should be empty, got %q", got.Actual)
-	}
+	assert.Equal(t, "Kitchen Remodel", got.Title)
+	assert.Equal(t, "$5,000.00", got.Budget)
+	assert.Equal(t, "2025-03-01", got.StartDate)
+	assert.Empty(t, got.Actual)
 }
 
 func TestVendorFormValues(t *testing.T) {
@@ -155,9 +118,8 @@ func TestVendorFormValues(t *testing.T) {
 		Website:     "https://hvac.com",
 	}
 	got := vendorFormValues(vendor)
-	if got.Name != "HVAC Pros" || got.ContactName != "Alice" {
-		t.Fatalf("got %+v", got)
-	}
+	assert.Equal(t, "HVAC Pros", got.Name)
+	assert.Equal(t, "Alice", got.ContactName)
 }
 
 func TestQuoteFormValues(t *testing.T) {
@@ -169,18 +131,10 @@ func TestQuoteFormValues(t *testing.T) {
 		Vendor:     data.Vendor{Name: "ContractorCo"},
 	}
 	got := quoteFormValues(quote)
-	if got.Total != "$500.00" {
-		t.Fatalf("Total = %q", got.Total)
-	}
-	if got.Labor != "$100.00" {
-		t.Fatalf("Labor = %q", got.Labor)
-	}
-	if got.Materials != "" {
-		t.Fatalf("Materials should be empty, got %q", got.Materials)
-	}
-	if got.VendorName != "ContractorCo" {
-		t.Fatalf("VendorName = %q", got.VendorName)
-	}
+	assert.Equal(t, "$500.00", got.Total)
+	assert.Equal(t, "$100.00", got.Labor)
+	assert.Empty(t, got.Materials)
+	assert.Equal(t, "ContractorCo", got.VendorName)
 }
 
 func TestMaintenanceFormValues(t *testing.T) {
@@ -192,15 +146,9 @@ func TestMaintenanceFormValues(t *testing.T) {
 		IntervalMonths: 3,
 	}
 	got := maintenanceFormValues(item)
-	if got.Name != "HVAC Filter" {
-		t.Fatalf("Name = %q", got.Name)
-	}
-	if got.ApplianceID != 3 {
-		t.Fatalf("ApplianceID = %d, want 3", got.ApplianceID)
-	}
-	if got.IntervalMonths != "3" {
-		t.Fatalf("IntervalMonths = %q", got.IntervalMonths)
-	}
+	assert.Equal(t, "HVAC Filter", got.Name)
+	assert.Equal(t, uint(3), got.ApplianceID)
+	assert.Equal(t, "3", got.IntervalMonths)
 }
 
 func TestMaintenanceFormValuesNoAppliance(t *testing.T) {
@@ -209,9 +157,7 @@ func TestMaintenanceFormValuesNoAppliance(t *testing.T) {
 		CategoryID: 1,
 	}
 	got := maintenanceFormValues(item)
-	if got.ApplianceID != 0 {
-		t.Fatalf("ApplianceID = %d, want 0", got.ApplianceID)
-	}
+	assert.Zero(t, got.ApplianceID)
 }
 
 func TestApplianceFormValues(t *testing.T) {
@@ -225,15 +171,10 @@ func TestApplianceFormValues(t *testing.T) {
 		CostCents:    &cost,
 	}
 	got := applianceFormValues(appliance)
-	if got.Name != "Fridge" || got.Brand != "Samsung" {
-		t.Fatalf("got %+v", got)
-	}
-	if got.PurchaseDate != "2023-06-15" {
-		t.Fatalf("PurchaseDate = %q", got.PurchaseDate)
-	}
-	if got.Cost != "$899.00" {
-		t.Fatalf("Cost = %q", got.Cost)
-	}
+	assert.Equal(t, "Fridge", got.Name)
+	assert.Equal(t, "Samsung", got.Brand)
+	assert.Equal(t, "2023-06-15", got.PurchaseDate)
+	assert.Equal(t, "$899.00", got.Cost)
 }
 
 func TestHouseFormValues(t *testing.T) {
@@ -244,18 +185,10 @@ func TestHouseFormValues(t *testing.T) {
 		Bathrooms: 2.5,
 	}
 	got := houseFormValues(profile)
-	if got.Nickname != "Home" {
-		t.Fatalf("Nickname = %q", got.Nickname)
-	}
-	if got.YearBuilt != "1995" {
-		t.Fatalf("YearBuilt = %q", got.YearBuilt)
-	}
-	if got.Bedrooms != "3" {
-		t.Fatalf("Bedrooms = %q", got.Bedrooms)
-	}
-	if got.Bathrooms != "2.5" {
-		t.Fatalf("Bathrooms = %q", got.Bathrooms)
-	}
+	assert.Equal(t, "Home", got.Nickname)
+	assert.Equal(t, "1995", got.YearBuilt)
+	assert.Equal(t, "3", got.Bedrooms)
+	assert.Equal(t, "2.5", got.Bathrooms)
 }
 
 func TestServiceLogFormValues(t *testing.T) {
@@ -268,15 +201,9 @@ func TestServiceLogFormValues(t *testing.T) {
 		Notes:      "replaced filter",
 	}
 	got := serviceLogFormValues(entry)
-	if got.ServicedAt != "2025-01-15" {
-		t.Fatalf("ServicedAt = %q", got.ServicedAt)
-	}
-	if got.Cost != "$150.00" {
-		t.Fatalf("Cost = %q", got.Cost)
-	}
-	if got.VendorID != 1 {
-		t.Fatalf("VendorID = %d, want 1", got.VendorID)
-	}
+	assert.Equal(t, "2025-01-15", got.ServicedAt)
+	assert.Equal(t, "$150.00", got.Cost)
+	assert.Equal(t, uint(1), got.VendorID)
 }
 
 func TestServiceLogFormValuesNoVendor(t *testing.T) {
@@ -284,10 +211,6 @@ func TestServiceLogFormValuesNoVendor(t *testing.T) {
 		ServicedAt: time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC),
 	}
 	got := serviceLogFormValues(entry)
-	if got.VendorID != 0 {
-		t.Fatalf("VendorID = %d, want 0", got.VendorID)
-	}
-	if got.Cost != "" {
-		t.Fatalf("Cost = %q, want empty", got.Cost)
-	}
+	assert.Zero(t, got.VendorID)
+	assert.Empty(t, got.Cost)
 }

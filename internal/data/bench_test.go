@@ -9,25 +9,18 @@ import (
 	"time"
 
 	"github.com/cpcloud/micasa/internal/fake"
+	"github.com/stretchr/testify/require"
 )
 
 func benchStore(b *testing.B, seed uint64) *Store {
 	b.Helper()
 	path := filepath.Join(b.TempDir(), "bench.db")
 	store, err := Open(path)
-	if err != nil {
-		b.Fatal(err)
-	}
+	require.NoError(b, err)
 	b.Cleanup(func() { _ = store.Close() })
-	if err := store.AutoMigrate(); err != nil {
-		b.Fatal(err)
-	}
-	if err := store.SeedDefaults(); err != nil {
-		b.Fatal(err)
-	}
-	if err := store.SeedDemoDataFrom(fake.New(seed)); err != nil {
-		b.Fatal(err)
-	}
+	require.NoError(b, store.AutoMigrate())
+	require.NoError(b, store.SeedDefaults())
+	require.NoError(b, store.SeedDemoDataFrom(fake.New(seed)))
 	return store
 }
 

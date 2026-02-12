@@ -4,8 +4,10 @@
 package app
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestInlineEditProjectTextColumnOpensInlineInput(t *testing.T) {
@@ -14,29 +16,17 @@ func TestInlineEditProjectTextColumnOpensInlineInput(t *testing.T) {
 	m.startProjectForm()
 	m.form.Init()
 	values, ok := m.formData.(*projectFormData)
-	if !ok {
-		t.Fatal("unexpected form data type")
-	}
+	require.True(t, ok, "unexpected form data type")
 	values.Title = "Test Project"
-	if err := m.submitProjectForm(); err != nil {
-		t.Fatalf("create project: %v", err)
-	}
+	require.NoError(t, m.submitProjectForm())
 	m.exitForm()
 	m.reloadAll()
 
 	// Inline edit the Title column (col 2) -- should open inline input.
-	if err := m.inlineEditProject(1, 2); err != nil {
-		t.Fatalf("inlineEditProject: %v", err)
-	}
-	if m.inlineInput == nil {
-		t.Fatal("expected inline input for text column (Title)")
-	}
-	if m.inlineInput.Title != "Title" {
-		t.Fatalf("expected title 'Title', got %q", m.inlineInput.Title)
-	}
-	if m.mode == modeForm {
-		t.Fatal("inline input should not switch to modeForm")
-	}
+	require.NoError(t, m.inlineEditProject(1, 2))
+	require.NotNil(t, m.inlineInput, "expected inline input for text column (Title)")
+	assert.Equal(t, "Title", m.inlineInput.Title)
+	assert.NotEqual(t, modeForm, m.mode, "inline input should not switch to modeForm")
 }
 
 func TestInlineEditProjectSelectColumnOpensFormOverlay(t *testing.T) {
@@ -44,26 +34,16 @@ func TestInlineEditProjectSelectColumnOpensFormOverlay(t *testing.T) {
 	m.startProjectForm()
 	m.form.Init()
 	values, ok := m.formData.(*projectFormData)
-	if !ok {
-		t.Fatal("unexpected form data type")
-	}
+	require.True(t, ok, "unexpected form data type")
 	values.Title = "Test Project"
-	if err := m.submitProjectForm(); err != nil {
-		t.Fatalf("create project: %v", err)
-	}
+	require.NoError(t, m.submitProjectForm())
 	m.exitForm()
 	m.reloadAll()
 
 	// Inline edit the Status column (col 3) -- should open form overlay.
-	if err := m.inlineEditProject(1, 3); err != nil {
-		t.Fatalf("inlineEditProject: %v", err)
-	}
-	if m.inlineInput != nil {
-		t.Fatal("select column should NOT open inline input")
-	}
-	if m.mode != modeForm {
-		t.Fatal("select column should open form overlay")
-	}
+	require.NoError(t, m.inlineEditProject(1, 3))
+	assert.Nil(t, m.inlineInput, "select column should NOT open inline input")
+	assert.Equal(t, modeForm, m.mode, "select column should open form overlay")
 }
 
 func TestInlineEditVendorTextColumnsUseInlineInput(t *testing.T) {
@@ -71,13 +51,9 @@ func TestInlineEditVendorTextColumnsUseInlineInput(t *testing.T) {
 	m.startVendorForm()
 	m.form.Init()
 	values, ok := m.formData.(*vendorFormData)
-	if !ok {
-		t.Fatal("unexpected form data type")
-	}
+	require.True(t, ok, "unexpected form data type")
 	values.Name = "Test Vendor"
-	if err := m.submitVendorForm(); err != nil {
-		t.Fatalf("create vendor: %v", err)
-	}
+	require.NoError(t, m.submitVendorForm())
 	m.exitForm()
 	m.reloadAll()
 
@@ -94,15 +70,9 @@ func TestInlineEditVendorTextColumnsUseInlineInput(t *testing.T) {
 	}
 	for _, tc := range cases {
 		m.closeInlineInput()
-		if err := m.inlineEditVendor(1, tc.col); err != nil {
-			t.Fatalf("inlineEditVendor col %d: %v", tc.col, err)
-		}
-		if m.inlineInput == nil {
-			t.Fatalf("col %d (%s) should open inline input", tc.col, tc.title)
-		}
-		if m.inlineInput.Title != tc.title {
-			t.Fatalf("col %d: expected title %q, got %q", tc.col, tc.title, m.inlineInput.Title)
-		}
+		require.NoErrorf(t, m.inlineEditVendor(1, tc.col), "inlineEditVendor col %d", tc.col)
+		require.NotNilf(t, m.inlineInput, "col %d (%s) should open inline input", tc.col, tc.title)
+		assert.Equalf(t, tc.title, m.inlineInput.Title, "col %d title mismatch", tc.col)
 	}
 }
 
@@ -111,26 +81,16 @@ func TestInlineEditAppliaceDateColumnOpensCalendar(t *testing.T) {
 	m.startApplianceForm()
 	m.form.Init()
 	values, ok := m.formData.(*applianceFormData)
-	if !ok {
-		t.Fatal("unexpected form data type")
-	}
+	require.True(t, ok, "unexpected form data type")
 	values.Name = "Test Fridge"
-	if err := m.submitApplianceForm(); err != nil {
-		t.Fatalf("create appliance: %v", err)
-	}
+	require.NoError(t, m.submitApplianceForm())
 	m.exitForm()
 	m.reloadAll()
 
 	// Purchase date column (col 6) should open calendar picker.
-	if err := m.inlineEditAppliance(1, 6); err != nil {
-		t.Fatalf("inlineEditAppliance: %v", err)
-	}
-	if m.calendar == nil {
-		t.Fatal("date column should open calendar picker")
-	}
-	if m.inlineInput != nil {
-		t.Fatal("date column should NOT open inline input")
-	}
+	require.NoError(t, m.inlineEditAppliance(1, 6))
+	assert.NotNil(t, m.calendar, "date column should open calendar picker")
+	assert.Nil(t, m.inlineInput, "date column should NOT open inline input")
 }
 
 func TestEditKeyDispatchesInlineEditInEditMode(t *testing.T) {
@@ -139,13 +99,9 @@ func TestEditKeyDispatchesInlineEditInEditMode(t *testing.T) {
 	m.startVendorForm()
 	m.form.Init()
 	values, ok := m.formData.(*vendorFormData)
-	if !ok {
-		t.Fatal("unexpected form data type")
-	}
+	require.True(t, ok, "unexpected form data type")
 	values.Name = "Test Vendor"
-	if err := m.submitVendorForm(); err != nil {
-		t.Fatalf("create vendor: %v", err)
-	}
+	require.NoError(t, m.submitVendorForm())
 	m.exitForm()
 	m.reloadAll()
 
@@ -156,9 +112,7 @@ func TestEditKeyDispatchesInlineEditInEditMode(t *testing.T) {
 			break
 		}
 	}
-	if err := m.reloadActiveTab(); err != nil {
-		t.Fatalf("reload vendor tab: %v", err)
-	}
+	require.NoError(t, m.reloadActiveTab())
 	tab := m.activeTab()
 	if tab == nil || len(tab.Rows) == 0 {
 		t.Skip("no vendor rows to test")
@@ -175,13 +129,12 @@ func TestEditKeyDispatchesInlineEditInEditMode(t *testing.T) {
 	sendKey(m, "e")
 
 	// Should have opened inline input for the Name field.
-	if m.inlineInput == nil && m.mode != modeForm {
-		t.Fatal("pressing 'e' in edit mode should open inline input or form for the current cell")
-	}
+	assert.True(t, m.inlineInput != nil || m.mode == modeForm,
+		"pressing 'e' in edit mode should open inline input or form for the current cell")
 
 	// Verify the status bar shows the inline prompt.
-	status := m.statusView()
-	if m.inlineInput != nil && !strings.Contains(status, "Name") {
-		t.Fatalf("expected status bar to show 'Name' prompt, got %q", status)
+	if m.inlineInput != nil {
+		status := m.statusView()
+		assert.Contains(t, status, "Name")
 	}
 }

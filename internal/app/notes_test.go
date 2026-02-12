@@ -4,10 +4,11 @@
 package app
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/charmbracelet/bubbles/table"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNotePreviewOpensOnEnter(t *testing.T) {
@@ -16,9 +17,7 @@ func TestNotePreviewOpensOnEnter(t *testing.T) {
 	// Open service log detail (has Notes column).
 	_ = m.openServiceLogDetail(1, "Test")
 	tab := m.effectiveTab()
-	if tab == nil {
-		t.Fatal("expected detail tab")
-	}
+	require.NotNil(t, tab, "expected detail tab")
 
 	// Seed a row with a note.
 	tab.Table.SetRows(
@@ -43,18 +42,9 @@ func TestNotePreviewOpensOnEnter(t *testing.T) {
 	// Press enter in Normal mode.
 	sendKey(m, "enter")
 
-	if !m.showNotePreview {
-		t.Fatal("expected showNotePreview to be true")
-	}
-	if m.notePreviewText != "Changed the filter and checked pressure" {
-		t.Fatalf(
-			"unexpected preview text: %q",
-			m.notePreviewText,
-		)
-	}
-	if m.notePreviewTitle != "Notes" {
-		t.Fatalf("unexpected preview title: %q", m.notePreviewTitle)
-	}
+	require.True(t, m.showNotePreview)
+	assert.Equal(t, "Changed the filter and checked pressure", m.notePreviewText)
+	assert.Equal(t, "Notes", m.notePreviewTitle)
 }
 
 func TestNotePreviewDismissesOnAnyKey(t *testing.T) {
@@ -65,12 +55,8 @@ func TestNotePreviewDismissesOnAnyKey(t *testing.T) {
 
 	sendKey(m, "q")
 
-	if m.showNotePreview {
-		t.Fatal("expected showNotePreview to be false after key press")
-	}
-	if m.notePreviewText != "" {
-		t.Fatalf("expected empty preview text, got %q", m.notePreviewText)
-	}
+	assert.False(t, m.showNotePreview)
+	assert.Empty(t, m.notePreviewText)
 }
 
 func TestNotePreviewDoesNotOpenOnEmptyNote(t *testing.T) {
@@ -94,9 +80,7 @@ func TestNotePreviewDoesNotOpenOnEmptyNote(t *testing.T) {
 
 	sendKey(m, "enter")
 
-	if m.showNotePreview {
-		t.Fatal("expected showNotePreview to be false for empty note")
-	}
+	assert.False(t, m.showNotePreview)
 }
 
 func TestNotePreviewRendersInView(t *testing.T) {
@@ -108,12 +92,8 @@ func TestNotePreviewRendersInView(t *testing.T) {
 	m.notePreviewTitle = "Notes"
 
 	view := m.buildView()
-	if !strings.Contains(view, "This is a test note") {
-		t.Fatal("expected note text in view output")
-	}
-	if !strings.Contains(view, "Press any key to close") {
-		t.Fatal("expected dismiss hint in view output")
-	}
+	assert.Contains(t, view, "This is a test note")
+	assert.Contains(t, view, "Press any key to close")
 }
 
 func TestNotePreviewBlocksOtherKeys(t *testing.T) {
@@ -124,9 +104,7 @@ func TestNotePreviewBlocksOtherKeys(t *testing.T) {
 
 	// These should all be absorbed by the note preview.
 	sendKey(m, "j")
-	if m.active != initialTab {
-		t.Fatal("expected tab not to change while note preview is open")
-	}
+	assert.Equal(t, initialTab, m.active, "expected tab not to change while note preview is open")
 }
 
 func TestWordWrap(t *testing.T) {
@@ -155,15 +133,7 @@ func TestWordWrap(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := wordWrap(tt.input, tt.width)
-			if got != tt.want {
-				t.Errorf(
-					"wordWrap(%q, %d) = %q, want %q",
-					tt.input,
-					tt.width,
-					got,
-					tt.want,
-				)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -187,7 +157,5 @@ func TestEnterHintShowsPreviewOnNotesColumn(t *testing.T) {
 	}
 
 	hint := m.enterHint()
-	if hint != "preview" {
-		t.Fatalf("expected 'preview', got %q", hint)
-	}
+	assert.Equal(t, "preview", hint)
 }

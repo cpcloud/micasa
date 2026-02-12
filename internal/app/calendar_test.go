@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const testDate = "2026-02-15"
@@ -20,16 +22,10 @@ func TestCalendarGridRendersMonth(t *testing.T) {
 		HasValue: false,
 	}
 	grid := calendarGrid(cal, styles)
-	if !strings.Contains(grid, "February 2026") {
-		t.Fatalf("expected month header, got:\n%s", grid)
-	}
-	if !strings.Contains(grid, "Su Mo Tu We Th Fr Sa") {
-		t.Fatal("expected day-of-week labels")
-	}
+	assert.Contains(t, grid, "February 2026")
+	assert.Contains(t, grid, "Su Mo Tu We Th Fr Sa")
 	// Feb 2026 has 28 days.
-	if !strings.Contains(grid, "28") {
-		t.Fatal("expected day 28 in February 2026")
-	}
+	assert.Contains(t, grid, "28")
 }
 
 func TestCalendarMoveDay(t *testing.T) {
@@ -37,13 +33,9 @@ func TestCalendarMoveDay(t *testing.T) {
 		Cursor: time.Date(2026, 2, 15, 0, 0, 0, 0, time.Local),
 	}
 	calendarMove(cal, 1)
-	if cal.Cursor.Day() != 16 {
-		t.Fatalf("expected day 16, got %d", cal.Cursor.Day())
-	}
+	assert.Equal(t, 16, cal.Cursor.Day())
 	calendarMove(cal, -2)
-	if cal.Cursor.Day() != 14 {
-		t.Fatalf("expected day 14, got %d", cal.Cursor.Day())
-	}
+	assert.Equal(t, 14, cal.Cursor.Day())
 }
 
 func TestCalendarMoveWeek(t *testing.T) {
@@ -51,9 +43,7 @@ func TestCalendarMoveWeek(t *testing.T) {
 		Cursor: time.Date(2026, 2, 15, 0, 0, 0, 0, time.Local),
 	}
 	calendarMove(cal, 7)
-	if cal.Cursor.Day() != 22 {
-		t.Fatalf("expected day 22, got %d", cal.Cursor.Day())
-	}
+	assert.Equal(t, 22, cal.Cursor.Day())
 }
 
 func TestCalendarMoveMonth(t *testing.T) {
@@ -61,13 +51,9 @@ func TestCalendarMoveMonth(t *testing.T) {
 		Cursor: time.Date(2026, 2, 15, 0, 0, 0, 0, time.Local),
 	}
 	calendarMoveMonth(cal, 1)
-	if cal.Cursor.Month() != time.March {
-		t.Fatalf("expected March, got %v", cal.Cursor.Month())
-	}
+	assert.Equal(t, time.March, cal.Cursor.Month())
 	calendarMoveMonth(cal, -2)
-	if cal.Cursor.Month() != time.January {
-		t.Fatalf("expected January, got %v", cal.Cursor.Month())
-	}
+	assert.Equal(t, time.January, cal.Cursor.Month())
 }
 
 func TestCalendarMoveCrossesMonthBoundary(t *testing.T) {
@@ -75,9 +61,8 @@ func TestCalendarMoveCrossesMonthBoundary(t *testing.T) {
 		Cursor: time.Date(2026, 1, 31, 0, 0, 0, 0, time.Local),
 	}
 	calendarMove(cal, 1)
-	if cal.Cursor.Month() != time.February || cal.Cursor.Day() != 1 {
-		t.Fatalf("expected Feb 1, got %s", cal.Cursor.Format("Jan 2"))
-	}
+	assert.Equal(t, time.February, cal.Cursor.Month())
+	assert.Equal(t, 1, cal.Cursor.Day())
 }
 
 func TestDaysIn(t *testing.T) {
@@ -92,16 +77,8 @@ func TestDaysIn(t *testing.T) {
 		{2026, time.April, 30},
 	}
 	for _, tt := range tests {
-		got := daysIn(tt.year, tt.month)
-		if got != tt.want {
-			t.Errorf(
-				"daysIn(%d, %v) = %d, want %d",
-				tt.year,
-				tt.month,
-				got,
-				tt.want,
-			)
-		}
+		assert.Equalf(t, tt.want, daysIn(tt.year, tt.month),
+			"daysIn(%d, %v)", tt.year, tt.month)
 	}
 }
 
@@ -109,48 +86,32 @@ func TestSameDay(t *testing.T) {
 	a := time.Date(2026, 2, 10, 9, 30, 0, 0, time.UTC)
 	b := time.Date(2026, 2, 10, 18, 0, 0, 0, time.UTC)
 	c := time.Date(2026, 2, 11, 9, 30, 0, 0, time.UTC)
-	if !sameDay(a, b) {
-		t.Fatal("expected same day")
-	}
-	if sameDay(a, c) {
-		t.Fatal("expected different day")
-	}
+	assert.True(t, sameDay(a, b))
+	assert.False(t, sameDay(a, c))
 }
 
 func TestCalendarKeyNavigation(t *testing.T) {
 	m := newTestModel()
 	dateVal := testDate
 	m.openCalendar(&dateVal, nil)
-	if m.calendar == nil {
-		t.Fatal("expected calendar to be open")
-	}
-	if m.calendar.Cursor.Day() != 15 {
-		t.Fatalf("expected cursor on 15, got %d", m.calendar.Cursor.Day())
-	}
+	require.NotNil(t, m.calendar)
+	assert.Equal(t, 15, m.calendar.Cursor.Day())
 
 	// Move right (l).
 	sendKey(m, "l")
-	if m.calendar.Cursor.Day() != 16 {
-		t.Fatalf("expected 16 after l, got %d", m.calendar.Cursor.Day())
-	}
+	assert.Equal(t, 16, m.calendar.Cursor.Day())
 
 	// Move down (j) = +7 days.
 	sendKey(m, "j")
-	if m.calendar.Cursor.Day() != 23 {
-		t.Fatalf("expected 23 after j, got %d", m.calendar.Cursor.Day())
-	}
+	assert.Equal(t, 23, m.calendar.Cursor.Day())
 
 	// Move left (h).
 	sendKey(m, "h")
-	if m.calendar.Cursor.Day() != 22 {
-		t.Fatalf("expected 22 after h, got %d", m.calendar.Cursor.Day())
-	}
+	assert.Equal(t, 22, m.calendar.Cursor.Day())
 
 	// Move up (k) = -7 days.
 	sendKey(m, "k")
-	if m.calendar.Cursor.Day() != 15 {
-		t.Fatalf("expected 15 after k, got %d", m.calendar.Cursor.Day())
-	}
+	assert.Equal(t, 15, m.calendar.Cursor.Day())
 }
 
 func TestCalendarConfirmWritesDate(t *testing.T) {
@@ -165,15 +126,9 @@ func TestCalendarConfirmWritesDate(t *testing.T) {
 	)
 	sendKey(m, "enter")
 
-	if dateVal != "2026-03-20" {
-		t.Fatalf("expected date 2026-03-20, got %q", dateVal)
-	}
-	if !confirmed {
-		t.Fatal("expected onConfirm to be called")
-	}
-	if m.calendar != nil {
-		t.Fatal("expected calendar to be closed")
-	}
+	assert.Equal(t, "2026-03-20", dateVal)
+	assert.True(t, confirmed)
+	assert.Nil(t, m.calendar)
 }
 
 func TestCalendarEscCancels(t *testing.T) {
@@ -181,12 +136,8 @@ func TestCalendarEscCancels(t *testing.T) {
 	dateVal := testDate
 	m.openCalendar(&dateVal, nil)
 	sendKey(m, "esc")
-	if m.calendar != nil {
-		t.Fatal("expected calendar to be nil after esc")
-	}
-	if dateVal != testDate {
-		t.Fatalf("expected value unchanged, got %q", dateVal)
-	}
+	assert.Nil(t, m.calendar)
+	assert.Equal(t, testDate, dateVal)
 }
 
 func TestCalendarRendersInView(t *testing.T) {
@@ -197,12 +148,8 @@ func TestCalendarRendersInView(t *testing.T) {
 	m.openCalendar(&dateVal, nil)
 
 	view := m.buildView()
-	if !strings.Contains(view, "February 2026") {
-		t.Fatal("expected calendar month in view")
-	}
-	if !strings.Contains(view, "enter pick") {
-		t.Fatal("expected calendar hints in view")
-	}
+	assert.Contains(t, view, "February 2026")
+	assert.Contains(t, view, "enter pick")
 }
 
 func TestCalendarMonthNavigation(t *testing.T) {
@@ -212,19 +159,12 @@ func TestCalendarMonthNavigation(t *testing.T) {
 
 	// H = previous month.
 	sendKey(m, "H")
-	if m.calendar.Cursor.Month() != time.January {
-		t.Fatalf("expected January after H, got %v", m.calendar.Cursor.Month())
-	}
+	assert.Equal(t, time.January, m.calendar.Cursor.Month())
 
 	// L = next month.
 	sendKey(m, "L")
 	sendKey(m, "L")
-	if m.calendar.Cursor.Month() != time.March {
-		t.Fatalf(
-			"expected March after L+L, got %v",
-			m.calendar.Cursor.Month(),
-		)
-	}
+	assert.Equal(t, time.March, m.calendar.Cursor.Month())
 }
 
 func TestCalendarYearNavigation(t *testing.T) {
@@ -232,22 +172,14 @@ func TestCalendarYearNavigation(t *testing.T) {
 		Cursor: time.Date(2026, 2, 15, 0, 0, 0, 0, time.Local),
 	}
 	calendarMoveYear(cal, 1)
-	if cal.Cursor.Year() != 2027 {
-		t.Fatalf("expected 2027, got %d", cal.Cursor.Year())
-	}
-	if cal.Cursor.Month() != time.February || cal.Cursor.Day() != 15 {
-		t.Fatalf("expected Feb 15, got %s", cal.Cursor.Format("Jan 2"))
-	}
+	assert.Equal(t, 2027, cal.Cursor.Year())
+	assert.Equal(t, time.February, cal.Cursor.Month())
+	assert.Equal(t, 15, cal.Cursor.Day())
 	calendarMoveYear(cal, -2)
-	if cal.Cursor.Year() != 2025 {
-		t.Fatalf("expected 2025, got %d", cal.Cursor.Year())
-	}
+	assert.Equal(t, 2025, cal.Cursor.Year())
 }
 
 func TestCalendarGridColumnAlignment(t *testing.T) {
-	// Nov 2026 starts on Sunday, so days 29 (Mon) and 30 (Tue) are on the
-	// last row. They must appear in the Mon and Tue columns, not shifted by
-	// centering logic.
 	styles := DefaultStyles()
 	cal := calendarState{
 		Cursor:   time.Date(2026, 11, 1, 0, 0, 0, 0, time.Local),
@@ -255,7 +187,6 @@ func TestCalendarGridColumnAlignment(t *testing.T) {
 	}
 	grid := calendarGrid(cal, styles)
 
-	// Find the day-label line and the last-row line.
 	lines := strings.Split(grid, "\n")
 	labelIdx := -1
 	lastDayIdx := -1
@@ -267,55 +198,35 @@ func TestCalendarGridColumnAlignment(t *testing.T) {
 			lastDayIdx = i
 		}
 	}
-	if labelIdx < 0 {
-		t.Fatal("day-label line not found")
-	}
-	if lastDayIdx < 0 {
-		t.Fatal("line with 29 and 30 not found")
-	}
+	require.NotEqual(t, -1, labelIdx, "day-label line not found")
+	require.NotEqual(t, -1, lastDayIdx, "line with 29 and 30 not found")
 
-	// Nov 1, 2026 is a Sunday, so day 29 = Sunday ("Su" column) and
-	// day 30 = Monday ("Mo" column). Verify both align correctly.
 	suPos := strings.Index(lines[labelIdx], "Su")
 	moPos := strings.Index(lines[labelIdx], "Mo")
 	pos29 := strings.Index(lines[lastDayIdx], "29")
 	pos30 := strings.Index(lines[lastDayIdx], "30")
-	if suPos < 0 || pos29 < 0 {
-		t.Fatalf("could not find Su (%d) or 29 (%d)", suPos, pos29)
-	}
-	if suPos != pos29 {
-		t.Errorf(
-			"column misalignment: Su at col %d but 29 at col %d\nlabels: %q\nlast:   %q",
-			suPos, pos29, lines[labelIdx], lines[lastDayIdx],
-		)
-	}
-	if moPos < 0 || pos30 < 0 {
-		t.Fatalf("could not find Mo (%d) or 30 (%d)", moPos, pos30)
-	}
-	if moPos != pos30 {
-		t.Errorf(
-			"column misalignment: Mo at col %d but 30 at col %d\nlabels: %q\nlast:   %q",
-			moPos, pos30, lines[labelIdx], lines[lastDayIdx],
-		)
-	}
+	require.GreaterOrEqual(t, suPos, 0)
+	require.GreaterOrEqual(t, pos29, 0)
+	assert.Equalf(t, suPos, pos29,
+		"column misalignment: Su at col %d but 29 at col %d\nlabels: %q\nlast:   %q",
+		suPos, pos29, lines[labelIdx], lines[lastDayIdx])
+	require.GreaterOrEqual(t, moPos, 0)
+	require.GreaterOrEqual(t, pos30, 0)
+	assert.Equalf(t, moPos, pos30,
+		"column misalignment: Mo at col %d but 30 at col %d\nlabels: %q\nlast:   %q",
+		moPos, pos30, lines[labelIdx], lines[lastDayIdx])
 }
 
 func TestCalendarFixedHeight(t *testing.T) {
 	styles := DefaultStyles()
-	// Feb 2026 (28 days starting Sun) uses 4 rows.
 	feb := calendarGrid(calendarState{
 		Cursor: time.Date(2026, 2, 1, 0, 0, 0, 0, time.Local),
 	}, styles)
-	// Aug 2026 (31 days starting Sat) uses 6 rows.
 	aug := calendarGrid(calendarState{
 		Cursor: time.Date(2026, 8, 1, 0, 0, 0, 0, time.Local),
 	}, styles)
 
-	febH := lipgloss.Height(feb)
-	augH := lipgloss.Height(aug)
-	if febH != augH {
-		t.Errorf("calendar height should be fixed: Feb=%d, Aug=%d", febH, augH)
-	}
+	assert.Equal(t, lipgloss.Height(feb), lipgloss.Height(aug), "calendar height should be fixed")
 }
 
 func TestCalendarHintsOnLeft(t *testing.T) {
@@ -325,7 +236,6 @@ func TestCalendarHintsOnLeft(t *testing.T) {
 	}, styles)
 
 	lines := strings.Split(grid, "\n")
-	// The hint keys (like "h/l") should appear to the left of "Su Mo".
 	foundHint := false
 	foundDays := false
 	for _, line := range lines {
@@ -338,33 +248,20 @@ func TestCalendarHintsOnLeft(t *testing.T) {
 			foundDays = true
 		}
 		// If both appear on the same line, hint must be left of days.
-		if hintIdx >= 0 && daysIdx >= 0 && hintIdx >= daysIdx {
-			t.Errorf("hints should be left of day grid: hint=%d, days=%d", hintIdx, daysIdx)
+		if hintIdx >= 0 && daysIdx >= 0 {
+			assert.Less(t, hintIdx, daysIdx, "hints should be left of day grid")
 		}
 	}
-	if !foundHint {
-		t.Error("expected hint keys in calendar output")
-	}
-	if !foundDays {
-		t.Error("expected day labels in calendar output")
-	}
+	assert.True(t, foundHint, "expected hint keys in calendar output")
+	assert.True(t, foundDays, "expected day labels in calendar output")
 }
 
 func TestOpenCalendarWithEmptyValue(t *testing.T) {
 	m := newTestModel()
 	dateVal := ""
 	m.openCalendar(&dateVal, nil)
-	if m.calendar == nil {
-		t.Fatal("expected calendar to be open")
-	}
+	require.NotNil(t, m.calendar)
 	// Should default to today.
-	if !sameDay(m.calendar.Cursor, time.Now()) {
-		t.Fatalf(
-			"expected cursor on today, got %s",
-			m.calendar.Cursor.Format("2006-01-02"),
-		)
-	}
-	if m.calendar.HasValue {
-		t.Fatal("expected HasValue to be false for empty input")
-	}
+	assert.True(t, sameDay(m.calendar.Cursor, time.Now()))
+	assert.False(t, m.calendar.HasValue)
 }

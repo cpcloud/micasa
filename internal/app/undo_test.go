@@ -6,25 +6,22 @@ package app
 import (
 	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPushUndo(t *testing.T) {
 	m := newTestModel()
-	if len(m.undoStack) != 0 {
-		t.Fatal("expected empty undo stack initially")
-	}
+	require.Empty(t, m.undoStack)
 
 	m.pushUndo(undoEntry{
 		Description: "test edit",
 		Restore:     func() error { return nil },
 	})
 
-	if len(m.undoStack) != 1 {
-		t.Fatalf("expected 1 entry, got %d", len(m.undoStack))
-	}
-	if m.undoStack[0].Description != "test edit" {
-		t.Fatalf("expected description %q, got %q", "test edit", m.undoStack[0].Description)
-	}
+	require.Len(t, m.undoStack, 1)
+	assert.Equal(t, "test edit", m.undoStack[0].Description)
 }
 
 func TestPushUndoCapsAtMax(t *testing.T) {
@@ -36,12 +33,8 @@ func TestPushUndoCapsAtMax(t *testing.T) {
 		})
 	}
 
-	if len(m.undoStack) != maxUndoStack {
-		t.Fatalf("expected stack capped at %d, got %d", maxUndoStack, len(m.undoStack))
-	}
-	if m.undoStack[0].Description != "edit 10" {
-		t.Fatalf("expected oldest entry %q, got %q", "edit 10", m.undoStack[0].Description)
-	}
+	require.Len(t, m.undoStack, maxUndoStack)
+	assert.Equal(t, "edit 10", m.undoStack[0].Description)
 }
 
 func TestPopUndoRestoresAndRemoves(t *testing.T) {
@@ -56,26 +49,16 @@ func TestPopUndoRestoresAndRemoves(t *testing.T) {
 	})
 
 	err := m.popUndo()
-	if err != nil {
-		t.Fatalf("popUndo error: %v", err)
-	}
-	if !restored {
-		t.Fatal("expected Restore closure to be called")
-	}
-	if len(m.undoStack) != 0 {
-		t.Fatalf("expected stack empty after pop, got %d", len(m.undoStack))
-	}
-	if m.status.Kind != statusInfo {
-		t.Fatal("expected info status after undo")
-	}
+	require.NoError(t, err)
+	assert.True(t, restored, "expected Restore closure to be called")
+	assert.Empty(t, m.undoStack)
+	assert.Equal(t, statusInfo, m.status.Kind)
 }
 
 func TestPopUndoEmptyStack(t *testing.T) {
 	m := newTestModel()
 	err := m.popUndo()
-	if err == nil {
-		t.Fatal("expected error from popUndo on empty stack")
-	}
+	require.Error(t, err)
 }
 
 func TestPopUndoRestoreError(t *testing.T) {
@@ -86,9 +69,7 @@ func TestPopUndoRestoreError(t *testing.T) {
 	})
 
 	err := m.popUndo()
-	if err == nil {
-		t.Fatal("expected error when Restore fails")
-	}
+	require.Error(t, err)
 }
 
 func TestPopUndoLIFOOrder(t *testing.T) {
@@ -113,9 +94,7 @@ func TestPopUndoLIFOOrder(t *testing.T) {
 	_ = m.popUndo()
 	_ = m.popUndo()
 
-	if len(order) != 2 || order[0] != "second" || order[1] != "first" {
-		t.Fatalf("expected LIFO order [second, first], got %v", order)
-	}
+	assert.Equal(t, []string{"second", "first"}, order)
 }
 
 func TestUndoKeyInEditMode(t *testing.T) {
@@ -133,9 +112,7 @@ func TestUndoKeyInEditMode(t *testing.T) {
 	})
 
 	sendKey(m, "u")
-	if !restored {
-		t.Fatal("expected u key to trigger undo in Edit mode")
-	}
+	assert.True(t, restored, "expected u key to trigger undo in Edit mode")
 }
 
 func TestUndoKeyIgnoredInNormalMode(t *testing.T) {
@@ -151,9 +128,7 @@ func TestUndoKeyIgnoredInNormalMode(t *testing.T) {
 	})
 
 	sendKey(m, "u")
-	if len(m.undoStack) != 1 {
-		t.Fatal("expected undo stack unchanged in Normal mode")
-	}
+	assert.Len(t, m.undoStack, 1, "expected undo stack unchanged in Normal mode")
 }
 
 func TestSnapshotForUndoSkipsCreates(t *testing.T) {
@@ -163,9 +138,7 @@ func TestSnapshotForUndoSkipsCreates(t *testing.T) {
 
 	m.snapshotForUndo()
 
-	if len(m.undoStack) != 0 {
-		t.Fatal("expected no undo entry for create operations")
-	}
+	assert.Empty(t, m.undoStack, "expected no undo entry for create operations")
 }
 
 // --- Redo tests ---
@@ -173,9 +146,7 @@ func TestSnapshotForUndoSkipsCreates(t *testing.T) {
 func TestPopRedoEmptyStack(t *testing.T) {
 	m := newTestModel()
 	err := m.popRedo()
-	if err == nil {
-		t.Fatal("expected error from popRedo on empty stack")
-	}
+	require.Error(t, err)
 }
 
 func TestPopRedoRestoresAndRemoves(t *testing.T) {
@@ -190,18 +161,10 @@ func TestPopRedoRestoresAndRemoves(t *testing.T) {
 	})
 
 	err := m.popRedo()
-	if err != nil {
-		t.Fatalf("popRedo error: %v", err)
-	}
-	if !restored {
-		t.Fatal("expected Restore closure to be called")
-	}
-	if len(m.redoStack) != 0 {
-		t.Fatalf("expected redo stack empty after pop, got %d", len(m.redoStack))
-	}
-	if m.status.Kind != statusInfo {
-		t.Fatal("expected info status after redo")
-	}
+	require.NoError(t, err)
+	assert.True(t, restored, "expected Restore closure to be called")
+	assert.Empty(t, m.redoStack)
+	assert.Equal(t, statusInfo, m.status.Kind)
 }
 
 func TestRedoKeyInEditMode(t *testing.T) {
@@ -219,9 +182,7 @@ func TestRedoKeyInEditMode(t *testing.T) {
 	})
 
 	sendKey(m, "r")
-	if !restored {
-		t.Fatal("expected r key to trigger redo in Edit mode")
-	}
+	assert.True(t, restored, "expected r key to trigger redo in Edit mode")
 }
 
 func TestRedoKeyIgnoredInNormalMode(t *testing.T) {
@@ -237,9 +198,7 @@ func TestRedoKeyIgnoredInNormalMode(t *testing.T) {
 	})
 
 	sendKey(m, "r")
-	if len(m.redoStack) != 1 {
-		t.Fatal("expected redo stack unchanged in Normal mode")
-	}
+	assert.Len(t, m.redoStack, 1, "expected redo stack unchanged in Normal mode")
 }
 
 func TestNewEditClearsRedoStack(t *testing.T) {
@@ -257,9 +216,7 @@ func TestNewEditClearsRedoStack(t *testing.T) {
 	m.snapshotForUndo()
 
 	// editID nil means no push, redo should be unchanged (no new edit happened).
-	if len(m.redoStack) != 1 {
-		t.Fatal("expected redo stack unchanged when no undo was pushed")
-	}
+	assert.Len(t, m.redoStack, 1, "expected redo stack unchanged when no undo was pushed")
 }
 
 func TestUndoRedoCycle(t *testing.T) {
@@ -280,9 +237,7 @@ func TestUndoRedoCycle(t *testing.T) {
 
 	// Undo: should restore "A" (no store, so no redo snapshot via snapshotEntity).
 	_ = m.popUndo()
-	if current != "A" {
-		t.Fatalf("after undo expected %q, got %q", "A", current)
-	}
+	assert.Equal(t, "A", current)
 
 	// Manually push a redo entry (simulating what snapshotEntity would do with a real store).
 	m.pushRedo(undoEntry{
@@ -297,7 +252,5 @@ func TestUndoRedoCycle(t *testing.T) {
 
 	// Redo: should restore "B".
 	_ = m.popRedo()
-	if current != "B" {
-		t.Fatalf("after redo expected %q, got %q", "B", current)
-	}
+	assert.Equal(t, "B", current)
 }

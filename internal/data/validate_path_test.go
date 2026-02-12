@@ -5,10 +5,11 @@ package data
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/brianvoe/gofakeit/v7"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestValidateDBPath(t *testing.T) {
@@ -54,21 +55,11 @@ func TestValidateDBPath(t *testing.T) {
 		t.Run(tt.path, func(t *testing.T) {
 			err := ValidateDBPath(tt.path)
 			if tt.wantErr == "" {
-				if err != nil {
-					t.Errorf("ValidateDBPath(%q) = %v, want nil", tt.path, err)
-				}
+				assert.NoError(t, err)
 				return
 			}
-			if err == nil {
-				t.Errorf("ValidateDBPath(%q) = nil, want error containing %q", tt.path, tt.wantErr)
-				return
-			}
-			if !strings.Contains(err.Error(), tt.wantErr) {
-				t.Errorf(
-					"ValidateDBPath(%q) = %v, want error containing %q",
-					tt.path, err, tt.wantErr,
-				)
-			}
+			assert.ErrorContains(t, err, tt.wantErr,
+				"ValidateDBPath(%q) = %v, want error containing %q", tt.path, err, tt.wantErr)
 		})
 	}
 }
@@ -78,10 +69,7 @@ func TestValidateDBPathRejectsRandomURLs(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		u := f.URL()
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			err := ValidateDBPath(u)
-			if err == nil {
-				t.Errorf("ValidateDBPath(%q) = nil, want rejection", u)
-			}
+			assert.Error(t, ValidateDBPath(u), "ValidateDBPath(%q) should reject", u)
 		})
 	}
 }
@@ -91,10 +79,7 @@ func TestValidateDBPathRejectsRandomURLsWithQueryParams(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		u := fmt.Sprintf("%s?%s=%s", f.URL(), f.Word(), f.Word())
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			err := ValidateDBPath(u)
-			if err == nil {
-				t.Errorf("ValidateDBPath(%q) = nil, want rejection", u)
-			}
+			assert.Error(t, ValidateDBPath(u), "ValidateDBPath(%q) should reject", u)
 		})
 	}
 }
@@ -105,9 +90,7 @@ func TestOpenRejectsURIs(t *testing.T) {
 		u := f.URL()
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			_, err := Open(u)
-			if err == nil {
-				t.Fatalf("Open(%q) should reject URI paths", u)
-			}
+			require.Error(t, err, "Open(%q) should reject URI paths", u)
 		})
 	}
 }

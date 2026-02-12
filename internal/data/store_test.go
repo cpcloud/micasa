@@ -4,427 +4,267 @@
 package data
 
 import (
-	"errors"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/cpcloud/micasa/internal/fake"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
 
 func TestSeedDefaults(t *testing.T) {
 	store := newTestStore(t)
 	types, err := store.ProjectTypes()
-	if err != nil {
-		t.Fatalf("ProjectTypes error: %v", err)
-	}
-	if len(types) == 0 {
-		t.Fatalf("ProjectTypes empty")
-	}
+	require.NoError(t, err)
+	require.NotEmpty(t, types)
 	categories, err := store.MaintenanceCategories()
-	if err != nil {
-		t.Fatalf("MaintenanceCategories error: %v", err)
-	}
-	if len(categories) == 0 {
-		t.Fatalf("MaintenanceCategories empty")
-	}
+	require.NoError(t, err)
+	require.NotEmpty(t, categories)
 }
 
 func TestHouseProfileSingle(t *testing.T) {
 	store := newTestStore(t)
 	profile := HouseProfile{Nickname: "Primary Residence"}
-	if err := store.CreateHouseProfile(profile); err != nil {
-		t.Fatalf("CreateHouseProfile error: %v", err)
-	}
-	if _, err := store.HouseProfile(); err != nil {
-		t.Fatalf("HouseProfile error: %v", err)
-	}
-	if err := store.CreateHouseProfile(profile); err == nil {
-		t.Fatalf("expected error on second profile")
-	}
+	require.NoError(t, store.CreateHouseProfile(profile))
+	_, err := store.HouseProfile()
+	require.NoError(t, err)
+	assert.Error(t, store.CreateHouseProfile(profile), "second profile should fail")
 }
 
 func TestUpdateHouseProfile(t *testing.T) {
 	store := newTestStore(t)
-	profile := HouseProfile{Nickname: "Primary Residence", City: "Portland"}
-	if err := store.CreateHouseProfile(profile); err != nil {
-		t.Fatalf("CreateHouseProfile error: %v", err)
-	}
-	updated := HouseProfile{Nickname: "Primary Residence", City: "Seattle"}
-	if err := store.UpdateHouseProfile(updated); err != nil {
-		t.Fatalf("UpdateHouseProfile error: %v", err)
-	}
+	require.NoError(
+		t,
+		store.CreateHouseProfile(HouseProfile{Nickname: "Primary Residence", City: "Portland"}),
+	)
+	require.NoError(
+		t,
+		store.UpdateHouseProfile(HouseProfile{Nickname: "Primary Residence", City: "Seattle"}),
+	)
 	fetched, err := store.HouseProfile()
-	if err != nil {
-		t.Fatalf("HouseProfile error: %v", err)
-	}
-	if fetched.City != "Seattle" {
-		t.Fatalf("expected city Seattle, got %q", fetched.City)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "Seattle", fetched.City)
 }
 
 func TestSoftDeleteRestoreProject(t *testing.T) {
 	store := newTestStore(t)
 	types, err := store.ProjectTypes()
-	if err != nil {
-		t.Fatalf("ProjectTypes error: %v", err)
-	}
-	project := Project{
-		Title:         "Test Project",
-		ProjectTypeID: types[0].ID,
-		Status:        ProjectStatusPlanned,
-	}
-	if err := store.CreateProject(project); err != nil {
-		t.Fatalf("CreateProject error: %v", err)
-	}
+	require.NoError(t, err)
+	require.NoError(t, store.CreateProject(Project{
+		Title: "Test Project", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}))
+
 	projects, err := store.ListProjects(false)
-	if err != nil || len(projects) != 1 {
-		t.Fatalf("ListProjects expected 1, got %d err %v", len(projects), err)
-	}
-	if err := store.DeleteProject(projects[0].ID); err != nil {
-		t.Fatalf("DeleteProject error: %v", err)
-	}
+	require.NoError(t, err)
+	require.Len(t, projects, 1)
+
+	require.NoError(t, store.DeleteProject(projects[0].ID))
+
 	projects, err = store.ListProjects(false)
-	if err != nil || len(projects) != 0 {
-		t.Fatalf("ListProjects expected 0, got %d err %v", len(projects), err)
-	}
+	require.NoError(t, err)
+	assert.Empty(t, projects)
+
 	projects, err = store.ListProjects(true)
-	if err != nil || len(projects) != 1 || !projects[0].DeletedAt.Valid {
-		t.Fatalf("ListProjects expected deleted row")
-	}
-	if err := store.RestoreProject(projects[0].ID); err != nil {
-		t.Fatalf("RestoreProject error: %v", err)
-	}
+	require.NoError(t, err)
+	require.Len(t, projects, 1)
+	assert.True(t, projects[0].DeletedAt.Valid)
+
+	require.NoError(t, store.RestoreProject(projects[0].ID))
 	projects, err = store.ListProjects(false)
-	if err != nil || len(projects) != 1 {
-		t.Fatalf("ListProjects after restore expected 1, got %d err %v", len(projects), err)
-	}
+	require.NoError(t, err)
+	assert.Len(t, projects, 1)
 }
 
 func TestLastDeletionRecord(t *testing.T) {
 	store := newTestStore(t)
 	types, err := store.ProjectTypes()
-	if err != nil {
-		t.Fatalf("ProjectTypes error: %v", err)
-	}
-	project := Project{
-		Title:         "Test Project",
-		ProjectTypeID: types[0].ID,
-		Status:        ProjectStatusPlanned,
-	}
-	if err := store.CreateProject(project); err != nil {
-		t.Fatalf("CreateProject error: %v", err)
-	}
+	require.NoError(t, err)
+	require.NoError(t, store.CreateProject(Project{
+		Title: "Test Project", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}))
 	projects, err := store.ListProjects(false)
-	if err != nil || len(projects) != 1 {
-		t.Fatalf("ListProjects expected 1, got %d err %v", len(projects), err)
-	}
-	if err := store.DeleteProject(projects[0].ID); err != nil {
-		t.Fatalf("DeleteProject error: %v", err)
-	}
+	require.NoError(t, err)
+	require.Len(t, projects, 1)
+
+	require.NoError(t, store.DeleteProject(projects[0].ID))
 	record, err := store.LastDeletion(DeletionEntityProject)
-	if err != nil {
-		t.Fatalf("LastDeletion error: %v", err)
-	}
-	if record.TargetID != projects[0].ID {
-		t.Fatalf("LastDeletion target %d != %d", record.TargetID, projects[0].ID)
-	}
-	if err := store.RestoreProject(record.TargetID); err != nil {
-		t.Fatalf("RestoreProject error: %v", err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, projects[0].ID, record.TargetID)
+
+	require.NoError(t, store.RestoreProject(record.TargetID))
 	_, err = store.LastDeletion(DeletionEntityProject)
-	if err == nil || !errors.Is(err, gorm.ErrRecordNotFound) {
-		t.Fatalf("expected ErrRecordNotFound, got %v", err)
-	}
+	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }
 
 func TestUpdateProject(t *testing.T) {
 	store := newTestStore(t)
 	types, err := store.ProjectTypes()
-	if err != nil {
-		t.Fatalf("ProjectTypes error: %v", err)
-	}
-	project := Project{
-		Title:         "Original Title",
-		ProjectTypeID: types[0].ID,
-		Status:        ProjectStatusPlanned,
-	}
-	if err := store.CreateProject(project); err != nil {
-		t.Fatalf("CreateProject error: %v", err)
-	}
+	require.NoError(t, err)
+	require.NoError(t, store.CreateProject(Project{
+		Title: "Original Title", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}))
 	projects, err := store.ListProjects(false)
-	if err != nil || len(projects) != 1 {
-		t.Fatalf("ListProjects expected 1, got %d err %v", len(projects), err)
-	}
+	require.NoError(t, err)
+	require.Len(t, projects, 1)
 	id := projects[0].ID
 
 	fetched, err := store.GetProject(id)
-	if err != nil {
-		t.Fatalf("GetProject error: %v", err)
-	}
-	if fetched.Title != "Original Title" {
-		t.Fatalf("expected 'Original Title', got %q", fetched.Title)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "Original Title", fetched.Title)
 
-	updated := Project{
-		ID:            id,
-		Title:         "Updated Title",
-		ProjectTypeID: types[0].ID,
-		Status:        ProjectStatusInProgress,
-	}
-	if err := store.UpdateProject(updated); err != nil {
-		t.Fatalf("UpdateProject error: %v", err)
-	}
+	require.NoError(t, store.UpdateProject(Project{
+		ID: id, Title: "Updated Title", ProjectTypeID: types[0].ID,
+		Status: ProjectStatusInProgress,
+	}))
 
 	fetched, err = store.GetProject(id)
-	if err != nil {
-		t.Fatalf("GetProject after update error: %v", err)
-	}
-	if fetched.Title != "Updated Title" {
-		t.Fatalf("expected 'Updated Title', got %q", fetched.Title)
-	}
-	if fetched.Status != ProjectStatusInProgress {
-		t.Fatalf("expected status %q, got %q", ProjectStatusInProgress, fetched.Status)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "Updated Title", fetched.Title)
+	assert.Equal(t, ProjectStatusInProgress, fetched.Status)
 }
 
 func TestUpdateQuote(t *testing.T) {
 	store := newTestStore(t)
 	types, err := store.ProjectTypes()
-	if err != nil {
-		t.Fatalf("ProjectTypes error: %v", err)
-	}
-	project := Project{
-		Title:         "Test Project",
-		ProjectTypeID: types[0].ID,
-		Status:        ProjectStatusPlanned,
-	}
-	if err := store.CreateProject(project); err != nil {
-		t.Fatalf("CreateProject error: %v", err)
-	}
+	require.NoError(t, err)
+	require.NoError(t, store.CreateProject(Project{
+		Title: "Test Project", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}))
 	projects, err := store.ListProjects(false)
-	if err != nil || len(projects) != 1 {
-		t.Fatalf("ListProjects expected 1, got %d err %v", len(projects), err)
-	}
-	vendor := Vendor{Name: "Acme Corp"}
-	quote := Quote{
-		ProjectID:  projects[0].ID,
-		TotalCents: 100000,
-	}
-	if err := store.CreateQuote(quote, vendor); err != nil {
-		t.Fatalf("CreateQuote error: %v", err)
-	}
+	require.NoError(t, err)
+	require.Len(t, projects, 1)
+
+	require.NoError(t, store.CreateQuote(
+		Quote{ProjectID: projects[0].ID, TotalCents: 100000},
+		Vendor{Name: "Acme Corp"},
+	))
 	quotes, err := store.ListQuotes(false)
-	if err != nil || len(quotes) != 1 {
-		t.Fatalf("ListQuotes expected 1, got %d err %v", len(quotes), err)
-	}
+	require.NoError(t, err)
+	require.Len(t, quotes, 1)
 	id := quotes[0].ID
 
-	updatedQuote := Quote{
-		ID:         id,
-		ProjectID:  projects[0].ID,
-		TotalCents: 200000,
-	}
-	updatedVendor := Vendor{Name: "Acme Corp", ContactName: "John Doe"}
-	if err := store.UpdateQuote(updatedQuote, updatedVendor); err != nil {
-		t.Fatalf("UpdateQuote error: %v", err)
-	}
+	require.NoError(t, store.UpdateQuote(
+		Quote{ID: id, ProjectID: projects[0].ID, TotalCents: 200000},
+		Vendor{Name: "Acme Corp", ContactName: "John Doe"},
+	))
 
 	fetched, err := store.GetQuote(id)
-	if err != nil {
-		t.Fatalf("GetQuote after update error: %v", err)
-	}
-	if fetched.TotalCents != 200000 {
-		t.Fatalf("expected total 200000, got %d", fetched.TotalCents)
-	}
-	if fetched.Vendor.ContactName != "John Doe" {
-		t.Fatalf("expected contact 'John Doe', got %q", fetched.Vendor.ContactName)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, int64(200000), fetched.TotalCents)
+	assert.Equal(t, "John Doe", fetched.Vendor.ContactName)
 }
 
 func TestUpdateMaintenance(t *testing.T) {
 	store := newTestStore(t)
 	categories, err := store.MaintenanceCategories()
-	if err != nil {
-		t.Fatalf("MaintenanceCategories error: %v", err)
-	}
-	item := MaintenanceItem{
-		Name:       "Filter Change",
-		CategoryID: categories[0].ID,
-	}
-	if err := store.CreateMaintenance(item); err != nil {
-		t.Fatalf("CreateMaintenance error: %v", err)
-	}
+	require.NoError(t, err)
+	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
+		Name: "Filter Change", CategoryID: categories[0].ID,
+	}))
 	items, err := store.ListMaintenance(false)
-	if err != nil || len(items) != 1 {
-		t.Fatalf("ListMaintenance expected 1, got %d err %v", len(items), err)
-	}
+	require.NoError(t, err)
+	require.Len(t, items, 1)
 	id := items[0].ID
 
 	fetched, err := store.GetMaintenance(id)
-	if err != nil {
-		t.Fatalf("GetMaintenance error: %v", err)
-	}
-	if fetched.Name != "Filter Change" {
-		t.Fatalf("expected 'Filter Change', got %q", fetched.Name)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "Filter Change", fetched.Name)
 
-	updated := MaintenanceItem{
-		ID:             id,
-		Name:           "HVAC Filter Change",
-		CategoryID:     categories[0].ID,
-		IntervalMonths: 3,
-	}
-	if err := store.UpdateMaintenance(updated); err != nil {
-		t.Fatalf("UpdateMaintenance error: %v", err)
-	}
+	require.NoError(t, store.UpdateMaintenance(MaintenanceItem{
+		ID: id, Name: "HVAC Filter Change", CategoryID: categories[0].ID, IntervalMonths: 3,
+	}))
 
 	fetched, err = store.GetMaintenance(id)
-	if err != nil {
-		t.Fatalf("GetMaintenance after update error: %v", err)
-	}
-	if fetched.Name != "HVAC Filter Change" {
-		t.Fatalf("expected 'HVAC Filter Change', got %q", fetched.Name)
-	}
-	if fetched.IntervalMonths != 3 {
-		t.Fatalf("expected interval 3, got %d", fetched.IntervalMonths)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "HVAC Filter Change", fetched.Name)
+	assert.Equal(t, 3, fetched.IntervalMonths)
 }
 
 func TestServiceLogCRUD(t *testing.T) {
 	store := newTestStore(t)
 	categories, err := store.MaintenanceCategories()
-	if err != nil {
-		t.Fatalf("MaintenanceCategories error: %v", err)
-	}
-	item := MaintenanceItem{
-		Name:       "Test Maintenance",
-		CategoryID: categories[0].ID,
-	}
-	if err := store.CreateMaintenance(item); err != nil {
-		t.Fatalf("CreateMaintenance error: %v", err)
-	}
+	require.NoError(t, err)
+	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
+		Name: "Test Maintenance", CategoryID: categories[0].ID,
+	}))
 	items, err := store.ListMaintenance(false)
-	if err != nil || len(items) != 1 {
-		t.Fatalf("ListMaintenance expected 1, got %d err %v", len(items), err)
-	}
+	require.NoError(t, err)
+	require.Len(t, items, 1)
 	maintID := items[0].ID
 
 	// Create a service log entry (self-performed, no vendor).
-	entry := ServiceLogEntry{
+	require.NoError(t, store.CreateServiceLog(ServiceLogEntry{
 		MaintenanceItemID: maintID,
 		ServicedAt:        time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
 		Notes:             "did it myself",
-	}
-	if err := store.CreateServiceLog(entry, Vendor{}); err != nil {
-		t.Fatalf("CreateServiceLog error: %v", err)
-	}
+	}, Vendor{}))
 
 	entries, err := store.ListServiceLog(maintID, false)
-	if err != nil || len(entries) != 1 {
-		t.Fatalf("ListServiceLog expected 1, got %d err %v", len(entries), err)
-	}
-	if entries[0].VendorID != nil {
-		t.Fatalf("expected nil VendorID for self-performed entry")
-	}
-	if entries[0].Notes != "did it myself" {
-		t.Fatalf("expected notes 'did it myself', got %q", entries[0].Notes)
-	}
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	assert.Nil(t, entries[0].VendorID)
+	assert.Equal(t, "did it myself", entries[0].Notes)
 
 	// Create a vendor-performed entry.
-	vendorEntry := ServiceLogEntry{
+	require.NoError(t, store.CreateServiceLog(ServiceLogEntry{
 		MaintenanceItemID: maintID,
 		ServicedAt:        time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC),
 		CostCents:         func() *int64 { v := int64(15000); return &v }(),
 		Notes:             "vendor did it",
-	}
-	vendor := Vendor{Name: "Test Plumber", Phone: "555-555-0001"}
-	if err := store.CreateServiceLog(vendorEntry, vendor); err != nil {
-		t.Fatalf("CreateServiceLog with vendor error: %v", err)
-	}
+	}, Vendor{Name: "Test Plumber", Phone: "555-555-0001"}))
 
 	entries, err = store.ListServiceLog(maintID, false)
-	if err != nil || len(entries) != 2 {
-		t.Fatalf("ListServiceLog expected 2, got %d err %v", len(entries), err)
-	}
-	// Most recent first (2026-02-01 before 2026-01-15).
-	if entries[0].VendorID == nil {
-		t.Fatalf("expected vendor on first entry")
-	}
-	if entries[0].Vendor.Name != "Test Plumber" {
-		t.Fatalf("expected vendor 'Test Plumber', got %q", entries[0].Vendor.Name)
-	}
+	require.NoError(t, err)
+	require.Len(t, entries, 2)
+	// Most recent first.
+	require.NotNil(t, entries[0].VendorID)
+	assert.Equal(t, "Test Plumber", entries[0].Vendor.Name)
 
 	// Update: change vendor entry to self-performed.
 	updated := entries[0]
 	updated.Notes = "actually did it myself"
-	if err := store.UpdateServiceLog(updated, Vendor{}); err != nil {
-		t.Fatalf("UpdateServiceLog error: %v", err)
-	}
+	require.NoError(t, store.UpdateServiceLog(updated, Vendor{}))
+
 	fetched, err := store.GetServiceLog(updated.ID)
-	if err != nil {
-		t.Fatalf("GetServiceLog error: %v", err)
-	}
-	if fetched.VendorID != nil {
-		t.Fatalf("expected nil VendorID after update")
-	}
-	if fetched.Notes != "actually did it myself" {
-		t.Fatalf("expected updated notes, got %q", fetched.Notes)
-	}
+	require.NoError(t, err)
+	assert.Nil(t, fetched.VendorID)
+	assert.Equal(t, "actually did it myself", fetched.Notes)
 
 	// Delete and restore.
-	if err := store.DeleteServiceLog(fetched.ID); err != nil {
-		t.Fatalf("DeleteServiceLog error: %v", err)
-	}
+	require.NoError(t, store.DeleteServiceLog(fetched.ID))
 	entries, err = store.ListServiceLog(maintID, false)
-	if err != nil || len(entries) != 1 {
-		t.Fatalf("after delete expected 1, got %d err %v", len(entries), err)
-	}
+	require.NoError(t, err)
+	assert.Len(t, entries, 1)
+
 	entries, err = store.ListServiceLog(maintID, true)
-	if err != nil || len(entries) != 2 {
-		t.Fatalf("with deleted expected 2, got %d err %v", len(entries), err)
-	}
-	if err := store.RestoreServiceLog(fetched.ID); err != nil {
-		t.Fatalf("RestoreServiceLog error: %v", err)
-	}
+	require.NoError(t, err)
+	assert.Len(t, entries, 2)
+
+	require.NoError(t, store.RestoreServiceLog(fetched.ID))
 	entries, err = store.ListServiceLog(maintID, false)
-	if err != nil || len(entries) != 2 {
-		t.Fatalf("after restore expected 2, got %d err %v", len(entries), err)
-	}
+	require.NoError(t, err)
+	assert.Len(t, entries, 2)
 
 	// CountServiceLogs.
 	counts, err := store.CountServiceLogs([]uint{maintID})
-	if err != nil {
-		t.Fatalf("CountServiceLogs error: %v", err)
-	}
-	if counts[maintID] != 2 {
-		t.Fatalf("expected count 2, got %d", counts[maintID])
-	}
+	require.NoError(t, err)
+	assert.Equal(t, 2, counts[maintID])
 }
 
 func TestSoftDeletePersistsAcrossRuns(t *testing.T) {
-	// Verify that soft-deleted items stay hidden after closing and reopening
-	// the database, confirming cross-session persistence.
 	path := filepath.Join(t.TempDir(), "persist.db")
 
 	// Session 1: create a project, then soft-delete it.
 	store1, err := Open(path)
-	if err != nil {
-		t.Fatalf("Open session 1: %v", err)
-	}
-	if err := store1.AutoMigrate(); err != nil {
-		t.Fatalf("AutoMigrate session 1: %v", err)
-	}
-	if err := store1.SeedDefaults(); err != nil {
-		t.Fatalf("SeedDefaults session 1: %v", err)
-	}
+	require.NoError(t, err)
+	require.NoError(t, store1.AutoMigrate())
+	require.NoError(t, store1.SeedDefaults())
 	types, _ := store1.ProjectTypes()
-	if err := store1.CreateProject(Project{Title: "Persist Test", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned}); err != nil {
-		t.Fatalf("CreateProject: %v", err)
-	}
-	// Find the created project by listing.
+	require.NoError(t, store1.CreateProject(Project{
+		Title: "Persist Test", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}))
 	projects, _ := store1.ListProjects(false)
 	var projectID uint
 	for _, p := range projects {
@@ -433,40 +273,29 @@ func TestSoftDeletePersistsAcrossRuns(t *testing.T) {
 			break
 		}
 	}
-	if projectID == 0 {
-		t.Fatal("could not find created project")
-	}
-	if err := store1.DeleteProject(projectID); err != nil {
-		t.Fatalf("DeleteProject: %v", err)
-	}
+	require.NotZero(t, projectID)
+	require.NoError(t, store1.DeleteProject(projectID))
 	_ = store1.Close()
 
 	// Session 2: reopen and verify the project is still soft-deleted.
 	store2, err := Open(path)
-	if err != nil {
-		t.Fatalf("Open session 2: %v", err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() { _ = store2.Close() })
-	if err := store2.AutoMigrate(); err != nil {
-		t.Fatalf("AutoMigrate session 2: %v", err)
-	}
+	require.NoError(t, store2.AutoMigrate())
 
-	// Normal list should not include the deleted project.
 	projects2, err := store2.ListProjects(false)
-	if err != nil {
-		t.Fatalf("ListProjects(false): %v", err)
-	}
+	require.NoError(t, err)
 	for _, p := range projects2 {
-		if p.ID == projectID {
-			t.Fatal("soft-deleted project should not appear in normal listing after reopen")
-		}
+		assert.NotEqual(
+			t,
+			projectID,
+			p.ID,
+			"soft-deleted project should not appear in normal listing after reopen",
+		)
 	}
 
-	// Unscoped list should include it.
 	projectsAll, err := store2.ListProjects(true)
-	if err != nil {
-		t.Fatalf("ListProjects(true): %v", err)
-	}
+	require.NoError(t, err)
 	found := false
 	for _, p := range projectsAll {
 		if p.ID == projectID {
@@ -474,18 +303,11 @@ func TestSoftDeletePersistsAcrossRuns(t *testing.T) {
 			break
 		}
 	}
-	if !found {
-		t.Fatal("soft-deleted project should appear in unscoped listing after reopen")
-	}
+	assert.True(t, found, "soft-deleted project should appear in unscoped listing after reopen")
 
-	// Restore should still work.
-	if err := store2.RestoreProject(projectID); err != nil {
-		t.Fatalf("RestoreProject: %v", err)
-	}
+	require.NoError(t, store2.RestoreProject(projectID))
 	projects3, err := store2.ListProjects(false)
-	if err != nil {
-		t.Fatalf("ListProjects after restore: %v", err)
-	}
+	require.NoError(t, err)
 	found = false
 	for _, p := range projects3 {
 		if p.ID == projectID {
@@ -493,576 +315,326 @@ func TestSoftDeletePersistsAcrossRuns(t *testing.T) {
 			break
 		}
 	}
-	if !found {
-		t.Fatal("restored project should appear in normal listing")
-	}
+	assert.True(t, found, "restored project should appear in normal listing")
 }
 
 func TestVendorCRUD(t *testing.T) {
 	store := newTestStore(t)
 
-	// Create.
-	v := Vendor{
-		Name:        "Test Vendor",
-		ContactName: "Alice",
-		Email:       "alice@example.com",
-		Phone:       "555-0001",
-	}
-	if err := store.CreateVendor(v); err != nil {
-		t.Fatalf("CreateVendor: %v", err)
-	}
+	require.NoError(t, store.CreateVendor(Vendor{
+		Name: "Test Vendor", ContactName: "Alice",
+		Email: "alice@example.com", Phone: "555-0001",
+	}))
 
-	// List.
 	vendors, err := store.ListVendors(false)
-	if err != nil {
-		t.Fatalf("ListVendors: %v", err)
-	}
-	if len(vendors) != 1 {
-		t.Fatalf("expected 1 vendor, got %d", len(vendors))
-	}
+	require.NoError(t, err)
+	require.Len(t, vendors, 1)
 	got := vendors[0]
-	if got.Name != "Test Vendor" || got.ContactName != "Alice" {
-		t.Fatalf("unexpected vendor: %+v", got)
-	}
+	assert.Equal(t, "Test Vendor", got.Name)
+	assert.Equal(t, "Alice", got.ContactName)
 
-	// Get.
 	fetched, err := store.GetVendor(got.ID)
-	if err != nil {
-		t.Fatalf("GetVendor: %v", err)
-	}
-	if fetched.Email != "alice@example.com" {
-		t.Fatalf("expected email alice@example.com, got %s", fetched.Email)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "alice@example.com", fetched.Email)
 
-	// Update.
 	fetched.Phone = "555-9999"
 	fetched.Website = "https://example.com"
-	if err := store.UpdateVendor(fetched); err != nil {
-		t.Fatalf("UpdateVendor: %v", err)
-	}
+	require.NoError(t, store.UpdateVendor(fetched))
 	updated, _ := store.GetVendor(fetched.ID)
-	if updated.Phone != "555-9999" || updated.Website != "https://example.com" {
-		t.Fatalf("update didn't stick: %+v", updated)
-	}
+	assert.Equal(t, "555-9999", updated.Phone)
+	assert.Equal(t, "https://example.com", updated.Website)
 }
 
 func TestCountQuotesByVendor(t *testing.T) {
 	store := newTestStore(t)
 
-	// Seed a vendor and a project.
-	v := Vendor{Name: "Quote Vendor"}
-	if err := store.CreateVendor(v); err != nil {
-		t.Fatalf("CreateVendor: %v", err)
-	}
+	require.NoError(t, store.CreateVendor(Vendor{Name: "Quote Vendor"}))
 	vendors, _ := store.ListVendors(false)
 	vendorID := vendors[0].ID
 
 	types, _ := store.ProjectTypes()
-	p := Project{Title: "Test", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned}
-	if err := store.CreateProject(p); err != nil {
-		t.Fatalf("CreateProject: %v", err)
-	}
+	require.NoError(t, store.CreateProject(Project{
+		Title: "Test", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}))
 	projects, _ := store.ListProjects(false)
 	projectID := projects[0].ID
 
-	// Create two quotes for this vendor.
 	for i := 0; i < 2; i++ {
-		q := Quote{ProjectID: projectID, TotalCents: 100000}
-		if err := store.CreateQuote(q, Vendor{Name: "Quote Vendor"}); err != nil {
-			t.Fatalf("CreateQuote: %v", err)
-		}
+		require.NoError(t, store.CreateQuote(
+			Quote{ProjectID: projectID, TotalCents: 100000},
+			Vendor{Name: "Quote Vendor"},
+		))
 	}
 
 	counts, err := store.CountQuotesByVendor([]uint{vendorID})
-	if err != nil {
-		t.Fatalf("CountQuotesByVendor: %v", err)
-	}
-	if counts[vendorID] != 2 {
-		t.Fatalf("expected 2 quotes, got %d", counts[vendorID])
-	}
+	require.NoError(t, err)
+	assert.Equal(t, 2, counts[vendorID])
 
-	// Empty input.
 	empty, err := store.CountQuotesByVendor(nil)
-	if err != nil {
-		t.Fatalf("CountQuotesByVendor(nil): %v", err)
-	}
-	if len(empty) != 0 {
-		t.Fatalf("expected empty map, got %v", empty)
-	}
+	require.NoError(t, err)
+	assert.Empty(t, empty)
 }
 
 func TestCountServiceLogsByVendor(t *testing.T) {
 	store := newTestStore(t)
 
-	v := Vendor{Name: "Job Vendor"}
-	if err := store.CreateVendor(v); err != nil {
-		t.Fatalf("CreateVendor: %v", err)
-	}
+	require.NoError(t, store.CreateVendor(Vendor{Name: "Job Vendor"}))
 	vendors, _ := store.ListVendors(false)
 	vendorID := vendors[0].ID
 
 	cats, _ := store.MaintenanceCategories()
-	m := MaintenanceItem{Name: "Filter", CategoryID: cats[0].ID}
-	if err := store.CreateMaintenance(m); err != nil {
-		t.Fatalf("CreateMaintenance: %v", err)
-	}
+	require.NoError(
+		t,
+		store.CreateMaintenance(MaintenanceItem{Name: "Filter", CategoryID: cats[0].ID}),
+	)
 	items, _ := store.ListMaintenance(false)
 	maintID := items[0].ID
 
-	now := time.Now()
-	entry := ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: now}
-	if err := store.CreateServiceLog(entry, Vendor{Name: "Job Vendor"}); err != nil {
-		t.Fatalf("CreateServiceLog: %v", err)
-	}
+	require.NoError(t, store.CreateServiceLog(
+		ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: time.Now()},
+		Vendor{Name: "Job Vendor"},
+	))
 
 	counts, err := store.CountServiceLogsByVendor([]uint{vendorID})
-	if err != nil {
-		t.Fatalf("CountServiceLogsByVendor: %v", err)
-	}
-	if counts[vendorID] != 1 {
-		t.Fatalf("expected 1 job, got %d", counts[vendorID])
-	}
+	require.NoError(t, err)
+	assert.Equal(t, 1, counts[vendorID])
 }
 
 func TestDeleteProjectBlockedByQuotes(t *testing.T) {
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
-	project := Project{
-		Title: "Blocked Project", ProjectTypeID: types[0].ID,
-		Status: ProjectStatusPlanned,
-	}
-	if err := store.CreateProject(project); err != nil {
-		t.Fatalf("CreateProject: %v", err)
-	}
+	require.NoError(t, store.CreateProject(Project{
+		Title: "Blocked Project", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}))
 	projects, _ := store.ListProjects(false)
 	projID := projects[0].ID
 
-	// Attach a quote.
-	quote := Quote{ProjectID: projID, TotalCents: 1000}
-	if err := store.CreateQuote(quote, Vendor{Name: "V1"}); err != nil {
-		t.Fatalf("CreateQuote: %v", err)
-	}
+	require.NoError(
+		t,
+		store.CreateQuote(Quote{ProjectID: projID, TotalCents: 1000}, Vendor{Name: "V1"}),
+	)
 
-	// Delete should be refused.
-	err := store.DeleteProject(projID)
-	if err == nil {
-		t.Fatal("expected error deleting project with active quotes")
-	}
-	if !strings.Contains(err.Error(), "active quote") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.ErrorContains(t, store.DeleteProject(projID), "active quote")
 
-	// Soft-delete the quote, then project deletion should succeed.
 	quotes, _ := store.ListQuotes(false)
-	if err := store.DeleteQuote(quotes[0].ID); err != nil {
-		t.Fatalf("DeleteQuote: %v", err)
-	}
-	if err := store.DeleteProject(projID); err != nil {
-		t.Fatalf("DeleteProject after quote removed: %v", err)
-	}
+	require.NoError(t, store.DeleteQuote(quotes[0].ID))
+	require.NoError(t, store.DeleteProject(projID))
 }
 
 func TestRestoreQuoteBlockedByDeletedProject(t *testing.T) {
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
-	project := Project{
-		Title: "Doomed Project", ProjectTypeID: types[0].ID,
-		Status: ProjectStatusPlanned,
-	}
-	if err := store.CreateProject(project); err != nil {
-		t.Fatalf("CreateProject: %v", err)
-	}
+	require.NoError(t, store.CreateProject(Project{
+		Title: "Doomed Project", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}))
 	projects, _ := store.ListProjects(false)
 	projID := projects[0].ID
 
-	quote := Quote{ProjectID: projID, TotalCents: 500}
-	if err := store.CreateQuote(quote, Vendor{Name: "V2"}); err != nil {
-		t.Fatalf("CreateQuote: %v", err)
-	}
+	require.NoError(
+		t,
+		store.CreateQuote(Quote{ProjectID: projID, TotalCents: 500}, Vendor{Name: "V2"}),
+	)
 	quotes, _ := store.ListQuotes(false)
 	quoteID := quotes[0].ID
 
-	// Delete quote, then project.
-	if err := store.DeleteQuote(quoteID); err != nil {
-		t.Fatalf("DeleteQuote: %v", err)
-	}
-	if err := store.DeleteProject(projID); err != nil {
-		t.Fatalf("DeleteProject: %v", err)
-	}
+	require.NoError(t, store.DeleteQuote(quoteID))
+	require.NoError(t, store.DeleteProject(projID))
 
-	// Restoring the quote should be refused while project is deleted.
-	err := store.RestoreQuote(quoteID)
-	if err == nil {
-		t.Fatal("expected error restoring quote with deleted project")
-	}
-	if !strings.Contains(err.Error(), "project is deleted") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.ErrorContains(t, store.RestoreQuote(quoteID), "project is deleted")
 
-	// Restore the project, then quote restore should succeed.
-	if err := store.RestoreProject(projID); err != nil {
-		t.Fatalf("RestoreProject: %v", err)
-	}
-	if err := store.RestoreQuote(quoteID); err != nil {
-		t.Fatalf("RestoreQuote after project restored: %v", err)
-	}
+	require.NoError(t, store.RestoreProject(projID))
+	require.NoError(t, store.RestoreQuote(quoteID))
 }
 
 func TestRestoreServiceLogBlockedByDeletedMaintenance(t *testing.T) {
 	store := newTestStore(t)
 	cats, _ := store.MaintenanceCategories()
-	item := MaintenanceItem{
+	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
 		Name: "Doomed Maint", CategoryID: cats[0].ID, IntervalMonths: 6,
-	}
-	if err := store.CreateMaintenance(item); err != nil {
-		t.Fatalf("CreateMaintenance: %v", err)
-	}
+	}))
 	items, _ := store.ListMaintenance(false)
 	maintID := items[0].ID
 
-	now := time.Now()
-	entry := ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: now}
-	if err := store.CreateServiceLog(entry, Vendor{Name: "SL2"}); err != nil {
-		t.Fatalf("CreateServiceLog: %v", err)
-	}
+	require.NoError(t, store.CreateServiceLog(
+		ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: time.Now()},
+		Vendor{Name: "SL2"},
+	))
 	logs, _ := store.ListServiceLog(maintID, false)
 	logID := logs[0].ID
 
-	// Delete service log, then maintenance.
-	if err := store.DeleteServiceLog(logID); err != nil {
-		t.Fatalf("DeleteServiceLog: %v", err)
-	}
-	if err := store.DeleteMaintenance(maintID); err != nil {
-		t.Fatalf("DeleteMaintenance: %v", err)
-	}
+	require.NoError(t, store.DeleteServiceLog(logID))
+	require.NoError(t, store.DeleteMaintenance(maintID))
 
-	// Restoring the service log should be refused.
-	err := store.RestoreServiceLog(logID)
-	if err == nil {
-		t.Fatal("expected error restoring service log with deleted maintenance")
-	}
-	if !strings.Contains(err.Error(), "maintenance item is deleted") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.ErrorContains(t, store.RestoreServiceLog(logID), "maintenance item is deleted")
 
-	// Restore maintenance, then service log restore should succeed.
-	if err := store.RestoreMaintenance(maintID); err != nil {
-		t.Fatalf("RestoreMaintenance: %v", err)
-	}
-	if err := store.RestoreServiceLog(logID); err != nil {
-		t.Fatalf("RestoreServiceLog after maintenance restored: %v", err)
-	}
+	require.NoError(t, store.RestoreMaintenance(maintID))
+	require.NoError(t, store.RestoreServiceLog(logID))
 }
 
 func TestDeleteMaintenanceBlockedByServiceLogs(t *testing.T) {
 	store := newTestStore(t)
 	cats, _ := store.MaintenanceCategories()
-	item := MaintenanceItem{
+	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
 		Name: "Blocked Maint", CategoryID: cats[0].ID, IntervalMonths: 3,
-	}
-	if err := store.CreateMaintenance(item); err != nil {
-		t.Fatalf("CreateMaintenance: %v", err)
-	}
+	}))
 	items, _ := store.ListMaintenance(false)
 	maintID := items[0].ID
 
-	// Attach a service log.
-	now := time.Now()
-	entry := ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: now}
-	if err := store.CreateServiceLog(entry, Vendor{Name: "SL Vendor"}); err != nil {
-		t.Fatalf("CreateServiceLog: %v", err)
-	}
+	require.NoError(t, store.CreateServiceLog(
+		ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: time.Now()},
+		Vendor{Name: "SL Vendor"},
+	))
 
-	// Delete should be refused.
-	err := store.DeleteMaintenance(maintID)
-	if err == nil {
-		t.Fatal("expected error deleting maintenance with active service logs")
-	}
-	if !strings.Contains(err.Error(), "service log") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.ErrorContains(t, store.DeleteMaintenance(maintID), "service log")
 
-	// Soft-delete the service log, then maintenance deletion should succeed.
 	logs, _ := store.ListServiceLog(maintID, false)
-	if err := store.DeleteServiceLog(logs[0].ID); err != nil {
-		t.Fatalf("DeleteServiceLog: %v", err)
-	}
-	if err := store.DeleteMaintenance(maintID); err != nil {
-		t.Fatalf("DeleteMaintenance after logs removed: %v", err)
-	}
+	require.NoError(t, store.DeleteServiceLog(logs[0].ID))
+	require.NoError(t, store.DeleteMaintenance(maintID))
 }
 
 func TestPartialQuoteDeletionStillBlocksProjectDelete(t *testing.T) {
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
-	project := Project{
-		Title: "Multi-Quote", ProjectTypeID: types[0].ID,
-		Status: ProjectStatusPlanned,
-	}
-	if err := store.CreateProject(project); err != nil {
-		t.Fatalf("CreateProject: %v", err)
-	}
+	require.NoError(t, store.CreateProject(Project{
+		Title: "Multi-Quote", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}))
 	projects, _ := store.ListProjects(false)
 	projID := projects[0].ID
 
-	// Attach two quotes.
 	for _, name := range []string{"Vendor A", "Vendor B"} {
-		q := Quote{ProjectID: projID, TotalCents: 1000}
-		if err := store.CreateQuote(q, Vendor{Name: name}); err != nil {
-			t.Fatalf("CreateQuote: %v", err)
-		}
+		require.NoError(
+			t,
+			store.CreateQuote(Quote{ProjectID: projID, TotalCents: 1000}, Vendor{Name: name}),
+		)
 	}
 	quotes, _ := store.ListQuotes(false)
-	if len(quotes) != 2 {
-		t.Fatalf("expected 2 quotes, got %d", len(quotes))
-	}
+	require.Len(t, quotes, 2)
 
-	// Delete one quote; project delete should still be blocked.
-	if err := store.DeleteQuote(quotes[0].ID); err != nil {
-		t.Fatalf("DeleteQuote: %v", err)
-	}
-	err := store.DeleteProject(projID)
-	if err == nil {
-		t.Fatal("expected error: one active quote remains")
-	}
-	if !strings.Contains(err.Error(), "1 active quote") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, store.DeleteQuote(quotes[0].ID))
+	require.ErrorContains(t, store.DeleteProject(projID), "1 active quote")
 
-	// Delete the second quote; project delete should now succeed.
-	if err := store.DeleteQuote(quotes[1].ID); err != nil {
-		t.Fatalf("DeleteQuote: %v", err)
-	}
-	if err := store.DeleteProject(projID); err != nil {
-		t.Fatalf("DeleteProject: %v", err)
-	}
+	require.NoError(t, store.DeleteQuote(quotes[1].ID))
+	require.NoError(t, store.DeleteProject(projID))
 }
 
 func TestRestoreMaintenanceBlockedByDeletedAppliance(t *testing.T) {
 	store := newTestStore(t)
-	appliance := Appliance{Name: "Doomed Fridge"}
-	if err := store.CreateAppliance(appliance); err != nil {
-		t.Fatalf("CreateAppliance: %v", err)
-	}
+	require.NoError(t, store.CreateAppliance(Appliance{Name: "Doomed Fridge"}))
 	appliances, _ := store.ListAppliances(false)
 	appID := appliances[0].ID
 
 	cats, _ := store.MaintenanceCategories()
-	item := MaintenanceItem{
-		Name: "Coil Cleaning", CategoryID: cats[0].ID, IntervalMonths: 6,
-		ApplianceID: &appID,
-	}
-	if err := store.CreateMaintenance(item); err != nil {
-		t.Fatalf("CreateMaintenance: %v", err)
-	}
+	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
+		Name: "Coil Cleaning", CategoryID: cats[0].ID, IntervalMonths: 6, ApplianceID: &appID,
+	}))
 	items, _ := store.ListMaintenance(false)
 	maintID := items[0].ID
 
-	// Delete maintenance then appliance.
-	if err := store.DeleteMaintenance(maintID); err != nil {
-		t.Fatalf("DeleteMaintenance: %v", err)
-	}
-	if err := store.DeleteAppliance(appID); err != nil {
-		t.Fatalf("DeleteAppliance: %v", err)
-	}
+	require.NoError(t, store.DeleteMaintenance(maintID))
+	require.NoError(t, store.DeleteAppliance(appID))
 
-	// Restore maintenance should be blocked -- the link existed, so the
-	// appliance must be alive.
-	err := store.RestoreMaintenance(maintID)
-	if err == nil {
-		t.Fatal("expected error restoring maintenance with deleted appliance")
-	}
-	if !strings.Contains(err.Error(), "appliance is deleted") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.ErrorContains(t, store.RestoreMaintenance(maintID), "appliance is deleted")
 
-	// Restore appliance, then maintenance restore should succeed.
-	if err := store.RestoreAppliance(appID); err != nil {
-		t.Fatalf("RestoreAppliance: %v", err)
-	}
-	if err := store.RestoreMaintenance(maintID); err != nil {
-		t.Fatalf("RestoreMaintenance after appliance restored: %v", err)
-	}
+	require.NoError(t, store.RestoreAppliance(appID))
+	require.NoError(t, store.RestoreMaintenance(maintID))
 }
 
 func TestRestoreMaintenanceAllowedWithoutAppliance(t *testing.T) {
-	// Maintenance items with no appliance link (nil ApplianceID) should
-	// restore freely -- the nullable FK means "no link", not "broken link".
 	store := newTestStore(t)
 	cats, _ := store.MaintenanceCategories()
-	item := MaintenanceItem{
+	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
 		Name: "Gutter Cleaning", CategoryID: cats[0].ID, IntervalMonths: 6,
-	}
-	if err := store.CreateMaintenance(item); err != nil {
-		t.Fatalf("CreateMaintenance: %v", err)
-	}
+	}))
 	items, _ := store.ListMaintenance(false)
 	maintID := items[0].ID
 
-	if err := store.DeleteMaintenance(maintID); err != nil {
-		t.Fatalf("DeleteMaintenance: %v", err)
-	}
-	if err := store.RestoreMaintenance(maintID); err != nil {
-		t.Fatalf("RestoreMaintenance should succeed with nil ApplianceID: %v", err)
-	}
+	require.NoError(t, store.DeleteMaintenance(maintID))
+	require.NoError(t, store.RestoreMaintenance(maintID))
 }
 
 func TestThreeLevelDeleteRestoreChain(t *testing.T) {
-	// Full Appliance → Maintenance → ServiceLog lifecycle exercising guards
-	// at every level.
 	store := newTestStore(t)
 
-	// Set up the three-level chain.
-	appliance := Appliance{Name: "HVAC Unit"}
-	if err := store.CreateAppliance(appliance); err != nil {
-		t.Fatalf("CreateAppliance: %v", err)
-	}
+	require.NoError(t, store.CreateAppliance(Appliance{Name: "HVAC Unit"}))
 	appliances, _ := store.ListAppliances(false)
 	appID := appliances[0].ID
 
 	cats, _ := store.MaintenanceCategories()
-	item := MaintenanceItem{
-		Name: "Filter Change", CategoryID: cats[0].ID, IntervalMonths: 3,
-		ApplianceID: &appID,
-	}
-	if err := store.CreateMaintenance(item); err != nil {
-		t.Fatalf("CreateMaintenance: %v", err)
-	}
+	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
+		Name: "Filter Change", CategoryID: cats[0].ID, IntervalMonths: 3, ApplianceID: &appID,
+	}))
 	items, _ := store.ListMaintenance(false)
 	maintID := items[0].ID
 
-	entry := ServiceLogEntry{
-		MaintenanceItemID: maintID,
-		ServicedAt:        time.Now(),
-	}
-	if err := store.CreateServiceLog(entry, Vendor{}); err != nil {
-		t.Fatalf("CreateServiceLog: %v", err)
-	}
+	require.NoError(t, store.CreateServiceLog(
+		ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: time.Now()},
+		Vendor{},
+	))
 	logs, _ := store.ListServiceLog(maintID, false)
 	logID := logs[0].ID
 
 	// --- Delete bottom-up ---
-	// Can't delete maintenance while service log is active.
-	err := store.DeleteMaintenance(maintID)
-	if err == nil {
-		t.Fatal("expected error: active service log blocks maintenance delete")
-	}
+	assert.Error(t, store.DeleteMaintenance(maintID), "active service log should block")
 
-	if err := store.DeleteServiceLog(logID); err != nil {
-		t.Fatalf("DeleteServiceLog: %v", err)
-	}
-	if err := store.DeleteMaintenance(maintID); err != nil {
-		t.Fatalf("DeleteMaintenance: %v", err)
-	}
-	if err := store.DeleteAppliance(appID); err != nil {
-		t.Fatalf("DeleteAppliance: %v", err)
-	}
+	require.NoError(t, store.DeleteServiceLog(logID))
+	require.NoError(t, store.DeleteMaintenance(maintID))
+	require.NoError(t, store.DeleteAppliance(appID))
 
 	// --- Attempt wrong-order restores ---
-	// Can't restore service log while maintenance is deleted.
-	err = store.RestoreServiceLog(logID)
-	if err == nil {
-		t.Fatal("expected error: maintenance is deleted")
-	}
-	if !strings.Contains(err.Error(), "maintenance item is deleted") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.ErrorContains(t, store.RestoreServiceLog(logID), "maintenance item is deleted")
+	require.ErrorContains(t, store.RestoreMaintenance(maintID), "appliance is deleted")
 
-	// Can't restore maintenance while its linked appliance is deleted.
-	err = store.RestoreMaintenance(maintID)
-	if err == nil {
-		t.Fatal("expected error: appliance is deleted")
-	}
-	if !strings.Contains(err.Error(), "appliance is deleted") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	// --- Restore correct order ---
+	require.NoError(t, store.RestoreAppliance(appID))
+	require.NoError(t, store.RestoreMaintenance(maintID))
+	require.NoError(t, store.RestoreServiceLog(logID))
 
-	// --- Restore correct order: appliance → maintenance → service log ---
-	if err := store.RestoreAppliance(appID); err != nil {
-		t.Fatalf("RestoreAppliance: %v", err)
-	}
-	if err := store.RestoreMaintenance(maintID); err != nil {
-		t.Fatalf("RestoreMaintenance: %v", err)
-	}
-	if err := store.RestoreServiceLog(logID); err != nil {
-		t.Fatalf("RestoreServiceLog: %v", err)
-	}
-
-	// Verify everything is alive and linked.
 	fetched, err := store.GetMaintenance(maintID)
-	if err != nil {
-		t.Fatalf("GetMaintenance: %v", err)
-	}
-	if fetched.ApplianceID == nil || *fetched.ApplianceID != appID {
-		t.Fatal("maintenance should still reference restored appliance")
-	}
+	require.NoError(t, err)
+	require.NotNil(t, fetched.ApplianceID)
+	assert.Equal(t, appID, *fetched.ApplianceID)
+
 	restoredLogs, err := store.ListServiceLog(maintID, false)
-	if err != nil || len(restoredLogs) != 1 {
-		t.Fatalf("expected 1 service log, got %d err %v", len(restoredLogs), err)
-	}
+	require.NoError(t, err)
+	assert.Len(t, restoredLogs, 1)
 }
 
 func TestDeleteApplianceAllowedWithMaintenance(t *testing.T) {
 	store := newTestStore(t)
-	appliance := Appliance{Name: "Deletable Fridge"}
-	if err := store.CreateAppliance(appliance); err != nil {
-		t.Fatalf("CreateAppliance: %v", err)
-	}
+	require.NoError(t, store.CreateAppliance(Appliance{Name: "Deletable Fridge"}))
 	appliances, _ := store.ListAppliances(false)
 	appID := appliances[0].ID
 
-	// Attach a maintenance item.
 	cats, _ := store.MaintenanceCategories()
-	item := MaintenanceItem{
-		Name: "Filter", CategoryID: cats[0].ID, IntervalMonths: 6,
-		ApplianceID: &appID,
-	}
-	if err := store.CreateMaintenance(item); err != nil {
-		t.Fatalf("CreateMaintenance: %v", err)
-	}
+	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
+		Name: "Filter", CategoryID: cats[0].ID, IntervalMonths: 6, ApplianceID: &appID,
+	}))
 
-	// Appliance deletion should succeed (SET NULL semantics).
-	if err := store.DeleteAppliance(appID); err != nil {
-		t.Fatalf("DeleteAppliance should be allowed: %v", err)
-	}
+	require.NoError(t, store.DeleteAppliance(appID))
 }
 
 func TestGetAppliance(t *testing.T) {
 	store := newTestStore(t)
-	if err := store.CreateAppliance(Appliance{Name: "Fridge"}); err != nil {
-		t.Fatalf("CreateAppliance: %v", err)
-	}
+	require.NoError(t, store.CreateAppliance(Appliance{Name: "Fridge"}))
 	got, err := store.GetAppliance(1)
-	if err != nil {
-		t.Fatalf("GetAppliance: %v", err)
-	}
-	if got.Name != "Fridge" {
-		t.Fatalf("expected name 'Fridge', got %q", got.Name)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "Fridge", got.Name)
 }
 
 func TestGetApplianceNotFound(t *testing.T) {
 	store := newTestStore(t)
 	_, err := store.GetAppliance(9999)
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		t.Fatalf("expected ErrRecordNotFound, got %v", err)
-	}
+	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }
 
 func TestUpdateAppliance(t *testing.T) {
 	store := newTestStore(t)
-	if err := store.CreateAppliance(Appliance{Name: "Fridge"}); err != nil {
-		t.Fatalf("CreateAppliance: %v", err)
-	}
+	require.NoError(t, store.CreateAppliance(Appliance{Name: "Fridge"}))
 	got, _ := store.GetAppliance(1)
 	got.Brand = "Samsung"
-	if err := store.UpdateAppliance(got); err != nil {
-		t.Fatalf("UpdateAppliance: %v", err)
-	}
+	require.NoError(t, store.UpdateAppliance(got))
 	updated, _ := store.GetAppliance(1)
-	if updated.Brand != "Samsung" {
-		t.Fatalf("expected brand 'Samsung', got %q", updated.Brand)
-	}
+	assert.Equal(t, "Samsung", updated.Brand)
 }
 
 func TestListMaintenanceByAppliance(t *testing.T) {
@@ -1070,35 +642,19 @@ func TestListMaintenanceByAppliance(t *testing.T) {
 	categories, _ := store.MaintenanceCategories()
 	catID := categories[0].ID
 
-	if err := store.CreateAppliance(Appliance{Name: "Fridge"}); err != nil {
-		t.Fatalf("CreateAppliance: %v", err)
-	}
+	require.NoError(t, store.CreateAppliance(Appliance{Name: "Fridge"}))
 	appID := uint(1)
-	if err := store.CreateMaintenance(MaintenanceItem{
-		Name:        "Clean coils",
-		CategoryID:  catID,
-		ApplianceID: &appID,
-	}); err != nil {
-		t.Fatalf("CreateMaintenance: %v", err)
-	}
-	// Create a maintenance item without this appliance.
-	if err := store.CreateMaintenance(MaintenanceItem{
-		Name:       "Check smoke detectors",
-		CategoryID: catID,
-	}); err != nil {
-		t.Fatalf("CreateMaintenance: %v", err)
-	}
+	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
+		Name: "Clean coils", CategoryID: catID, ApplianceID: &appID,
+	}))
+	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
+		Name: "Check smoke detectors", CategoryID: catID,
+	}))
 
 	items, err := store.ListMaintenanceByAppliance(appID, false)
-	if err != nil {
-		t.Fatalf("ListMaintenanceByAppliance: %v", err)
-	}
-	if len(items) != 1 {
-		t.Fatalf("expected 1 item, got %d", len(items))
-	}
-	if items[0].Name != "Clean coils" {
-		t.Fatalf("expected 'Clean coils', got %q", items[0].Name)
-	}
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	assert.Equal(t, "Clean coils", items[0].Name)
 }
 
 func TestCountMaintenanceByAppliance(t *testing.T) {
@@ -1106,27 +662,17 @@ func TestCountMaintenanceByAppliance(t *testing.T) {
 	categories, _ := store.MaintenanceCategories()
 	catID := categories[0].ID
 
-	if err := store.CreateAppliance(Appliance{Name: "Fridge"}); err != nil {
-		t.Fatalf("CreateAppliance: %v", err)
-	}
+	require.NoError(t, store.CreateAppliance(Appliance{Name: "Fridge"}))
 	appID := uint(1)
 	for _, name := range []string{"Clean coils", "Replace filter"} {
-		if err := store.CreateMaintenance(MaintenanceItem{
-			Name:        name,
-			CategoryID:  catID,
-			ApplianceID: &appID,
-		}); err != nil {
-			t.Fatalf("CreateMaintenance: %v", err)
-		}
+		require.NoError(t, store.CreateMaintenance(MaintenanceItem{
+			Name: name, CategoryID: catID, ApplianceID: &appID,
+		}))
 	}
 
 	counts, err := store.CountMaintenanceByAppliance([]uint{appID})
-	if err != nil {
-		t.Fatalf("CountMaintenanceByAppliance: %v", err)
-	}
-	if counts[appID] != 2 {
-		t.Fatalf("expected count 2, got %d", counts[appID])
-	}
+	require.NoError(t, err)
+	assert.Equal(t, 2, counts[appID])
 }
 
 func TestUpdateServiceLog(t *testing.T) {
@@ -1134,37 +680,22 @@ func TestUpdateServiceLog(t *testing.T) {
 	categories, _ := store.MaintenanceCategories()
 	catID := categories[0].ID
 
-	if err := store.CreateMaintenance(MaintenanceItem{
-		Name:       "HVAC filter",
-		CategoryID: catID,
-	}); err != nil {
-		t.Fatalf("CreateMaintenance: %v", err)
-	}
+	require.NoError(
+		t,
+		store.CreateMaintenance(MaintenanceItem{Name: "HVAC filter", CategoryID: catID}),
+	)
 	now := time.Now().Truncate(time.Second)
-	entry := ServiceLogEntry{
-		MaintenanceItemID: 1,
-		ServicedAt:        now,
-		Notes:             "initial",
-	}
-	if err := store.CreateServiceLog(entry, Vendor{}); err != nil {
-		t.Fatalf("CreateServiceLog: %v", err)
-	}
+	require.NoError(t, store.CreateServiceLog(ServiceLogEntry{
+		MaintenanceItemID: 1, ServicedAt: now, Notes: "initial",
+	}, Vendor{}))
 
-	// Update with a new vendor.
 	created, _ := store.GetServiceLog(1)
 	created.Notes = "updated"
-	vendor := Vendor{Name: "HVAC Pros"}
-	if err := store.UpdateServiceLog(created, vendor); err != nil {
-		t.Fatalf("UpdateServiceLog: %v", err)
-	}
+	require.NoError(t, store.UpdateServiceLog(created, Vendor{Name: "HVAC Pros"}))
 
 	updated, _ := store.GetServiceLog(1)
-	if updated.Notes != "updated" {
-		t.Fatalf("expected 'updated', got %q", updated.Notes)
-	}
-	if updated.VendorID == nil {
-		t.Fatal("expected vendor to be set after update")
-	}
+	assert.Equal(t, "updated", updated.Notes)
+	assert.NotNil(t, updated.VendorID)
 }
 
 func TestUpdateServiceLogClearVendor(t *testing.T) {
@@ -1172,31 +703,19 @@ func TestUpdateServiceLogClearVendor(t *testing.T) {
 	categories, _ := store.MaintenanceCategories()
 	catID := categories[0].ID
 
-	if err := store.CreateMaintenance(MaintenanceItem{
-		Name:       "HVAC filter",
-		CategoryID: catID,
-	}); err != nil {
-		t.Fatalf("CreateMaintenance: %v", err)
-	}
+	require.NoError(
+		t,
+		store.CreateMaintenance(MaintenanceItem{Name: "HVAC filter", CategoryID: catID}),
+	)
 	now := time.Now().Truncate(time.Second)
-	entry := ServiceLogEntry{
-		MaintenanceItemID: 1,
-		ServicedAt:        now,
-	}
-	vendor := Vendor{Name: "HVAC Pros"}
-	if err := store.CreateServiceLog(entry, vendor); err != nil {
-		t.Fatalf("CreateServiceLog: %v", err)
-	}
+	require.NoError(t, store.CreateServiceLog(ServiceLogEntry{
+		MaintenanceItemID: 1, ServicedAt: now,
+	}, Vendor{Name: "HVAC Pros"}))
 
-	// Update with empty vendor name -- should clear the vendor.
 	created, _ := store.GetServiceLog(1)
-	if err := store.UpdateServiceLog(created, Vendor{}); err != nil {
-		t.Fatalf("UpdateServiceLog: %v", err)
-	}
+	require.NoError(t, store.UpdateServiceLog(created, Vendor{}))
 	updated, _ := store.GetServiceLog(1)
-	if updated.VendorID != nil {
-		t.Fatal("expected vendor to be cleared")
-	}
+	assert.Nil(t, updated.VendorID)
 }
 
 func TestListMaintenanceByApplianceIncludeDeleted(t *testing.T) {
@@ -1204,478 +723,279 @@ func TestListMaintenanceByApplianceIncludeDeleted(t *testing.T) {
 	categories, _ := store.MaintenanceCategories()
 	catID := categories[0].ID
 
-	if err := store.CreateAppliance(Appliance{Name: "Fridge"}); err != nil {
-		t.Fatalf("CreateAppliance: %v", err)
-	}
+	require.NoError(t, store.CreateAppliance(Appliance{Name: "Fridge"}))
 	appID := uint(1)
-	if err := store.CreateMaintenance(MaintenanceItem{
-		Name:        "Clean coils",
-		CategoryID:  catID,
-		ApplianceID: &appID,
-	}); err != nil {
-		t.Fatalf("CreateMaintenance: %v", err)
-	}
-	if err := store.DeleteMaintenance(1); err != nil {
-		t.Fatalf("DeleteMaintenance: %v", err)
-	}
+	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
+		Name: "Clean coils", CategoryID: catID, ApplianceID: &appID,
+	}))
+	require.NoError(t, store.DeleteMaintenance(1))
 
-	// Without deleted.
 	items, _ := store.ListMaintenanceByAppliance(appID, false)
-	if len(items) != 0 {
-		t.Fatalf("expected 0 items without deleted, got %d", len(items))
-	}
+	assert.Empty(t, items)
 
-	// With deleted.
 	items, _ = store.ListMaintenanceByAppliance(appID, true)
-	if len(items) != 1 {
-		t.Fatalf("expected 1 item with deleted, got %d", len(items))
-	}
+	assert.Len(t, items, 1)
 }
 
 func TestSoftDeleteRestoreVendor(t *testing.T) {
 	store := newTestStore(t)
-	if err := store.CreateVendor(Vendor{Name: "Test Vendor"}); err != nil {
-		t.Fatalf("CreateVendor: %v", err)
-	}
+	require.NoError(t, store.CreateVendor(Vendor{Name: "Test Vendor"}))
+
 	vendors, _ := store.ListVendors(false)
-	if len(vendors) != 1 {
-		t.Fatalf("expected 1 vendor, got %d", len(vendors))
-	}
+	require.Len(t, vendors, 1)
 	id := vendors[0].ID
 
-	if err := store.DeleteVendor(id); err != nil {
-		t.Fatalf("DeleteVendor: %v", err)
-	}
+	require.NoError(t, store.DeleteVendor(id))
 	vendors, _ = store.ListVendors(false)
-	if len(vendors) != 0 {
-		t.Fatalf("expected 0 vendors after delete, got %d", len(vendors))
-	}
-	vendors, _ = store.ListVendors(true)
-	if len(vendors) != 1 || !vendors[0].DeletedAt.Valid {
-		t.Fatalf("expected 1 deleted vendor in unscoped list")
-	}
+	assert.Empty(t, vendors)
 
-	if err := store.RestoreVendor(id); err != nil {
-		t.Fatalf("RestoreVendor: %v", err)
-	}
+	vendors, _ = store.ListVendors(true)
+	require.Len(t, vendors, 1)
+	assert.True(t, vendors[0].DeletedAt.Valid)
+
+	require.NoError(t, store.RestoreVendor(id))
 	vendors, _ = store.ListVendors(false)
-	if len(vendors) != 1 {
-		t.Fatalf("expected 1 vendor after restore, got %d", len(vendors))
-	}
+	assert.Len(t, vendors, 1)
 }
 
 func TestDeleteVendorBlockedByQuotes(t *testing.T) {
 	store := newTestStore(t)
-	if err := store.CreateVendor(Vendor{Name: "Blocked Vendor"}); err != nil {
-		t.Fatalf("CreateVendor: %v", err)
-	}
+	require.NoError(t, store.CreateVendor(Vendor{Name: "Blocked Vendor"}))
 	vendors, _ := store.ListVendors(false)
 	vendorID := vendors[0].ID
 
 	types, _ := store.ProjectTypes()
-	if err := store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(Project{
 		Title: "Test", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
-	}); err != nil {
-		t.Fatalf("CreateProject: %v", err)
-	}
+	}))
 	projects, _ := store.ListProjects(false)
 	projID := projects[0].ID
 
-	quote := Quote{ProjectID: projID, TotalCents: 1000}
-	if err := store.CreateQuote(quote, Vendor{Name: "Blocked Vendor"}); err != nil {
-		t.Fatalf("CreateQuote: %v", err)
-	}
+	require.NoError(
+		t,
+		store.CreateQuote(
+			Quote{ProjectID: projID, TotalCents: 1000},
+			Vendor{Name: "Blocked Vendor"},
+		),
+	)
 
-	err := store.DeleteVendor(vendorID)
-	if err == nil {
-		t.Fatal("expected error deleting vendor with active quotes")
-	}
-	if !strings.Contains(err.Error(), "active quote") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.ErrorContains(t, store.DeleteVendor(vendorID), "active quote")
 
-	// Soft-delete the quote, then vendor deletion should succeed.
 	quotes, _ := store.ListQuotes(false)
-	if err := store.DeleteQuote(quotes[0].ID); err != nil {
-		t.Fatalf("DeleteQuote: %v", err)
-	}
-	if err := store.DeleteVendor(vendorID); err != nil {
-		t.Fatalf("DeleteVendor after quote removed: %v", err)
-	}
+	require.NoError(t, store.DeleteQuote(quotes[0].ID))
+	require.NoError(t, store.DeleteVendor(vendorID))
 }
 
 func TestRestoreQuoteBlockedByDeletedVendor(t *testing.T) {
 	store := newTestStore(t)
-	if err := store.CreateVendor(Vendor{Name: "Doomed Vendor"}); err != nil {
-		t.Fatalf("CreateVendor: %v", err)
-	}
+	require.NoError(t, store.CreateVendor(Vendor{Name: "Doomed Vendor"}))
 	types, _ := store.ProjectTypes()
-	if err := store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(Project{
 		Title: "Test", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
-	}); err != nil {
-		t.Fatalf("CreateProject: %v", err)
-	}
+	}))
 	projects, _ := store.ListProjects(false)
 	projID := projects[0].ID
 	vendors, _ := store.ListVendors(false)
 	vendorID := vendors[0].ID
 
-	quote := Quote{ProjectID: projID, TotalCents: 500}
-	if err := store.CreateQuote(quote, Vendor{Name: "Doomed Vendor"}); err != nil {
-		t.Fatalf("CreateQuote: %v", err)
-	}
+	require.NoError(
+		t,
+		store.CreateQuote(Quote{ProjectID: projID, TotalCents: 500}, Vendor{Name: "Doomed Vendor"}),
+	)
 	quotes, _ := store.ListQuotes(false)
 	quoteID := quotes[0].ID
 
-	// Delete quote, then vendor.
-	if err := store.DeleteQuote(quoteID); err != nil {
-		t.Fatalf("DeleteQuote: %v", err)
-	}
-	if err := store.DeleteVendor(vendorID); err != nil {
-		t.Fatalf("DeleteVendor: %v", err)
-	}
+	require.NoError(t, store.DeleteQuote(quoteID))
+	require.NoError(t, store.DeleteVendor(vendorID))
 
-	// Restoring the quote should be refused while vendor is deleted.
-	err := store.RestoreQuote(quoteID)
-	if err == nil {
-		t.Fatal("expected error restoring quote with deleted vendor")
-	}
-	if !strings.Contains(err.Error(), "vendor is deleted") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.ErrorContains(t, store.RestoreQuote(quoteID), "vendor is deleted")
 
-	// Restore the vendor, then quote restore should succeed.
-	if err := store.RestoreVendor(vendorID); err != nil {
-		t.Fatalf("RestoreVendor: %v", err)
-	}
-	if err := store.RestoreQuote(quoteID); err != nil {
-		t.Fatalf("RestoreQuote after vendor restored: %v", err)
-	}
+	require.NoError(t, store.RestoreVendor(vendorID))
+	require.NoError(t, store.RestoreQuote(quoteID))
 }
 
 func TestRestoreServiceLogBlockedByDeletedVendor(t *testing.T) {
 	store := newTestStore(t)
-	if err := store.CreateVendor(Vendor{Name: "Doomed SL Vendor"}); err != nil {
-		t.Fatalf("CreateVendor: %v", err)
-	}
+	require.NoError(t, store.CreateVendor(Vendor{Name: "Doomed SL Vendor"}))
 	vendors, _ := store.ListVendors(false)
 	vendorID := vendors[0].ID
 
 	cats, _ := store.MaintenanceCategories()
-	item := MaintenanceItem{Name: "Test Maint", CategoryID: cats[0].ID}
-	if err := store.CreateMaintenance(item); err != nil {
-		t.Fatalf("CreateMaintenance: %v", err)
-	}
+	require.NoError(
+		t,
+		store.CreateMaintenance(MaintenanceItem{Name: "Test Maint", CategoryID: cats[0].ID}),
+	)
 	items, _ := store.ListMaintenance(false)
 	maintID := items[0].ID
 
-	entry := ServiceLogEntry{
-		MaintenanceItemID: maintID,
-		ServicedAt:        time.Now(),
-	}
-	if err := store.CreateServiceLog(entry, Vendor{Name: "Doomed SL Vendor"}); err != nil {
-		t.Fatalf("CreateServiceLog: %v", err)
-	}
+	require.NoError(t, store.CreateServiceLog(
+		ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: time.Now()},
+		Vendor{Name: "Doomed SL Vendor"},
+	))
 	logs, _ := store.ListServiceLog(maintID, false)
 	logID := logs[0].ID
 
-	// Delete service log, then vendor.
-	if err := store.DeleteServiceLog(logID); err != nil {
-		t.Fatalf("DeleteServiceLog: %v", err)
-	}
-	if err := store.DeleteVendor(vendorID); err != nil {
-		t.Fatalf("DeleteVendor: %v", err)
-	}
+	require.NoError(t, store.DeleteServiceLog(logID))
+	require.NoError(t, store.DeleteVendor(vendorID))
 
-	// Restoring the service log should be refused while vendor is deleted.
-	err := store.RestoreServiceLog(logID)
-	if err == nil {
-		t.Fatal("expected error restoring service log with deleted vendor")
-	}
-	if !strings.Contains(err.Error(), "vendor is deleted") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.ErrorContains(t, store.RestoreServiceLog(logID), "vendor is deleted")
 
-	// Restore the vendor, then service log restore should succeed.
-	if err := store.RestoreVendor(vendorID); err != nil {
-		t.Fatalf("RestoreVendor: %v", err)
-	}
-	if err := store.RestoreServiceLog(logID); err != nil {
-		t.Fatalf("RestoreServiceLog after vendor restored: %v", err)
-	}
+	require.NoError(t, store.RestoreVendor(vendorID))
+	require.NoError(t, store.RestoreServiceLog(logID))
 }
 
 func TestRestoreServiceLogAllowedWithoutVendor(t *testing.T) {
-	// Service logs without a vendor (self-performed) should restore freely.
 	store := newTestStore(t)
 	cats, _ := store.MaintenanceCategories()
-	item := MaintenanceItem{Name: "Self Maint", CategoryID: cats[0].ID}
-	if err := store.CreateMaintenance(item); err != nil {
-		t.Fatalf("CreateMaintenance: %v", err)
-	}
+	require.NoError(
+		t,
+		store.CreateMaintenance(MaintenanceItem{Name: "Self Maint", CategoryID: cats[0].ID}),
+	)
 	items, _ := store.ListMaintenance(false)
 	maintID := items[0].ID
 
-	entry := ServiceLogEntry{
-		MaintenanceItemID: maintID,
-		ServicedAt:        time.Now(),
-	}
-	if err := store.CreateServiceLog(entry, Vendor{}); err != nil {
-		t.Fatalf("CreateServiceLog: %v", err)
-	}
+	require.NoError(t, store.CreateServiceLog(
+		ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: time.Now()},
+		Vendor{},
+	))
 	logs, _ := store.ListServiceLog(maintID, false)
 	logID := logs[0].ID
 
-	if err := store.DeleteServiceLog(logID); err != nil {
-		t.Fatalf("DeleteServiceLog: %v", err)
-	}
-	if err := store.RestoreServiceLog(logID); err != nil {
-		t.Fatalf("RestoreServiceLog should succeed with nil VendorID: %v", err)
-	}
+	require.NoError(t, store.DeleteServiceLog(logID))
+	require.NoError(t, store.RestoreServiceLog(logID))
 }
 
 func TestRestoreProjectBlockedByDeletedPreferredVendor(t *testing.T) {
 	store := newTestStore(t)
-	if err := store.CreateVendor(Vendor{Name: "Preferred Vendor"}); err != nil {
-		t.Fatalf("CreateVendor: %v", err)
-	}
+	require.NoError(t, store.CreateVendor(Vendor{Name: "Preferred Vendor"}))
 	vendors, _ := store.ListVendors(false)
 	vendorID := vendors[0].ID
 
 	types, _ := store.ProjectTypes()
-	project := Project{
-		Title:             "Vendor Project",
-		ProjectTypeID:     types[0].ID,
-		Status:            ProjectStatusPlanned,
-		PreferredVendorID: &vendorID,
-	}
-	if err := store.CreateProject(project); err != nil {
-		t.Fatalf("CreateProject: %v", err)
-	}
+	require.NoError(t, store.CreateProject(Project{
+		Title: "Vendor Project", ProjectTypeID: types[0].ID,
+		Status: ProjectStatusPlanned, PreferredVendorID: &vendorID,
+	}))
 	projects, _ := store.ListProjects(false)
 	projID := projects[0].ID
 
-	// Delete project, then vendor.
-	if err := store.DeleteProject(projID); err != nil {
-		t.Fatalf("DeleteProject: %v", err)
-	}
-	if err := store.DeleteVendor(vendorID); err != nil {
-		t.Fatalf("DeleteVendor: %v", err)
-	}
+	require.NoError(t, store.DeleteProject(projID))
+	require.NoError(t, store.DeleteVendor(vendorID))
 
-	// Restoring the project should be refused while preferred vendor is deleted.
-	err := store.RestoreProject(projID)
-	if err == nil {
-		t.Fatal("expected error restoring project with deleted preferred vendor")
-	}
-	if !strings.Contains(err.Error(), "preferred vendor is deleted") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.ErrorContains(t, store.RestoreProject(projID), "preferred vendor is deleted")
 
-	// Restore vendor, then project restore should succeed.
-	if err := store.RestoreVendor(vendorID); err != nil {
-		t.Fatalf("RestoreVendor: %v", err)
-	}
-	if err := store.RestoreProject(projID); err != nil {
-		t.Fatalf("RestoreProject after vendor restored: %v", err)
-	}
+	require.NoError(t, store.RestoreVendor(vendorID))
+	require.NoError(t, store.RestoreProject(projID))
 }
 
 func TestRestoreProjectAllowedWithoutPreferredVendor(t *testing.T) {
-	// Projects without a preferred vendor should restore freely (existing behavior).
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
-	project := Project{
-		Title:         "No Vendor Project",
-		ProjectTypeID: types[0].ID,
-		Status:        ProjectStatusPlanned,
-	}
-	if err := store.CreateProject(project); err != nil {
-		t.Fatalf("CreateProject: %v", err)
-	}
+	require.NoError(t, store.CreateProject(Project{
+		Title: "No Vendor Project", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}))
 	projects, _ := store.ListProjects(false)
 	projID := projects[0].ID
 
-	if err := store.DeleteProject(projID); err != nil {
-		t.Fatalf("DeleteProject: %v", err)
-	}
-	if err := store.RestoreProject(projID); err != nil {
-		t.Fatalf("RestoreProject should succeed with nil PreferredVendorID: %v", err)
-	}
+	require.NoError(t, store.DeleteProject(projID))
+	require.NoError(t, store.RestoreProject(projID))
 }
 
 func TestVendorQuoteProjectDeleteRestoreChain(t *testing.T) {
-	// Full Vendor → Quote → Project lifecycle exercising guards at every level.
 	store := newTestStore(t)
 
-	if err := store.CreateVendor(Vendor{Name: "Chain Vendor"}); err != nil {
-		t.Fatalf("CreateVendor: %v", err)
-	}
+	require.NoError(t, store.CreateVendor(Vendor{Name: "Chain Vendor"}))
 	vendors, _ := store.ListVendors(false)
 	vendorID := vendors[0].ID
 
 	types, _ := store.ProjectTypes()
-	if err := store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(Project{
 		Title: "Chain Project", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
-	}); err != nil {
-		t.Fatalf("CreateProject: %v", err)
-	}
+	}))
 	projects, _ := store.ListProjects(false)
 	projID := projects[0].ID
 
-	quote := Quote{ProjectID: projID, TotalCents: 1000}
-	if err := store.CreateQuote(quote, Vendor{Name: "Chain Vendor"}); err != nil {
-		t.Fatalf("CreateQuote: %v", err)
-	}
+	require.NoError(
+		t,
+		store.CreateQuote(Quote{ProjectID: projID, TotalCents: 1000}, Vendor{Name: "Chain Vendor"}),
+	)
 	quotes, _ := store.ListQuotes(false)
 	quoteID := quotes[0].ID
 
 	// --- Delete bottom-up ---
-	// Can't delete vendor while quote is active.
-	err := store.DeleteVendor(vendorID)
-	if err == nil {
-		t.Fatal("expected error: active quote blocks vendor delete")
-	}
+	assert.Error(t, store.DeleteVendor(vendorID), "active quote blocks vendor delete")
+	assert.Error(t, store.DeleteProject(projID), "active quote blocks project delete")
 
-	// Can't delete project while quote is active.
-	err = store.DeleteProject(projID)
-	if err == nil {
-		t.Fatal("expected error: active quote blocks project delete")
-	}
-
-	if err := store.DeleteQuote(quoteID); err != nil {
-		t.Fatalf("DeleteQuote: %v", err)
-	}
-	if err := store.DeleteProject(projID); err != nil {
-		t.Fatalf("DeleteProject: %v", err)
-	}
-	if err := store.DeleteVendor(vendorID); err != nil {
-		t.Fatalf("DeleteVendor: %v", err)
-	}
+	require.NoError(t, store.DeleteQuote(quoteID))
+	require.NoError(t, store.DeleteProject(projID))
+	require.NoError(t, store.DeleteVendor(vendorID))
 
 	// --- Attempt wrong-order restores ---
-	// Can't restore quote while project is deleted.
-	err = store.RestoreQuote(quoteID)
-	if err == nil {
-		t.Fatal("expected error: project is deleted")
-	}
-	if !strings.Contains(err.Error(), "project is deleted") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.ErrorContains(t, store.RestoreQuote(quoteID), "project is deleted")
 
-	// Restore project; quote restore should still fail because vendor is deleted.
-	if err := store.RestoreProject(projID); err != nil {
-		t.Fatalf("RestoreProject: %v", err)
-	}
-	err = store.RestoreQuote(quoteID)
-	if err == nil {
-		t.Fatal("expected error: vendor is deleted")
-	}
-	if !strings.Contains(err.Error(), "vendor is deleted") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, store.RestoreProject(projID))
+	require.ErrorContains(t, store.RestoreQuote(quoteID), "vendor is deleted")
 
-	// --- Restore correct order: vendor → quote ---
-	if err := store.RestoreVendor(vendorID); err != nil {
-		t.Fatalf("RestoreVendor: %v", err)
-	}
-	if err := store.RestoreQuote(quoteID); err != nil {
-		t.Fatalf("RestoreQuote: %v", err)
-	}
+	// --- Restore correct order ---
+	require.NoError(t, store.RestoreVendor(vendorID))
+	require.NoError(t, store.RestoreQuote(quoteID))
 
-	// Verify everything is alive.
 	vendors, _ = store.ListVendors(false)
-	if len(vendors) != 1 {
-		t.Fatalf("expected 1 vendor, got %d", len(vendors))
-	}
+	assert.Len(t, vendors, 1)
 	quotes, _ = store.ListQuotes(false)
-	if len(quotes) != 1 {
-		t.Fatalf("expected 1 quote, got %d", len(quotes))
-	}
+	assert.Len(t, quotes, 1)
 }
 
 func TestFindOrCreateVendorRestoresSoftDeleted(t *testing.T) {
 	store := newTestStore(t)
 
-	if err := store.CreateVendor(Vendor{Name: "Revivable Vendor"}); err != nil {
-		t.Fatalf("CreateVendor: %v", err)
-	}
+	require.NoError(t, store.CreateVendor(Vendor{Name: "Revivable Vendor"}))
 	vendors, _ := store.ListVendors(false)
 	vendorID := vendors[0].ID
 
-	if err := store.DeleteVendor(vendorID); err != nil {
-		t.Fatalf("DeleteVendor: %v", err)
-	}
+	require.NoError(t, store.DeleteVendor(vendorID))
 	vendors, _ = store.ListVendors(false)
-	if len(vendors) != 0 {
-		t.Fatalf("expected 0 vendors after delete, got %d", len(vendors))
-	}
+	assert.Empty(t, vendors)
 
-	// Creating a quote with the same vendor name should restore the vendor.
 	types, _ := store.ProjectTypes()
-	if err := store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(Project{
 		Title: "Test", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
-	}); err != nil {
-		t.Fatalf("CreateProject: %v", err)
-	}
+	}))
 	projects, _ := store.ListProjects(false)
-	quote := Quote{ProjectID: projects[0].ID, TotalCents: 500}
-	if err := store.CreateQuote(quote, Vendor{Name: "Revivable Vendor"}); err != nil {
-		t.Fatalf("CreateQuote with deleted vendor name: %v", err)
-	}
+	require.NoError(t, store.CreateQuote(
+		Quote{ProjectID: projects[0].ID, TotalCents: 500},
+		Vendor{Name: "Revivable Vendor"},
+	))
 
-	// Vendor should be restored.
 	vendors, _ = store.ListVendors(false)
-	if len(vendors) != 1 {
-		t.Fatalf("expected 1 vendor after auto-restore, got %d", len(vendors))
-	}
-	if vendors[0].ID != vendorID {
-		t.Fatalf("expected same vendor ID %d, got %d", vendorID, vendors[0].ID)
-	}
+	require.Len(t, vendors, 1)
+	assert.Equal(t, vendorID, vendors[0].ID)
 }
 
 func TestVendorDeletionRecord(t *testing.T) {
 	store := newTestStore(t)
-	if err := store.CreateVendor(Vendor{Name: "Record Vendor"}); err != nil {
-		t.Fatalf("CreateVendor: %v", err)
-	}
+	require.NoError(t, store.CreateVendor(Vendor{Name: "Record Vendor"}))
 	vendors, _ := store.ListVendors(false)
 	vendorID := vendors[0].ID
 
-	if err := store.DeleteVendor(vendorID); err != nil {
-		t.Fatalf("DeleteVendor: %v", err)
-	}
+	require.NoError(t, store.DeleteVendor(vendorID))
 	record, err := store.LastDeletion(DeletionEntityVendor)
-	if err != nil {
-		t.Fatalf("LastDeletion: %v", err)
-	}
-	if record.TargetID != vendorID {
-		t.Fatalf("expected target %d, got %d", vendorID, record.TargetID)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, vendorID, record.TargetID)
 
-	if err := store.RestoreVendor(vendorID); err != nil {
-		t.Fatalf("RestoreVendor: %v", err)
-	}
+	require.NoError(t, store.RestoreVendor(vendorID))
 	_, err = store.LastDeletion(DeletionEntityVendor)
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		t.Fatalf("expected ErrRecordNotFound after restore, got %v", err)
-	}
+	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }
 
 func newTestStore(t *testing.T) *Store {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "test.db")
 	store, err := Open(path)
-	if err != nil {
-		t.Fatalf("Open error: %v", err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
-	if err := store.AutoMigrate(); err != nil {
-		t.Fatalf("AutoMigrate error: %v", err)
-	}
-	if err := store.SeedDefaults(); err != nil {
-		t.Fatalf("SeedDefaults error: %v", err)
-	}
+	require.NoError(t, store.AutoMigrate())
+	require.NoError(t, store.SeedDefaults())
 	return store
 }
 
@@ -1684,8 +1004,6 @@ func newTestStore(t *testing.T) *Store {
 func newTestStoreWithDemoData(t *testing.T, seed uint64) *Store {
 	t.Helper()
 	store := newTestStore(t)
-	if err := store.SeedDemoDataFrom(fake.New(seed)); err != nil {
-		t.Fatalf("SeedDemoData: %v", err)
-	}
+	require.NoError(t, store.SeedDemoDataFrom(fake.New(seed)))
 	return store
 }

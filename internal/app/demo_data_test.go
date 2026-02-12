@@ -6,43 +6,42 @@ package app
 import (
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestModelWithDemoDataLoadsAllTabs(t *testing.T) {
 	m := newTestModelWithDemoData(t, testSeed)
 
 	for i, tab := range m.tabs {
-		if len(tab.Table.Rows()) == 0 {
-			t.Errorf("tab %d (%s) has no rows after demo data seed", i, tab.Name)
-		}
+		assert.NotEmptyf(
+			t,
+			tab.Table.Rows(),
+			"tab %d (%s) has no rows after demo data seed",
+			i,
+			tab.Name,
+		)
 	}
 }
 
 func TestModelWithDemoDataDashboard(t *testing.T) {
 	m := newTestModelWithDemoData(t, testSeed)
 	m.showDashboard = true
-	if err := m.loadDashboardAt(time.Now()); err != nil {
-		t.Fatalf("loadDashboard: %v", err)
-	}
+	require.NoError(t, m.loadDashboardAt(time.Now()))
 
-	if m.dashNavCount() == 0 {
-		t.Error("expected dashboard nav entries after demo data seed")
-	}
+	assert.NotZero(t, m.dashNavCount(), "expected dashboard nav entries after demo data seed")
 }
 
 func TestModelWithDemoDataVariedSeeds(t *testing.T) {
 	for i := range uint64(5) {
 		seed := testSeed + i
 		m := newTestModelWithDemoData(t, seed)
-		if m == nil {
-			t.Fatalf("seed %d: nil model", seed)
-		}
+		require.NotNilf(t, m, "seed %d: nil model", seed)
 		totalRows := 0
 		for _, tab := range m.tabs {
 			totalRows += len(tab.Table.Rows())
 		}
-		if totalRows == 0 {
-			t.Errorf("seed %d: no rows in any tab", seed)
-		}
+		assert.NotZerof(t, totalRows, "seed %d: no rows in any tab", seed)
 	}
 }

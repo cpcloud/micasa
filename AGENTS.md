@@ -301,7 +301,7 @@ These have been repeatedly requested. Violating them wastes the user's time.
   If they do, re-record them -- don't leave it for the user.
 - **Nix vendorHash after dep changes**: After adding or updating a Go
   dependency, run `nix build '.#micasa'`. If it fails with a hash mismatch,
-  temporarily set `vendorHash = lib.fakeHash;` (not `""`) to get the
+  temporarily set `vendorHash = pkgs.lib.fakeHash;` (not `""`) to get the
   expected hash from the error without a noisy warning, then paste in the
   real hash.
 - **Run `go mod tidy` before committing** to keep `go.mod`/`go.sum` clean.

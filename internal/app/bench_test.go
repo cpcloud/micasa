@@ -10,6 +10,7 @@ import (
 
 	"github.com/cpcloud/micasa/internal/data"
 	"github.com/cpcloud/micasa/internal/fake"
+	"github.com/stretchr/testify/require"
 )
 
 // benchModel returns a Model populated with demo data, sized for a
@@ -18,29 +19,17 @@ func benchModel(b *testing.B) *Model {
 	b.Helper()
 	path := filepath.Join(b.TempDir(), "bench.db")
 	store, err := data.Open(path)
-	if err != nil {
-		b.Fatal(err)
-	}
+	require.NoError(b, err)
 	b.Cleanup(func() { _ = store.Close() })
-	if err := store.AutoMigrate(); err != nil {
-		b.Fatal(err)
-	}
-	if err := store.SeedDefaults(); err != nil {
-		b.Fatal(err)
-	}
-	if err := store.SeedDemoDataFrom(fake.New(42)); err != nil {
-		b.Fatal(err)
-	}
+	require.NoError(b, store.AutoMigrate())
+	require.NoError(b, store.SeedDefaults())
+	require.NoError(b, store.SeedDemoDataFrom(fake.New(42)))
 	m, err := NewModel(store, Options{DBPath: path})
-	if err != nil {
-		b.Fatal(err)
-	}
+	require.NoError(b, err)
 	m.width = 120
 	m.height = 40
 	m.showDashboard = false
-	if err := m.reloadAllTabs(); err != nil {
-		b.Fatal(err)
-	}
+	require.NoError(b, m.reloadAllTabs())
 	return m
 }
 
@@ -55,9 +44,7 @@ func BenchmarkView(b *testing.B) {
 func BenchmarkViewDashboard(b *testing.B) {
 	m := benchModel(b)
 	m.showDashboard = true
-	if err := m.loadDashboardAt(time.Now()); err != nil {
-		b.Fatal(err)
-	}
+	require.NoError(b, m.loadDashboardAt(time.Now()))
 	b.ResetTimer()
 	for b.Loop() {
 		_ = m.View()
@@ -91,9 +78,7 @@ func BenchmarkReloadAfterMutation(b *testing.B) {
 func BenchmarkReloadAfterMutationWithDashboard(b *testing.B) {
 	m := benchModel(b)
 	m.showDashboard = true
-	if err := m.loadDashboardAt(time.Now()); err != nil {
-		b.Fatal(err)
-	}
+	require.NoError(b, m.loadDashboardAt(time.Now()))
 	b.ResetTimer()
 	for b.Loop() {
 		m.reloadAfterMutation()
@@ -161,9 +146,7 @@ func BenchmarkTableView(b *testing.B) {
 func BenchmarkDashboardView(b *testing.B) {
 	m := benchModel(b)
 	m.showDashboard = true
-	if err := m.loadDashboardAt(time.Now()); err != nil {
-		b.Fatal(err)
-	}
+	require.NoError(b, m.loadDashboardAt(time.Now()))
 	b.ResetTimer()
 	for b.Loop() {
 		_ = m.dashboardView(30)

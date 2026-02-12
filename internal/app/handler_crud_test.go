@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/cpcloud/micasa/internal/data"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // ---------------------------------------------------------------------------
@@ -24,54 +26,33 @@ func TestProjectHandlerLoadDeleteRestoreRoundTrip(t *testing.T) {
 		ProjectTypeID: m.projectTypes[0].ID,
 		Status:        data.ProjectStatusPlanned,
 	}
-	if err := h.SubmitForm(m); err != nil {
-		t.Fatalf("SubmitForm (create): %v", err)
-	}
+	require.NoError(t, h.SubmitForm(m))
 
 	// Load should return the project.
 	rows, meta, cells, err := h.Load(m.store, false)
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	if len(rows) != 1 {
-		t.Fatalf("expected 1 row, got %d", len(rows))
-	}
-	if len(meta) != 1 || len(cells) != 1 {
-		t.Fatalf("meta/cells length mismatch")
-	}
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	require.Len(t, meta, 1)
+	require.Len(t, cells, 1)
 	id := meta[0].ID
 
 	// Delete.
-	if err := h.Delete(m.store, id); err != nil {
-		t.Fatalf("Delete: %v", err)
-	}
+	require.NoError(t, h.Delete(m.store, id))
 
 	// Load without deleted should be empty.
 	rows, _, _, err = h.Load(m.store, false)
-	if err != nil {
-		t.Fatalf("Load after delete: %v", err)
-	}
-	if len(rows) != 0 {
-		t.Fatalf("expected 0 rows after delete, got %d", len(rows))
-	}
+	require.NoError(t, err)
+	assert.Empty(t, rows)
 
 	// Load with deleted should show it.
 	rows, _, _, err = h.Load(m.store, true)
-	if err != nil {
-		t.Fatalf("Load with deleted: %v", err)
-	}
-	if len(rows) != 1 {
-		t.Fatalf("expected 1 row with showDeleted, got %d", len(rows))
-	}
+	require.NoError(t, err)
+	assert.Len(t, rows, 1)
 
 	// Restore.
-	if err := h.Restore(m.store, id); err != nil {
-		t.Fatalf("Restore: %v", err)
-	}
+	require.NoError(t, h.Restore(m.store, id))
 	rows, _, _, _ = h.Load(m.store, false)
-	if len(rows) != 1 {
-		t.Fatalf("expected 1 row after restore, got %d", len(rows))
-	}
+	assert.Len(t, rows, 1)
 }
 
 func TestProjectHandlerEditRoundTrip(t *testing.T) {
@@ -84,9 +65,7 @@ func TestProjectHandlerEditRoundTrip(t *testing.T) {
 		ProjectTypeID: m.projectTypes[0].ID,
 		Status:        data.ProjectStatusIdeating,
 	}
-	if err := h.SubmitForm(m); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, h.SubmitForm(m))
 	_, meta, _, _ := h.Load(m.store, false)
 	id := meta[0].ID
 
@@ -99,24 +78,15 @@ func TestProjectHandlerEditRoundTrip(t *testing.T) {
 		Status:        data.ProjectStatusInProgress,
 		Budget:        "500.00",
 	}
-	if err := h.SubmitForm(m); err != nil {
-		t.Fatalf("SubmitForm (edit): %v", err)
-	}
+	require.NoError(t, h.SubmitForm(m))
 	m.editID = nil
 
 	project, err := m.store.GetProject(id)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if project.Title != "Paint Fence Red" {
-		t.Errorf("title = %q, want Paint Fence Red", project.Title)
-	}
-	if project.Status != data.ProjectStatusInProgress {
-		t.Errorf("status = %q", project.Status)
-	}
-	if project.BudgetCents == nil || *project.BudgetCents != 50000 {
-		t.Errorf("budget = %v, want 50000", project.BudgetCents)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "Paint Fence Red", project.Title)
+	assert.Equal(t, data.ProjectStatusInProgress, project.Status)
+	require.NotNil(t, project.BudgetCents)
+	assert.Equal(t, int64(50000), *project.BudgetCents)
 }
 
 func TestProjectHandlerSnapshot(t *testing.T) {
@@ -128,22 +98,14 @@ func TestProjectHandlerSnapshot(t *testing.T) {
 		ProjectTypeID: m.projectTypes[0].ID,
 		Status:        data.ProjectStatusPlanned,
 	}
-	if err := h.SubmitForm(m); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, h.SubmitForm(m))
 	_, meta, _, _ := h.Load(m.store, false)
 	id := meta[0].ID
 
 	entry, ok := h.Snapshot(m.store, id)
-	if !ok {
-		t.Fatal("Snapshot returned false")
-	}
-	if entry.FormKind != formProject {
-		t.Errorf("FormKind = %d, want formProject", entry.FormKind)
-	}
-	if entry.EntityID != id {
-		t.Errorf("EntityID = %d, want %d", entry.EntityID, id)
-	}
+	require.True(t, ok)
+	assert.Equal(t, formProject, entry.FormKind)
+	assert.Equal(t, id, entry.EntityID)
 }
 
 func TestProjectTabStatusFiltersRows(t *testing.T) {
@@ -172,160 +134,147 @@ func TestProjectTabStatusFiltersRows(t *testing.T) {
 			Status:        data.ProjectStatusAbandoned,
 		},
 	} {
-		if err := m.store.CreateProject(p); err != nil {
-			t.Fatalf("CreateProject(%q): %v", p.Title, err)
-		}
+		require.NoError(t, m.store.CreateProject(p), "CreateProject(%q)", p.Title)
 	}
 
 	m.active = tabIndex(tabProjects)
-	if err := m.reloadActiveTab(); err != nil {
-		t.Fatalf("reloadActiveTab: %v", err)
-	}
+	require.NoError(t, m.reloadActiveTab())
 	tab := m.activeTab()
-	if tab == nil {
-		t.Fatal("expected active projects tab")
-	}
-	if len(tab.Rows) != 4 {
-		t.Fatalf("expected 4 rows before filtering, got %d", len(tab.Rows))
-	}
+	require.NotNil(t, tab, "expected active projects tab")
+	require.Len(t, tab.Rows, 4, "rows before filtering")
 
 	tab.HideCompleted = true
-	if err := m.reloadActiveTab(); err != nil {
-		t.Fatalf("reloadActiveTab with HideCompleted: %v", err)
-	}
-	if len(tab.Rows) != 3 {
-		t.Fatalf("expected 3 rows with completed hidden, got %d", len(tab.Rows))
-	}
+	require.NoError(t, m.reloadActiveTab(), "reloadActiveTab with HideCompleted")
+	assert.Len(t, tab.Rows, 3, "rows with completed hidden")
 	for i, cells := range tab.CellRows {
-		if len(cells) > 3 && cells[3].Value == data.ProjectStatusCompleted {
-			t.Fatalf("row %d still has completed status after filtering", i)
+		if len(cells) > 3 {
+			assert.NotEqual(
+				t,
+				data.ProjectStatusCompleted,
+				cells[3].Value,
+				"row %d still has completed status",
+				i,
+			)
 		}
 	}
 
 	tab.HideCompleted = false
 	tab.HideAbandoned = true
-	if err := m.reloadActiveTab(); err != nil {
-		t.Fatalf("reloadActiveTab with HideAbandoned: %v", err)
-	}
-	if len(tab.Rows) != 3 {
-		t.Fatalf("expected 3 rows with abandoned hidden, got %d", len(tab.Rows))
-	}
+	require.NoError(t, m.reloadActiveTab(), "reloadActiveTab with HideAbandoned")
+	assert.Len(t, tab.Rows, 3, "rows with abandoned hidden")
 	for i, cells := range tab.CellRows {
-		if len(cells) > 3 && cells[3].Value == data.ProjectStatusAbandoned {
-			t.Fatalf("row %d still has abandoned status after filtering", i)
+		if len(cells) > 3 {
+			assert.NotEqual(
+				t,
+				data.ProjectStatusAbandoned,
+				cells[3].Value,
+				"row %d still has abandoned status",
+				i,
+			)
 		}
 	}
 
 	tab.HideAbandoned = false
 	tab.HideCompleted = true
 	tab.HideAbandoned = true
-	if err := m.reloadActiveTab(); err != nil {
-		t.Fatalf("reloadActiveTab with settled filters: %v", err)
-	}
-	if len(tab.Rows) != 2 {
-		t.Fatalf("expected 2 rows with settled hidden, got %d", len(tab.Rows))
-	}
+	require.NoError(t, m.reloadActiveTab(), "reloadActiveTab with settled filters")
+	assert.Len(t, tab.Rows, 2, "rows with settled hidden")
 	for i, cells := range tab.CellRows {
 		if len(cells) <= 3 {
 			continue
 		}
 		status := cells[3].Value
-		if status == data.ProjectStatusCompleted || status == data.ProjectStatusAbandoned {
-			t.Fatalf("row %d still has settled status %q after filtering", i, status)
-		}
+		assert.NotEqual(
+			t,
+			data.ProjectStatusCompleted,
+			status,
+			"row %d still has settled status",
+			i,
+		)
+		assert.NotEqual(
+			t,
+			data.ProjectStatusAbandoned,
+			status,
+			"row %d still has settled status",
+			i,
+		)
 	}
 
 	tab.HideCompleted = false
 	tab.HideAbandoned = false
-	if err := m.reloadActiveTab(); err != nil {
-		t.Fatalf("reloadActiveTab after clearing filters: %v", err)
-	}
-	if len(tab.Rows) != 4 {
-		t.Fatalf("expected 4 rows after showing all projects, got %d", len(tab.Rows))
-	}
+	require.NoError(t, m.reloadActiveTab(), "reloadActiveTab after clearing filters")
+	assert.Len(t, tab.Rows, 4, "rows after showing all projects")
 }
 
 func TestProjectStatusFilterToggleKeysReloadRows(t *testing.T) {
 	m := newTestModelWithStore(t)
 	types, _ := m.store.ProjectTypes()
 
-	if err := m.store.CreateProject(data.Project{
+	require.NoError(t, m.store.CreateProject(data.Project{
 		Title:         "Done Project",
 		ProjectTypeID: types[0].ID,
 		Status:        data.ProjectStatusCompleted,
-	}); err != nil {
-		t.Fatalf("CreateProject completed: %v", err)
-	}
-	if err := m.store.CreateProject(data.Project{
+	}), "CreateProject completed")
+	require.NoError(t, m.store.CreateProject(data.Project{
 		Title:         "Live Project",
 		ProjectTypeID: types[0].ID,
 		Status:        data.ProjectStatusInProgress,
-	}); err != nil {
-		t.Fatalf("CreateProject in-progress: %v", err)
-	}
-	if err := m.store.CreateProject(data.Project{
+	}), "CreateProject in-progress")
+	require.NoError(t, m.store.CreateProject(data.Project{
 		Title:         "Abandoned Project",
 		ProjectTypeID: types[0].ID,
 		Status:        data.ProjectStatusAbandoned,
-	}); err != nil {
-		t.Fatalf("CreateProject abandoned: %v", err)
-	}
+	}), "CreateProject abandoned")
 
 	m.active = tabIndex(tabProjects)
-	if err := m.reloadActiveTab(); err != nil {
-		t.Fatalf("reloadActiveTab: %v", err)
-	}
-	if got := len(m.activeTab().Rows); got != 3 {
-		t.Fatalf("expected 3 rows before toggles, got %d", got)
-	}
+	require.NoError(t, m.reloadActiveTab())
+	require.Len(t, m.activeTab().Rows, 3, "rows before toggles")
 
 	sendKey(m, "z")
-	if got := len(m.activeTab().Rows); got != 2 {
-		t.Fatalf("expected 2 rows after hiding completed, got %d", got)
-	}
-	if m.activeTab().HideCompleted != true {
-		t.Fatal("HideCompleted should be enabled after first toggle")
-	}
+	assert.Len(t, m.activeTab().Rows, 2, "rows after hiding completed")
+	assert.True(
+		t,
+		m.activeTab().HideCompleted,
+		"HideCompleted should be enabled after first toggle",
+	)
 
 	sendKey(m, "a")
-	if got := len(m.activeTab().Rows); got != 1 {
-		t.Fatalf("expected 1 row after hiding abandoned too, got %d", got)
-	}
-	if !m.activeTab().HideAbandoned {
-		t.Fatal("HideAbandoned should be enabled after toggle")
-	}
+	assert.Len(t, m.activeTab().Rows, 1, "rows after hiding abandoned too")
+	assert.True(t, m.activeTab().HideAbandoned, "HideAbandoned should be enabled after toggle")
 
 	sendKey(m, "t")
-	if got := len(m.activeTab().Rows); got != 3 {
-		t.Fatalf("expected 3 rows after clearing settled filters, got %d", got)
-	}
-	if m.activeTab().HideCompleted || m.activeTab().HideAbandoned {
-		t.Fatal("settled toggle should disable both filters when both are active")
-	}
+	assert.Len(t, m.activeTab().Rows, 3, "rows after clearing settled filters")
+	assert.False(
+		t,
+		m.activeTab().HideCompleted,
+		"settled toggle should disable completed when both active",
+	)
+	assert.False(
+		t,
+		m.activeTab().HideAbandoned,
+		"settled toggle should disable abandoned when both active",
+	)
 
 	sendKey(m, "t")
-	if got := len(m.activeTab().Rows); got != 1 {
-		t.Fatalf("expected 1 row after settled-only filter, got %d", got)
-	}
-	if !m.activeTab().HideCompleted || !m.activeTab().HideAbandoned {
-		t.Fatal("settled toggle should enable both filters")
-	}
+	assert.Len(t, m.activeTab().Rows, 1, "rows after settled-only filter")
+	assert.True(t, m.activeTab().HideCompleted, "settled toggle should enable completed")
+	assert.True(t, m.activeTab().HideAbandoned, "settled toggle should enable abandoned")
 
 	sendKey(m, "z")
-	if m.activeTab().HideCompleted {
-		t.Fatal("HideCompleted should be disabled after toggling z")
-	}
-	if got := len(m.activeTab().Rows); got != 2 {
-		t.Fatalf("expected 2 rows when only abandoned filter is active, got %d", got)
-	}
+	assert.False(
+		t,
+		m.activeTab().HideCompleted,
+		"HideCompleted should be disabled after toggling z",
+	)
+	assert.Len(t, m.activeTab().Rows, 2, "rows when only abandoned filter is active")
 
 	sendKey(m, "a")
-	if m.activeTab().HideAbandoned {
-		t.Fatal("HideAbandoned should be disabled after toggling a")
-	}
-	if got := len(m.activeTab().Rows); got != 3 {
-		t.Fatalf("expected 3 rows after clearing individual filters, got %d", got)
-	}
+	assert.False(
+		t,
+		m.activeTab().HideAbandoned,
+		"HideAbandoned should be disabled after toggling a",
+	)
+	assert.Len(t, m.activeTab().Rows, 3, "rows after clearing individual filters")
 }
 
 // ---------------------------------------------------------------------------
@@ -337,34 +286,20 @@ func TestApplianceHandlerLoadDeleteRestoreRoundTrip(t *testing.T) {
 	h := applianceHandler{}
 
 	m.formData = &applianceFormData{Name: "Washer"}
-	if err := h.SubmitForm(m); err != nil {
-		t.Fatalf("SubmitForm: %v", err)
-	}
+	require.NoError(t, h.SubmitForm(m))
 
 	rows, meta, _, err := h.Load(m.store, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(rows) != 1 {
-		t.Fatalf("expected 1 row, got %d", len(rows))
-	}
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
 	id := meta[0].ID
 
-	if err := h.Delete(m.store, id); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, h.Delete(m.store, id))
 	rows, _, _, _ = h.Load(m.store, false)
-	if len(rows) != 0 {
-		t.Fatalf("expected 0 after delete, got %d", len(rows))
-	}
+	assert.Empty(t, rows)
 
-	if err := h.Restore(m.store, id); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, h.Restore(m.store, id))
 	rows, _, _, _ = h.Load(m.store, false)
-	if len(rows) != 1 {
-		t.Fatalf("expected 1 after restore, got %d", len(rows))
-	}
+	assert.Len(t, rows, 1)
 }
 
 func TestApplianceHandlerEditRoundTrip(t *testing.T) {
@@ -372,9 +307,7 @@ func TestApplianceHandlerEditRoundTrip(t *testing.T) {
 	h := applianceHandler{}
 
 	m.formData = &applianceFormData{Name: "Dryer"}
-	if err := h.SubmitForm(m); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, h.SubmitForm(m))
 	_, meta, _, _ := h.Load(m.store, false)
 	id := meta[0].ID
 
@@ -385,18 +318,13 @@ func TestApplianceHandlerEditRoundTrip(t *testing.T) {
 		Brand: "LG",
 		Cost:  "800.00",
 	}
-	if err := h.SubmitForm(m); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, h.SubmitForm(m))
 	m.editID = nil
 
 	app, _ := m.store.GetAppliance(id)
-	if app.Brand != "LG" {
-		t.Errorf("brand = %q", app.Brand)
-	}
-	if app.CostCents == nil || *app.CostCents != 80000 {
-		t.Errorf("cost = %v, want 80000", app.CostCents)
-	}
+	assert.Equal(t, "LG", app.Brand)
+	require.NotNil(t, app.CostCents)
+	assert.Equal(t, int64(80000), *app.CostCents)
 }
 
 // ---------------------------------------------------------------------------
@@ -413,34 +341,20 @@ func TestMaintenanceHandlerLoadDeleteRestoreRoundTrip(t *testing.T) {
 		CategoryID:     cats[0].ID,
 		IntervalMonths: "3",
 	}
-	if err := h.SubmitForm(m); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, h.SubmitForm(m))
 
 	rows, meta, _, err := h.Load(m.store, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(rows) != 1 {
-		t.Fatalf("expected 1, got %d", len(rows))
-	}
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
 	id := meta[0].ID
 
-	if err := h.Delete(m.store, id); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, h.Delete(m.store, id))
 	rows, _, _, _ = h.Load(m.store, false)
-	if len(rows) != 0 {
-		t.Fatal("expected 0 after delete")
-	}
+	assert.Empty(t, rows)
 
-	if err := h.Restore(m.store, id); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, h.Restore(m.store, id))
 	rows, _, _, _ = h.Load(m.store, false)
-	if len(rows) != 1 {
-		t.Fatal("expected 1 after restore")
-	}
+	assert.Len(t, rows, 1)
 }
 
 // ---------------------------------------------------------------------------
@@ -455,17 +369,11 @@ func TestVendorHandlerLoadAndSubmit(t *testing.T) {
 		Name:  "Bob's Plumbing",
 		Phone: "555-1234",
 	}
-	if err := h.SubmitForm(m); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, h.SubmitForm(m))
 
 	rows, meta, _, err := h.Load(m.store, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(rows) != 1 {
-		t.Fatalf("expected 1 vendor, got %d", len(rows))
-	}
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
 
 	// Edit vendor.
 	editID := meta[0].ID
@@ -475,18 +383,12 @@ func TestVendorHandlerLoadAndSubmit(t *testing.T) {
 		Phone: "555-5678",
 		Email: "bob@plumbing.com",
 	}
-	if err := h.SubmitForm(m); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, h.SubmitForm(m))
 	m.editID = nil
 
 	vendor, _ := m.store.GetVendor(editID)
-	if vendor.Phone != "555-5678" {
-		t.Errorf("phone = %q", vendor.Phone)
-	}
-	if vendor.Email != "bob@plumbing.com" {
-		t.Errorf("email = %q", vendor.Email)
-	}
+	assert.Equal(t, "555-5678", vendor.Phone)
+	assert.Equal(t, "bob@plumbing.com", vendor.Email)
 }
 
 // Vendor delete/restore tests moved to vendor_test.go (TestVendorHandlerDeleteRestore)
@@ -502,13 +404,11 @@ func TestQuoteHandlerRoundTrip(t *testing.T) {
 
 	// Need a project first.
 	types, _ := m.store.ProjectTypes()
-	if err := m.store.CreateProject(data.Project{
+	require.NoError(t, m.store.CreateProject(data.Project{
 		Title:         "Bathroom Reno",
 		ProjectTypeID: types[0].ID,
 		Status:        data.ProjectStatusQuoted,
-	}); err != nil {
-		t.Fatal(err)
-	}
+	}))
 	projects, _ := m.store.ListProjects(false)
 	projID := projects[0].ID
 
@@ -517,36 +417,22 @@ func TestQuoteHandlerRoundTrip(t *testing.T) {
 		VendorName: "Acme Contractors",
 		Total:      "1,500.00",
 	}
-	if err := h.SubmitForm(m); err != nil {
-		t.Fatalf("SubmitForm: %v", err)
-	}
+	require.NoError(t, h.SubmitForm(m))
 
 	rows, meta, _, err := h.Load(m.store, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(rows) != 1 {
-		t.Fatalf("expected 1 quote, got %d", len(rows))
-	}
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
 	id := meta[0].ID
 
 	// Delete.
-	if err := h.Delete(m.store, id); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, h.Delete(m.store, id))
 	rows, _, _, _ = h.Load(m.store, false)
-	if len(rows) != 0 {
-		t.Fatal("expected 0 after delete")
-	}
+	assert.Empty(t, rows)
 
 	// Restore.
-	if err := h.Restore(m.store, id); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, h.Restore(m.store, id))
 	rows, _, _, _ = h.Load(m.store, false)
-	if len(rows) != 1 {
-		t.Fatal("expected 1 after restore")
-	}
+	assert.Len(t, rows, 1)
 }
 
 func TestQuoteHandlerSnapshot(t *testing.T) {
@@ -554,13 +440,11 @@ func TestQuoteHandlerSnapshot(t *testing.T) {
 	h := quoteHandler{}
 
 	types, _ := m.store.ProjectTypes()
-	if err := m.store.CreateProject(data.Project{
+	require.NoError(t, m.store.CreateProject(data.Project{
 		Title:         "Garage Door",
 		ProjectTypeID: types[0].ID,
 		Status:        data.ProjectStatusQuoted,
-	}); err != nil {
-		t.Fatal(err)
-	}
+	}))
 	projects, _ := m.store.ListProjects(false)
 
 	m.formData = &quoteFormData{
@@ -568,19 +452,13 @@ func TestQuoteHandlerSnapshot(t *testing.T) {
 		VendorName: "QuoteCo",
 		Total:      "200.00",
 	}
-	if err := h.SubmitForm(m); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, h.SubmitForm(m))
 	_, meta, _, _ := h.Load(m.store, false)
 	id := meta[0].ID
 
 	entry, ok := h.Snapshot(m.store, id)
-	if !ok {
-		t.Fatal("Snapshot returned false")
-	}
-	if entry.FormKind != formQuote {
-		t.Errorf("FormKind = %d", entry.FormKind)
-	}
+	require.True(t, ok)
+	assert.Equal(t, formQuote, entry.FormKind)
 }
 
 // ---------------------------------------------------------------------------
@@ -592,12 +470,10 @@ func TestServiceLogHandlerRoundTrip(t *testing.T) {
 	cats, _ := m.store.MaintenanceCategories()
 
 	// Create a maintenance item to attach logs to.
-	if err := m.store.CreateMaintenance(data.MaintenanceItem{
+	require.NoError(t, m.store.CreateMaintenance(data.MaintenanceItem{
 		Name:       "Oil Furnace",
 		CategoryID: cats[0].ID,
-	}); err != nil {
-		t.Fatal(err)
-	}
+	}))
 	items, _ := m.store.ListMaintenance(false)
 	maintID := items[0].ID
 
@@ -609,48 +485,32 @@ func TestServiceLogHandlerRoundTrip(t *testing.T) {
 		Cost:              "75.00",
 		Notes:             "routine service",
 	}
-	if err := h.SubmitForm(m); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, h.SubmitForm(m))
 
 	rows, meta, _, err := h.Load(m.store, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(rows) != 1 {
-		t.Fatalf("expected 1 log, got %d", len(rows))
-	}
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
 	id := meta[0].ID
 
 	// Delete.
-	if err := h.Delete(m.store, id); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, h.Delete(m.store, id))
 	rows, _, _, _ = h.Load(m.store, false)
-	if len(rows) != 0 {
-		t.Fatal("expected 0 after delete")
-	}
+	assert.Empty(t, rows)
 
 	// Restore.
-	if err := h.Restore(m.store, id); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, h.Restore(m.store, id))
 	rows, _, _, _ = h.Load(m.store, false)
-	if len(rows) != 1 {
-		t.Fatal("expected 1 after restore")
-	}
+	assert.Len(t, rows, 1)
 }
 
 func TestServiceLogHandlerSnapshot(t *testing.T) {
 	m := newTestModelWithStore(t)
 	cats, _ := m.store.MaintenanceCategories()
 
-	if err := m.store.CreateMaintenance(data.MaintenanceItem{
+	require.NoError(t, m.store.CreateMaintenance(data.MaintenanceItem{
 		Name:       "Gutter Clean",
 		CategoryID: cats[0].ID,
-	}); err != nil {
-		t.Fatal(err)
-	}
+	}))
 	items, _ := m.store.ListMaintenance(false)
 	maintID := items[0].ID
 
@@ -660,23 +520,15 @@ func TestServiceLogHandlerSnapshot(t *testing.T) {
 		MaintenanceItemID: maintID,
 		ServicedAt:        "2026-01-20",
 	}
-	if err := h.SubmitForm(m); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, h.SubmitForm(m))
 	_, meta, _, _ := h.Load(m.store, false)
 	id := meta[0].ID
 
 	entry, ok := h.Snapshot(m.store, id)
-	if !ok {
-		t.Fatal("Snapshot returned false")
-	}
-	if entry.FormKind != formServiceLog {
-		t.Errorf("FormKind = %d", entry.FormKind)
-	}
+	require.True(t, ok)
+	assert.Equal(t, formServiceLog, entry.FormKind)
 	// Restore function should not error.
-	if err := entry.Restore(); err != nil {
-		t.Errorf("Restore: %v", err)
-	}
+	assert.NoError(t, entry.Restore())
 }
 
 // ---------------------------------------------------------------------------
@@ -692,10 +544,7 @@ func TestProjectHandlerSyncFixedValues(t *testing.T) {
 	}
 	h.SyncFixedValues(m, specs)
 
-	typeSpec := specs[0]
-	if len(typeSpec.FixedValues) == 0 {
-		t.Error("expected FixedValues for Type column")
-	}
+	assert.NotEmpty(t, specs[0].FixedValues, "expected FixedValues for Type column")
 }
 
 func TestMaintenanceHandlerSyncFixedValues(t *testing.T) {
@@ -707,10 +556,7 @@ func TestMaintenanceHandlerSyncFixedValues(t *testing.T) {
 	}
 	h.SyncFixedValues(m, specs)
 
-	catSpec := specs[0]
-	if len(catSpec.FixedValues) == 0 {
-		t.Error("expected FixedValues for Category column")
-	}
+	assert.NotEmpty(t, specs[0].FixedValues, "expected FixedValues for Category column")
 }
 
 // ---------------------------------------------------------------------------
@@ -721,54 +567,42 @@ func TestProjectHandlerSnapshotNonExistent(t *testing.T) {
 	m := newTestModelWithStore(t)
 	h := projectHandler{}
 	_, ok := h.Snapshot(m.store, 99999)
-	if ok {
-		t.Error("expected false for non-existent project")
-	}
+	assert.False(t, ok)
 }
 
 func TestQuoteHandlerSnapshotNonExistent(t *testing.T) {
 	m := newTestModelWithStore(t)
 	h := quoteHandler{}
 	_, ok := h.Snapshot(m.store, 99999)
-	if ok {
-		t.Error("expected false for non-existent quote")
-	}
+	assert.False(t, ok)
 }
 
 func TestMaintenanceHandlerSnapshotNonExistent(t *testing.T) {
 	m := newTestModelWithStore(t)
 	h := maintenanceHandler{}
 	_, ok := h.Snapshot(m.store, 99999)
-	if ok {
-		t.Error("expected false for non-existent maintenance item")
-	}
+	assert.False(t, ok)
 }
 
 func TestApplianceHandlerSnapshotNonExistent(t *testing.T) {
 	m := newTestModelWithStore(t)
 	h := applianceHandler{}
 	_, ok := h.Snapshot(m.store, 99999)
-	if ok {
-		t.Error("expected false for non-existent appliance")
-	}
+	assert.False(t, ok)
 }
 
 func TestVendorHandlerSnapshotNonExistent(t *testing.T) {
 	m := newTestModelWithStore(t)
 	h := vendorHandler{}
 	_, ok := h.Snapshot(m.store, 99999)
-	if ok {
-		t.Error("expected false for non-existent vendor")
-	}
+	assert.False(t, ok)
 }
 
 func TestServiceLogHandlerSnapshotNonExistent(t *testing.T) {
 	m := newTestModelWithStore(t)
 	h := serviceLogHandler{maintenanceItemID: 1}
 	_, ok := h.Snapshot(m.store, 99999)
-	if ok {
-		t.Error("expected false for non-existent service log")
-	}
+	assert.False(t, ok)
 }
 
 // ---------------------------------------------------------------------------
@@ -780,32 +614,22 @@ func TestApplianceMaintenanceHandlerLoad(t *testing.T) {
 	cats, _ := m.store.MaintenanceCategories()
 
 	// Create an appliance with maintenance items.
-	if err := m.store.CreateAppliance(data.Appliance{Name: "HVAC"}); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, m.store.CreateAppliance(data.Appliance{Name: "HVAC"}))
 	apps, _ := m.store.ListAppliances(false)
 	appID := apps[0].ID
 
 	lastSrv := time.Now()
-	if err := m.store.CreateMaintenance(data.MaintenanceItem{
+	require.NoError(t, m.store.CreateMaintenance(data.MaintenanceItem{
 		Name:           "Replace Belt",
 		CategoryID:     cats[0].ID,
 		ApplianceID:    &appID,
 		LastServicedAt: &lastSrv,
 		IntervalMonths: 12,
-	}); err != nil {
-		t.Fatal(err)
-	}
+	}))
 
 	h := applianceMaintenanceHandler{applianceID: appID}
 	rows, meta, _, err := h.Load(m.store, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(rows) != 1 {
-		t.Fatalf("expected 1 maintenance item for appliance, got %d", len(rows))
-	}
-	if meta[0].ID == 0 {
-		t.Error("expected non-zero ID")
-	}
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	assert.NotZero(t, meta[0].ID)
 }
