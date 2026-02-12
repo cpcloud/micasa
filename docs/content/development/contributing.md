@@ -7,6 +7,16 @@ linkTitle = "Contributing"
 
 PRs welcome! Here's how to get set up and what to expect.
 
+## Open an issue first
+
+Bug fixes, new features, refactors -- all welcome, but **please open an issue
+before writing code.** A quick conversation up front avoids wasted effort on
+both sides. Describe what you want to change and why; we'll hash out the
+approach before you invest time in a PR.
+
+Exceptions: typo fixes, doc clarifications, and other trivially obvious
+changes can go straight to a PR.
+
 ## AI-assisted code
 
 micasa itself is pair-programmed with an AI coding agent, so AI-assisted
