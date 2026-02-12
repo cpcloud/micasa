@@ -420,7 +420,7 @@ func quoteRows(
 				{Value: fmt.Sprintf("%d", q.ID), Kind: cellReadonly},
 				{Value: projectName, Kind: cellText, LinkID: q.ProjectID},
 				{Value: q.Vendor.Name, Kind: cellText, LinkID: q.VendorID},
-				{Value: data.FormatCentsBare(q.TotalCents), Kind: cellMoney},
+				{Value: data.FormatCents(q.TotalCents), Kind: cellMoney},
 				{Value: centsValue(q.LaborCents), Kind: cellMoney},
 				{Value: centsValue(q.MaterialsCents), Kind: cellMoney},
 				{Value: centsValue(q.OtherCents), Kind: cellMoney},
@@ -499,7 +499,7 @@ func centsValue(cents *int64) string {
 	if cents == nil {
 		return ""
 	}
-	return data.FormatCentsBare(*cents)
+	return data.FormatCents(*cents)
 }
 
 func dateValue(value *time.Time) string {

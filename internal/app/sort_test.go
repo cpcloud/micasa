@@ -23,19 +23,19 @@ func newSortTab() *Tab {
 			{
 				{Value: "3", Kind: cellReadonly},
 				{Value: "Charlie", Kind: cellText},
-				{Value: "200.00", Kind: cellMoney},
+				{Value: "$200.00", Kind: cellMoney},
 				{Value: "2025-03-01", Kind: cellDate},
 			},
 			{
 				{Value: "1", Kind: cellReadonly},
 				{Value: "Alice", Kind: cellText},
-				{Value: "50.00", Kind: cellMoney},
+				{Value: "$50.00", Kind: cellMoney},
 				{Value: "2025-01-15", Kind: cellDate},
 			},
 			{
 				{Value: "2", Kind: cellReadonly},
 				{Value: "Bob", Kind: cellText},
-				{Value: "1,000.00", Kind: cellMoney},
+				{Value: "$1,000.00", Kind: cellMoney},
 				{Value: "2025-02-10", Kind: cellDate},
 			},
 		},
@@ -123,7 +123,7 @@ func TestApplySortsByMoneyAsc(t *testing.T) {
 	applySorts(tab)
 
 	costs := collectCol(tab, 2)
-	assert.Equal(t, []string{"50.00", "200.00", "1,000.00"}, costs)
+	assert.Equal(t, []string{"$50.00", "$200.00", "$1,000.00"}, costs)
 }
 
 func TestApplySortsByDateDesc(t *testing.T) {

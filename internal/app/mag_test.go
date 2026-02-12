@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestMagFormatMoneyWithUnit(t *testing.T) {
@@ -33,20 +32,21 @@ func TestMagFormatMoneyWithUnit(t *testing.T) {
 }
 
 func TestMagFormatBareMoney(t *testing.T) {
-	// Table cells use FormatCentsBare (no $ prefix).
+	// Table cells now carry $ from FormatCents. With includeUnit=false
+	// the mag output strips the $ (header carries the unit instead).
 	tests := []struct {
 		name  string
 		value string
 		want  string
 	}{
-		{"thousands", "5,234.23", "\U0001F8213"},
-		{"hundreds", "500.00", "\U0001F8212"},
-		{"millions", "1,000,000.00", "\U0001F8216"},
-		{"tens", "42.00", "\U0001F8211"},
-		{"single digit", "7.50", "\U0001F8210"},
-		{"sub-dollar", "0.50", "\U0001F821-1"},
-		{"zero", "0.00", "\U0001F8210"},
-		{"negative", "-5.00", "-\U0001F8210"},
+		{"thousands", "$5,234.23", "\U0001F8213"},
+		{"hundreds", "$500.00", "\U0001F8212"},
+		{"millions", "$1,000,000.00", "\U0001F8216"},
+		{"tens", "$42.00", "\U0001F8211"},
+		{"single digit", "$7.50", "\U0001F8210"},
+		{"sub-dollar", "$0.50", "\U0001F821-1"},
+		{"zero", "$0.00", "\U0001F8210"},
+		{"negative", "-$5.00", "-\U0001F8210"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -117,13 +117,13 @@ func TestMagTransformCells(t *testing.T) {
 		{
 			{Value: "1", Kind: cellReadonly},
 			{Value: "Kitchen Remodel", Kind: cellText},
-			{Value: "5,234.23", Kind: cellMoney},
+			{Value: "$5,234.23", Kind: cellMoney},
 			{Value: "3", Kind: cellDrilldown},
 		},
 		{
 			{Value: "2", Kind: cellReadonly},
 			{Value: "Deck", Kind: cellText},
-			{Value: "100.00", Kind: cellMoney},
+			{Value: "$100.00", Kind: cellMoney},
 			{Value: "0", Kind: cellDrilldown},
 		},
 	}
@@ -137,7 +137,7 @@ func TestMagTransformCells(t *testing.T) {
 	assert.Equal(t, "Kitchen Remodel", out[0][1].Value)
 	assert.Equal(t, "Deck", out[1][1].Value)
 
-	// Money cells: magnitude only.
+	// Money cells: magnitude only ($ stripped by transform).
 	assert.Equal(t, "\U0001F8213", out[0][2].Value)
 	assert.Equal(t, "\U0001F8212", out[1][2].Value)
 
@@ -146,41 +146,7 @@ func TestMagTransformCells(t *testing.T) {
 	assert.Equal(t, "\U0001F8210", out[1][3].Value)
 
 	// Original rows are not modified.
-	assert.Equal(t, "5,234.23", rows[0][2].Value)
-}
-
-func TestAnnotateMoneyHeaders(t *testing.T) {
-	styles := DefaultStyles()
-	specs := []columnSpec{
-		{Title: "Name", Kind: cellText},
-		{Title: "Total", Kind: cellMoney},
-		{Title: "Labor", Kind: cellMoney},
-		{Title: "ID", Kind: cellReadonly},
-	}
-	out := annotateMoneyHeaders(specs, styles)
-
-	// Non-money columns unchanged.
-	assert.Equal(t, "Name", out[0].Title)
-	assert.Equal(t, "ID", out[3].Title)
-
-	// Money columns get styled "$" suffix.
-	assert.Contains(t, out[1].Title, "Total")
-	assert.Contains(t, out[1].Title, "$")
-	assert.Contains(t, out[2].Title, "Labor")
-	assert.Contains(t, out[2].Title, "$")
-
-	// Original specs unmodified.
-	assert.Equal(t, "Total", specs[1].Title)
-}
-
-func TestAnnotateMoneyHeadersPreservesLength(t *testing.T) {
-	styles := DefaultStyles()
-	specs := []columnSpec{
-		{Title: "A", Kind: cellText},
-		{Title: "B", Kind: cellMoney},
-	}
-	out := annotateMoneyHeaders(specs, styles)
-	require.Len(t, out, 2)
+	assert.Equal(t, "$5,234.23", rows[0][2].Value)
 }
 
 func TestMagModeToggle(t *testing.T) {

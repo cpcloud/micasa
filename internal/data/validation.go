@@ -53,19 +53,6 @@ func FormatCents(cents int64) string {
 	return fmt.Sprintf("%s$%s.%02d", sign, humanize.Comma(dollars), remainder)
 }
 
-// FormatCentsBare formats cents without the dollar sign (e.g. "1,234.56").
-// Used for table cells where the column header carries the unit.
-func FormatCentsBare(cents int64) string {
-	sign := ""
-	if cents < 0 {
-		sign = "-"
-		cents = -cents
-	}
-	dollars := cents / 100
-	remainder := cents % 100
-	return fmt.Sprintf("%s%s.%02d", sign, formatWithCommas(dollars), remainder)
-}
-
 func FormatOptionalCents(cents *int64) string {
 	if cents == nil {
 		return ""

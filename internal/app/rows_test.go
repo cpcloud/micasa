@@ -23,7 +23,7 @@ func TestDateValue(t *testing.T) {
 func TestCentsValue(t *testing.T) {
 	assert.Empty(t, centsValue(nil))
 	c := int64(123456)
-	assert.Equal(t, "1,234.56", centsValue(&c))
+	assert.Equal(t, "$1,234.56", centsValue(&c))
 }
 
 func TestProjectRows(t *testing.T) {
@@ -45,7 +45,7 @@ func TestProjectRows(t *testing.T) {
 	assert.Equal(t, uint(1), meta[0].ID)
 	assert.False(t, meta[0].Deleted)
 	assert.Equal(t, "Kitchen", cells[0][2].Value)
-	assert.Equal(t, "1,000.00", cells[0][4].Value)
+	assert.Equal(t, "$1,000.00", cells[0][4].Value)
 	assert.Equal(t, "2025-03-01", cells[0][6].Value)
 	assert.Equal(t, "Kitchen", rows[0][2])
 }
@@ -81,7 +81,7 @@ func TestQuoteRows(t *testing.T) {
 	assert.Equal(t, "Kitchen", cells[0][1].Value)
 	assert.Equal(t, uint(1), cells[0][1].LinkID)
 	assert.Equal(t, "ContractorCo", cells[0][2].Value)
-	assert.Equal(t, "500.00", cells[0][3].Value)
+	assert.Equal(t, "$500.00", cells[0][3].Value)
 }
 
 func TestQuoteRowsFallbackProjectName(t *testing.T) {
@@ -153,7 +153,7 @@ func TestApplianceRows(t *testing.T) {
 	assert.Equal(t, "Samsung", cells[0][2].Value)
 	assert.Equal(t, "2023-06-15", cells[0][6].Value)
 	assert.Equal(t, "2y", cells[0][7].Value)
-	assert.Equal(t, "899.00", cells[0][9].Value)
+	assert.Equal(t, "$899.00", cells[0][9].Value)
 	assert.Equal(t, "2", cells[0][10].Value)
 }
 

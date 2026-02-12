@@ -880,9 +880,14 @@ func (m *Model) tableView(tab *Tab) string {
 	if effectiveHeight < 2 {
 		effectiveHeight = 2
 	}
-	displayCells := compactMoneyCells(vp.Cells)
+	// Mag and compact transforms are mutually exclusive: mag replaces
+	// values with order-of-magnitude notation, compact abbreviates them.
+	// Both strip the $ prefix since the header carries the unit.
+	var displayCells [][]cell
 	if m.magMode {
-		displayCells = magTransformCells(displayCells)
+		displayCells = magTransformCells(vp.Cells)
+	} else {
+		displayCells = compactMoneyCells(vp.Cells)
 	}
 	rows := renderRows(
 		vp.Specs,

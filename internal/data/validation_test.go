@@ -52,12 +52,6 @@ func TestFormatCents(t *testing.T) {
 	assert.Equal(t, "$1,234.56", FormatCents(123456))
 }
 
-func TestFormatCentsBare(t *testing.T) {
-	assert.Equal(t, "1,234.56", FormatCentsBare(123456))
-	assert.Equal(t, "-5.00", FormatCentsBare(-500))
-	assert.Equal(t, "0.00", FormatCentsBare(0))
-}
-
 func TestParseOptionalDate(t *testing.T) {
 	date, err := ParseOptionalDate("2025-06-11")
 	require.NoError(t, err)

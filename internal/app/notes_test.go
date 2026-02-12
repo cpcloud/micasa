@@ -22,7 +22,7 @@ func TestNotePreviewOpensOnEnter(t *testing.T) {
 	// Seed a row with a note.
 	tab.Table.SetRows(
 		[]table.Row{
-			{"1", "2026-01-15", "Self", "50.00", "Changed the filter and checked pressure"},
+			{"1", "2026-01-15", "Self", "$50.00", "Changed the filter and checked pressure"},
 		},
 	)
 	tab.Rows = []rowMeta{{ID: 1}}
@@ -31,7 +31,7 @@ func TestNotePreviewOpensOnEnter(t *testing.T) {
 			{Value: "1", Kind: cellReadonly},
 			{Value: "2026-01-15", Kind: cellDate},
 			{Value: "Self", Kind: cellText},
-			{Value: "50.00", Kind: cellMoney},
+			{Value: "$50.00", Kind: cellMoney},
 			{Value: "Changed the filter and checked pressure", Kind: cellNotes},
 		},
 	}
