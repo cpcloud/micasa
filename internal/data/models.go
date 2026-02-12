@@ -82,20 +82,24 @@ type ProjectType struct {
 }
 
 type Vendor struct {
-	ID          uint   `gorm:"primaryKey"`
-	Name        string `gorm:"uniqueIndex"`
-	ContactName string
-	Email       string
-	Phone       string
-	Website     string
-	Notes       string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	DeletedAt   gorm.DeletedAt `gorm:"index"`
+	ID             uint         `gorm:"primaryKey"`
+	HouseProfileID *uint        `gorm:"column:house_id;index;uniqueIndex:idx_vendors_house_name"`
+	HouseProfile   HouseProfile `gorm:"foreignKey:HouseProfileID;constraint:OnDelete:SET NULL;"`
+	Name           string       `gorm:"uniqueIndex:idx_vendors_house_name"`
+	ContactName    string
+	Email          string
+	Phone          string
+	Website        string
+	Notes          string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	DeletedAt      gorm.DeletedAt `gorm:"index"`
 }
 
 type Project struct {
 	ID                uint `gorm:"primaryKey"`
+	HouseProfileID    *uint `gorm:"column:house_id;index"`
+	HouseProfile      HouseProfile `gorm:"constraint:OnDelete:SET NULL;"`
 	Title             string
 	ProjectTypeID     uint
 	ProjectType       ProjectType `gorm:"constraint:OnDelete:RESTRICT;"`
@@ -114,6 +118,8 @@ type Project struct {
 
 type Quote struct {
 	ID             uint `gorm:"primaryKey"`
+	HouseProfileID *uint `gorm:"column:house_id;index"`
+	HouseProfile   HouseProfile `gorm:"constraint:OnDelete:SET NULL;"`
 	ProjectID      uint
 	Project        Project `gorm:"constraint:OnDelete:RESTRICT;"`
 	VendorID       uint
@@ -138,6 +144,8 @@ type MaintenanceCategory struct {
 
 type Appliance struct {
 	ID             uint `gorm:"primaryKey"`
+	HouseProfileID *uint `gorm:"column:house_id;index"`
+	HouseProfile   HouseProfile `gorm:"constraint:OnDelete:SET NULL;"`
 	Name           string
 	Brand          string
 	ModelNumber    string     `gorm:"column:model_no"`
@@ -154,6 +162,8 @@ type Appliance struct {
 
 type MaintenanceItem struct {
 	ID             uint `gorm:"primaryKey"`
+	HouseProfileID *uint `gorm:"column:house_id;index"`
+	HouseProfile   HouseProfile `gorm:"constraint:OnDelete:SET NULL;"`
 	Name           string
 	CategoryID     uint
 	Category       MaintenanceCategory `gorm:"constraint:OnDelete:RESTRICT;"`
@@ -172,7 +182,9 @@ type MaintenanceItem struct {
 
 type ServiceLogEntry struct {
 	ID                uint            `gorm:"primaryKey"`
-	MaintenanceItemID uint            `gorm:"index"`
+	HouseProfileID    *uint `gorm:"column:house_id;index"`
+	HouseProfile      HouseProfile `gorm:"constraint:OnDelete:SET NULL;"`
+	MaintenanceItemID uint        `gorm:"index"`
 	MaintenanceItem   MaintenanceItem `gorm:"constraint:OnDelete:CASCADE;"`
 	ServicedAt        time.Time
 	VendorID          *uint
@@ -185,9 +197,10 @@ type ServiceLogEntry struct {
 }
 
 type DeletionRecord struct {
-	ID         uint       `gorm:"primaryKey"`
-	Entity     string     `gorm:"index:idx_entity_restored,priority:1"`
-	TargetID   uint       `gorm:"index"`
-	DeletedAt  time.Time  `gorm:"index"`
-	RestoredAt *time.Time `gorm:"index:idx_entity_restored,priority:2"`
+	ID             uint       `gorm:"primaryKey"`
+	HouseProfileID *uint      `gorm:"column:house_id;index"`
+	Entity         string     `gorm:"index:idx_entity_restored,priority:1"`
+	TargetID       uint       `gorm:"index"`
+	DeletedAt      time.Time  `gorm:"index"`
+	RestoredAt     *time.Time `gorm:"index:idx_entity_restored,priority:2"`
 }

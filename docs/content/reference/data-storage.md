@@ -33,7 +33,7 @@ run migrations manually.
 
 | Table                  | Description |
 |------------------------|-------------|
-| `house_profiles`       | Single row with your home's details |
+| `house_profiles`       | One row per home profile |
 | `projects`             | Home improvement projects |
 | `project_types`        | Pre-seeded project categories |
 | `quotes`               | Vendor quotes linked to projects |
@@ -49,6 +49,14 @@ run migrations manually.
 On first run, micasa seeds default **project types** (Renovation, Repair,
 Landscaping, etc.) and **maintenance categories** (HVAC, Plumbing, Electrical,
 etc.). These are reference data used in select dropdowns.
+
+### Multi-home scoping
+
+micasa supports multiple home profiles in the same database file. Core
+entities (`projects`, `quotes`, `vendors`, `appliances`,
+`maintenance_items`, and `service_log_entries`) include a nullable `house_id`
+column so data can be isolated per home while preserving compatibility with
+older rows created before multi-home support.
 
 ## Backup
 

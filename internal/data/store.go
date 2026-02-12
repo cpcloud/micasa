@@ -103,7 +103,7 @@ func (s *Store) Close() error {
 }
 
 func (s *Store) AutoMigrate() error {
-	return s.db.AutoMigrate(
+	if err := s.db.AutoMigrate(
 		&HouseProfile{},
 		&ProjectType{},
 		&Vendor{},
@@ -114,7 +114,21 @@ func (s *Store) AutoMigrate() error {
 		&MaintenanceItem{},
 		&ServiceLogEntry{},
 		&DeletionRecord{},
-	)
+	); err != nil {
+		return err
+	}
+	return s.migrateVendorHouseScopedIndex()
+}
+
+func (s *Store) migrateVendorHouseScopedIndex() error {
+	// Older schemas used a global unique index on vendors.name. Multi-home
+	// support scopes vendor identity by (house_id, name) instead.
+	if s.db.Migrator().HasIndex(&Vendor{}, "idx_vendors_name") {
+		if err := s.db.Migrator().DropIndex(&Vendor{}, "idx_vendors_name"); err != nil {
+			return fmt.Errorf("drop legacy vendor name index: %w", err)
+		}
+	}
+	return nil
 }
 
 func (s *Store) SeedDefaults() error {
@@ -173,6 +187,7 @@ func (s *Store) SeedDemoDataFrom(h *fake.HomeFaker) error {
 	if err := s.db.Create(&house).Error; err != nil {
 		return fmt.Errorf("seed house: %w", err)
 	}
+	houseID := house.ID
 
 	typeID := func(name string) uint {
 		var pt ProjectType
@@ -191,6 +206,7 @@ func (s *Store) SeedDemoDataFrom(h *fake.HomeFaker) error {
 	for i, trade := range trades {
 		fv := h.VendorForTrade(trade)
 		vendors[i] = Vendor{
+			HouseProfileID: &houseID,
 			Name:        fv.Name,
 			ContactName: fv.ContactName,
 			Phone:       fv.Phone,
@@ -208,6 +224,7 @@ func (s *Store) SeedDemoDataFrom(h *fake.HomeFaker) error {
 	for i, typeName := range projectTypeNames {
 		fp := h.Project(typeName)
 		projects[i] = Project{
+			HouseProfileID: &houseID,
 			Title:         fp.Title,
 			ProjectTypeID: typeID(typeName),
 			Status:        fp.Status,
@@ -233,6 +250,7 @@ func (s *Store) SeedDemoDataFrom(h *fake.HomeFaker) error {
 			vi := h.IntN(len(vendors))
 			fq := h.Quote()
 			quote := Quote{
+				HouseProfileID: &houseID,
 				ProjectID:      projects[i].ID,
 				VendorID:       vendors[vi].ID,
 				TotalCents:     fq.TotalCents,
@@ -253,6 +271,7 @@ func (s *Store) SeedDemoDataFrom(h *fake.HomeFaker) error {
 	for i := range appliances {
 		fa := h.Appliance()
 		appliances[i] = Appliance{
+			HouseProfileID: &houseID,
 			Name:           fa.Name,
 			Brand:          fa.Brand,
 			ModelNumber:    fa.ModelNumber,
@@ -275,6 +294,7 @@ func (s *Store) SeedDemoDataFrom(h *fake.HomeFaker) error {
 		for j := 0; j < nItems; j++ {
 			fm := h.MaintenanceItem(catName)
 			item := MaintenanceItem{
+				HouseProfileID: &houseID,
 				Name:           fm.Name,
 				CategoryID:     catID(catName),
 				IntervalMonths: fm.IntervalMonths,
@@ -303,6 +323,7 @@ func (s *Store) SeedDemoDataFrom(h *fake.HomeFaker) error {
 		for j := 0; j < nEntries; j++ {
 			fe := h.ServiceLogEntry()
 			entry := ServiceLogEntry{
+				HouseProfileID:    &houseID,
 				MaintenanceItemID: maintItems[i].ID,
 				ServicedAt:        fe.ServicedAt,
 				CostCents:         fe.CostCents,
@@ -323,7 +344,7 @@ func (s *Store) SeedDemoDataFrom(h *fake.HomeFaker) error {
 
 func (s *Store) HouseProfile() (HouseProfile, error) {
 	var profile HouseProfile
-	err := s.db.First(&profile).Error
+	err := s.db.Order("id asc").First(&profile).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return HouseProfile{}, gorm.ErrRecordNotFound
 	}
@@ -331,19 +352,37 @@ func (s *Store) HouseProfile() (HouseProfile, error) {
 }
 
 func (s *Store) CreateHouseProfile(profile HouseProfile) error {
-	var count int64
-	if err := s.db.Model(&HouseProfile{}).Count(&count).Error; err != nil {
-		return fmt.Errorf("count house profiles: %w", err)
-	}
-	if count > 0 {
-		return fmt.Errorf("house profile already exists")
-	}
 	return s.db.Create(&profile).Error
 }
 
+func (s *Store) HouseProfiles() ([]HouseProfile, error) {
+	var profiles []HouseProfile
+	if err := s.db.Order("id asc").Find(&profiles).Error; err != nil {
+		return nil, err
+	}
+	return profiles, nil
+}
+
+func (s *Store) GetHouseProfile(id uint) (HouseProfile, error) {
+	var profile HouseProfile
+	if err := s.db.First(&profile, id).Error; err != nil {
+		return HouseProfile{}, err
+	}
+	return profile, nil
+}
+
 func (s *Store) UpdateHouseProfile(profile HouseProfile) error {
+	if profile.ID != 0 {
+		var existing HouseProfile
+		if err := s.db.First(&existing, profile.ID).Error; err != nil {
+			return err
+		}
+		profile.CreatedAt = existing.CreatedAt
+		return s.db.Model(&existing).Select("*").Updates(profile).Error
+	}
+
 	var existing HouseProfile
-	if err := s.db.First(&existing).Error; err != nil {
+	if err := s.db.Order("id asc").First(&existing).Error; err != nil {
 		return err
 	}
 	profile.ID = existing.ID
@@ -379,6 +418,18 @@ func (s *Store) ListVendors(includeDeleted bool) ([]Vendor, error) {
 	return vendors, nil
 }
 
+func (s *Store) ListVendorsByHouse(houseID uint, includeDeleted bool) ([]Vendor, error) {
+	var vendors []Vendor
+	db := s.db.Order("name").Where("house_id = ?", houseID)
+	if includeDeleted {
+		db = db.Unscoped()
+	}
+	if err := db.Find(&vendors).Error; err != nil {
+		return nil, err
+	}
+	return vendors, nil
+}
+
 func (s *Store) GetVendor(id uint) (Vendor, error) {
 	var vendor Vendor
 	if err := s.db.First(&vendor, id).Error; err != nil {
@@ -388,11 +439,30 @@ func (s *Store) GetVendor(id uint) (Vendor, error) {
 }
 
 func (s *Store) CreateVendor(vendor Vendor) error {
-	return s.db.Create(&vendor).Error
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		houseID, err := resolveWriteHouseID(tx, vendor.HouseProfileID)
+		if err != nil {
+			return err
+		}
+		vendor.HouseProfileID = houseID
+		return tx.Create(&vendor).Error
+	})
 }
 
 func (s *Store) UpdateVendor(vendor Vendor) error {
-	return s.updateByID(&Vendor{}, vendor.ID, vendor)
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var existing Vendor
+		if err := tx.Unscoped().First(&existing, vendor.ID).Error; err != nil {
+			return err
+		}
+		if vendor.HouseProfileID == nil {
+			vendor.HouseProfileID = existing.HouseProfileID
+		}
+		if err := validateOptionalHouseID(tx, vendor.HouseProfileID); err != nil {
+			return err
+		}
+		return updateByIDWith(tx, &Vendor{}, vendor.ID, vendor)
+	})
 }
 
 // CountQuotesByVendor returns the number of non-deleted quotes per vendor ID.
@@ -420,6 +490,22 @@ func (s *Store) ListProjects(includeDeleted bool) ([]Project, error) {
 	return projects, nil
 }
 
+func (s *Store) ListProjectsByHouse(houseID uint, includeDeleted bool) ([]Project, error) {
+	var projects []Project
+	db := s.db.
+		Preload("ProjectType").
+		Preload("PreferredVendor", func(q *gorm.DB) *gorm.DB { return q.Unscoped() }).
+		Where("house_id = ?", houseID).
+		Order("updated_at desc")
+	if includeDeleted {
+		db = db.Unscoped()
+	}
+	if err := db.Find(&projects).Error; err != nil {
+		return nil, err
+	}
+	return projects, nil
+}
+
 func (s *Store) ListQuotes(includeDeleted bool) ([]Quote, error) {
 	var quotes []Quote
 	db := s.db.Preload("Vendor", func(q *gorm.DB) *gorm.DB {
@@ -438,6 +524,24 @@ func (s *Store) ListQuotes(includeDeleted bool) ([]Quote, error) {
 	return quotes, nil
 }
 
+func (s *Store) ListQuotesByHouse(houseID uint, includeDeleted bool) ([]Quote, error) {
+	var quotes []Quote
+	db := s.db.Preload("Vendor", func(q *gorm.DB) *gorm.DB {
+		return q.Unscoped()
+	})
+	db = db.Preload("Project", func(q *gorm.DB) *gorm.DB {
+		return q.Unscoped().Preload("ProjectType")
+	})
+	db = db.Where("house_id = ?", houseID).Order("updated_at desc")
+	if includeDeleted {
+		db = db.Unscoped()
+	}
+	if err := db.Find(&quotes).Error; err != nil {
+		return nil, err
+	}
+	return quotes, nil
+}
+
 func (s *Store) ListMaintenance(includeDeleted bool) ([]MaintenanceItem, error) {
 	var items []MaintenanceItem
 	db := s.db.Preload("Category")
@@ -445,6 +549,25 @@ func (s *Store) ListMaintenance(includeDeleted bool) ([]MaintenanceItem, error) 
 		return q.Unscoped()
 	})
 	db = db.Order("updated_at desc")
+	if includeDeleted {
+		db = db.Unscoped()
+	}
+	if err := db.Find(&items).Error; err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (s *Store) ListMaintenanceByHouse(
+	houseID uint,
+	includeDeleted bool,
+) ([]MaintenanceItem, error) {
+	var items []MaintenanceItem
+	db := s.db.Preload("Category")
+	db = db.Preload("Appliance", func(q *gorm.DB) *gorm.DB {
+		return q.Unscoped()
+	})
+	db = db.Where("house_id = ?", houseID).Order("updated_at desc")
 	if includeDeleted {
 		db = db.Unscoped()
 	}
@@ -480,11 +603,30 @@ func (s *Store) GetProject(id uint) (Project, error) {
 }
 
 func (s *Store) CreateProject(project Project) error {
-	return s.db.Create(&project).Error
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		houseID, err := resolveWriteHouseID(tx, project.HouseProfileID)
+		if err != nil {
+			return err
+		}
+		project.HouseProfileID = houseID
+		return tx.Create(&project).Error
+	})
 }
 
 func (s *Store) UpdateProject(project Project) error {
-	return s.updateByID(&Project{}, project.ID, project)
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var existing Project
+		if err := tx.Unscoped().First(&existing, project.ID).Error; err != nil {
+			return err
+		}
+		if project.HouseProfileID == nil {
+			project.HouseProfileID = existing.HouseProfileID
+		}
+		if err := validateOptionalHouseID(tx, project.HouseProfileID); err != nil {
+			return err
+		}
+		return updateByIDWith(tx, &Project{}, project.ID, project)
+	})
 }
 
 func (s *Store) GetQuote(id uint) (Quote, error) {
@@ -500,11 +642,31 @@ func (s *Store) GetQuote(id uint) (Quote, error) {
 
 func (s *Store) CreateQuote(quote Quote, vendor Vendor) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		foundVendor, err := findOrCreateVendor(tx, vendor)
+		projectHouseID, err := loadProjectHouseID(tx, quote.ProjectID)
 		if err != nil {
 			return err
 		}
+		targetHouseID := projectHouseID
+		if targetHouseID == nil {
+			targetHouseID = quote.HouseProfileID
+		}
+		targetHouseID, err = resolveWriteHouseID(tx, targetHouseID)
+		if err != nil {
+			return err
+		}
+		if !sameOptionalHouseID(projectHouseID, targetHouseID) && projectHouseID != nil {
+			return fmt.Errorf("quote house must match project house")
+		}
+
+		foundVendor, err := findOrCreateVendor(tx, vendor, targetHouseID)
+		if err != nil {
+			return err
+		}
+		if !sameOptionalHouseID(foundVendor.HouseProfileID, targetHouseID) {
+			return fmt.Errorf("vendor house must match quote house")
+		}
 		quote.VendorID = foundVendor.ID
+		quote.HouseProfileID = targetHouseID
 		if err := tx.Create(&quote).Error; err != nil {
 			return err
 		}
@@ -514,11 +676,38 @@ func (s *Store) CreateQuote(quote Quote, vendor Vendor) error {
 
 func (s *Store) UpdateQuote(quote Quote, vendor Vendor) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		foundVendor, err := findOrCreateVendor(tx, vendor)
+		projectHouseID, err := loadProjectHouseID(tx, quote.ProjectID)
 		if err != nil {
 			return err
 		}
+		targetHouseID := projectHouseID
+		if targetHouseID == nil {
+			targetHouseID = quote.HouseProfileID
+		}
+		if targetHouseID == nil {
+			var existing Quote
+			if err := tx.Unscoped().First(&existing, quote.ID).Error; err != nil {
+				return err
+			}
+			targetHouseID = existing.HouseProfileID
+		}
+		targetHouseID, err = resolveWriteHouseID(tx, targetHouseID)
+		if err != nil {
+			return err
+		}
+		if !sameOptionalHouseID(projectHouseID, targetHouseID) && projectHouseID != nil {
+			return fmt.Errorf("quote house must match project house")
+		}
+
+		foundVendor, err := findOrCreateVendor(tx, vendor, targetHouseID)
+		if err != nil {
+			return err
+		}
+		if !sameOptionalHouseID(foundVendor.HouseProfileID, targetHouseID) {
+			return fmt.Errorf("vendor house must match quote house")
+		}
 		quote.VendorID = foundVendor.ID
+		quote.HouseProfileID = targetHouseID
 		return updateByIDWith(tx, &Quote{}, quote.ID, quote)
 	})
 }
@@ -534,16 +723,71 @@ func (s *Store) GetMaintenance(id uint) (MaintenanceItem, error) {
 }
 
 func (s *Store) CreateMaintenance(item MaintenanceItem) error {
-	return s.db.Create(&item).Error
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		applianceHouseID, err := loadApplianceHouseID(tx, item.ApplianceID)
+		if err != nil {
+			return err
+		}
+		targetHouseID := applianceHouseID
+		if targetHouseID == nil {
+			targetHouseID = item.HouseProfileID
+		}
+		targetHouseID, err = resolveWriteHouseID(tx, targetHouseID)
+		if err != nil {
+			return err
+		}
+		if applianceHouseID != nil && !sameOptionalHouseID(applianceHouseID, targetHouseID) {
+			return fmt.Errorf("maintenance house must match appliance house")
+		}
+		item.HouseProfileID = targetHouseID
+		return tx.Create(&item).Error
+	})
 }
 
 func (s *Store) UpdateMaintenance(item MaintenanceItem) error {
-	return s.updateByID(&MaintenanceItem{}, item.ID, item)
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		applianceHouseID, err := loadApplianceHouseID(tx, item.ApplianceID)
+		if err != nil {
+			return err
+		}
+		targetHouseID := applianceHouseID
+		if targetHouseID == nil {
+			targetHouseID = item.HouseProfileID
+		}
+		if targetHouseID == nil {
+			var existing MaintenanceItem
+			if err := tx.Unscoped().First(&existing, item.ID).Error; err != nil {
+				return err
+			}
+			targetHouseID = existing.HouseProfileID
+		}
+		targetHouseID, err = resolveWriteHouseID(tx, targetHouseID)
+		if err != nil {
+			return err
+		}
+		if applianceHouseID != nil && !sameOptionalHouseID(applianceHouseID, targetHouseID) {
+			return fmt.Errorf("maintenance house must match appliance house")
+		}
+		item.HouseProfileID = targetHouseID
+		return updateByIDWith(tx, &MaintenanceItem{}, item.ID, item)
+	})
 }
 
 func (s *Store) ListAppliances(includeDeleted bool) ([]Appliance, error) {
 	var items []Appliance
 	db := s.db.Order("updated_at desc")
+	if includeDeleted {
+		db = db.Unscoped()
+	}
+	if err := db.Find(&items).Error; err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (s *Store) ListAppliancesByHouse(houseID uint, includeDeleted bool) ([]Appliance, error) {
+	var items []Appliance
+	db := s.db.Where("house_id = ?", houseID).Order("updated_at desc")
 	if includeDeleted {
 		db = db.Unscoped()
 	}
@@ -560,11 +804,30 @@ func (s *Store) GetAppliance(id uint) (Appliance, error) {
 }
 
 func (s *Store) CreateAppliance(item Appliance) error {
-	return s.db.Create(&item).Error
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		houseID, err := resolveWriteHouseID(tx, item.HouseProfileID)
+		if err != nil {
+			return err
+		}
+		item.HouseProfileID = houseID
+		return tx.Create(&item).Error
+	})
 }
 
 func (s *Store) UpdateAppliance(item Appliance) error {
-	return s.updateByID(&Appliance{}, item.ID, item)
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var existing Appliance
+		if err := tx.Unscoped().First(&existing, item.ID).Error; err != nil {
+			return err
+		}
+		if item.HouseProfileID == nil {
+			item.HouseProfileID = existing.HouseProfileID
+		}
+		if err := validateOptionalHouseID(tx, item.HouseProfileID); err != nil {
+			return err
+		}
+		return updateByIDWith(tx, &Appliance{}, item.ID, item)
+	})
 }
 
 // ---------------------------------------------------------------------------
@@ -600,10 +863,30 @@ func (s *Store) GetServiceLog(id uint) (ServiceLogEntry, error) {
 
 func (s *Store) CreateServiceLog(entry ServiceLogEntry, vendor Vendor) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
+		maintenanceHouseID, err := loadMaintenanceHouseID(tx, entry.MaintenanceItemID)
+		if err != nil {
+			return err
+		}
+		targetHouseID := maintenanceHouseID
+		if targetHouseID == nil {
+			targetHouseID = entry.HouseProfileID
+		}
+		targetHouseID, err = resolveWriteHouseID(tx, targetHouseID)
+		if err != nil {
+			return err
+		}
+		if maintenanceHouseID != nil && !sameOptionalHouseID(maintenanceHouseID, targetHouseID) {
+			return fmt.Errorf("service log house must match maintenance house")
+		}
+		entry.HouseProfileID = targetHouseID
+
 		if strings.TrimSpace(vendor.Name) != "" {
-			found, err := findOrCreateVendor(tx, vendor)
+			found, err := findOrCreateVendor(tx, vendor, targetHouseID)
 			if err != nil {
 				return err
+			}
+			if !sameOptionalHouseID(found.HouseProfileID, targetHouseID) {
+				return fmt.Errorf("vendor house must match service log house")
 			}
 			entry.VendorID = &found.ID
 		}
@@ -613,10 +896,37 @@ func (s *Store) CreateServiceLog(entry ServiceLogEntry, vendor Vendor) error {
 
 func (s *Store) UpdateServiceLog(entry ServiceLogEntry, vendor Vendor) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
+		maintenanceHouseID, err := loadMaintenanceHouseID(tx, entry.MaintenanceItemID)
+		if err != nil {
+			return err
+		}
+		targetHouseID := maintenanceHouseID
+		if targetHouseID == nil {
+			targetHouseID = entry.HouseProfileID
+		}
+		if targetHouseID == nil {
+			var existing ServiceLogEntry
+			if err := tx.Unscoped().First(&existing, entry.ID).Error; err != nil {
+				return err
+			}
+			targetHouseID = existing.HouseProfileID
+		}
+		targetHouseID, err = resolveWriteHouseID(tx, targetHouseID)
+		if err != nil {
+			return err
+		}
+		if maintenanceHouseID != nil && !sameOptionalHouseID(maintenanceHouseID, targetHouseID) {
+			return fmt.Errorf("service log house must match maintenance house")
+		}
+		entry.HouseProfileID = targetHouseID
+
 		if strings.TrimSpace(vendor.Name) != "" {
-			found, err := findOrCreateVendor(tx, vendor)
+			found, err := findOrCreateVendor(tx, vendor, targetHouseID)
 			if err != nil {
 				return err
+			}
+			if !sameOptionalHouseID(found.HouseProfileID, targetHouseID) {
+				return fmt.Errorf("vendor house must match service log house")
 			}
 			entry.VendorID = &found.ID
 		} else {
@@ -763,6 +1073,10 @@ func (s *Store) countDependents(model any, fkColumn string, id uint) (int64, err
 }
 
 func (s *Store) softDelete(model any, entity string, id uint) error {
+	houseID, err := s.lookupEntityHouseID(entity, id)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
 	result := s.db.Delete(model, id)
 	if result.Error != nil {
 		return result.Error
@@ -770,7 +1084,7 @@ func (s *Store) softDelete(model any, entity string, id uint) error {
 	if result.RowsAffected == 0 {
 		return gorm.ErrRecordNotFound
 	}
-	return s.logDeletion(entity, id)
+	return s.logDeletion(entity, id, houseID)
 }
 
 func (s *Store) restoreEntity(model any, entity string, id uint) error {
@@ -843,8 +1157,9 @@ func (s *Store) restoreByID(model any, id uint) error {
 		Update("deleted_at", nil).Error
 }
 
-func (s *Store) logDeletion(entity string, id uint) error {
+func (s *Store) logDeletion(entity string, id uint, houseID *uint) error {
 	record := DeletionRecord{
+		HouseProfileID: houseID,
 		Entity:    entity,
 		TargetID:  id,
 		DeletedAt: time.Now(),
@@ -898,14 +1213,24 @@ func (s *Store) updateByID(model any, id uint, values any) error {
 	return updateByIDWith(s.db, model, id, values)
 }
 
-func findOrCreateVendor(tx *gorm.DB, vendor Vendor) (Vendor, error) {
+func findOrCreateVendor(tx *gorm.DB, vendor Vendor, houseProfileID *uint) (Vendor, error) {
 	if strings.TrimSpace(vendor.Name) == "" {
 		return Vendor{}, fmt.Errorf("vendor name is required")
 	}
+	if err := validateOptionalHouseID(tx, houseProfileID); err != nil {
+		return Vendor{}, err
+	}
+	vendor.HouseProfileID = houseProfileID
 	// Search unscoped so we find soft-deleted vendors too -- the unique
-	// index on name spans all rows regardless of deleted_at.
+	// index on (house_id, name) spans all rows regardless of deleted_at.
 	var existing Vendor
-	err := tx.Unscoped().Where("name = ?", vendor.Name).First(&existing).Error
+	query := tx.Unscoped().Where("name = ?", vendor.Name)
+	if houseProfileID == nil {
+		query = query.Where("house_id IS NULL")
+	} else {
+		query = query.Where("house_id = ?", *houseProfileID)
+	}
+	err := query.First(&existing).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		if err := tx.Create(&vendor).Error; err != nil {
 			return Vendor{}, err
@@ -944,4 +1269,117 @@ func findOrCreateVendor(tx *gorm.DB, vendor Vendor) (Vendor, error) {
 		}
 	}
 	return existing, nil
+}
+
+func resolveWriteHouseID(tx *gorm.DB, houseID *uint) (*uint, error) {
+	if houseID != nil {
+		return houseID, validateOptionalHouseID(tx, houseID)
+	}
+
+	var houses []HouseProfile
+	if err := tx.Model(&HouseProfile{}).Order("id asc").Limit(2).Find(&houses).Error; err != nil {
+		return nil, err
+	}
+	if len(houses) == 1 {
+		id := houses[0].ID
+		return &id, nil
+	}
+	if len(houses) > 1 {
+		return nil, fmt.Errorf("house profile is required when multiple homes exist")
+	}
+	return nil, nil
+}
+
+func validateOptionalHouseID(tx *gorm.DB, houseID *uint) error {
+	if houseID == nil {
+		return nil
+	}
+	var count int64
+	if err := tx.Model(&HouseProfile{}).Where("id = ?", *houseID).Count(&count).Error; err != nil {
+		return err
+	}
+	if count == 0 {
+		return fmt.Errorf("house profile %d not found", *houseID)
+	}
+	return nil
+}
+
+func sameOptionalHouseID(a, b *uint) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return *a == *b
+}
+
+func loadProjectHouseID(tx *gorm.DB, projectID uint) (*uint, error) {
+	var project Project
+	if err := tx.Select("id", "house_id").First(&project, projectID).Error; err != nil {
+		return nil, err
+	}
+	return project.HouseProfileID, nil
+}
+
+func loadApplianceHouseID(tx *gorm.DB, applianceID *uint) (*uint, error) {
+	if applianceID == nil {
+		return nil, nil
+	}
+	var appliance Appliance
+	if err := tx.Select("id", "house_id").First(&appliance, *applianceID).Error; err != nil {
+		return nil, err
+	}
+	return appliance.HouseProfileID, nil
+}
+
+func loadMaintenanceHouseID(tx *gorm.DB, maintenanceID uint) (*uint, error) {
+	var item MaintenanceItem
+	if err := tx.Select("id", "house_id").First(&item, maintenanceID).Error; err != nil {
+		return nil, err
+	}
+	return item.HouseProfileID, nil
+}
+
+func (s *Store) lookupEntityHouseID(entity string, id uint) (*uint, error) {
+	switch entity {
+	case DeletionEntityProject:
+		var row Project
+		if err := s.db.Unscoped().Select("id", "house_id").First(&row, id).Error; err != nil {
+			return nil, err
+		}
+		return row.HouseProfileID, nil
+	case DeletionEntityQuote:
+		var row Quote
+		if err := s.db.Unscoped().Select("id", "house_id").First(&row, id).Error; err != nil {
+			return nil, err
+		}
+		return row.HouseProfileID, nil
+	case DeletionEntityMaintenance:
+		var row MaintenanceItem
+		if err := s.db.Unscoped().Select("id", "house_id").First(&row, id).Error; err != nil {
+			return nil, err
+		}
+		return row.HouseProfileID, nil
+	case DeletionEntityAppliance:
+		var row Appliance
+		if err := s.db.Unscoped().Select("id", "house_id").First(&row, id).Error; err != nil {
+			return nil, err
+		}
+		return row.HouseProfileID, nil
+	case DeletionEntityServiceLog:
+		var row ServiceLogEntry
+		if err := s.db.Unscoped().Select("id", "house_id").First(&row, id).Error; err != nil {
+			return nil, err
+		}
+		return row.HouseProfileID, nil
+	case DeletionEntityVendor:
+		var row Vendor
+		if err := s.db.Unscoped().Select("id", "house_id").First(&row, id).Error; err != nil {
+			return nil, err
+		}
+		return row.HouseProfileID, nil
+	default:
+		return nil, nil
+	}
 }

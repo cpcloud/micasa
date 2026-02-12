@@ -24,13 +24,18 @@ func TestSeedDefaults(t *testing.T) {
 	require.NotEmpty(t, categories)
 }
 
-func TestHouseProfileSingle(t *testing.T) {
+func TestHouseProfilesMultiple(t *testing.T) {
 	store := newTestStore(t)
-	profile := HouseProfile{Nickname: "Primary Residence"}
-	require.NoError(t, store.CreateHouseProfile(profile))
-	_, err := store.HouseProfile()
+	require.NoError(t, store.CreateHouseProfile(HouseProfile{Nickname: "Primary Residence"}))
+	require.NoError(t, store.CreateHouseProfile(HouseProfile{Nickname: "Cabin"}))
+
+	profiles, err := store.HouseProfiles()
 	require.NoError(t, err)
-	assert.Error(t, store.CreateHouseProfile(profile), "second profile should fail")
+	require.Len(t, profiles, 2)
+
+	first, err := store.HouseProfile()
+	require.NoError(t, err)
+	assert.Equal(t, "Primary Residence", first.Nickname)
 }
 
 func TestUpdateHouseProfile(t *testing.T) {
@@ -46,6 +51,114 @@ func TestUpdateHouseProfile(t *testing.T) {
 	fetched, err := store.HouseProfile()
 	require.NoError(t, err)
 	assert.Equal(t, "Seattle", fetched.City)
+}
+
+func TestCreateVendorRequiresHouseWhenMultipleHomes(t *testing.T) {
+	store := newTestStore(t)
+	require.NoError(t, store.CreateHouseProfile(HouseProfile{Nickname: "Primary"}))
+	require.NoError(t, store.CreateHouseProfile(HouseProfile{Nickname: "Cabin"}))
+
+	err := store.CreateVendor(Vendor{Name: "Ambiguous Vendor"})
+	require.ErrorContains(t, err, "house profile is required")
+}
+
+func TestVendorNameUniquePerHouse(t *testing.T) {
+	store := newTestStore(t)
+	require.NoError(t, store.CreateHouseProfile(HouseProfile{Nickname: "Primary"}))
+	require.NoError(t, store.CreateHouseProfile(HouseProfile{Nickname: "Cabin"}))
+	houses, err := store.HouseProfiles()
+	require.NoError(t, err)
+	require.Len(t, houses, 2)
+	house1ID := houses[0].ID
+	house2ID := houses[1].ID
+
+	require.NoError(t, store.CreateVendor(Vendor{
+		HouseProfileID: &house1ID,
+		Name:           "Shared Name Vendor",
+	}))
+	require.NoError(t, store.CreateVendor(Vendor{
+		HouseProfileID: &house2ID,
+		Name:           "Shared Name Vendor",
+	}))
+
+	vendors1, err := store.ListVendorsByHouse(house1ID, false)
+	require.NoError(t, err)
+	require.Len(t, vendors1, 1)
+	vendors2, err := store.ListVendorsByHouse(house2ID, false)
+	require.NoError(t, err)
+	require.Len(t, vendors2, 1)
+}
+
+func TestListProjectsByHouseScopesRows(t *testing.T) {
+	store := newTestStore(t)
+	require.NoError(t, store.CreateHouseProfile(HouseProfile{Nickname: "Primary"}))
+	require.NoError(t, store.CreateHouseProfile(HouseProfile{Nickname: "Cabin"}))
+	houses, err := store.HouseProfiles()
+	require.NoError(t, err)
+	require.Len(t, houses, 2)
+	house1ID := houses[0].ID
+	house2ID := houses[1].ID
+
+	types, err := store.ProjectTypes()
+	require.NoError(t, err)
+	require.NoError(t, store.CreateProject(Project{
+		HouseProfileID: &house1ID,
+		Title:          "Kitchen Refresh",
+		ProjectTypeID:  types[0].ID,
+		Status:         ProjectStatusPlanned,
+	}))
+	require.NoError(t, store.CreateProject(Project{
+		HouseProfileID: &house2ID,
+		Title:          "Cabin Roof",
+		ProjectTypeID:  types[0].ID,
+		Status:         ProjectStatusPlanned,
+	}))
+
+	primaryProjects, err := store.ListProjectsByHouse(house1ID, false)
+	require.NoError(t, err)
+	require.Len(t, primaryProjects, 1)
+	assert.Equal(t, "Kitchen Refresh", primaryProjects[0].Title)
+
+	cabinProjects, err := store.ListProjectsByHouse(house2ID, false)
+	require.NoError(t, err)
+	require.Len(t, cabinProjects, 1)
+	assert.Equal(t, "Cabin Roof", cabinProjects[0].Title)
+}
+
+func TestCreateQuoteInheritsProjectHouse(t *testing.T) {
+	store := newTestStore(t)
+	require.NoError(t, store.CreateHouseProfile(HouseProfile{Nickname: "Primary"}))
+	houses, err := store.HouseProfiles()
+	require.NoError(t, err)
+	require.Len(t, houses, 1)
+	houseID := houses[0].ID
+
+	types, err := store.ProjectTypes()
+	require.NoError(t, err)
+	require.NoError(t, store.CreateProject(Project{
+		HouseProfileID: &houseID,
+		Title:          "House Paint",
+		ProjectTypeID:  types[0].ID,
+		Status:         ProjectStatusPlanned,
+	}))
+	projects, err := store.ListProjectsByHouse(houseID, false)
+	require.NoError(t, err)
+	require.Len(t, projects, 1)
+
+	require.NoError(t, store.CreateQuote(
+		Quote{ProjectID: projects[0].ID, TotalCents: 120000},
+		Vendor{Name: "Paint Co"},
+	))
+
+	quotes, err := store.ListQuotesByHouse(houseID, false)
+	require.NoError(t, err)
+	require.Len(t, quotes, 1)
+	require.NotNil(t, quotes[0].HouseProfileID)
+	assert.Equal(t, houseID, *quotes[0].HouseProfileID)
+
+	vendors, err := store.ListVendorsByHouse(houseID, false)
+	require.NoError(t, err)
+	require.Len(t, vendors, 1)
 }
 
 func TestSoftDeleteRestoreProject(t *testing.T) {

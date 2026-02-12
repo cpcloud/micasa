@@ -24,7 +24,7 @@ func openTestDB(t *testing.T) *gorm.DB {
 
 func TestFindOrCreateVendorNewVendor(t *testing.T) {
 	db := openTestDB(t)
-	v, err := findOrCreateVendor(db, Vendor{Name: "New Plumber"})
+	v, err := findOrCreateVendor(db, Vendor{Name: "New Plumber"}, nil)
 	require.NoError(t, err)
 	assert.NotZero(t, v.ID)
 	assert.Equal(t, "New Plumber", v.Name)
@@ -34,7 +34,7 @@ func TestFindOrCreateVendorExistingNoUpdates(t *testing.T) {
 	db := openTestDB(t)
 	require.NoError(t, db.Create(&Vendor{Name: "Existing Co", Phone: "555-0000"}).Error)
 
-	v, err := findOrCreateVendor(db, Vendor{Name: "Existing Co"})
+	v, err := findOrCreateVendor(db, Vendor{Name: "Existing Co"}, nil)
 	require.NoError(t, err)
 	assert.Equal(t, "555-0000", v.Phone, "should keep original phone")
 }
@@ -50,7 +50,7 @@ func TestFindOrCreateVendorExistingWithUpdates(t *testing.T) {
 		Phone:       "555-1111",
 		Website:     "https://update.co",
 		Notes:       "great vendor",
-	})
+	}, nil)
 	require.NoError(t, err)
 
 	var reloaded Vendor
@@ -64,12 +64,12 @@ func TestFindOrCreateVendorExistingWithUpdates(t *testing.T) {
 
 func TestFindOrCreateVendorEmptyNameReturnsError(t *testing.T) {
 	db := openTestDB(t)
-	_, err := findOrCreateVendor(db, Vendor{Name: ""})
+	_, err := findOrCreateVendor(db, Vendor{Name: ""}, nil)
 	assert.Error(t, err)
 }
 
 func TestFindOrCreateVendorWhitespaceNameReturnsError(t *testing.T) {
 	db := openTestDB(t)
-	_, err := findOrCreateVendor(db, Vendor{Name: "   "})
+	_, err := findOrCreateVendor(db, Vendor{Name: "   "}, nil)
 	assert.Error(t, err)
 }
