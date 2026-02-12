@@ -254,7 +254,7 @@ func newTestModelWithDetailRows() *Model {
 	// Seed a couple rows.
 	tab.Table.SetRows([]table.Row{
 		{"1", "2026-01-15", "Self", "", "first"},
-		{"2", "2026-02-01", "Acme", "$150.00", "second"},
+		{"2", "2026-02-01", "Acme", "150.00", "second"},
 	})
 	tab.Rows = []rowMeta{{ID: 1}, {ID: 2}}
 	tab.CellRows = [][]cell{
@@ -269,7 +269,7 @@ func newTestModelWithDetailRows() *Model {
 			{Value: "2", Kind: cellReadonly},
 			{Value: "2026-02-01", Kind: cellDate},
 			{Value: "Acme", Kind: cellText},
-			{Value: "$150.00", Kind: cellMoney},
+			{Value: "150.00", Kind: cellMoney},
 			{Value: "second", Kind: cellText},
 		},
 	}

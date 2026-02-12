@@ -11,6 +11,7 @@ import (
 )
 
 func TestMagFormatMoneyWithUnit(t *testing.T) {
+	// Used by magCents for dashboard (input still has $ from FormatCents).
 	tests := []struct {
 		name  string
 		value string
@@ -31,21 +32,21 @@ func TestMagFormatMoneyWithUnit(t *testing.T) {
 	}
 }
 
-func TestMagFormatMoneyWithoutUnit(t *testing.T) {
+func TestMagFormatBareMoney(t *testing.T) {
+	// Table cells use FormatCentsBare (no $ prefix).
 	tests := []struct {
 		name  string
 		value string
 		want  string
 	}{
-		{"thousands", "$5,234.23", "\U0001F8213"},
-		{"hundreds", "$500.00", "\U0001F8212"},
-		{"millions", "$1,000,000.00", "\U0001F8216"},
-		{"tens", "$42.00", "\U0001F8211"},
-		{"single digit", "$7.50", "\U0001F8210"},
-		{"sub-dollar", "$0.50", "\U0001F821-1"},
-		{"zero", "$0.00", "\U0001F8210"},
-		{"negative", "-$5.00", "-\U0001F8210"},
-		{"negative large", "-$12,345.00", "-\U0001F8214"},
+		{"thousands", "5,234.23", "\U0001F8213"},
+		{"hundreds", "500.00", "\U0001F8212"},
+		{"millions", "1,000,000.00", "\U0001F8216"},
+		{"tens", "42.00", "\U0001F8211"},
+		{"single digit", "7.50", "\U0001F8210"},
+		{"sub-dollar", "0.50", "\U0001F821-1"},
+		{"zero", "0.00", "\U0001F8210"},
+		{"negative", "-5.00", "-\U0001F8210"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -102,18 +103,18 @@ func TestMagFormatSkipsNonNumeric(t *testing.T) {
 	}
 }
 
-func TestMagTransformCellsStripsUnit(t *testing.T) {
+func TestMagTransformCells(t *testing.T) {
 	rows := [][]cell{
 		{
 			{Value: "1", Kind: cellReadonly},
 			{Value: "Kitchen Remodel", Kind: cellText},
-			{Value: "$5,234.23", Kind: cellMoney},
+			{Value: "5,234.23", Kind: cellMoney},
 			{Value: "3", Kind: cellDrilldown},
 		},
 		{
 			{Value: "2", Kind: cellReadonly},
 			{Value: "Deck", Kind: cellText},
-			{Value: "$100.00", Kind: cellMoney},
+			{Value: "100.00", Kind: cellMoney},
 			{Value: "0", Kind: cellDrilldown},
 		},
 	}
@@ -127,7 +128,7 @@ func TestMagTransformCellsStripsUnit(t *testing.T) {
 	assert.Equal(t, "Kitchen Remodel", out[0][1].Value)
 	assert.Equal(t, "Deck", out[1][1].Value)
 
-	// Money cells: magnitude only, no $ prefix.
+	// Money cells: magnitude only.
 	assert.Equal(t, "\U0001F8213", out[0][2].Value)
 	assert.Equal(t, "\U0001F8212", out[1][2].Value)
 
@@ -136,10 +137,10 @@ func TestMagTransformCellsStripsUnit(t *testing.T) {
 	assert.Equal(t, "\U0001F8210", out[1][3].Value)
 
 	// Original rows are not modified.
-	assert.Equal(t, "$5,234.23", rows[0][2].Value)
+	assert.Equal(t, "5,234.23", rows[0][2].Value)
 }
 
-func TestMagAnnotateSpecs(t *testing.T) {
+func TestAnnotateMoneyHeaders(t *testing.T) {
 	styles := DefaultStyles()
 	specs := []columnSpec{
 		{Title: "Name", Kind: cellText},
@@ -147,7 +148,7 @@ func TestMagAnnotateSpecs(t *testing.T) {
 		{Title: "Labor", Kind: cellMoney},
 		{Title: "ID", Kind: cellReadonly},
 	}
-	out := magAnnotateSpecs(specs, styles)
+	out := annotateMoneyHeaders(specs, styles)
 
 	// Non-money columns unchanged.
 	assert.Equal(t, "Name", out[0].Title)
@@ -163,13 +164,13 @@ func TestMagAnnotateSpecs(t *testing.T) {
 	assert.Equal(t, "Total", specs[1].Title)
 }
 
-func TestMagAnnotateSpecsPreservesLength(t *testing.T) {
+func TestAnnotateMoneyHeadersPreservesLength(t *testing.T) {
 	styles := DefaultStyles()
 	specs := []columnSpec{
 		{Title: "A", Kind: cellText},
 		{Title: "B", Kind: cellMoney},
 	}
-	out := magAnnotateSpecs(specs, styles)
+	out := annotateMoneyHeaders(specs, styles)
 	require.Len(t, out, 2)
 }
 
