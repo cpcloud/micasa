@@ -894,19 +894,26 @@ func (m *Model) tableView(tab *Tab) string {
 
 // dimBackground applies ANSI faint (dim) to an already-styled string. It
 // replaces full resets with reset+faint so the dim survives through existing
-// color codes.
+// color codes. Faint is applied per-line so that overlay compositing (which
+// splices foreground lines into background lines) cannot permanently disrupt
+// the dim state.
 func dimBackground(s string) string {
 	dimmed := strings.ReplaceAll(s, "\033[0m", "\033[0;2m")
-	return "\033[2m" + dimmed + "\033[0m"
+	lines := strings.Split(dimmed, "\n")
+	for i, line := range lines {
+		lines[i] = "\033[2m" + line
+	}
+	return strings.Join(lines, "\n") + "\033[0m"
 }
 
-// cancelFaint prepends each line with the ANSI "normal intensity" code so that
-// faint state inherited from a composited background does not bleed into the
-// foreground overlay.
+// cancelFaint wraps each line with ANSI "normal intensity" at the start and
+// "faint" at the end. The leading \033[22m prevents dim from bleeding into
+// overlay content; the trailing \033[2m re-establishes dim for the right-side
+// background portion that follows the overlay in the composited output.
 func cancelFaint(s string) string {
 	lines := strings.Split(s, "\n")
 	for i, line := range lines {
-		lines[i] = "\033[22m" + line
+		lines[i] = "\033[22m" + line + "\033[2m"
 	}
 	return strings.Join(lines, "\n")
 }

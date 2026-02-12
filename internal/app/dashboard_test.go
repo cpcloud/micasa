@@ -5,6 +5,7 @@ package app
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -259,6 +260,27 @@ func TestDashboardOverlayComposite(t *testing.T) {
 
 	view := m.buildView()
 	assert.NotEmpty(t, view)
+}
+
+func TestDashboardOverlayDimsSurroundingContent(t *testing.T) {
+	m := newTestModel()
+	m.width = 120
+	m.height = 40
+	m.showDashboard = true
+	m.dashboard = dashboardData{}
+	m.dashNav = nil
+
+	view := m.buildView()
+	// Every line of the composited view that contains background content
+	// (the tab underline, table headers, etc.) should carry the ANSI faint
+	// attribute (\033[2m). Verify no line contains the tab underline
+	// character without being wrapped in faint.
+	for _, line := range strings.Split(view, "\n") {
+		if strings.Contains(line, "━") {
+			assert.Contains(t, line, "\033[2m",
+				"tab underline should be dimmed in overlay")
+		}
+	}
 }
 
 func TestDashboardStatusBarShowsNormal(t *testing.T) {
