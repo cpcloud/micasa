@@ -203,6 +203,25 @@ func TestHandleColumnFinderKey_Backspace(t *testing.T) {
 	assert.Equal(t, "a", cf.Query)
 }
 
+func TestHandleColumnFinderKey_BackspaceMultibyte(t *testing.T) {
+	m := newTestModel()
+	m.openColumnFinder()
+	cf := m.columnFinder
+
+	// Type a multi-byte character followed by an ASCII character.
+	m.handleColumnFinderKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'ü'}})
+	m.handleColumnFinderKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	require.Equal(t, "üx", cf.Query)
+
+	// Backspace should remove 'x', leaving the full 'ü' intact.
+	m.handleColumnFinderKey(tea.KeyMsg{Type: tea.KeyBackspace})
+	assert.Equal(t, "ü", cf.Query)
+
+	// Backspace again should remove 'ü' entirely, not just one byte.
+	m.handleColumnFinderKey(tea.KeyMsg{Type: tea.KeyBackspace})
+	assert.Empty(t, cf.Query)
+}
+
 func TestHandleColumnFinderKey_CtrlU(t *testing.T) {
 	m := newTestModel()
 	m.openColumnFinder()
