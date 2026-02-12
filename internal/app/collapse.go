@@ -54,6 +54,10 @@ func hiddenColumnNames(specs []columnSpec) []string {
 // names. Color indicates position relative to the cursor. The first
 // left-of-cursor badge gets a leading leftward triangle; the last
 // right-of-cursor badge gets a trailing rightward triangle.
+//
+// To avoid subtle one-character layout jitter while moving the cursor, this
+// renderer always reserves space for both the left and right arrow slots,
+// even when one side has no hidden columns.
 func renderHiddenBadges(
 	specs []columnSpec,
 	colCursor int,
@@ -76,16 +80,33 @@ func renderHiddenBadges(
 		return ""
 	}
 
+	leftMarker := "  "
+	if len(leftParts) > 0 {
+		leftMarker = "\u25c0 " // ◀ + gap
+	}
+	rightMarker := "  "
+	if len(rightParts) > 0 {
+		rightMarker = " \u25b6" // gap + ▶
+	}
+
 	var allParts []string
 	for i, name := range leftParts {
 		if i == 0 {
-			name = "\u25c0 " + name // leading ◀
+			name = leftMarker + name
+		}
+		// Reserve right marker slot when all hidden columns are left of cursor.
+		if len(rightParts) == 0 && i == len(leftParts)-1 {
+			name += rightMarker
 		}
 		allParts = append(allParts, styles.HiddenLeft.Render(name))
 	}
 	for i, name := range rightParts {
+		// Reserve left marker slot when all hidden columns are right of cursor.
+		if len(leftParts) == 0 && i == 0 {
+			name = leftMarker + name
+		}
 		if i == len(rightParts)-1 {
-			name += " \u25b6" // trailing ▶
+			name += rightMarker
 		}
 		allParts = append(allParts, styles.HiddenRight.Render(name))
 	}

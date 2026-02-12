@@ -447,6 +447,32 @@ func TestRenderHiddenBadgesBothSides(t *testing.T) {
 	}
 }
 
+func TestRenderHiddenBadgesStableWidthAcrossCursorMoves(t *testing.T) {
+	specs := []columnSpec{
+		{Title: "ID", HideOrder: 1},
+		{Title: "Name"},
+		{Title: "Cost", HideOrder: 2},
+		{Title: "Status"},
+	}
+	styles := DefaultStyles()
+
+	start := renderHiddenBadges(specs, 0, styles)
+	middle := renderHiddenBadges(specs, 1, styles)
+	end := renderHiddenBadges(specs, 3, styles)
+
+	startW := lipgloss.Width(start)
+	middleW := lipgloss.Width(middle)
+	endW := lipgloss.Width(end)
+	if startW != middleW || middleW != endW {
+		t.Fatalf(
+			"expected stable hidden badge widths, got start=%d middle=%d end=%d",
+			startW,
+			middleW,
+			endW,
+		)
+	}
+}
+
 func TestColumnWidthsFixedValuesStillStabilize(t *testing.T) {
 	specs := []columnSpec{
 		{Title: "Status", Min: 8, Max: 12, FixedValues: []string{
