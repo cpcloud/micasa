@@ -591,9 +591,9 @@ func (m *Model) openServiceLogDetail(maintID uint, maintName string) error {
 	// When drilled from the top-level Maintenance tab, the breadcrumb starts
 	// with "Maintenance"; when nested (e.g. Appliances > … > Maint item),
 	// the parent tab context is already on the stack so we skip the prefix.
-	bc := maintName + " > Service Log"
+	bc := maintName + breadcrumbSep + "Service Log"
 	if !m.inDetail() {
-		bc = "Maintenance > " + bc
+		bc = "Maintenance" + breadcrumbSep + bc
 	}
 	specs := serviceLogColumnSpecs()
 	return m.openDetailWith(detailContext{
@@ -615,7 +615,7 @@ func (m *Model) openApplianceMaintenanceDetail(applianceID uint, applianceName s
 	return m.openDetailWith(detailContext{
 		ParentTabIndex: m.active,
 		ParentRowID:    applianceID,
-		Breadcrumb:     "Appliances > " + applianceName,
+		Breadcrumb:     "Appliances" + breadcrumbSep + applianceName,
 		Tab: Tab{
 			Kind:    tabAppliances,
 			Name:    "Maintenance",
@@ -631,7 +631,7 @@ func (m *Model) openVendorQuoteDetail(vendorID uint, vendorName string) error {
 	return m.openDetailWith(detailContext{
 		ParentTabIndex: m.active,
 		ParentRowID:    vendorID,
-		Breadcrumb:     "Vendors > " + vendorName + " > " + tabQuotes.String(),
+		Breadcrumb:     "Vendors" + breadcrumbSep + vendorName + breadcrumbSep + tabQuotes.String(),
 		Tab: Tab{
 			Kind:    tabVendors,
 			Name:    tabQuotes.String(),
@@ -647,7 +647,7 @@ func (m *Model) openVendorJobsDetail(vendorID uint, vendorName string) error {
 	return m.openDetailWith(detailContext{
 		ParentTabIndex: m.active,
 		ParentRowID:    vendorID,
-		Breadcrumb:     "Vendors > " + vendorName + " > Jobs",
+		Breadcrumb:     "Vendors" + breadcrumbSep + vendorName + breadcrumbSep + "Jobs",
 		Tab: Tab{
 			Kind:    tabVendors,
 			Name:    "Jobs",
@@ -663,7 +663,7 @@ func (m *Model) openProjectQuoteDetail(projectID uint, projectTitle string) erro
 	return m.openDetailWith(detailContext{
 		ParentTabIndex: m.active,
 		ParentRowID:    projectID,
-		Breadcrumb:     "Projects > " + projectTitle + " > " + tabQuotes.String(),
+		Breadcrumb:     "Projects" + breadcrumbSep + projectTitle + breadcrumbSep + tabQuotes.String(),
 		Tab: Tab{
 			Kind:    tabProjects,
 			Name:    tabQuotes.String(),

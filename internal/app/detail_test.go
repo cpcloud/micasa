@@ -21,7 +21,11 @@ func TestOpenDetailSetsContext(t *testing.T) {
 	require.NoError(t, m.openServiceLogDetail(42, "Test Item"))
 	require.NotNil(t, m.detail())
 	assert.Equal(t, uint(42), m.detail().ParentRowID)
-	assert.Equal(t, "Maintenance > Test Item > Service Log", m.detail().Breadcrumb)
+	assert.Equal(
+		t,
+		"Maintenance"+breadcrumbSep+"Test Item"+breadcrumbSep+"Service Log",
+		m.detail().Breadcrumb,
+	)
 }
 
 func TestCloseDetailRestoresParent(t *testing.T) {
@@ -291,7 +295,7 @@ func TestApplianceMaintenanceDetailOpens(t *testing.T) {
 	m.active = tabIndex(tabAppliances)
 	require.NoError(t, m.openApplianceMaintenanceDetail(5, "Dishwasher"))
 	require.NotNil(t, m.detail())
-	assert.Equal(t, "Appliances > Dishwasher", m.detail().Breadcrumb)
+	assert.Equal(t, "Appliances"+breadcrumbSep+"Dishwasher", m.detail().Breadcrumb)
 	assert.Equal(t, "Maintenance", m.detail().Tab.Name)
 	assert.Equal(t, tabAppliances, m.detail().Tab.Kind)
 }
