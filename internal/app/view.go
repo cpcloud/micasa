@@ -1023,37 +1023,17 @@ func clampLines(s string, maxW int) string {
 }
 
 // truncateLeft trims s from the left so the result fits within maxW visible
-// columns, prepending "…" when truncation occurs.
+// columns, prepending "…" when truncation occurs. Delegates to
+// ansi.TruncateLeft for correct grapheme-cluster handling.
 func truncateLeft(s string, maxW int) string {
 	if maxW <= 0 {
 		return ""
 	}
-	if lipgloss.Width(s) <= maxW {
+	sw := lipgloss.Width(s)
+	if sw <= maxW {
 		return s
 	}
-	ellipsis := "…"
-	ellW := lipgloss.Width(ellipsis)
-	if maxW <= ellW {
-		return ansi.Truncate(s, maxW, "")
-	}
-
-	// Walk runes from the end, accumulating visible width, until adding another
-	// rune would exceed maxW once we include the ellipsis.
-	runes := []rune(s)
-	keptW := 0
-	cut := len(runes)
-	for i := len(runes) - 1; i >= 0; i-- {
-		cw := lipgloss.Width(string(runes[i]))
-		if keptW+cw+ellW > maxW {
-			break
-		}
-		keptW += cw
-		cut = i
-	}
-	if cut >= len(runes) {
-		return ansi.Truncate(s, maxW, "")
-	}
-	return ellipsis + string(runes[cut:])
+	return ansi.TruncateLeft(s, sw-maxW+1, "…")
 }
 
 // wordWrap breaks text into lines of at most maxW visible columns, splitting

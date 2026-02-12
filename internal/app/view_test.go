@@ -426,6 +426,21 @@ func TestTruncateLeftNoopWhenFits(t *testing.T) {
 	assert.Equal(t, "short.db", truncateLeft("short.db", 20))
 }
 
+func TestTruncateLeftGraphemeClusters(t *testing.T) {
+	// Flag emoji is a multi-rune grapheme cluster (two regional indicators).
+	// A rune-based approach would split it; grapheme-aware truncation keeps
+	// it intact or removes it entirely.
+	s := "\U0001F1EF\U0001F1F5/path/to/file.db" // 🇯🇵/path/to/file.db
+	got := truncateLeft(s, 15)
+	assert.LessOrEqual(t, lipgloss.Width(got), 15)
+	assert.True(t, strings.HasPrefix(got, "\u2026"))
+}
+
+func TestTruncateLeftZeroWidth(t *testing.T) {
+	assert.Empty(t, truncateLeft("anything", 0))
+	assert.Empty(t, truncateLeft("anything", -1))
+}
+
 // --- Viewport tests ---
 
 func TestViewportAllColumnsFit(t *testing.T) {
