@@ -200,7 +200,6 @@
               vhs docs/tapes/demo.tape
               gif2webp -m 6 images/demo.gif -o images/demo.webp
               rm images/demo.gif
-              echo "Done: images/demo.webp"
             '';
           };
           # Captures a single VHS tape to PNG: capture-one <tape-file>
