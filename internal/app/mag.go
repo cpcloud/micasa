@@ -22,11 +22,12 @@ func magValue(c cell) string {
 		return value
 	}
 
-	// Only transform kinds that carry numeric data.
+	// Only transform kinds that carry meaningful numeric data.
+	// Skip cellReadonly (IDs, ages, counts) and non-numeric kinds.
 	switch c.Kind {
-	case cellText, cellMoney, cellReadonly, cellDrilldown:
+	case cellText, cellMoney, cellDrilldown:
 		// Potentially numeric; continue to parsing below.
-	case cellDate, cellWarranty, cellUrgency, cellNotes, cellStatus:
+	case cellReadonly, cellDate, cellWarranty, cellUrgency, cellNotes, cellStatus:
 		return value
 	}
 
@@ -35,10 +36,10 @@ func magValue(c cell) string {
 
 	// Handle negative money: "-$123.45"
 	if strings.HasPrefix(numStr, "-$") {
-		prefix = "-$"
+		prefix = "-$ "
 		numStr = numStr[2:]
 	} else if strings.HasPrefix(numStr, "$") {
-		prefix = "$"
+		prefix = "$ "
 		numStr = numStr[1:]
 	}
 
@@ -50,11 +51,11 @@ func magValue(c cell) string {
 	}
 
 	if f == 0 {
-		return prefix + magArrow + " 0"
+		return prefix + magArrow + "0"
 	}
 
 	mag := int(math.Floor(math.Log10(math.Abs(f))))
-	return fmt.Sprintf("%s%s %d", prefix, magArrow, mag)
+	return fmt.Sprintf("%s%s%d", prefix, magArrow, mag)
 }
 
 // magCents converts a cent amount to magnitude notation (e.g. 523423 → "$🠡 3").

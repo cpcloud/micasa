@@ -15,15 +15,15 @@ func TestMagValueMoney(t *testing.T) {
 		value string
 		want  string
 	}{
-		{"thousands", "$5,234.23", "$\U0001F821 3"},
-		{"hundreds", "$500.00", "$\U0001F821 2"},
-		{"millions", "$1,000,000.00", "$\U0001F821 6"},
-		{"tens", "$42.00", "$\U0001F821 1"},
-		{"single digit", "$7.50", "$\U0001F821 0"},
-		{"sub-dollar", "$0.50", "$\U0001F821 -1"},
-		{"zero", "$0.00", "$\U0001F821 0"},
-		{"negative", "-$5.00", "-$\U0001F821 0"},
-		{"negative large", "-$12,345.00", "-$\U0001F821 4"},
+		{"thousands", "$5,234.23", "$ \U0001F8213"},
+		{"hundreds", "$500.00", "$ \U0001F8212"},
+		{"millions", "$1,000,000.00", "$ \U0001F8216"},
+		{"tens", "$42.00", "$ \U0001F8211"},
+		{"single digit", "$7.50", "$ \U0001F8210"},
+		{"sub-dollar", "$0.50", "$ \U0001F821-1"},
+		{"zero", "$0.00", "$ \U0001F8210"},
+		{"negative", "-$5.00", "-$ \U0001F8210"},
+		{"negative large", "-$12,345.00", "-$ \U0001F8214"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -33,23 +33,28 @@ func TestMagValueMoney(t *testing.T) {
 	}
 }
 
-func TestMagValuePlainNumbers(t *testing.T) {
+func TestMagValueDrilldown(t *testing.T) {
 	tests := []struct {
 		name  string
 		value string
 		want  string
 	}{
-		{"integer", "42", "\U0001F821 1"},
-		{"zero", "0", "\U0001F821 0"},
-		{"large", "1000000", "\U0001F821 6"},
-		{"decimal", "3.14", "\U0001F821 0"},
+		{"count", "42", "\U0001F8211"},
+		{"zero", "0", "\U0001F8210"},
+		{"large", "1000", "\U0001F8213"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := cell{Value: tt.value, Kind: cellReadonly}
+			c := cell{Value: tt.value, Kind: cellDrilldown}
 			assert.Equal(t, tt.want, magValue(c))
 		})
 	}
+}
+
+func TestMagValueSkipsReadonly(t *testing.T) {
+	// IDs and other readonly cells should not be transformed.
+	c := cell{Value: "42", Kind: cellReadonly}
+	assert.Equal(t, "42", magValue(c))
 }
 
 func TestMagValueSkipsNonNumeric(t *testing.T) {
@@ -66,11 +71,12 @@ func TestMagValueSkipsNonNumeric(t *testing.T) {
 		{"notes", "Some long note", cellNotes},
 		{"empty", "", cellText},
 		{"dash", "\u2014", cellMoney},
+		{"readonly id", "7", cellReadonly},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := cell{Value: tt.value, Kind: tt.kind}
-			assert.Equal(t, tt.value, magValue(c), "non-numeric value should be unchanged")
+			assert.Equal(t, tt.value, magValue(c), "value should be unchanged")
 		})
 	}
 }
@@ -78,11 +84,13 @@ func TestMagValueSkipsNonNumeric(t *testing.T) {
 func TestMagTransformCells(t *testing.T) {
 	rows := [][]cell{
 		{
+			{Value: "1", Kind: cellReadonly},
 			{Value: "Kitchen Remodel", Kind: cellText},
 			{Value: "$5,234.23", Kind: cellMoney},
 			{Value: "3", Kind: cellDrilldown},
 		},
 		{
+			{Value: "2", Kind: cellReadonly},
 			{Value: "Deck", Kind: cellText},
 			{Value: "$100.00", Kind: cellMoney},
 			{Value: "0", Kind: cellDrilldown},
@@ -90,20 +98,24 @@ func TestMagTransformCells(t *testing.T) {
 	}
 	out := magTransformCells(rows)
 
+	// ID cells unchanged.
+	assert.Equal(t, "1", out[0][0].Value)
+	assert.Equal(t, "2", out[1][0].Value)
+
 	// Text cells unchanged.
-	assert.Equal(t, "Kitchen Remodel", out[0][0].Value)
-	assert.Equal(t, "Deck", out[1][0].Value)
+	assert.Equal(t, "Kitchen Remodel", out[0][1].Value)
+	assert.Equal(t, "Deck", out[1][1].Value)
 
 	// Money cells transformed.
-	assert.Equal(t, "$\U0001F821 3", out[0][1].Value)
-	assert.Equal(t, "$\U0001F821 2", out[1][1].Value)
+	assert.Equal(t, "$ \U0001F8213", out[0][2].Value)
+	assert.Equal(t, "$ \U0001F8212", out[1][2].Value)
 
 	// Drilldown counts transformed.
-	assert.Equal(t, "\U0001F821 0", out[0][2].Value)
-	assert.Equal(t, "\U0001F821 0", out[1][2].Value)
+	assert.Equal(t, "\U0001F8210", out[0][3].Value)
+	assert.Equal(t, "\U0001F8210", out[1][3].Value)
 
 	// Original rows are not modified.
-	assert.Equal(t, "$5,234.23", rows[0][1].Value)
+	assert.Equal(t, "$5,234.23", rows[0][2].Value)
 }
 
 func TestMagModeToggle(t *testing.T) {
@@ -124,9 +136,9 @@ func TestMagModeWorksInEditMode(t *testing.T) {
 }
 
 func TestMagCents(t *testing.T) {
-	assert.Equal(t, "$\U0001F821 3", magCents(523423))
-	assert.Equal(t, "$\U0001F821 2", magCents(50000))
-	assert.Equal(t, "$\U0001F821 0", magCents(100))
+	assert.Equal(t, "$ \U0001F8213", magCents(523423))
+	assert.Equal(t, "$ \U0001F8212", magCents(50000))
+	assert.Equal(t, "$ \U0001F8210", magCents(100))
 }
 
 func TestMagOptionalCentsNil(t *testing.T) {
@@ -135,5 +147,5 @@ func TestMagOptionalCentsNil(t *testing.T) {
 
 func TestMagOptionalCentsPresent(t *testing.T) {
 	cents := int64(100000)
-	assert.Equal(t, "$\U0001F821 3", magOptionalCents(&cents))
+	assert.Equal(t, "$ \U0001F8213", magOptionalCents(&cents))
 }
