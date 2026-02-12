@@ -247,8 +247,8 @@ func (m *Model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // handleDashboardKeys intercepts keys that belong to the dashboard (j/k
-// navigation, enter to jump, h/l blocked). Keys like D, tab, ?, q fall
-// through to the normal handlers.
+// navigation, enter to jump) and blocks keys that affect backgrounded
+// widgets. Keys like D, b/f, ?, q fall through to the normal handlers.
 func (m *Model) handleDashboardKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 	switch key.String() {
 	case "j", "down":
@@ -265,6 +265,9 @@ func (m *Model) handleDashboardKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 		return nil, true
 	case keyEnter:
 		m.dashJump()
+		return nil, true
+	case "tab":
+		// Block house profile toggle on dashboard.
 		return nil, true
 	case "h", "l", "left", "right":
 		// Block column movement on dashboard.
