@@ -149,7 +149,7 @@ func BenchmarkDashboardView(b *testing.B) {
 	require.NoError(b, m.loadDashboardAt(time.Now()))
 	b.ResetTimer()
 	for b.Loop() {
-		_ = m.dashboardView(30)
+		_ = m.dashboardView(30, 68)
 	}
 }
 

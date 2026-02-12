@@ -88,12 +88,17 @@ type dashRow struct {
 }
 
 // renderMiniTable renders rows with aligned columns and returns the rendered
-// lines. colGap is the space between columns.
-func renderMiniTable(rows []dashRow, colGap int, cursor int, selected lipgloss.Style) []string {
+// lines. colGap is the space between columns. maxWidth caps the total line
+// width; the first column is truncated with an ellipsis when rows would
+// otherwise wrap. Pass 0 to disable width capping.
+func renderMiniTable(
+	rows []dashRow, colGap, maxWidth, cursor int, selected lipgloss.Style,
+) []string {
 	if len(rows) == 0 {
 		return nil
 	}
-	// Compute max width per column.
+
+	// Compute max display width per column.
 	nCols := 0
 	for _, r := range rows {
 		if len(r.Cells) > nCols {
@@ -109,14 +114,39 @@ func renderMiniTable(rows []dashRow, colGap int, cursor int, selected lipgloss.S
 		}
 	}
 
+	// If total width exceeds maxWidth, shrink the first column.
+	const indent = 2
+	if maxWidth > 0 && nCols > 0 {
+		total := indent
+		for i, w := range widths {
+			total += w
+			if i > 0 {
+				total += colGap
+			}
+		}
+		if overflow := total - maxWidth; overflow > 0 {
+			minFirst := 6
+			newFirst := widths[0] - overflow
+			if newFirst < minFirst {
+				newFirst = minFirst
+			}
+			widths[0] = newFirst
+		}
+	}
+
 	gap := strings.Repeat(" ", colGap)
 	lines := make([]string, 0, len(rows))
 	for rowIdx, r := range rows {
 		parts := make([]string, len(r.Cells))
 		for i, c := range r.Cells {
-			styled := c.Style.Render(c.Text)
-			textWidth := lipgloss.Width(c.Text)
-			pad := widths[i] - textWidth
+			text := c.Text
+			// Truncate text that exceeds its column width.
+			if tw := lipgloss.Width(text); tw > widths[i] {
+				text = truncateToWidth(text, widths[i])
+			}
+			styled := c.Style.Render(text)
+			tw := lipgloss.Width(text)
+			pad := widths[i] - tw
 			if pad < 0 {
 				pad = 0
 			}
@@ -133,6 +163,27 @@ func renderMiniTable(rows []dashRow, colGap int, cursor int, selected lipgloss.S
 		lines = append(lines, line)
 	}
 	return lines
+}
+
+// truncateToWidth trims text to fit within maxW display columns, appending
+// an ellipsis if truncation occurs.
+func truncateToWidth(text string, maxW int) string {
+	if maxW <= 0 {
+		return ""
+	}
+	if maxW == 1 {
+		return "\u2026"
+	}
+	runes := []rune(text)
+	w := 0
+	for i, r := range runes {
+		rw := lipgloss.Width(string(r))
+		if w+rw > maxW-1 { // reserve 1 column for ellipsis
+			return string(runes[:i]) + "\u2026"
+		}
+		w += rw
+	}
+	return text
 }
 
 // ---------------------------------------------------------------------------
@@ -298,9 +349,11 @@ func (s dashSection) overhead() int {
 }
 
 // dashboardView renders the dashboard content, fitting within budget content
-// lines. Empty sections are skipped; rows are trimmed proportionally when the
-// terminal is short.
-func (m *Model) dashboardView(budget int) string {
+// lines and maxWidth display columns. Empty sections are skipped; rows are
+// trimmed proportionally when the terminal is short. maxWidth prevents rows
+// from exceeding the overlay's inner width (which would cause wrapping and
+// eat vertical space).
+func (m *Model) dashboardView(budget, maxWidth int) string {
 	d := m.dashboard
 
 	// Collect non-empty sections.
@@ -376,6 +429,7 @@ func (m *Model) dashboardView(budget int) string {
 	// Trim section rows and sub-counts to limits, then render.
 	sel := m.styles.TableSelected
 	colGap := 3
+	maxW := maxWidth
 	cursor := m.dashCursor
 	var nav []dashNavEntry
 	var allLines []string
@@ -386,7 +440,7 @@ func (m *Model) dashboardView(budget int) string {
 
 		var sLines []string
 		if len(s.subCounts) > 0 {
-			sLines = m.renderMaintSection(s, limit, cursor, colGap, sel)
+			sLines = m.renderMaintSection(s, limit, cursor, colGap, maxW, sel)
 		} else {
 			hdr := m.styles.DashSection.Render(s.title)
 			localCursor := -1
@@ -394,7 +448,7 @@ func (m *Model) dashboardView(budget int) string {
 				localCursor = cursor
 			}
 			sLines = append([]string{hdr},
-				renderMiniTable(rows, colGap, localCursor, sel)...)
+				renderMiniTable(rows, colGap, maxW, localCursor, sel)...)
 		}
 		cursor -= len(rows)
 
@@ -425,7 +479,7 @@ func (m *Model) dashboardView(budget int) string {
 // renderMaintSection renders the maintenance section with Overdue/Upcoming
 // sub-headers, distributing limit rows across sub-sections proportionally.
 func (m *Model) renderMaintSection(
-	s dashSection, limit, cursor, colGap int, sel lipgloss.Style,
+	s dashSection, limit, cursor, colGap, maxWidth int, sel lipgloss.Style,
 ) []string {
 	// Distribute limit among sub-sections proportionally.
 	subLimits := distributeSubLimits(s.subCounts, limit)
@@ -449,7 +503,7 @@ func (m *Model) renderMaintSection(
 			localCursor = cursor
 		}
 		lines = append(lines,
-			renderMiniTable(subRows, colGap, localCursor, sel)...)
+			renderMiniTable(subRows, colGap, maxWidth, localCursor, sel)...)
 		cursor -= subN
 		offset += s.subCounts[si]
 		rendered++

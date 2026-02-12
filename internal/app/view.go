@@ -166,7 +166,7 @@ func (m *Model) buildDashboardOverlay() string {
 	if contentBudget < 3 {
 		contentBudget = 3
 	}
-	content := m.dashboardView(contentBudget)
+	content := m.dashboardView(contentBudget, innerW)
 
 	// Title: "Dashboard" left-aligned, header (nickname · date) right-aligned.
 	title := m.styles.HeaderSection.Render("Dashboard")
