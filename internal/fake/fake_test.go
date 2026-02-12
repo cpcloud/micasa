@@ -93,6 +93,19 @@ func TestAppliance(t *testing.T) {
 	assert.NotNil(t, a.CostCents)
 }
 
+func TestApplianceCJKBrandPrefix(t *testing.T) {
+	// Run enough seeds to hit a CJK brand (東芝) at least once.
+	for seed := uint64(0); seed < 200; seed++ {
+		h := New(seed)
+		a := h.Appliance()
+
+		assert.NotContains(t, a.ModelNumber, "\uFFFD",
+			"seed %d brand %q: model number contains replacement character", seed, a.Brand)
+		assert.NotContains(t, a.SerialNumber, "\uFFFD",
+			"seed %d brand %q: serial number contains replacement character", seed, a.Brand)
+	}
+}
+
 func TestMaintenanceItem(t *testing.T) {
 	h := New(7)
 
