@@ -258,6 +258,9 @@ These have been repeatedly requested. Violating them wastes the user's time.
   need a different directory.
 - **No `&&`**: Do not join shell commands with `&&`. Run them as separate tool
   calls (parallel when independent, sequential when dependent).
+- **Treat "upstream" conceptually**: When the user says "rebase on upstream",
+  use the repository's canonical mainline remote even if it is not literally
+  named `upstream` (for example `origin/main` when no `upstream` remote exists).
 - **Quote nix flake refs**: Always single-quote flake references that
   contain `#` so the shell doesn't treat `#` as a comment. Examples:
   `nix shell 'nixpkgs#vhs'`, `nix run '.#capture-screenshots'`,
@@ -322,6 +325,9 @@ These have been repeatedly requested. Violating them wastes the user's time.
   `fix(data): ...`). **This includes small one-liner asks and micro UI
   tweaks.** Do this immediately when the request is made, not later in a
   batch.
+- **Exception for AGENTS-only edits**: Do not create a GitHub issue solely
+  for AGENTS.md rule updates. Keep those changes scoped to the relevant branch
+  or a dedicated docs/agent-rules branch as appropriate.
 - **Website commits use `docs(website):`** not `feat(website):` to avoid
   triggering semantic-release version bumps.
 - **Keep README and website in sync**: when changing content on one (features,
