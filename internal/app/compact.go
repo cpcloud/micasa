@@ -9,6 +9,25 @@ import (
 	"github.com/cpcloud/micasa/internal/data"
 )
 
+// statusLabels maps full status names to short display labels.
+var statusLabels = map[string]string{
+	"ideating":  "idea",
+	"planned":   "plan",
+	"quoted":    "bid",
+	"underway":  "wip",
+	"delayed":   "hold",
+	"completed": "done",
+	"abandoned": "drop",
+}
+
+// statusLabel returns the short display label for a status value.
+func statusLabel(status string) string {
+	if label, ok := statusLabels[status]; ok {
+		return label
+	}
+	return status
+}
+
 // annotateMoneyHeaders returns a copy of specs with a styled green "$"
 // appended to money column titles. The unit lives in the header so cell
 // values can be bare numbers.

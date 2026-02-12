@@ -38,37 +38,45 @@ func TestFormatInterval(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Status abbreviation
+// Status labels
 // ---------------------------------------------------------------------------
 
-func TestStatusFirstCharDistinct(t *testing.T) {
-	// Every status should have a unique first character so the
-	// single-letter display is unambiguous.
-	statuses := []string{
-		"ideating", "planned", "quoted",
-		"underway", "delayed", "completed", "abandoned",
+func TestStatusLabels(t *testing.T) {
+	tests := []struct {
+		status string
+		want   string
+	}{
+		{"ideating", "idea"},
+		{"planned", "plan"},
+		{"quoted", "bid"},
+		{"underway", "wip"},
+		{"delayed", "hold"},
+		{"completed", "done"},
+		{"abandoned", "drop"},
+		{"unknown", "unknown"},
 	}
-	seen := make(map[byte]string)
-	for _, s := range statuses {
-		ch := s[0]
-		if prev, ok := seen[ch]; ok {
-			t.Errorf(
-				"statuses %q and %q share first char %q",
-				prev, s, string(ch),
-			)
+	for _, tt := range tests {
+		t.Run(tt.status, func(t *testing.T) {
+			assert.Equal(t, tt.want, statusLabel(tt.status))
+		})
+	}
+}
+
+func TestStatusLabelsAreDistinct(t *testing.T) {
+	seen := make(map[string]string)
+	for status, label := range statusLabels {
+		if prev, ok := seen[label]; ok {
+			t.Errorf("duplicate label %q for %q and %q", label, prev, status)
 		}
-		seen[ch] = s
+		seen[label] = status
 	}
 }
 
 func TestStatusStylesExistForAll(t *testing.T) {
 	styles := DefaultStyles()
-	for _, s := range []string{
-		"ideating", "planned", "quoted",
-		"underway", "delayed", "completed", "abandoned",
-	} {
-		_, ok := styles.StatusStyles[s]
-		assert.True(t, ok, "missing StatusStyle for %q", s)
+	for status := range statusLabels {
+		_, ok := styles.StatusStyles[status]
+		assert.True(t, ok, "missing StatusStyle for %q", status)
 	}
 }
 

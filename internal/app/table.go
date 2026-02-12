@@ -336,9 +336,7 @@ func renderCell(
 		if s, ok := styles.StatusStyles[value]; ok {
 			style = s
 		}
-		if len(value) > 0 {
-			value = strings.ToUpper(value[:1])
-		}
+		value = statusLabel(value)
 	} else if cellValue.Kind == cellUrgency {
 		style = urgencyStyle(value)
 	} else if cellValue.Kind == cellWarranty {
