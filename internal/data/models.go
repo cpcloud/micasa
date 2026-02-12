@@ -26,6 +26,7 @@ const (
 	DeletionEntityAppliance   = "appliance"
 	DeletionEntityServiceLog  = "service_log"
 	DeletionEntityVendor      = "vendor"
+	DeletionEntityDocument    = "document"
 )
 
 // Column name constants for use in raw SQL queries. Centralising these
@@ -60,6 +61,28 @@ const (
 	ColWebsite           = "website"
 	ColNotes             = "notes"
 )
+
+const (
+	DocumentEntityNone        = ""
+	DocumentEntityProject     = "project"
+	DocumentEntityQuote       = "quote"
+	DocumentEntityMaintenance = "maintenance"
+	DocumentEntityAppliance   = "appliance"
+	DocumentEntityServiceLog  = "service_log"
+	DocumentEntityVendor      = "vendor"
+)
+
+func DocumentEntityKinds() []string {
+	return []string{
+		DocumentEntityNone,
+		DocumentEntityProject,
+		DocumentEntityQuote,
+		DocumentEntityMaintenance,
+		DocumentEntityAppliance,
+		DocumentEntityServiceLog,
+		DocumentEntityVendor,
+	}
+}
 
 type HouseProfile struct {
 	ID               uint `gorm:"primaryKey"`
@@ -203,6 +226,22 @@ type ServiceLogEntry struct {
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 	DeletedAt         gorm.DeletedAt `gorm:"index"`
+}
+
+type Document struct {
+	ID             uint `gorm:"primaryKey"`
+	Title          string
+	FilePath       string `gorm:"column:file_path"`
+	FileName       string `gorm:"column:file_name"`
+	MIMEType       string `gorm:"column:mime_type"`
+	SizeBytes      int64  `gorm:"column:size_bytes"`
+	ChecksumSHA256 string `gorm:"column:sha256"`
+	EntityKind     string `gorm:"column:entity_kind;index"`
+	EntityID       *uint  `gorm:"column:entity_id;index"`
+	Notes          string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	DeletedAt      gorm.DeletedAt `gorm:"index"`
 }
 
 type DeletionRecord struct {

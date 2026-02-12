@@ -4,8 +4,13 @@
 package data
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
+	"io"
+	"mime"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 	"unicode"
@@ -124,6 +129,7 @@ func (s *Store) AutoMigrate() error {
 		&Appliance{},
 		&MaintenanceItem{},
 		&ServiceLogEntry{},
+		&Document{},
 		&DeletionRecord{},
 		&Setting{},
 		&ChatInput{},
@@ -328,6 +334,53 @@ func (s *Store) SeedDemoDataFrom(h *fake.HomeFaker) error {
 			if err := s.db.Create(&entry).Error; err != nil {
 				return fmt.Errorf("seed service log: %w", err)
 			}
+		}
+	}
+
+	// Documents: attach a few representative records so the Documents tab is
+	// populated in demo mode.
+	var demoDocs []Document
+	if len(projects) > 0 {
+		projectID := projects[0].ID
+		demoDocs = append(demoDocs, Document{
+			Title:          "Kitchen proposal PDF",
+			FilePath:       "/demo/docs/kitchen-proposal.pdf",
+			FileName:       "kitchen-proposal.pdf",
+			MIMEType:       "application/pdf",
+			SizeBytes:      218344,
+			ChecksumSHA256: "demo-kitchen-proposal",
+			EntityKind:     DocumentEntityProject,
+			EntityID:       &projectID,
+			Notes:          "Initial concept and rough scope",
+		})
+	}
+	if len(appliances) > 0 {
+		applianceID := appliances[0].ID
+		demoDocs = append(demoDocs, Document{
+			Title:          "Appliance manual",
+			FilePath:       "/demo/docs/appliance-manual.pdf",
+			FileName:       "appliance-manual.pdf",
+			MIMEType:       "application/pdf",
+			SizeBytes:      542211,
+			ChecksumSHA256: "demo-appliance-manual",
+			EntityKind:     DocumentEntityAppliance,
+			EntityID:       &applianceID,
+			Notes:          "Manufacturer manual for quick lookup",
+		})
+	}
+	demoDocs = append(demoDocs, Document{
+		Title:          "Warranty card photo",
+		FilePath:       "/demo/docs/warranty-card.jpg",
+		FileName:       "warranty-card.jpg",
+		MIMEType:       "image/jpeg",
+		SizeBytes:      98442,
+		ChecksumSHA256: "demo-warranty-card",
+		EntityKind:     DocumentEntityNone,
+		Notes:          "Loose file not yet linked",
+	})
+	for _, doc := range demoDocs {
+		if err := s.db.Create(&doc).Error; err != nil {
+			return fmt.Errorf("seed document %s: %w", doc.Title, err)
 		}
 	}
 
@@ -743,6 +796,65 @@ func (s *Store) CountMaintenanceByAppliance(applianceIDs []uint) (map[uint]int, 
 	return s.countByFK(&MaintenanceItem{}, ColApplianceID, applianceIDs)
 }
 
+func (s *Store) ListDocuments(includeDeleted bool) ([]Document, error) {
+	var docs []Document
+	db := s.db.Order("updated_at desc")
+	if includeDeleted {
+		db = db.Unscoped()
+	}
+	if err := db.Find(&docs).Error; err != nil {
+		return nil, err
+	}
+	return docs, nil
+}
+
+func (s *Store) GetDocument(id uint) (Document, error) {
+	var doc Document
+	if err := s.db.First(&doc, id).Error; err != nil {
+		return Document{}, err
+	}
+	return doc, nil
+}
+
+func (s *Store) CreateDocument(doc Document) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := normalizeDocument(&doc); err != nil {
+			return err
+		}
+		if err := validateDocumentTarget(tx, doc); err != nil {
+			return err
+		}
+		return tx.Create(&doc).Error
+	})
+}
+
+func (s *Store) UpdateDocument(doc Document) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := normalizeDocument(&doc); err != nil {
+			return err
+		}
+		if err := validateDocumentTarget(tx, doc); err != nil {
+			return err
+		}
+		return updateByIDWith(tx, &Document{}, doc.ID, doc)
+	})
+}
+
+func (s *Store) DeleteDocument(id uint) error {
+	return s.softDelete(&Document{}, DeletionEntityDocument, id)
+}
+
+func (s *Store) RestoreDocument(id uint) error {
+	var doc Document
+	if err := s.db.Unscoped().First(&doc, id).Error; err != nil {
+		return err
+	}
+	if err := validateDocumentTarget(s.db, doc); err != nil {
+		return err
+	}
+	return s.restoreEntity(&Document{}, DeletionEntityDocument, id)
+}
+
 func (s *Store) DeleteVendor(id uint) error {
 	n, err := s.countDependents(&Quote{}, ColVendorID, id)
 	if err != nil {
@@ -1048,4 +1160,82 @@ func findOrCreateVendor(tx *gorm.DB, vendor Vendor) (Vendor, error) {
 		return Vendor{}, err
 	}
 	return existing, nil
+}
+
+func normalizeDocument(doc *Document) error {
+	doc.Title = strings.TrimSpace(doc.Title)
+	doc.FilePath = strings.TrimSpace(doc.FilePath)
+	doc.EntityKind = strings.TrimSpace(doc.EntityKind)
+	doc.Notes = strings.TrimSpace(doc.Notes)
+	if doc.EntityKind == DocumentEntityNone {
+		doc.EntityKind = ""
+	}
+	if doc.EntityKind == "" {
+		doc.EntityID = nil
+	}
+	if doc.Title == "" {
+		return fmt.Errorf("document title is required")
+	}
+	if doc.FilePath == "" {
+		return fmt.Errorf("document path is required")
+	}
+	absPath, err := filepath.Abs(doc.FilePath)
+	if err != nil {
+		return fmt.Errorf("resolve document path: %w", err)
+	}
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return fmt.Errorf("stat document: %w", err)
+	}
+	if info.IsDir() {
+		return fmt.Errorf("document path must be a file")
+	}
+	checksum, err := sha256File(absPath)
+	if err != nil {
+		return err
+	}
+	doc.FilePath = absPath
+	doc.FileName = info.Name()
+	doc.SizeBytes = info.Size()
+	doc.MIMEType = mime.TypeByExtension(strings.ToLower(filepath.Ext(info.Name())))
+	doc.ChecksumSHA256 = checksum
+	return nil
+}
+
+func validateDocumentTarget(tx *gorm.DB, doc Document) error {
+	if doc.EntityKind == "" {
+		return nil
+	}
+	if doc.EntityID == nil {
+		return fmt.Errorf("entity id is required when entity kind is set")
+	}
+	switch doc.EntityKind {
+	case DocumentEntityProject:
+		return tx.First(&Project{}, *doc.EntityID).Error
+	case DocumentEntityQuote:
+		return tx.First(&Quote{}, *doc.EntityID).Error
+	case DocumentEntityMaintenance:
+		return tx.First(&MaintenanceItem{}, *doc.EntityID).Error
+	case DocumentEntityAppliance:
+		return tx.First(&Appliance{}, *doc.EntityID).Error
+	case DocumentEntityServiceLog:
+		return tx.First(&ServiceLogEntry{}, *doc.EntityID).Error
+	case DocumentEntityVendor:
+		return tx.First(&Vendor{}, *doc.EntityID).Error
+	default:
+		return fmt.Errorf("invalid document entity kind %q", doc.EntityKind)
+	}
+}
+
+func sha256File(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("open document for hashing: %w", err)
+	}
+	defer f.Close()
+	hash := sha256.New()
+	if _, err := io.Copy(hash, f); err != nil {
+		return "", fmt.Errorf("hash document: %w", err)
+	}
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }

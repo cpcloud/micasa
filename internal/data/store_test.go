@@ -4,6 +4,7 @@
 package data
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -1063,6 +1064,92 @@ func TestUnicodeRoundTripNotes(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, projects)
 	assert.Equal(t, notes, projects[len(projects)-1].Description)
+}
+
+func TestDocumentCRUDAndMetadata(t *testing.T) {
+	store := newTestStore(t)
+	types, _ := store.ProjectTypes()
+	require.NoError(t, store.CreateProject(Project{
+		Title: "Doc Project", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}))
+	projects, _ := store.ListProjects(false)
+	projectID := projects[0].ID
+
+	filePath := filepath.Join(t.TempDir(), "invoice.pdf")
+	require.NoError(t, os.WriteFile(filePath, []byte("fake pdf content"), 0o644))
+
+	require.NoError(t, store.CreateDocument(Document{
+		Title:      "Quote PDF",
+		FilePath:   filePath,
+		EntityKind: DocumentEntityProject,
+		EntityID:   &projectID,
+		Notes:      "first draft",
+	}))
+	docs, err := store.ListDocuments(false)
+	require.NoError(t, err)
+	require.Len(t, docs, 1)
+
+	doc := docs[0]
+	assert.Equal(t, "Quote PDF", doc.Title)
+	assert.Equal(t, "invoice.pdf", doc.FileName)
+	assert.NotEmpty(t, doc.ChecksumSHA256)
+	assert.NotEmpty(t, doc.MIMEType)
+	assert.Equal(t, DocumentEntityProject, doc.EntityKind)
+	require.NotNil(t, doc.EntityID)
+	assert.Equal(t, projectID, *doc.EntityID)
+
+	require.NoError(t, store.DeleteDocument(doc.ID))
+	docs, err = store.ListDocuments(false)
+	require.NoError(t, err)
+	assert.Empty(t, docs)
+
+	require.NoError(t, store.RestoreDocument(doc.ID))
+	docs, err = store.ListDocuments(false)
+	require.NoError(t, err)
+	require.Len(t, docs, 1)
+}
+
+func TestRestoreDocumentBlockedByDeletedTarget(t *testing.T) {
+	store := newTestStore(t)
+	types, _ := store.ProjectTypes()
+	require.NoError(t, store.CreateProject(Project{
+		Title: "Doc Restore Project", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}))
+	projects, _ := store.ListProjects(false)
+	projectID := projects[0].ID
+
+	filePath := filepath.Join(t.TempDir(), "note.txt")
+	require.NoError(t, os.WriteFile(filePath, []byte("note"), 0o644))
+
+	require.NoError(t, store.CreateDocument(Document{
+		Title:      "Project Note",
+		FilePath:   filePath,
+		EntityKind: DocumentEntityProject,
+		EntityID:   &projectID,
+	}))
+	docs, _ := store.ListDocuments(false)
+	docID := docs[0].ID
+
+	require.NoError(t, store.DeleteDocument(docID))
+	require.NoError(t, store.DeleteProject(projectID))
+	require.ErrorContains(t, store.RestoreDocument(docID), "record not found")
+
+	require.NoError(t, store.RestoreProject(projectID))
+	require.NoError(t, store.RestoreDocument(docID))
+}
+
+func TestCreateDocumentRejectsInvalidEntityKind(t *testing.T) {
+	store := newTestStore(t)
+	filePath := filepath.Join(t.TempDir(), "doc.txt")
+	require.NoError(t, os.WriteFile(filePath, []byte("hello"), 0o644))
+	id := uint(1)
+	err := store.CreateDocument(Document{
+		Title:      "Bad Link",
+		FilePath:   filePath,
+		EntityKind: "bogus",
+		EntityID:   &id,
+	})
+	require.ErrorContains(t, err, "invalid document entity kind")
 }
 
 func newTestStore(t *testing.T) *Store {

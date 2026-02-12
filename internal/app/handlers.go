@@ -742,3 +742,75 @@ func (projectQuoteHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool
 }
 
 func (projectQuoteHandler) SyncFixedValues(_ *Model, _ []columnSpec) {}
+
+// ---------------------------------------------------------------------------
+// documentHandler
+// ---------------------------------------------------------------------------
+
+type documentHandler struct{}
+
+func (documentHandler) FormKind() FormKind { return formDocument }
+
+func (documentHandler) Load(
+	store *data.Store,
+	showDeleted bool,
+) ([]table.Row, []rowMeta, [][]cell, error) {
+	docs, err := store.ListDocuments(showDeleted)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	rows, meta, cellRows := documentRows(docs)
+	return rows, meta, cellRows, nil
+}
+
+func (documentHandler) Delete(store *data.Store, id uint) error {
+	return store.DeleteDocument(id)
+}
+
+func (documentHandler) Restore(store *data.Store, id uint) error {
+	return store.RestoreDocument(id)
+}
+
+func (documentHandler) StartAddForm(m *Model) error {
+	m.startDocumentForm()
+	return nil
+}
+
+func (documentHandler) StartEditForm(m *Model, id uint) error {
+	return m.startEditDocumentForm(id)
+}
+
+func (documentHandler) InlineEdit(m *Model, id uint, _ int) error {
+	return m.startEditDocumentForm(id)
+}
+
+func (documentHandler) SubmitForm(m *Model) error {
+	return m.submitDocumentForm()
+}
+
+func (documentHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
+	doc, err := store.GetDocument(id)
+	if err != nil {
+		return undoEntry{}, false
+	}
+	return undoEntry{
+		Description: fmt.Sprintf("document %q", doc.Title),
+		FormKind:    formDocument,
+		EntityID:    id,
+		Restore: func() error {
+			return store.UpdateDocument(doc)
+		},
+	}, true
+}
+
+func (documentHandler) SyncFixedValues(_ *Model, specs []columnSpec) {
+	kinds := make([]string, 0, len(data.DocumentEntityKinds()))
+	for _, kind := range data.DocumentEntityKinds() {
+		if kind == "" {
+			kinds = append(kinds, "none")
+			continue
+		}
+		kinds = append(kinds, kind)
+	}
+	setFixedValues(specs, "Type", kinds)
+}

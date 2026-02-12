@@ -54,6 +54,7 @@ func NewTabs(styles Styles) []Tab {
 	maintenanceSpecs := maintenanceColumnSpecs()
 	applianceSpecs := applianceColumnSpecs()
 	vendorSpecs := vendorColumnSpecs()
+	documentSpecs := documentColumnSpecs()
 	return []Tab{
 		{
 			Kind:    tabProjects,
@@ -89,6 +90,13 @@ func NewTabs(styles Styles) []Tab {
 			Handler: vendorHandler{},
 			Specs:   vendorSpecs,
 			Table:   newTable(specsToColumns(vendorSpecs), styles),
+		},
+		{
+			Kind:    tabDocuments,
+			Name:    "Documents",
+			Handler: documentHandler{},
+			Specs:   documentSpecs,
+			Table:   newTable(specsToColumns(documentSpecs), styles),
 		},
 	}
 }
@@ -337,6 +345,17 @@ func vendorColumnSpecs() []columnSpec {
 	}
 }
 
+func documentColumnSpecs() []columnSpec {
+	return []columnSpec{
+		{Title: "ID", Min: 4, Max: 6, Align: alignRight, Kind: cellReadonly},
+		{Title: "Title", Min: 14, Max: 24, Flex: true},
+		{Title: "File", Min: 12, Max: 24, Flex: true},
+		{Title: "Type", Min: 10, Max: 14},
+		{Title: "Ref", Min: 8, Max: 16},
+		{Title: "Size", Min: 8, Max: 12, Align: alignRight, Kind: cellReadonly},
+	}
+}
+
 func vendorRows(
 	vendors []data.Vendor,
 	quoteCounts map[uint]int,
@@ -366,6 +385,46 @@ func vendorRows(
 			},
 		}
 	})
+}
+
+func documentRows(items []data.Document) ([]table.Row, []rowMeta, [][]cell) {
+	return buildRows(items, func(d data.Document) rowSpec {
+		ref := ""
+		if d.EntityID != nil {
+			ref = fmt.Sprintf("%s:%d", d.EntityKind, *d.EntityID)
+		}
+		return rowSpec{
+			ID:      d.ID,
+			Deleted: d.DeletedAt.Valid,
+			Cells: []cell{
+				{Value: fmt.Sprintf("%d", d.ID), Kind: cellReadonly},
+				{Value: d.Title, Kind: cellText},
+				{Value: d.FileName, Kind: cellText},
+				{Value: displayDocumentKind(d.EntityKind), Kind: cellText},
+				{Value: ref, Kind: cellText},
+				{Value: formatSize(d.SizeBytes), Kind: cellReadonly},
+			},
+		}
+	})
+}
+
+func displayDocumentKind(kind string) string {
+	if kind == "" {
+		return "none"
+	}
+	return kind
+}
+
+func formatSize(size int64) string {
+	if size < 1024 {
+		return fmt.Sprintf("%d B", size)
+	}
+	kb := float64(size) / 1024.0
+	if kb < 1024 {
+		return fmt.Sprintf("%.1f KB", kb)
+	}
+	mb := kb / 1024.0
+	return fmt.Sprintf("%.1f MB", mb)
 }
 
 func specsToColumns(specs []columnSpec) []table.Column {

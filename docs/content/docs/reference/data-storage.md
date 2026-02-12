@@ -42,6 +42,7 @@ run migrations manually.
 | `maintenance_categories` | Pre-seeded maintenance categories |
 | `appliances`           | Physical equipment |
 | `service_log_entries`  | Service history per maintenance item |
+| `documents`            | File metadata + attachments linked to records |
 | `deletion_records`     | Audit trail for soft deletes/restores |
 
 ### Pre-seeded data

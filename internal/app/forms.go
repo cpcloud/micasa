@@ -114,6 +114,14 @@ type applianceFormData struct {
 	Notes          string
 }
 
+type documentFormData struct {
+	Title      string
+	FilePath   string
+	EntityKind string
+	EntityID   string
+	Notes      string
+}
+
 func (m *Model) startHouseForm() {
 	values := &houseFormData{}
 	if m.hasHouse {
@@ -638,6 +646,114 @@ func (m *Model) parseVendorFormData() (data.Vendor, error) {
 	}, nil
 }
 
+func (m *Model) startDocumentForm() {
+	values := &documentFormData{}
+	m.openDocumentForm(values)
+}
+
+func (m *Model) startEditDocumentForm(id uint) error {
+	doc, err := m.store.GetDocument(id)
+	if err != nil {
+		return fmt.Errorf("load document: %w", err)
+	}
+	values := documentFormValues(doc)
+	m.editID = &id
+	m.openDocumentForm(values)
+	return nil
+}
+
+func (m *Model) openDocumentForm(values *documentFormData) {
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Title").
+				Placeholder("Final quote PDF").
+				Value(&values.Title).
+				Validate(requiredText("title")),
+			huh.NewFilePicker().
+				Title("Document file").
+				Description("Use picker search to quickly find the file").
+				FileAllowed(true).
+				DirAllowed(false).
+				ShowHidden(false).
+				Value(&values.FilePath).
+				Validate(requiredText("document file")),
+		).Title("File"),
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Linked record type").
+				Options(documentEntityOptions()...).
+				Value(&values.EntityKind),
+			huh.NewInput().
+				Title("Linked record ID").
+				Placeholder("e.g. 42 (optional for none)").
+				Value(&values.EntityID).
+				Validate(optionalEntityIDForKind(&values.EntityKind)),
+			huh.NewText().Title("Notes").Value(&values.Notes),
+		).Title("Link"),
+	)
+	m.activateForm(formDocument, form, values)
+}
+
+func (m *Model) submitDocumentForm() error {
+	doc, err := m.parseDocumentFormData()
+	if err != nil {
+		return err
+	}
+	if m.editID != nil {
+		doc.ID = *m.editID
+		return m.store.UpdateDocument(doc)
+	}
+	return m.store.CreateDocument(doc)
+}
+
+func (m *Model) parseDocumentFormData() (data.Document, error) {
+	values, ok := m.formData.(*documentFormData)
+	if !ok {
+		return data.Document{}, fmt.Errorf("unexpected document form data")
+	}
+	entityKind := strings.TrimSpace(values.EntityKind)
+	if entityKind == "none" {
+		entityKind = ""
+	}
+
+	var entityID *uint
+	entityIDText := strings.TrimSpace(values.EntityID)
+	if entityKind != "" {
+		if entityIDText == "" {
+			return data.Document{}, fmt.Errorf("linked record id is required")
+		}
+		parsed, err := data.ParseRequiredInt(entityIDText)
+		if err != nil {
+			return data.Document{}, fmt.Errorf("linked record id should be a positive whole number")
+		}
+		id := uint(parsed)
+		entityID = &id
+	}
+
+	return data.Document{
+		Title:      strings.TrimSpace(values.Title),
+		FilePath:   strings.TrimSpace(values.FilePath),
+		EntityKind: entityKind,
+		EntityID:   entityID,
+		Notes:      strings.TrimSpace(values.Notes),
+	}, nil
+}
+
+func documentFormValues(doc data.Document) *documentFormData {
+	entityID := ""
+	if doc.EntityID != nil {
+		entityID = strconv.FormatUint(uint64(*doc.EntityID), 10)
+	}
+	return &documentFormData{
+		Title:      doc.Title,
+		FilePath:   doc.FilePath,
+		EntityKind: displayDocumentKind(doc.EntityKind),
+		EntityID:   entityID,
+		Notes:      doc.Notes,
+	}
+}
+
 func (m *Model) inlineEditVendor(id uint, col int) error {
 	vendor, err := m.store.GetVendor(id)
 	if err != nil {
@@ -1062,6 +1178,37 @@ func vendorOptions(vendors []data.Vendor) []huh.Option[uint] {
 		options = append(options, huh.NewOption(label, v.ID))
 	}
 	return withOrdinals(options)
+}
+
+func documentEntityOptions() []huh.Option[string] {
+	kinds := data.DocumentEntityKinds()
+	options := make([]huh.Option[string], 0, len(kinds))
+	for _, kind := range kinds {
+		label := kind
+		if kind == "" {
+			label = "none"
+		}
+		options = append(options, huh.NewOption(label, label))
+	}
+	return withOrdinals(options)
+}
+
+func optionalEntityIDForKind(kind *string) func(string) error {
+	return func(input string) error {
+		value := strings.TrimSpace(input)
+		selectedKind := strings.TrimSpace(*kind)
+		if selectedKind == "none" || selectedKind == "" {
+			if value != "" {
+				return fmt.Errorf("clear linked record id when linked record type is none")
+			}
+			return nil
+		}
+		parsed, err := data.ParseRequiredInt(value)
+		if err != nil || parsed <= 0 {
+			return fmt.Errorf("linked record id should be a positive whole number")
+		}
+		return nil
+	}
 }
 
 func requiredDate(label string) func(string) error {
