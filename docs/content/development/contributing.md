@@ -75,6 +75,13 @@ docs(website): update feature list
 Use `docs(website):` (not `feat(website):`) for website changes to avoid
 triggering version bumps.
 
+## Dependencies
+
+micasa is offline by design -- single SQLite file, no cloud, no accounts. PRs
+that add dependencies requiring network access or external services will almost
+certainly be closed. If you think your case is the exception, make the argument
+in the issue first.
+
 ## Code style
 
 - **Run `go mod tidy` before committing** to keep dependencies clean
