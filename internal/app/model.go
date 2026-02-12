@@ -37,7 +37,7 @@ type Model struct {
 	styles                Styles
 	tabs                  []Tab
 	active                int
-	detail                *detailContext // non-nil when viewing a detail sub-table
+	detailStack           []*detailContext // drilldown stack; top is active detail view
 	width                 int
 	height                int
 	helpViewport          *viewport.Model
@@ -324,7 +324,7 @@ func (m *Model) handleNormalKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 		m.toggleDashboard()
 		return nil, true
 	case "f":
-		if m.detail == nil {
+		if !m.inDetail() {
 			if m.showDashboard {
 				m.showDashboard = false
 			}
@@ -332,7 +332,7 @@ func (m *Model) handleNormalKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 		}
 		return nil, true
 	case "b":
-		if m.detail == nil {
+		if !m.inDetail() {
 			if m.showDashboard {
 				m.showDashboard = false
 			}
@@ -387,7 +387,7 @@ func (m *Model) handleNormalKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 	case "q":
 		return tea.Quit, true
 	case keyEsc:
-		if m.detail != nil {
+		if m.inDetail() {
 			m.closeDetail()
 			return nil, true
 		}
@@ -426,23 +426,8 @@ func (m *Model) handleNormalEnter() error {
 	}
 
 	// On a drilldown column, open the detail view for that row.
-	if spec.Kind == cellDrilldown && m.detail == nil {
-		switch tab.Kind {
-		case tabMaintenance:
-			item, err := m.store.GetMaintenance(meta.ID)
-			if err != nil {
-				return fmt.Errorf("load maintenance item: %w", err)
-			}
-			return m.openServiceLogDetail(meta.ID, item.Name)
-		case tabAppliances:
-			appliance, err := m.store.GetAppliance(meta.ID)
-			if err != nil {
-				return fmt.Errorf("load appliance: %w", err)
-			}
-			return m.openApplianceMaintenanceDetail(meta.ID, appliance.Name)
-		default:
-		}
-		return nil
+	if spec.Kind == cellDrilldown {
+		return m.openDetailForRow(tab, meta.ID, spec.Title)
 	}
 
 	// On a linked column with a target, follow the FK.
@@ -579,21 +564,42 @@ func (m *Model) activeTab() *Tab {
 	return &m.tabs[m.active]
 }
 
+// detail returns the top of the drilldown stack, or nil if no detail view
+// is active.
+func (m *Model) detail() *detailContext {
+	if len(m.detailStack) == 0 {
+		return nil
+	}
+	return m.detailStack[len(m.detailStack)-1]
+}
+
+// inDetail reports whether a detail drilldown is active.
+func (m *Model) inDetail() bool {
+	return len(m.detailStack) > 0
+}
+
 // effectiveTab returns the detail tab when a detail view is open, otherwise
 // the main active tab. All interaction code should use this.
 func (m *Model) effectiveTab() *Tab {
-	if m.detail != nil {
-		return &m.detail.Tab
+	if dc := m.detail(); dc != nil {
+		return &dc.Tab
 	}
 	return m.activeTab()
 }
 
 func (m *Model) openServiceLogDetail(maintID uint, maintName string) error {
+	// When drilled from the top-level Maintenance tab, the breadcrumb starts
+	// with "Maintenance"; when nested (e.g. Appliances > … > Maint item),
+	// the parent tab context is already on the stack so we skip the prefix.
+	bc := maintName + " > Service Log"
+	if !m.inDetail() {
+		bc = "Maintenance > " + bc
+	}
 	specs := serviceLogColumnSpecs()
 	return m.openDetailWith(detailContext{
 		ParentTabIndex: m.active,
 		ParentRowID:    maintID,
-		Breadcrumb:     "Maintenance > " + maintName,
+		Breadcrumb:     bc,
 		Tab: Tab{
 			Kind:    tabMaintenance,
 			Name:    "Service Log",
@@ -620,10 +626,101 @@ func (m *Model) openApplianceMaintenanceDetail(applianceID uint, applianceName s
 	})
 }
 
+func (m *Model) openVendorQuoteDetail(vendorID uint, vendorName string) error {
+	specs := vendorQuoteColumnSpecs()
+	return m.openDetailWith(detailContext{
+		ParentTabIndex: m.active,
+		ParentRowID:    vendorID,
+		Breadcrumb:     "Vendors > " + vendorName + " > " + tabQuotes.String(),
+		Tab: Tab{
+			Kind:    tabVendors,
+			Name:    tabQuotes.String(),
+			Handler: vendorQuoteHandler{vendorID: vendorID},
+			Specs:   specs,
+			Table:   newTable(specsToColumns(specs), m.styles),
+		},
+	})
+}
+
+func (m *Model) openVendorJobsDetail(vendorID uint, vendorName string) error {
+	specs := vendorJobsColumnSpecs()
+	return m.openDetailWith(detailContext{
+		ParentTabIndex: m.active,
+		ParentRowID:    vendorID,
+		Breadcrumb:     "Vendors > " + vendorName + " > Jobs",
+		Tab: Tab{
+			Kind:    tabVendors,
+			Name:    "Jobs",
+			Handler: vendorJobsHandler{vendorID: vendorID},
+			Specs:   specs,
+			Table:   newTable(specsToColumns(specs), m.styles),
+		},
+	})
+}
+
+func (m *Model) openProjectQuoteDetail(projectID uint, projectTitle string) error {
+	specs := projectQuoteColumnSpecs()
+	return m.openDetailWith(detailContext{
+		ParentTabIndex: m.active,
+		ParentRowID:    projectID,
+		Breadcrumb:     "Projects > " + projectTitle + " > " + tabQuotes.String(),
+		Tab: Tab{
+			Kind:    tabProjects,
+			Name:    tabQuotes.String(),
+			Handler: projectQuoteHandler{projectID: projectID},
+			Specs:   specs,
+			Table:   newTable(specsToColumns(specs), m.styles),
+		},
+	})
+}
+
+// openDetailForRow dispatches a drilldown based on the current tab kind and the
+// column that was activated. Supports nested drilldowns (e.g. Appliance →
+// Maintenance → Service Log).
+func (m *Model) openDetailForRow(tab *Tab, rowID uint, colTitle string) error {
+	switch {
+	case tab.Kind == tabMaintenance && colTitle == "Log":
+		item, err := m.store.GetMaintenance(rowID)
+		if err != nil {
+			return fmt.Errorf("load maintenance item: %w", err)
+		}
+		return m.openServiceLogDetail(rowID, item.Name)
+
+	case tab.Kind == tabAppliances && colTitle == "Maint":
+		appliance, err := m.store.GetAppliance(rowID)
+		if err != nil {
+			return fmt.Errorf("load appliance: %w", err)
+		}
+		return m.openApplianceMaintenanceDetail(rowID, appliance.Name)
+
+	case tab.Kind == tabVendors && colTitle == tabQuotes.String():
+		vendor, err := m.store.GetVendor(rowID)
+		if err != nil {
+			return fmt.Errorf("load vendor: %w", err)
+		}
+		return m.openVendorQuoteDetail(rowID, vendor.Name)
+
+	case tab.Kind == tabVendors && colTitle == "Jobs":
+		vendor, err := m.store.GetVendor(rowID)
+		if err != nil {
+			return fmt.Errorf("load vendor: %w", err)
+		}
+		return m.openVendorJobsDetail(rowID, vendor.Name)
+
+	case tab.Kind == tabProjects && colTitle == tabQuotes.String():
+		project, err := m.store.GetProject(rowID)
+		if err != nil {
+			return fmt.Errorf("load project: %w", err)
+		}
+		return m.openProjectQuoteDetail(rowID, project.Title)
+	}
+	return nil
+}
+
 func (m *Model) openDetailWith(dc detailContext) error {
-	m.detail = &dc
+	m.detailStack = append(m.detailStack, &dc)
 	if err := m.reloadDetailTab(); err != nil {
-		m.detail = nil
+		m.detailStack = m.detailStack[:len(m.detailStack)-1]
 		return err
 	}
 	m.resizeTables()
@@ -632,34 +729,51 @@ func (m *Model) openDetailWith(dc detailContext) error {
 }
 
 func (m *Model) closeDetail() {
-	if m.detail == nil {
+	if len(m.detailStack) == 0 {
 		return
 	}
-	parentIdx := m.detail.ParentTabIndex
-	parentRowID := m.detail.ParentRowID
-	m.detail = nil
-	m.active = parentIdx
-	if m.store != nil {
-		tab := m.activeTab()
-		if tab != nil && tab.Stale {
-			_ = m.reloadIfStale(tab)
-		} else {
-			_ = m.reloadActiveTab()
+	top := m.detailStack[len(m.detailStack)-1]
+	m.detailStack = m.detailStack[:len(m.detailStack)-1]
+
+	// If there's still a parent detail view on the stack, reload it and
+	// restore the cursor to the row that opened the now-closed child.
+	if parent := m.detail(); parent != nil {
+		if m.store != nil {
+			_ = m.reloadTab(&parent.Tab)
 		}
-	}
-	// Restore cursor to the parent row.
-	if tab := m.activeTab(); tab != nil {
-		selectRowByID(tab, parentRowID)
+		selectRowByID(&parent.Tab, top.ParentRowID)
+	} else {
+		// Back to a top-level tab.
+		m.active = top.ParentTabIndex
+		if m.store != nil {
+			tab := m.activeTab()
+			if tab != nil && tab.Stale {
+				_ = m.reloadIfStale(tab)
+			} else {
+				_ = m.reloadActiveTab()
+			}
+		}
+		if tab := m.activeTab(); tab != nil {
+			selectRowByID(tab, top.ParentRowID)
+		}
 	}
 	m.resizeTables()
 	m.status = statusMsg{}
 }
 
+// closeAllDetails collapses the entire drilldown stack back to the top-level tab.
+func (m *Model) closeAllDetails() {
+	for len(m.detailStack) > 0 {
+		m.closeDetail()
+	}
+}
+
 func (m *Model) reloadDetailTab() error {
-	if m.detail == nil || m.store == nil {
+	dc := m.detail()
+	if dc == nil || m.store == nil {
 		return nil
 	}
-	return m.reloadTab(&m.detail.Tab)
+	return m.reloadTab(&dc.Tab)
 }
 
 // reloadAll refreshes lookups, house profile, all tabs, detail tab, and
@@ -672,7 +786,7 @@ func (m *Model) reloadAll() {
 	_ = m.loadLookups()
 	_ = m.loadHouse()
 	_ = m.reloadAllTabs()
-	if m.detail != nil {
+	if m.inDetail() {
 		_ = m.reloadDetailTab()
 	}
 	if m.showDashboard {
@@ -719,10 +833,8 @@ func (m *Model) toggleDashboard() {
 	m.showDashboard = !m.showDashboard
 	if m.showDashboard {
 		_ = m.loadDashboard()
-		// Close any open detail view when returning to dashboard.
-		if m.detail != nil {
-			m.closeDetail()
-		}
+		// Close all drilldown levels when returning to dashboard.
+		m.closeAllDetails()
 	}
 }
 
@@ -846,7 +958,7 @@ func (m *Model) selectedCell(col int) (cell, bool) {
 }
 
 func (m *Model) reloadEffectiveTab() error {
-	if m.detail != nil {
+	if m.inDetail() {
 		return m.reloadDetailTab()
 	}
 	return m.reloadActiveTab()
@@ -940,7 +1052,7 @@ func (m *Model) toggleHideSettledProjects() bool {
 }
 
 func (m *Model) projectTabForStatusFilter() *Tab {
-	if m.detail != nil {
+	if m.inDetail() {
 		return nil
 	}
 	tab := m.activeTab()
@@ -1103,9 +1215,9 @@ func (m *Model) resizeTables() {
 		m.tabs[i].Table.SetHeight(tableHeight)
 		m.tabs[i].Table.SetWidth(m.width)
 	}
-	if m.detail != nil {
-		m.detail.Tab.Table.SetHeight(tableHeight)
-		m.detail.Tab.Table.SetWidth(m.width)
+	if dc := m.detail(); dc != nil {
+		dc.Tab.Table.SetHeight(tableHeight)
+		dc.Tab.Table.SetWidth(m.width)
 	}
 }
 
@@ -1433,8 +1545,8 @@ func (m *Model) updateAllViewports() {
 	if tab := m.activeTab(); tab != nil {
 		m.updateTabViewport(tab)
 	}
-	if m.detail != nil {
-		m.updateTabViewport(&m.detail.Tab)
+	if dc := m.detail(); dc != nil {
+		m.updateTabViewport(&dc.Tab)
 	}
 }
 

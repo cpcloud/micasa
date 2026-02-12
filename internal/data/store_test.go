@@ -1084,3 +1084,119 @@ func newTestStoreWithDemoData(t *testing.T, seed uint64) *Store {
 	require.NoError(t, store.SeedDemoDataFrom(fake.New(seed)))
 	return store
 }
+
+func TestCountQuotesByProject(t *testing.T) {
+	store := newTestStore(t)
+	types, _ := store.ProjectTypes()
+
+	require.NoError(t, store.CreateProject(Project{
+		Title: "P1", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}))
+	projects, _ := store.ListProjects(false)
+	projectID := projects[0].ID
+
+	require.NoError(t, store.CreateQuote(
+		Quote{ProjectID: projectID, TotalCents: 5000},
+		Vendor{Name: "V1"},
+	))
+	require.NoError(t, store.CreateQuote(
+		Quote{ProjectID: projectID, TotalCents: 7500},
+		Vendor{Name: "V2"},
+	))
+
+	counts, err := store.CountQuotesByProject([]uint{projectID})
+	require.NoError(t, err)
+	assert.Equal(t, 2, counts[projectID])
+
+	empty, err := store.CountQuotesByProject(nil)
+	require.NoError(t, err)
+	assert.Empty(t, empty)
+}
+
+func TestListQuotesByVendor(t *testing.T) {
+	store := newTestStore(t)
+	types, _ := store.ProjectTypes()
+
+	require.NoError(t, store.CreateVendor(Vendor{Name: "TestVendor"}))
+	vendors, _ := store.ListVendors(false)
+	vendorID := vendors[0].ID
+
+	require.NoError(t, store.CreateProject(Project{
+		Title: "P1", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}))
+	projects, _ := store.ListProjects(false)
+	projectID := projects[0].ID
+
+	require.NoError(t, store.CreateQuote(
+		Quote{ProjectID: projectID, TotalCents: 1000},
+		Vendor{Name: "TestVendor"},
+	))
+	require.NoError(t, store.CreateQuote(
+		Quote{ProjectID: projectID, TotalCents: 2000},
+		Vendor{Name: "OtherVendor"},
+	))
+
+	quotes, err := store.ListQuotesByVendor(vendorID, false)
+	require.NoError(t, err)
+	assert.Len(t, quotes, 1)
+	assert.Equal(t, int64(1000), quotes[0].TotalCents)
+}
+
+func TestListQuotesByProject(t *testing.T) {
+	store := newTestStore(t)
+	types, _ := store.ProjectTypes()
+
+	require.NoError(t, store.CreateProject(Project{
+		Title: "P1", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}))
+	require.NoError(t, store.CreateProject(Project{
+		Title: "P2", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}))
+	projects, _ := store.ListProjects(false)
+	p1ID := projects[0].ID
+	p2ID := projects[1].ID
+
+	require.NoError(t, store.CreateQuote(
+		Quote{ProjectID: p1ID, TotalCents: 1000},
+		Vendor{Name: "V1"},
+	))
+	require.NoError(t, store.CreateQuote(
+		Quote{ProjectID: p2ID, TotalCents: 5000},
+		Vendor{Name: "V1"},
+	))
+
+	quotes, err := store.ListQuotesByProject(p1ID, false)
+	require.NoError(t, err)
+	assert.Len(t, quotes, 1)
+	assert.Equal(t, int64(1000), quotes[0].TotalCents)
+}
+
+func TestListServiceLogsByVendor(t *testing.T) {
+	store := newTestStore(t)
+	cats, _ := store.MaintenanceCategories()
+
+	require.NoError(t, store.CreateVendor(Vendor{Name: "LogVendor"}))
+	vendors, _ := store.ListVendors(false)
+	vendorID := vendors[0].ID
+
+	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
+		Name: "Filter", CategoryID: cats[0].ID,
+	}))
+	items, _ := store.ListMaintenance(false)
+	maintID := items[0].ID
+
+	require.NoError(t, store.CreateServiceLog(
+		ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: time.Now()},
+		Vendor{Name: "LogVendor"},
+	))
+	require.NoError(t, store.CreateServiceLog(
+		ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: time.Now()},
+		Vendor{Name: "OtherVendor"},
+	))
+
+	entries, err := store.ListServiceLogsByVendor(vendorID, false)
+	require.NoError(t, err)
+	assert.Len(t, entries, 1)
+	assert.Equal(t, "Filter", entries[0].MaintenanceItem.Name,
+		"preloaded MaintenanceItem should be available")
+}

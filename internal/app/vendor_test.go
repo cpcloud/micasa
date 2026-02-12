@@ -89,15 +89,17 @@ func TestVendorTabNavigable(t *testing.T) {
 
 func TestVendorColumnSpecKinds(t *testing.T) {
 	specs := vendorColumnSpecs()
-	// ID (0), Quotes (6), Jobs (7) are readonly.
-	for _, col := range []int{0, 6, 7} {
-		assert.Equalf(t, cellReadonly, specs[col].Kind,
-			"col %d (%s): expected cellReadonly", col, specs[col].Title)
-	}
+	// ID (0) is readonly.
+	assert.Equal(t, cellReadonly, specs[0].Kind, "ID column should be readonly")
 	// Editable columns: Name, Contact, Email, Phone, Website.
 	for _, col := range []int{1, 2, 3, 4, 5} {
 		assert.Equalf(t, cellText, specs[col].Kind,
 			"col %d (%s): expected cellText", col, specs[col].Title)
+	}
+	// Quotes (6) and Jobs (7) are drilldown columns.
+	for _, col := range []int{6, 7} {
+		assert.Equalf(t, cellDrilldown, specs[col].Kind,
+			"col %d (%s): expected cellDrilldown", col, specs[col].Title)
 	}
 }
 

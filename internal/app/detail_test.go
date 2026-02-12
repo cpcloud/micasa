@@ -16,12 +16,12 @@ import (
 func TestOpenDetailSetsContext(t *testing.T) {
 	m := newTestModel()
 	m.active = tabIndex(tabMaintenance)
-	require.Nil(t, m.detail)
+	require.Nil(t, m.detail())
 
 	require.NoError(t, m.openServiceLogDetail(42, "Test Item"))
-	require.NotNil(t, m.detail)
-	assert.Equal(t, uint(42), m.detail.ParentRowID)
-	assert.Equal(t, "Maintenance > Test Item", m.detail.Breadcrumb)
+	require.NotNil(t, m.detail())
+	assert.Equal(t, uint(42), m.detail().ParentRowID)
+	assert.Equal(t, "Maintenance > Test Item > Service Log", m.detail().Breadcrumb)
 }
 
 func TestCloseDetailRestoresParent(t *testing.T) {
@@ -30,7 +30,7 @@ func TestCloseDetailRestoresParent(t *testing.T) {
 	_ = m.openServiceLogDetail(42, "Test Item")
 
 	m.closeDetail()
-	assert.Nil(t, m.detail)
+	assert.Nil(t, m.detail())
 	assert.Equal(t, tabIndex(tabMaintenance), m.active)
 }
 
@@ -60,9 +60,9 @@ func TestEscInNormalModeClosesDetail(t *testing.T) {
 	m := newTestModel()
 	m.active = tabIndex(tabMaintenance)
 	_ = m.openServiceLogDetail(1, "Test")
-	require.NotNil(t, m.detail)
+	require.NotNil(t, m.detail())
 	sendKey(m, "esc")
-	assert.Nil(t, m.detail)
+	assert.Nil(t, m.detail())
 }
 
 func TestEscInEditModeDoesNotCloseDetail(t *testing.T) {
@@ -74,7 +74,7 @@ func TestEscInEditModeDoesNotCloseDetail(t *testing.T) {
 	require.Equal(t, modeEdit, m.mode)
 	sendKey(m, "esc") // should go to normal, not close detail
 	assert.Equal(t, modeNormal, m.mode)
-	assert.NotNil(t, m.detail, "expected detail still open after edit-mode esc")
+	assert.NotNil(t, m.detail(), "expected detail still open after edit-mode esc")
 }
 
 func TestTabSwitchBlockedInDetailView(t *testing.T) {
@@ -214,7 +214,7 @@ func TestMaintenanceLogColumnReplacedManual(t *testing.T) {
 
 func TestNewTestModelDetailNil(t *testing.T) {
 	m := newTestModel()
-	assert.Nil(t, m.detail)
+	assert.Nil(t, m.detail())
 }
 
 func TestResizeTablesIncludesDetail(t *testing.T) {
@@ -225,7 +225,7 @@ func TestResizeTablesIncludesDetail(t *testing.T) {
 	_ = m.openServiceLogDetail(1, "Test")
 
 	m.resizeTables()
-	assert.Greater(t, m.detail.Tab.Table.Height(), 0)
+	assert.Greater(t, m.detail().Tab.Table.Height(), 0)
 }
 
 func TestSortWorksInDetailView(t *testing.T) {
@@ -290,10 +290,10 @@ func TestApplianceMaintenanceDetailOpens(t *testing.T) {
 	m := newTestModel()
 	m.active = tabIndex(tabAppliances)
 	require.NoError(t, m.openApplianceMaintenanceDetail(5, "Dishwasher"))
-	require.NotNil(t, m.detail)
-	assert.Equal(t, "Appliances > Dishwasher", m.detail.Breadcrumb)
-	assert.Equal(t, "Maintenance", m.detail.Tab.Name)
-	assert.Equal(t, tabAppliances, m.detail.Tab.Kind)
+	require.NotNil(t, m.detail())
+	assert.Equal(t, "Appliances > Dishwasher", m.detail().Breadcrumb)
+	assert.Equal(t, "Maintenance", m.detail().Tab.Name)
+	assert.Equal(t, tabAppliances, m.detail().Tab.Kind)
 }
 
 func TestApplianceMaintenanceHandlerFormKind(t *testing.T) {
@@ -301,7 +301,7 @@ func TestApplianceMaintenanceHandlerFormKind(t *testing.T) {
 	assert.Equal(t, formMaintenance, h.FormKind())
 }
 
-func TestApplianceMaintenanceColumnSpecsNoApplianceOrLog(t *testing.T) {
+func TestApplianceMaintenanceColumnSpecsNoAppliance(t *testing.T) {
 	specs := applianceMaintenanceColumnSpecs()
 	for _, s := range specs {
 		assert.NotEqual(
@@ -310,15 +310,11 @@ func TestApplianceMaintenanceColumnSpecsNoApplianceOrLog(t *testing.T) {
 			s.Title,
 			"appliance maintenance detail should not include Appliance column",
 		)
-		assert.NotEqual(
-			t,
-			"Log",
-			s.Title,
-			"appliance maintenance detail should not include Log column",
-		)
 	}
+	// Last column should be the Log drilldown (nested drilldown is supported).
 	last := specs[len(specs)-1]
-	assert.Equal(t, "Every", last.Title)
+	assert.Equal(t, "Log", last.Title)
+	assert.Equal(t, cellDrilldown, last.Kind)
 }
 
 func TestApplianceMaintColumnIsDrilldown(t *testing.T) {
@@ -326,4 +322,312 @@ func TestApplianceMaintColumnIsDrilldown(t *testing.T) {
 	last := specs[len(specs)-1]
 	assert.Equal(t, "Maint", last.Title)
 	assert.Equal(t, cellDrilldown, last.Kind)
+}
+
+// ---------------------------------------------------------------------------
+// Drilldown stack tests
+// ---------------------------------------------------------------------------
+
+func TestDrilldownStackPushPop(t *testing.T) {
+	m := newTestModel()
+	m.active = tabIndex(tabMaintenance)
+
+	// Push first level.
+	require.NoError(t, m.openServiceLogDetail(10, "HVAC Filter"))
+	assert.True(t, m.inDetail())
+	assert.Len(t, m.detailStack, 1)
+	assert.Equal(t, "Service Log", m.detail().Tab.Name)
+
+	// Pop back.
+	m.closeDetail()
+	assert.False(t, m.inDetail())
+	assert.Equal(t, tabIndex(tabMaintenance), m.active)
+}
+
+func TestNestedDrilldownApplianceMaintServiceLog(t *testing.T) {
+	m := newTestModel()
+	m.active = tabIndex(tabAppliances)
+
+	// Level 1: Appliance → Maintenance
+	require.NoError(t, m.openApplianceMaintenanceDetail(5, "Dishwasher"))
+	assert.Len(t, m.detailStack, 1)
+	assert.Equal(t, "Maintenance", m.detail().Tab.Name)
+
+	// Level 2: Maintenance → Service Log (nested)
+	require.NoError(t, m.openServiceLogDetail(42, "Filter Replacement"))
+	assert.Len(t, m.detailStack, 2)
+	assert.Equal(t, "Service Log", m.detail().Tab.Name)
+
+	// Pop back to maintenance detail.
+	m.closeDetail()
+	assert.Len(t, m.detailStack, 1)
+	assert.Equal(t, "Maintenance", m.detail().Tab.Name)
+
+	// Pop back to top-level.
+	m.closeDetail()
+	assert.False(t, m.inDetail())
+	assert.Equal(t, tabIndex(tabAppliances), m.active)
+}
+
+func TestCloseAllDetailsCollapsesStack(t *testing.T) {
+	m := newTestModel()
+	m.active = tabIndex(tabAppliances)
+
+	require.NoError(t, m.openApplianceMaintenanceDetail(5, "Dishwasher"))
+	require.NoError(t, m.openServiceLogDetail(42, "Filter"))
+	assert.Len(t, m.detailStack, 2)
+
+	m.closeAllDetails()
+	assert.False(t, m.inDetail())
+	assert.Equal(t, tabIndex(tabAppliances), m.active)
+}
+
+func TestBreadcrumbsMultiLevel(t *testing.T) {
+	m := newTestModel()
+	m.width = 120
+	m.height = 40
+	m.active = tabIndex(tabAppliances)
+
+	require.NoError(t, m.openApplianceMaintenanceDetail(5, "Dishwasher"))
+	bc1 := m.breadcrumbView()
+	assert.Contains(t, bc1, "Appliances")
+	assert.Contains(t, bc1, "Dishwasher")
+
+	require.NoError(t, m.openServiceLogDetail(42, "Filter Replacement"))
+	bc2 := m.breadcrumbView()
+	assert.Contains(t, bc2, "Appliances")
+	assert.Contains(t, bc2, "Dishwasher")
+	assert.Contains(t, bc2, "Filter Replacement")
+	assert.Contains(t, bc2, "Service Log")
+}
+
+func TestEscPopsOneLevel(t *testing.T) {
+	m := newTestModel()
+	m.active = tabIndex(tabAppliances)
+
+	require.NoError(t, m.openApplianceMaintenanceDetail(5, "Dishwasher"))
+	require.NoError(t, m.openServiceLogDetail(42, "Filter"))
+	assert.Len(t, m.detailStack, 2)
+
+	sendKey(m, "esc")
+	assert.Len(t, m.detailStack, 1, "esc should pop one level")
+
+	sendKey(m, "esc")
+	assert.False(t, m.inDetail(), "second esc should return to top-level")
+}
+
+// ---------------------------------------------------------------------------
+// Vendor drilldown tests
+// ---------------------------------------------------------------------------
+
+func TestVendorQuoteDrilldown(t *testing.T) {
+	m := newTestModel()
+	m.active = tabIndex(tabVendors)
+
+	require.NoError(t, m.openVendorQuoteDetail(3, "Acme Plumbing"))
+	require.True(t, m.inDetail())
+	assert.Equal(t, "Quotes", m.detail().Tab.Name)
+	assert.Contains(t, m.detail().Breadcrumb, "Vendors")
+	assert.Contains(t, m.detail().Breadcrumb, "Acme Plumbing")
+	assert.Contains(t, m.detail().Breadcrumb, "Quotes")
+
+	// Verify column specs omit Vendor column.
+	specs := m.effectiveTab().Specs
+	for _, s := range specs {
+		assert.NotEqual(t, "Vendor", s.Title,
+			"vendor quote detail should not include Vendor column")
+	}
+	// Project column should link to Projects tab.
+	assert.NotNil(t, specs[1].Link)
+	assert.Equal(t, tabProjects, specs[1].Link.TargetTab)
+}
+
+func TestVendorJobsDrilldown(t *testing.T) {
+	m := newTestModel()
+	m.active = tabIndex(tabVendors)
+
+	require.NoError(t, m.openVendorJobsDetail(3, "Acme Plumbing"))
+	require.True(t, m.inDetail())
+	assert.Equal(t, "Jobs", m.detail().Tab.Name)
+	assert.Contains(t, m.detail().Breadcrumb, "Vendors")
+	assert.Contains(t, m.detail().Breadcrumb, "Acme Plumbing")
+	assert.Contains(t, m.detail().Breadcrumb, "Jobs")
+
+	// Verify column specs.
+	specs := m.effectiveTab().Specs
+	titles := make([]string, len(specs))
+	for i, s := range specs {
+		titles[i] = s.Title
+	}
+	assert.Equal(t, []string{"ID", "Item", "Date", "Cost", "Notes"}, titles)
+}
+
+func TestVendorQuoteHandlerFormKind(t *testing.T) {
+	h := vendorQuoteHandler{vendorID: 1}
+	assert.Equal(t, formQuote, h.FormKind())
+}
+
+func TestVendorJobsHandlerFormKind(t *testing.T) {
+	h := vendorJobsHandler{vendorID: 1}
+	assert.Equal(t, formServiceLog, h.FormKind())
+}
+
+// ---------------------------------------------------------------------------
+// Project drilldown tests
+// ---------------------------------------------------------------------------
+
+func TestProjectQuoteDrilldown(t *testing.T) {
+	m := newTestModel()
+	m.active = tabIndex(tabProjects)
+
+	require.NoError(t, m.openProjectQuoteDetail(7, "Kitchen Remodel"))
+	require.True(t, m.inDetail())
+	assert.Equal(t, "Quotes", m.detail().Tab.Name)
+	assert.Contains(t, m.detail().Breadcrumb, "Projects")
+	assert.Contains(t, m.detail().Breadcrumb, "Kitchen Remodel")
+	assert.Contains(t, m.detail().Breadcrumb, "Quotes")
+
+	// Verify column specs omit Project column.
+	specs := m.effectiveTab().Specs
+	for _, s := range specs {
+		assert.NotEqual(t, "Project", s.Title,
+			"project quote detail should not include Project column")
+	}
+	// Vendor column should link to Vendors tab.
+	assert.NotNil(t, specs[1].Link)
+	assert.Equal(t, tabVendors, specs[1].Link.TargetTab)
+}
+
+func TestProjectQuoteHandlerFormKind(t *testing.T) {
+	h := projectQuoteHandler{projectID: 1}
+	assert.Equal(t, formQuote, h.FormKind())
+}
+
+func TestProjectColumnSpecsIncludeQuotes(t *testing.T) {
+	specs := projectColumnSpecs()
+	last := specs[len(specs)-1]
+	assert.Equal(t, "Quotes", last.Title)
+	assert.Equal(t, cellDrilldown, last.Kind)
+}
+
+func TestVendorColumnsAreDrilldown(t *testing.T) {
+	specs := vendorColumnSpecs()
+	quotes := specs[6]
+	jobs := specs[7]
+	assert.Equal(t, "Quotes", quotes.Title)
+	assert.Equal(t, cellDrilldown, quotes.Kind)
+	assert.Equal(t, "Jobs", jobs.Title)
+	assert.Equal(t, cellDrilldown, jobs.Kind)
+}
+
+func TestApplianceMaintLogColumnIsDrilldown(t *testing.T) {
+	specs := applianceMaintenanceColumnSpecs()
+	last := specs[len(specs)-1]
+	assert.Equal(t, "Log", last.Title)
+	assert.Equal(t, cellDrilldown, last.Kind)
+}
+
+// ---------------------------------------------------------------------------
+// openDetailForRow dispatch tests
+// ---------------------------------------------------------------------------
+
+func TestOpenDetailForRow_MaintenanceLog(t *testing.T) {
+	m := newTestModelWithDemoData(t, 42)
+	m.active = tabIndex(tabMaintenance)
+	tab := m.activeTab()
+	require.NotNil(t, tab)
+
+	items, err := m.store.ListMaintenance(false)
+	require.NoError(t, err)
+	require.NotEmpty(t, items)
+
+	require.NoError(t, m.openDetailForRow(tab, items[0].ID, "Log"))
+	require.True(t, m.inDetail())
+	assert.Equal(t, "Service Log", m.detail().Tab.Name)
+}
+
+func TestOpenDetailForRow_ApplianceMaint(t *testing.T) {
+	m := newTestModelWithDemoData(t, 42)
+	m.active = tabIndex(tabAppliances)
+	tab := m.activeTab()
+	require.NotNil(t, tab)
+
+	appliances, err := m.store.ListAppliances(false)
+	require.NoError(t, err)
+	require.NotEmpty(t, appliances)
+
+	require.NoError(t, m.openDetailForRow(tab, appliances[0].ID, "Maint"))
+	require.True(t, m.inDetail())
+	assert.Equal(t, "Maintenance", m.detail().Tab.Name)
+}
+
+func TestOpenDetailForRow_VendorQuotes(t *testing.T) {
+	m := newTestModelWithDemoData(t, 42)
+	m.active = tabIndex(tabVendors)
+	tab := m.activeTab()
+	require.NotNil(t, tab)
+
+	vendors, err := m.store.ListVendors(false)
+	require.NoError(t, err)
+	require.NotEmpty(t, vendors)
+
+	require.NoError(t, m.openDetailForRow(tab, vendors[0].ID, "Quotes"))
+	require.True(t, m.inDetail())
+	assert.Equal(t, "Quotes", m.detail().Tab.Name)
+}
+
+func TestOpenDetailForRow_VendorJobs(t *testing.T) {
+	m := newTestModelWithDemoData(t, 42)
+	m.active = tabIndex(tabVendors)
+	tab := m.activeTab()
+	require.NotNil(t, tab)
+
+	vendors, err := m.store.ListVendors(false)
+	require.NoError(t, err)
+	require.NotEmpty(t, vendors)
+
+	require.NoError(t, m.openDetailForRow(tab, vendors[0].ID, "Jobs"))
+	require.True(t, m.inDetail())
+	assert.Equal(t, "Jobs", m.detail().Tab.Name)
+}
+
+func TestOpenDetailForRow_ProjectQuotes(t *testing.T) {
+	m := newTestModelWithDemoData(t, 42)
+	m.active = tabIndex(tabProjects)
+	tab := m.activeTab()
+	require.NotNil(t, tab)
+
+	projects, err := m.store.ListProjects(false)
+	require.NoError(t, err)
+	require.NotEmpty(t, projects)
+
+	require.NoError(t, m.openDetailForRow(tab, projects[0].ID, "Quotes"))
+	require.True(t, m.inDetail())
+	assert.Equal(t, "Quotes", m.detail().Tab.Name)
+}
+
+// ---------------------------------------------------------------------------
+// Drilldown hint tests
+// ---------------------------------------------------------------------------
+
+func TestDrilldownHint(t *testing.T) {
+	m := newTestModel()
+	tests := []struct {
+		kind  TabKind
+		title string
+		want  string
+	}{
+		{tabMaintenance, "Log", "service log"},
+		{tabAppliances, "Maint", "maintenance"},
+		{tabAppliances, "Log", "service log"},
+		{tabVendors, "Quotes", "vendor quotes"},
+		{tabVendors, "Jobs", "vendor jobs"},
+		{tabProjects, "Quotes", "project quotes"},
+	}
+	for _, tt := range tests {
+		tab := &Tab{Kind: tt.kind}
+		spec := columnSpec{Title: tt.title}
+		assert.Equal(t, tt.want, m.drilldownHint(tab, spec),
+			"kind=%v title=%s", tt.kind, tt.title)
+	}
 }

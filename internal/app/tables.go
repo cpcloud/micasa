@@ -43,8 +43,8 @@ func (m *Model) setAllTableKeyMaps(km table.KeyMap) {
 	for i := range m.tabs {
 		m.tabs[i].Table.KeyMap = km
 	}
-	if m.detail != nil {
-		m.detail.Tab.Table.KeyMap = km
+	if dc := m.detail(); dc != nil {
+		dc.Tab.Table.KeyMap = km
 	}
 }
 
@@ -64,7 +64,7 @@ func NewTabs(styles Styles) []Tab {
 		},
 		{
 			Kind:    tabQuotes,
-			Name:    "Quotes",
+			Name:    tabQuotes.String(),
 			Handler: quoteHandler{},
 			Specs:   quoteSpecs,
 			Table:   newTable(specsToColumns(quoteSpecs), styles),
@@ -103,6 +103,7 @@ func projectColumnSpecs() []columnSpec {
 		{Title: "Actual", Min: 10, Max: 14, Align: alignRight, Kind: cellMoney},
 		{Title: "Start", Min: 10, Max: 12, Kind: cellDate},
 		{Title: "End", Min: 10, Max: 12, Kind: cellDate},
+		{Title: tabQuotes.String(), Min: 6, Max: 8, Align: alignRight, Kind: cellDrilldown},
 	}
 }
 
@@ -167,7 +168,7 @@ func applianceColumnSpecs() []columnSpec {
 }
 
 // applianceMaintenanceColumnSpecs is like maintenanceColumnSpecs but without
-// the Appliance column (already scoped) or Log column (no nested drilldown yet).
+// the Appliance column (already scoped by the parent appliance).
 func applianceMaintenanceColumnSpecs() []columnSpec {
 	return []columnSpec{
 		{Title: "ID", Min: 4, Max: 6, Align: alignRight, Kind: cellReadonly},
@@ -176,14 +177,20 @@ func applianceMaintenanceColumnSpecs() []columnSpec {
 		{Title: "Last", Min: 10, Max: 12, Kind: cellDate},
 		{Title: "Next", Min: 10, Max: 12, Kind: cellUrgency},
 		{Title: "Every", Min: 6, Max: 10},
+		{Title: "Log", Min: 4, Max: 6, Align: alignRight, Kind: cellDrilldown},
 	}
 }
 
 func applianceMaintenanceRows(
 	items []data.MaintenanceItem,
+	logCounts map[uint]int,
 ) ([]table.Row, []rowMeta, [][]cell) {
 	return buildRows(items, func(item data.MaintenanceItem) rowSpec {
 		interval := formatInterval(item.IntervalMonths)
+		logCount := ""
+		if n := logCounts[item.ID]; n > 0 {
+			logCount = fmt.Sprintf("%d", n)
+		}
 		nextDue := data.ComputeNextDue(item.LastServicedAt, item.IntervalMonths)
 		return rowSpec{
 			ID:      item.ID,
@@ -195,6 +202,7 @@ func applianceMaintenanceRows(
 				{Value: dateValue(item.LastServicedAt), Kind: cellDate},
 				{Value: dateValue(nextDue), Kind: cellUrgency},
 				{Value: interval, Kind: cellText},
+				{Value: logCount, Kind: cellDrilldown},
 			},
 		}
 	})
@@ -324,8 +332,8 @@ func vendorColumnSpecs() []columnSpec {
 		{Title: "Email", Min: 12, Max: 24, Flex: true},
 		{Title: "Phone", Min: 12, Max: 16},
 		{Title: "Website", Min: 12, Max: 28, Flex: true},
-		{Title: "Quotes", Min: 6, Max: 8, Align: alignRight, Kind: cellReadonly},
-		{Title: "Jobs", Min: 5, Max: 8, Align: alignRight, Kind: cellReadonly},
+		{Title: tabQuotes.String(), Min: 6, Max: 8, Align: alignRight, Kind: cellDrilldown},
+		{Title: "Jobs", Min: 5, Max: 8, Align: alignRight, Kind: cellDrilldown},
 	}
 }
 
@@ -353,8 +361,8 @@ func vendorRows(
 				{Value: v.Email, Kind: cellText},
 				{Value: v.Phone, Kind: cellText},
 				{Value: v.Website, Kind: cellText},
-				{Value: quoteCount, Kind: cellReadonly},
-				{Value: jobCount, Kind: cellReadonly},
+				{Value: quoteCount, Kind: cellDrilldown},
+				{Value: jobCount, Kind: cellDrilldown},
 			},
 		}
 	})
@@ -386,8 +394,13 @@ func newTable(columns []table.Column, styles Styles) table.Model {
 
 func projectRows(
 	projects []data.Project,
+	quoteCounts map[uint]int,
 ) ([]table.Row, []rowMeta, [][]cell) {
 	return buildRows(projects, func(p data.Project) rowSpec {
+		quoteCount := ""
+		if n := quoteCounts[p.ID]; n > 0 {
+			quoteCount = fmt.Sprintf("%d", n)
+		}
 		return rowSpec{
 			ID:      p.ID,
 			Deleted: p.DeletedAt.Valid,
@@ -400,6 +413,7 @@ func projectRows(
 				{Value: centsValue(p.ActualCents), Kind: cellMoney},
 				{Value: dateValue(p.StartDate), Kind: cellDate},
 				{Value: dateValue(p.EndDate), Kind: cellDate},
+				{Value: quoteCount, Kind: cellDrilldown},
 			},
 		}
 	})
@@ -493,6 +507,121 @@ func buildRows[T any](items []T, toRow func(T) rowSpec) ([]table.Row, []rowMeta,
 		meta = append(meta, rowMeta{ID: spec.ID, Deleted: spec.Deleted})
 	}
 	return rows, meta, cells
+}
+
+// vendorQuoteColumnSpecs defines the columns for quotes scoped to a vendor.
+// Omits the Vendor column since the parent context provides that.
+func vendorQuoteColumnSpecs() []columnSpec {
+	return []columnSpec{
+		{Title: "ID", Min: 4, Max: 6, Align: alignRight, Kind: cellReadonly},
+		{
+			Title: "Project",
+			Min:   12,
+			Max:   24,
+			Flex:  true,
+			Link:  &columnLink{TargetTab: tabProjects},
+		},
+		{Title: "Total", Min: 10, Max: 14, Align: alignRight, Kind: cellMoney},
+		{Title: "Labor", Min: 10, Max: 14, Align: alignRight, Kind: cellMoney},
+		{Title: "Mat", Min: 8, Max: 12, Align: alignRight, Kind: cellMoney},
+		{Title: "Other", Min: 8, Max: 12, Align: alignRight, Kind: cellMoney},
+		{Title: "Recv", Min: 10, Max: 12, Kind: cellDate},
+	}
+}
+
+func vendorQuoteRows(
+	quotes []data.Quote,
+) ([]table.Row, []rowMeta, [][]cell) {
+	return buildRows(quotes, func(q data.Quote) rowSpec {
+		projectName := q.Project.Title
+		if projectName == "" {
+			projectName = fmt.Sprintf("Project %d", q.ProjectID)
+		}
+		return rowSpec{
+			ID:      q.ID,
+			Deleted: q.DeletedAt.Valid,
+			Cells: []cell{
+				{Value: fmt.Sprintf("%d", q.ID), Kind: cellReadonly},
+				{Value: projectName, Kind: cellText, LinkID: q.ProjectID},
+				{Value: data.FormatCents(q.TotalCents), Kind: cellMoney},
+				{Value: centsValue(q.LaborCents), Kind: cellMoney},
+				{Value: centsValue(q.MaterialsCents), Kind: cellMoney},
+				{Value: centsValue(q.OtherCents), Kind: cellMoney},
+				{Value: dateValue(q.ReceivedDate), Kind: cellDate},
+			},
+		}
+	})
+}
+
+// vendorJobsColumnSpecs defines the columns for service log entries scoped to
+// a vendor. Omits the Vendor column since the parent context provides that.
+func vendorJobsColumnSpecs() []columnSpec {
+	return []columnSpec{
+		{Title: "ID", Min: 4, Max: 6, Align: alignRight, Kind: cellReadonly},
+		{Title: "Item", Min: 12, Max: 24, Flex: true},
+		{Title: "Date", Min: 10, Max: 12, Kind: cellDate},
+		{Title: "Cost", Min: 8, Max: 12, Align: alignRight, Kind: cellMoney},
+		{Title: "Notes", Min: 12, Max: 40, Flex: true, Kind: cellNotes},
+	}
+}
+
+func vendorJobsRows(
+	entries []data.ServiceLogEntry,
+) ([]table.Row, []rowMeta, [][]cell) {
+	return buildRows(entries, func(e data.ServiceLogEntry) rowSpec {
+		itemName := e.MaintenanceItem.Name
+		return rowSpec{
+			ID:      e.ID,
+			Deleted: e.DeletedAt.Valid,
+			Cells: []cell{
+				{Value: fmt.Sprintf("%d", e.ID), Kind: cellReadonly},
+				{Value: itemName, Kind: cellText},
+				{Value: e.ServicedAt.Format(data.DateLayout), Kind: cellDate},
+				{Value: centsValue(e.CostCents), Kind: cellMoney},
+				{Value: e.Notes, Kind: cellNotes},
+			},
+		}
+	})
+}
+
+// projectQuoteColumnSpecs defines the columns for quotes scoped to a project.
+// Omits the Project column since the parent context provides that.
+func projectQuoteColumnSpecs() []columnSpec {
+	return []columnSpec{
+		{Title: "ID", Min: 4, Max: 6, Align: alignRight, Kind: cellReadonly},
+		{
+			Title: "Vendor",
+			Min:   12,
+			Max:   20,
+			Flex:  true,
+			Link:  &columnLink{TargetTab: tabVendors},
+		},
+		{Title: "Total", Min: 10, Max: 14, Align: alignRight, Kind: cellMoney},
+		{Title: "Labor", Min: 10, Max: 14, Align: alignRight, Kind: cellMoney},
+		{Title: "Mat", Min: 8, Max: 12, Align: alignRight, Kind: cellMoney},
+		{Title: "Other", Min: 8, Max: 12, Align: alignRight, Kind: cellMoney},
+		{Title: "Recv", Min: 10, Max: 12, Kind: cellDate},
+	}
+}
+
+func projectQuoteRows(
+	quotes []data.Quote,
+) ([]table.Row, []rowMeta, [][]cell) {
+	return buildRows(quotes, func(q data.Quote) rowSpec {
+		return rowSpec{
+			ID:      q.ID,
+			Deleted: q.DeletedAt.Valid,
+			Cells: []cell{
+				{Value: fmt.Sprintf("%d", q.ID), Kind: cellReadonly},
+				{Value: q.Vendor.Name, Kind: cellText, LinkID: q.VendorID},
+				{Value: data.FormatCents(q.TotalCents), Kind: cellMoney},
+				{Value: centsValue(q.LaborCents), Kind: cellMoney},
+				{Value: centsValue(q.MaterialsCents), Kind: cellMoney},
+				{Value: centsValue(q.OtherCents), Kind: cellMoney},
+				{Value: dateValue(q.ReceivedDate), Kind: cellDate},
+			},
+		}
+	})
 }
 
 func centsValue(cents *int64) string {

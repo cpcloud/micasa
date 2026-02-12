@@ -183,7 +183,7 @@ func TestCloseDetailClearsStaleParentTab(t *testing.T) {
 	itemID := tab.Rows[0].ID
 
 	require.NoError(t, m.openServiceLogDetail(itemID, "Test Item"))
-	require.NotNil(t, m.detail, "expected detail view to be open")
+	require.NotNil(t, m.detail(), "expected detail view to be open")
 
 	// Mark the parent (Maintenance) tab stale while in the detail view.
 	maintIdx := tabIndex(tabMaintenance)

@@ -26,7 +26,7 @@ Tests live alongside the code they test:
 | `internal/app/sort_test.go` | Sort cycling, comparators, multi-column ordering |
 | `internal/app/handlers_test.go` | TabHandler implementations |
 | `internal/app/handler_crud_test.go` | Handler CRUD operations |
-| `internal/app/detail_test.go` | Detail view open/close, breadcrumbs, scoping |
+| `internal/app/detail_test.go` | Drilldown stack push/pop, nested drilldowns, breadcrumbs, vendor/project drilldowns |
 | `internal/app/dashboard_test.go` | Dashboard navigation and view content |
 | `internal/app/dashboard_load_test.go` | Dashboard data loading |
 | `internal/app/dashboard_rows_test.go` | Dashboard row building |

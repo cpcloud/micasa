@@ -86,7 +86,7 @@ func (m *Model) buildBaseView() string {
 	house := m.houseView()
 
 	tabs := m.tabsView()
-	if m.detail != nil {
+	if m.inDetail() {
 		tabs = m.breadcrumbView()
 	}
 	tabLine := m.tabUnderline()
@@ -201,11 +201,18 @@ func (m *Model) tabsView() string {
 }
 
 func (m *Model) breadcrumbView() string {
-	if m.detail == nil {
+	if !m.inDetail() {
 		return ""
 	}
+
 	arrow := m.styles.BreadcrumbArrow.Render(" > ")
-	parts := strings.Split(m.detail.Breadcrumb, " > ")
+
+	// Collect all breadcrumb segments from the stack.
+	var parts []string
+	for _, dc := range m.detailStack {
+		parts = append(parts, strings.Split(dc.Breadcrumb, " > ")...)
+	}
+
 	rendered := make([]string, len(parts))
 	for i, p := range parts {
 		if i < len(parts)-1 {
@@ -344,7 +351,7 @@ func (m *Model) normalModeStatusHints(modeBadge string) []statusHint {
 			required: true,
 		},
 	}
-	if m.detail == nil {
+	if !m.inDetail() {
 		hints = append(hints, statusHint{
 			id:       "tab",
 			full:     m.helpItem("b/f", "switch"),
@@ -411,7 +418,7 @@ func (m *Model) normalModeStatusHints(modeBadge string) []statusHint {
 			required: true,
 		},
 	)
-	if m.detail != nil {
+	if m.inDetail() {
 		hints = append(hints, statusHint{
 			id:       "exit",
 			full:     m.helpItem("esc", "back"),
@@ -432,7 +439,7 @@ func (m *Model) normalModeStatusHints(modeBadge string) []statusHint {
 }
 
 func (m *Model) projectStatusStateHint() (statusHint, bool) {
-	if m.detail != nil {
+	if m.inDetail() {
 		return statusHint{}, false
 	}
 	tab := m.activeTab()
@@ -605,14 +612,8 @@ func (m *Model) enterHint() string {
 	if spec.Kind == cellNotes {
 		return "preview"
 	}
-	if spec.Kind == cellDrilldown && m.detail == nil {
-		switch tab.Kind {
-		case tabMaintenance:
-			return "service log"
-		case tabAppliances:
-			return "maintenance"
-		default:
-		}
+	if spec.Kind == cellDrilldown {
+		return m.drilldownHint(tab, spec)
 	}
 	if spec.Link != nil {
 		if c, ok := m.selectedCell(col); ok && c.LinkID > 0 {
@@ -620,6 +621,27 @@ func (m *Model) enterHint() string {
 		}
 	}
 	return ""
+}
+
+// drilldownHint returns a short label for the drilldown target based on the
+// current tab and column. Used in status bar hints.
+func (m *Model) drilldownHint(tab *Tab, spec columnSpec) string {
+	switch {
+	case tab.Kind == tabMaintenance && spec.Title == "Log":
+		return "service log"
+	case tab.Kind == tabAppliances && spec.Title == "Maint":
+		return "maintenance"
+	case tab.Kind == tabAppliances && spec.Title == "Log":
+		return "service log"
+	case tab.Kind == tabVendors && spec.Title == tabQuotes.String():
+		return "vendor quotes"
+	case tab.Kind == tabVendors && spec.Title == "Jobs":
+		return "vendor jobs"
+	case tab.Kind == tabProjects && spec.Title == tabQuotes.String():
+		return "project quotes"
+	default:
+		return drilldownArrow + " drilldown"
+	}
 }
 
 func (m *Model) formFullScreen() string {

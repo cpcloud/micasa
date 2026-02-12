@@ -40,7 +40,7 @@ func TestProjectRows(t *testing.T) {
 			StartDate:     &start,
 		},
 	}
-	rows, meta, cells := projectRows(projects)
+	rows, meta, cells := projectRows(projects, nil)
 	require.Len(t, rows, 1)
 	assert.Equal(t, uint(1), meta[0].ID)
 	assert.False(t, meta[0].Deleted)
@@ -58,7 +58,7 @@ func TestProjectRowsDeleted(t *testing.T) {
 			DeletedAt: gorm.DeletedAt{Time: time.Now(), Valid: true},
 		},
 	}
-	_, meta, _ := projectRows(projects)
+	_, meta, _ := projectRows(projects, nil)
 	assert.True(t, meta[0].Deleted)
 }
 
@@ -170,7 +170,7 @@ func TestApplianceRowsNoOptionalFields(t *testing.T) {
 }
 
 func TestBuildRowsEmpty(t *testing.T) {
-	rows, meta, cells := projectRows(nil)
+	rows, meta, cells := projectRows(nil, nil)
 	assert.Empty(t, rows)
 	assert.Empty(t, meta)
 	assert.Empty(t, cells)

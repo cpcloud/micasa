@@ -405,6 +405,78 @@ func (s *Store) CountServiceLogsByVendor(vendorIDs []uint) (map[uint]int, error)
 	return s.countByFK(&ServiceLogEntry{}, "vendor_id", vendorIDs)
 }
 
+// CountQuotesByProject returns the number of non-deleted quotes per project ID.
+func (s *Store) CountQuotesByProject(projectIDs []uint) (map[uint]int, error) {
+	return s.countByFK(&Quote{}, "project_id", projectIDs)
+}
+
+// ListQuotesByVendor returns all quotes for a specific vendor.
+func (s *Store) ListQuotesByVendor(
+	vendorID uint,
+	includeDeleted bool,
+) ([]Quote, error) {
+	var quotes []Quote
+	db := s.db.Where("vendor_id = ?", vendorID).
+		Preload("Vendor", func(q *gorm.DB) *gorm.DB {
+			return q.Unscoped()
+		}).
+		Preload("Project", func(q *gorm.DB) *gorm.DB {
+			return q.Unscoped()
+		}).
+		Order("received_date desc, id desc")
+	if includeDeleted {
+		db = db.Unscoped()
+	}
+	if err := db.Find(&quotes).Error; err != nil {
+		return nil, err
+	}
+	return quotes, nil
+}
+
+// ListQuotesByProject returns all quotes for a specific project.
+func (s *Store) ListQuotesByProject(
+	projectID uint,
+	includeDeleted bool,
+) ([]Quote, error) {
+	var quotes []Quote
+	db := s.db.Where("project_id = ?", projectID).
+		Preload("Vendor", func(q *gorm.DB) *gorm.DB {
+			return q.Unscoped()
+		}).
+		Preload("Project", func(q *gorm.DB) *gorm.DB {
+			return q.Unscoped()
+		}).
+		Order("received_date desc, id desc")
+	if includeDeleted {
+		db = db.Unscoped()
+	}
+	if err := db.Find(&quotes).Error; err != nil {
+		return nil, err
+	}
+	return quotes, nil
+}
+
+// ListServiceLogsByVendor returns all service log entries for a specific vendor.
+func (s *Store) ListServiceLogsByVendor(
+	vendorID uint,
+	includeDeleted bool,
+) ([]ServiceLogEntry, error) {
+	var entries []ServiceLogEntry
+	db := s.db.Where("vendor_id = ?", vendorID).
+		Preload("Vendor", func(q *gorm.DB) *gorm.DB {
+			return q.Unscoped()
+		}).
+		Preload("MaintenanceItem").
+		Order("serviced_at desc, id desc")
+	if includeDeleted {
+		db = db.Unscoped()
+	}
+	if err := db.Find(&entries).Error; err != nil {
+		return nil, err
+	}
+	return entries, nil
+}
+
 func (s *Store) ListProjects(includeDeleted bool) ([]Project, error) {
 	var projects []Project
 	db := s.db.Preload("ProjectType").Preload("PreferredVendor", func(q *gorm.DB) *gorm.DB {
