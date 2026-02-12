@@ -336,6 +336,9 @@ func renderCell(
 		if s, ok := styles.StatusStyles[value]; ok {
 			style = s
 		}
+		if icon, ok := styles.StatusIcons[value]; ok {
+			value = icon
+		}
 	} else if cellValue.Kind == cellUrgency {
 		style = urgencyStyle(value)
 	} else if cellValue.Kind == cellWarranty {

@@ -206,3 +206,37 @@ func TestComputeNextDueZeroInterval(t *testing.T) {
 	d := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 	assert.Nil(t, ComputeNextDue(&d, 0))
 }
+
+func TestFormatCompactCents(t *testing.T) {
+	tests := []struct {
+		name  string
+		cents int64
+		want  string
+	}{
+		{"zero", 0, "$0.00"},
+		{"small", 999, "$9.99"},
+		{"hundred", 10000, "$100.00"},
+		{"just under 1k", 99999, "$999.99"},
+		{"exactly 1k", 100000, "$1k"},
+		{"1.2k", 123456, "$1.2k"},
+		{"round thousands", 4500000, "$45k"},
+		{"thousands with decimal", 5234023, "$52.3k"},
+		{"exactly 1M", 100000000, "$1M"},
+		{"1.3M", 130000000, "$1.3M"},
+		{"round millions", 200000000, "$2M"},
+		{"negative small", -500, "-$5.00"},
+		{"negative thousands", -250000, "-$2.5k"},
+		{"negative millions", -100000000, "-$1M"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, FormatCompactCents(tt.cents))
+		})
+	}
+}
+
+func TestFormatCompactOptionalCents(t *testing.T) {
+	assert.Empty(t, FormatCompactOptionalCents(nil))
+	cents := int64(250000)
+	assert.Equal(t, "$2.5k", FormatCompactOptionalCents(&cents))
+}

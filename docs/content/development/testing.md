@@ -42,6 +42,7 @@ Tests live alongside the code they test:
 | `internal/app/notes_test.go` | Note preview overlay |
 | `internal/app/vendor_test.go` | Vendor tab operations |
 | `internal/app/rows_test.go` | Row building helpers |
+| `internal/app/compact_test.go` | Compact intervals, status icons |
 | `internal/app/demo_data_test.go` | Demo data seeding |
 | `internal/app/model_with_store_test.go` | Model integration with store |
 | `internal/app/model_with_demo_data_test.go` | Model with demo data |

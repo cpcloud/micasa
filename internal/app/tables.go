@@ -98,7 +98,7 @@ func projectColumnSpecs() []columnSpec {
 		{Title: "ID", Min: 4, Max: 6, Align: alignRight, Kind: cellReadonly},
 		{Title: "Type", Min: 8, Max: 14, Flex: true},
 		{Title: "Title", Min: 14, Max: 32, Flex: true},
-		{Title: "Status", Min: 8, Max: 12, Kind: cellStatus, FixedValues: data.ProjectStatuses()},
+		{Title: "Status", Min: 6, Max: 8, Kind: cellStatus},
 		{Title: "Budget", Min: 10, Max: 14, Align: alignRight, Kind: cellMoney},
 		{Title: "Actual", Min: 10, Max: 14, Align: alignRight, Kind: cellMoney},
 		{Title: "Start", Min: 10, Max: 12, Kind: cellDate},
@@ -183,10 +183,7 @@ func applianceMaintenanceRows(
 	items []data.MaintenanceItem,
 ) ([]table.Row, []rowMeta, [][]cell) {
 	return buildRows(items, func(item data.MaintenanceItem) rowSpec {
-		interval := ""
-		if item.IntervalMonths > 0 {
-			interval = fmt.Sprintf("%d mo", item.IntervalMonths)
-		}
+		interval := formatInterval(item.IntervalMonths)
 		nextDue := data.ComputeNextDue(item.LastServicedAt, item.IntervalMonths)
 		return rowSpec{
 			ID:      item.ID,
@@ -273,6 +270,23 @@ func applianceRows(
 	})
 }
 
+// formatInterval returns a compact interval string: "3m", "1y", "2y 6m".
+// Returns empty for non-positive values.
+func formatInterval(months int) string {
+	if months <= 0 {
+		return ""
+	}
+	y := months / 12
+	m := months % 12
+	if y == 0 {
+		return fmt.Sprintf("%dm", m)
+	}
+	if m == 0 {
+		return fmt.Sprintf("%dy", y)
+	}
+	return fmt.Sprintf("%dy %dm", y, m)
+}
+
 // applianceAge returns a human-readable age string from purchase date to now.
 func applianceAge(purchased *time.Time, now time.Time) string {
 	if purchased == nil {
@@ -292,9 +306,9 @@ func applianceAge(purchased *time.Time, now time.Time) string {
 	}
 	if years == 0 {
 		if months <= 0 {
-			return "<1 mo"
+			return "<1m"
 		}
-		return fmt.Sprintf("%d mo", months)
+		return fmt.Sprintf("%dm", months)
 	}
 	if months == 0 {
 		return fmt.Sprintf("%dy", years)
@@ -421,10 +435,7 @@ func maintenanceRows(
 	logCounts map[uint]int,
 ) ([]table.Row, []rowMeta, [][]cell) {
 	return buildRows(items, func(item data.MaintenanceItem) rowSpec {
-		interval := ""
-		if item.IntervalMonths > 0 {
-			interval = fmt.Sprintf("%d mo", item.IntervalMonths)
-		}
+		interval := formatInterval(item.IntervalMonths)
 		appName := ""
 		var appLinkID uint
 		if item.ApplianceID != nil {

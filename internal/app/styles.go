@@ -51,6 +51,7 @@ type Styles struct {
 	CalSelected     lipgloss.Style // calendar: previously selected day
 	CalToday        lipgloss.Style // calendar: today marker
 	StatusStyles    map[string]lipgloss.Style
+	StatusIcons     map[string]string
 }
 
 // Colorblind-safe palette (Wong) with adaptive light/dark variants.
@@ -238,6 +239,15 @@ func DefaultStyles() Styles {
 			"delayed":   lipgloss.NewStyle().Foreground(warning),
 			"completed": lipgloss.NewStyle().Foreground(textDim),
 			"abandoned": lipgloss.NewStyle().Foreground(danger),
+		},
+		StatusIcons: map[string]string{
+			"ideating":  "○", // open circle: idea, not concrete yet
+			"planned":   "●", // filled circle: solid plan
+			"quoted":    "◆", // diamond: value/cost attached
+			"underway":  "▸", // right triangle: in motion
+			"delayed":   "‖", // double bar: paused
+			"completed": "✓", // check: done
+			"abandoned": "✗", // cross: cancelled
 		},
 	}
 }

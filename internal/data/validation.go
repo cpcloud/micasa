@@ -58,6 +58,43 @@ func FormatOptionalCents(cents *int64) string {
 	return FormatCents(*cents)
 }
 
+// FormatCompactCents formats cents using abbreviated notation for large
+// values: $1.2k, $45k, $1.3M. Values under $1,000 use full precision.
+func FormatCompactCents(cents int64) string {
+	sign := ""
+	if cents < 0 {
+		sign = "-"
+		cents = -cents
+	}
+	dollars := float64(cents) / 100.0
+	switch {
+	case dollars >= 1_000_000:
+		return sign + compactDollars(dollars/1_000_000, "M")
+	case dollars >= 1_000:
+		return sign + compactDollars(dollars/1_000, "k")
+	default:
+		d := cents / 100
+		r := cents % 100
+		return fmt.Sprintf("%s$%d.%02d", sign, d, r)
+	}
+}
+
+// FormatCompactOptionalCents formats optional cents compactly.
+func FormatCompactOptionalCents(cents *int64) string {
+	if cents == nil {
+		return ""
+	}
+	return FormatCompactCents(*cents)
+}
+
+func compactDollars(v float64, suffix string) string {
+	// Drop the decimal when it's a whole number (e.g., $45k not $45.0k).
+	if v == float64(int64(v)) {
+		return fmt.Sprintf("$%.0f%s", v, suffix)
+	}
+	return fmt.Sprintf("$%.1f%s", v, suffix)
+}
+
 func ParseRequiredDate(input string) (time.Time, error) {
 	parsed, err := time.Parse(DateLayout, strings.TrimSpace(input))
 	if err != nil {

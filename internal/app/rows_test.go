@@ -118,7 +118,7 @@ func TestMaintenanceRows(t *testing.T) {
 	assert.Equal(t, "HVAC", cells[0][2].Value)
 	assert.Equal(t, "AC Unit", cells[0][3].Value)
 	assert.Equal(t, uint(5), cells[0][3].LinkID)
-	assert.Equal(t, "3 mo", cells[0][6].Value)
+	assert.Equal(t, "3m", cells[0][6].Value)
 	assert.Equal(t, "4", cells[0][7].Value)
 }
 
