@@ -5,6 +5,7 @@ package app
 
 import (
 	"testing"
+	"time"
 
 	"github.com/cpcloud/micasa/internal/data"
 	"github.com/stretchr/testify/assert"
@@ -115,6 +116,28 @@ func TestVendorFormData(t *testing.T) {
 	assert.Equal(t, "Acme Plumbing", v.Name)
 	assert.Equal(t, "Jo Smith", v.ContactName)
 	assert.Equal(t, "jo@example.com", v.Email)
+}
+
+func TestVendorJobsItemColumnLinksToMaintenanceTab(t *testing.T) {
+	specs := vendorJobsColumnSpecs()
+	itemSpec := specs[1] // Item column
+	require.NotNil(t, itemSpec.Link, "expected Item column to have a Link")
+	assert.Equal(t, tabMaintenance, itemSpec.Link.TargetTab)
+}
+
+func TestVendorJobsRowsSetsItemLinkID(t *testing.T) {
+	entries := []data.ServiceLogEntry{
+		{
+			ID:                1,
+			MaintenanceItemID: 7,
+			MaintenanceItem:   data.MaintenanceItem{Name: "HVAC Filter"},
+			ServicedAt:        time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
+		},
+	}
+	_, _, cells := vendorJobsRows(entries)
+	require.Len(t, cells, 1)
+	assert.Equal(t, "HVAC Filter", cells[0][1].Value)
+	assert.Equal(t, uint(7), cells[0][1].LinkID)
 }
 
 func sampleVendors() []data.Vendor {

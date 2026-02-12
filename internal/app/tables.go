@@ -558,7 +558,13 @@ func vendorQuoteRows(
 func vendorJobsColumnSpecs() []columnSpec {
 	return []columnSpec{
 		{Title: "ID", Min: 4, Max: 6, Align: alignRight, Kind: cellReadonly},
-		{Title: "Item", Min: 12, Max: 24, Flex: true},
+		{
+			Title: "Item",
+			Min:   12,
+			Max:   24,
+			Flex:  true,
+			Link:  &columnLink{TargetTab: tabMaintenance},
+		},
 		{Title: "Date", Min: 10, Max: 12, Kind: cellDate},
 		{Title: "Cost", Min: 8, Max: 12, Align: alignRight, Kind: cellMoney},
 		{Title: "Notes", Min: 12, Max: 40, Flex: true, Kind: cellNotes},
@@ -575,7 +581,7 @@ func vendorJobsRows(
 			Deleted: e.DeletedAt.Valid,
 			Cells: []cell{
 				{Value: fmt.Sprintf("%d", e.ID), Kind: cellReadonly},
-				{Value: itemName, Kind: cellText},
+				{Value: itemName, Kind: cellText, LinkID: e.MaintenanceItemID},
 				{Value: e.ServicedAt.Format(data.DateLayout), Kind: cellDate},
 				{Value: centsValue(e.CostCents), Kind: cellMoney},
 				{Value: e.Notes, Kind: cellNotes},
