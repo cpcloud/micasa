@@ -100,10 +100,10 @@ func magTransformCells(rows [][]cell) [][]cell {
 	return out
 }
 
-// magAnnotateSpecs returns a copy of specs with a styled "$" suffix on
-// money column titles so the unit is visible in the header instead of
-// repeated in every cell.
-func magAnnotateSpecs(specs []columnSpec, styles Styles) []columnSpec {
+// annotateMoneyHeaders returns a copy of specs with a styled "$" suffix
+// on money column titles. The unit lives in the header so cell values
+// can be bare numbers.
+func annotateMoneyHeaders(specs []columnSpec, styles Styles) []columnSpec {
 	out := make([]columnSpec, len(specs))
 	copy(out, specs)
 	for i, spec := range out {
