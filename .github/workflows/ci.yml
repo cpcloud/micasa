@@ -45,6 +45,9 @@ jobs:
       - name: Print test seed
         run: echo "MICASA_TEST_SEED=${{ github.run_id }}"
 
+      # Race detector skipped on Windows: adds 2-5x overhead and this
+      # codebase has no platform-specific code, so Linux/macOS coverage
+      # is sufficient. Re-enable if OS-gated code paths are added.
       - name: Test
         run: go test ${{ runner.os != 'Windows' && '-race' || '' }} -shuffle on -v -coverprofile coverage.txt ./...
         env:
