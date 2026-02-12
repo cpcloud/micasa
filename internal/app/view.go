@@ -205,12 +205,12 @@ func (m *Model) breadcrumbView() string {
 		return ""
 	}
 
-	arrow := m.styles.BreadcrumbArrow.Render(" > ")
+	arrow := m.styles.BreadcrumbArrow.Render(breadcrumbSep)
 
 	// Collect all breadcrumb segments from the stack.
 	var parts []string
 	for _, dc := range m.detailStack {
-		parts = append(parts, strings.Split(dc.Breadcrumb, " > ")...)
+		parts = append(parts, strings.Split(dc.Breadcrumb, breadcrumbSep)...)
 	}
 
 	rendered := make([]string, len(parts))

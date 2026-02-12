@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	linkArrow      = "→" // FK link to another tab
-	drilldownArrow = "↘" // opens a detail sub-table
+	linkArrow      = "→"   // FK link to another tab
+	drilldownArrow = "↘"   // opens a detail sub-table
+	breadcrumbSep  = " › " // delimiter used in breadcrumb strings
 )
 
 // visibleProjection computes the visible-only view of a tab's columns and data.
