@@ -144,10 +144,6 @@ jobs:
   semantic-release:
     name: Semantic Release
     needs: [test, pre-commit, nix-build, docs, secrets]
-    if: >-
-      github.event_name == 'pull_request'
-      || !startsWith(github.event.head_commit.message, 'chore(release):')
-
     runs-on: ubuntu-latest
     concurrency:
       group: semantic-release-${{ github.ref }}
