@@ -263,13 +263,7 @@ func TestDashboardViewFitsOverlayWidth(t *testing.T) {
 	}
 	m.buildDashNav()
 
-	// Simulate the overlay's inner width: contentW = min(width-12, 72),
-	// innerW = contentW - 4.
-	contentW := m.effectiveWidth() - 12
-	if contentW > 72 {
-		contentW = 72
-	}
-	innerW := contentW - 4
+	innerW := m.overlayContentWidth() - 4
 
 	view := m.dashboardView(50, innerW)
 	for i, line := range strings.Split(view, "\n") {

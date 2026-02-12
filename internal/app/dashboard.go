@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/cpcloud/micasa/internal/data"
 )
 
@@ -166,24 +167,10 @@ func renderMiniTable(
 }
 
 // truncateToWidth trims text to fit within maxW display columns, appending
-// an ellipsis if truncation occurs.
+// an ellipsis if truncation occurs. Delegates to ansi.Truncate for correct
+// grapheme-cluster and wide-character handling.
 func truncateToWidth(text string, maxW int) string {
-	if maxW <= 0 {
-		return ""
-	}
-	if maxW == 1 {
-		return "\u2026"
-	}
-	runes := []rune(text)
-	w := 0
-	for i, r := range runes {
-		rw := lipgloss.Width(string(r))
-		if w+rw > maxW-1 { // reserve 1 column for ellipsis
-			return string(runes[:i]) + "\u2026"
-		}
-		w += rw
-	}
-	return text
+	return ansi.Truncate(text, maxW, "\u2026")
 }
 
 // ---------------------------------------------------------------------------
@@ -429,7 +416,6 @@ func (m *Model) dashboardView(budget, maxWidth int) string {
 	// Trim section rows and sub-counts to limits, then render.
 	sel := m.styles.TableSelected
 	colGap := 3
-	maxW := maxWidth
 	cursor := m.dashCursor
 	var nav []dashNavEntry
 	var allLines []string
@@ -440,7 +426,7 @@ func (m *Model) dashboardView(budget, maxWidth int) string {
 
 		var sLines []string
 		if len(s.subCounts) > 0 {
-			sLines = m.renderMaintSection(s, limit, cursor, colGap, maxW, sel)
+			sLines = m.renderMaintSection(s, limit, cursor, colGap, maxWidth, sel)
 		} else {
 			hdr := m.styles.DashSection.Render(s.title)
 			localCursor := -1
@@ -448,7 +434,7 @@ func (m *Model) dashboardView(budget, maxWidth int) string {
 				localCursor = cursor
 			}
 			sLines = append([]string{hdr},
-				renderMiniTable(rows, colGap, maxW, localCursor, sel)...)
+				renderMiniTable(rows, colGap, maxWidth, localCursor, sel)...)
 		}
 		cursor -= len(rows)
 
