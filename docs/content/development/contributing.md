@@ -7,6 +7,25 @@ linkTitle = "Contributing"
 
 PRs welcome! Here's how to get set up and what to expect.
 
+## AI-assisted code
+
+micasa itself is pair-programmed with an AI coding agent, so AI-assisted
+contributions are welcome -- with one hard requirement: **you must understand
+and stand behind the code you submit.**
+
+What that means in practice:
+
+- **Hand-written code** -- always welcome.
+- **AI-assisted code you've reviewed and curated** -- also welcome. Use
+  whatever tools help you write better code faster.
+- **Bulk AI-generated PRs with no human curation** -- not welcome. If a PR
+  reads like unedited LLM output (verbose boilerplate, hallucinated APIs,
+  changes that don't match the codebase conventions, or a suspiciously large
+  diff with no clear purpose), it will be closed.
+
+The bar is the same regardless of how the code was written: does it solve a
+real problem, follow the project's patterns, and come with tests?
+
 ## Setup
 
 1. Fork and clone the repo
