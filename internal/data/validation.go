@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/dustin/go-humanize"
 )
 
 const DateLayout = "2006-01-02"
@@ -48,7 +50,7 @@ func FormatCents(cents int64) string {
 	}
 	dollars := cents / 100
 	remainder := cents % 100
-	return fmt.Sprintf("%s$%s.%02d", sign, formatWithCommas(dollars), remainder)
+	return fmt.Sprintf("%s$%s.%02d", sign, humanize.Comma(dollars), remainder)
 }
 
 func FormatOptionalCents(cents *int64) string {
@@ -60,6 +62,7 @@ func FormatOptionalCents(cents *int64) string {
 
 // FormatCompactCents formats cents using abbreviated notation for large
 // values: $1.2k, $45k, $1.3M. Values under $1,000 use full precision.
+// Uses go-humanize for SI prefix formatting.
 func FormatCompactCents(cents int64) string {
 	sign := ""
 	if cents < 0 {
@@ -67,16 +70,18 @@ func FormatCompactCents(cents int64) string {
 		cents = -cents
 	}
 	dollars := float64(cents) / 100.0
-	switch {
-	case dollars >= 1_000_000:
-		return sign + compactDollars(dollars/1_000_000, "M")
-	case dollars >= 1_000:
-		return sign + compactDollars(dollars/1_000, "k")
-	default:
-		d := cents / 100
-		r := cents % 100
-		return fmt.Sprintf("%s$%d.%02d", sign, d, r)
+	if dollars < 1000 {
+		return fmt.Sprintf(
+			"%s$%s.%02d",
+			sign,
+			humanize.Comma(cents/100),
+			cents%100,
+		)
 	}
+	// SIWithDigits produces "1.2 k" -- strip the space between number and suffix.
+	si := humanize.SIWithDigits(dollars, 1, "")
+	si = strings.Replace(si, " ", "", 1)
+	return sign + "$" + si
 }
 
 // FormatCompactOptionalCents formats optional cents compactly.
@@ -85,14 +90,6 @@ func FormatCompactOptionalCents(cents *int64) string {
 		return ""
 	}
 	return FormatCompactCents(*cents)
-}
-
-func compactDollars(v float64, suffix string) string {
-	// Drop the decimal when it's a whole number (e.g., $45k not $45.0k).
-	if v == float64(int64(v)) {
-		return fmt.Sprintf("$%.0f%s", v, suffix)
-	}
-	return fmt.Sprintf("$%.1f%s", v, suffix)
 }
 
 func ParseRequiredDate(input string) (time.Time, error) {
@@ -213,26 +210,4 @@ func parseDigits(input string, allowEmpty bool) (int64, error) {
 		}
 	}
 	return strconv.ParseInt(input, 10, 64)
-}
-
-func formatWithCommas(value int64) string {
-	raw := strconv.FormatInt(value, 10)
-	if len(raw) <= 3 {
-		return raw
-	}
-	var out strings.Builder
-	mod := len(raw) % 3
-	if mod > 0 {
-		out.WriteString(raw[:mod])
-		if len(raw) > mod {
-			out.WriteString(",")
-		}
-	}
-	for i := mod; i < len(raw); i += 3 {
-		out.WriteString(raw[i : i+3])
-		if i+3 < len(raw) {
-			out.WriteString(",")
-		}
-	}
-	return out.String()
 }
