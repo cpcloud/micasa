@@ -88,10 +88,10 @@ func TestCompactMoneyValue(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"small stays full", "$500.00", "$500.00"},
-		{"thousands", "$5,234.23", "$5.2k"},
-		{"round thousands", "$45,000.00", "$45k"},
-		{"millions", "$1,300,000.00", "$1.3M"},
+		{"small stays full", "$500.00", "500.00"},
+		{"thousands", "$5,234.23", "5.2k"},
+		{"round thousands", "$45,000.00", "45k"},
+		{"millions", "$1,300,000.00", "1.3M"},
 		{"empty", "", ""},
 		{"dash", "—", "—"},
 		{"unparseable", "not money", "not money"},
@@ -125,13 +125,37 @@ func TestCompactMoneyCells(t *testing.T) {
 	assert.Equal(t, "Kitchen", out[0][1].Value)
 	assert.Equal(t, "3", out[0][3].Value)
 
-	// Money cells compacted with $ prefix.
-	assert.Equal(t, "$5.2k", out[0][2].Value)
-	assert.Equal(t, "$100.00", out[1][2].Value)
+	// Money cells compacted, $ stripped (header carries the unit).
+	assert.Equal(t, "5.2k", out[0][2].Value)
+	assert.Equal(t, "100.00", out[1][2].Value)
 
 	// Empty money cell stays empty.
 	assert.Equal(t, "", out[1][3].Value)
 
 	// Original rows not modified.
 	assert.Equal(t, "$5,234.23", rows[0][2].Value)
+}
+
+func TestAnnotateMoneyHeaders(t *testing.T) {
+	styles := DefaultStyles()
+	specs := []columnSpec{
+		{Title: "Name", Kind: cellText},
+		{Title: "Budget", Kind: cellMoney},
+		{Title: "Actual", Kind: cellMoney},
+		{Title: "ID", Kind: cellReadonly},
+	}
+	out := annotateMoneyHeaders(specs, styles)
+
+	// Non-money columns unchanged.
+	assert.Equal(t, "Name", out[0].Title)
+	assert.Equal(t, "ID", out[3].Title)
+
+	// Money columns get styled "$" suffix.
+	assert.Contains(t, out[1].Title, "Budget")
+	assert.Contains(t, out[1].Title, "$")
+	assert.Contains(t, out[2].Title, "Actual")
+	assert.Contains(t, out[2].Title, "$")
+
+	// Original specs unmodified.
+	assert.Equal(t, "Budget", specs[1].Title)
 }

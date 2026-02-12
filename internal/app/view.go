@@ -856,8 +856,9 @@ func (m *Model) tableView(tab *Tab) string {
 	if len(vp.Specs) == 0 {
 		return ""
 	}
+	headerSpecs := annotateMoneyHeaders(vp.Specs, m.styles)
 	header := renderHeaderRow(
-		vp.Specs,
+		headerSpecs,
 		vp.Widths,
 		vp.CollapsedSeps,
 		vp.Cursor,
