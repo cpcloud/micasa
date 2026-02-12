@@ -12,6 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=JetBrains+Mono:wght@400;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
   <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
   <link rel="stylesheet" href="style.css">
+  <link rel="preload" as="image" type="image/webp" href="images/demo.webp">
 </head>
 <body>
 
@@ -37,7 +38,10 @@
 
 <!-- ─── Demo ─── -->
 <div class="container demo-container">
-  <img src="images/demo.gif" alt="micasa demo showing terminal UI" class="demo-gif" loading="lazy">
+  <picture>
+    <source srcset="images/demo.webp" type="image/webp">
+    <img src="images/demo.gif" alt="micasa demo showing terminal UI" class="demo-gif" fetchpriority="high">
+  </picture>
 </div>
 
 <!-- ─── Pitch ─── -->
