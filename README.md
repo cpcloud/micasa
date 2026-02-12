@@ -59,7 +59,7 @@ Full docs at [micasa.dev/docs](https://micasa.dev/docs/) -- start with [Installa
 
 [Pure Go](https://go.dev), zero CGO. [Charmbracelet](https://github.com/charmbracelet) + [GORM](https://gorm.io) + [SQLite](https://sqlite.org). Pair-programmed with [Claude](https://claude.ai) via [Cursor](https://cursor.com).
 
-PRs welcome. The repo uses a [Nix](https://nixos.org) dev shell with pre-commit hooks for formatting, linting, and tests:
+PRs welcome -- including AI-assisted ones, as long as you've reviewed and curated the code. See the [contributing guide](https://micasa.dev/docs/development/contributing/) for details. The repo uses a [Nix](https://nixos.org) dev shell with pre-commit hooks for formatting, linting, and tests:
 
 ```sh
 nix develop          # enter dev shell
