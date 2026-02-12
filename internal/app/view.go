@@ -140,17 +140,8 @@ func (m *Model) buildBaseView() string {
 // buildDashboardOverlay renders the dashboard content inside a bordered box
 // with navigation hints, suitable for compositing over the base view.
 func (m *Model) buildDashboardOverlay() string {
-	// Content width: terminal minus border (2) + padding (4) + breathing room (6).
-	contentW := m.effectiveWidth() - 12
-	if contentW > 72 {
-		contentW = 72
-	}
-	if contentW < 30 {
-		contentW = 30
-	}
-
-	// Inner width excludes the box padding (2 each side).
-	innerW := contentW - 4
+	contentW := m.overlayContentWidth()
+	innerW := contentW - 4 // exclude box padding (2 each side)
 	header := m.dashboardHeader(innerW)
 
 	// Navigation hints inside the overlay.
@@ -650,13 +641,7 @@ func (m *Model) buildCalendarOverlay() string {
 }
 
 func (m *Model) buildNotePreviewOverlay() string {
-	contentW := m.effectiveWidth() - 12
-	if contentW > 72 {
-		contentW = 72
-	}
-	if contentW < 30 {
-		contentW = 30
-	}
+	contentW := m.overlayContentWidth()
 
 	var b strings.Builder
 	title := m.notePreviewTitle

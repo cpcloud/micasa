@@ -393,6 +393,41 @@ func TestRenderMiniTableUnicode(t *testing.T) {
 	})
 }
 
+func TestDistributeProportional(t *testing.T) {
+	t.Run("everything fits", func(t *testing.T) {
+		got := distributeProportional([]int{3, 5}, 20)
+		assert.Equal(t, []int{3, 5}, got)
+	})
+
+	t.Run("proportional trimming", func(t *testing.T) {
+		got := distributeProportional([]int{10, 2}, 6)
+		assert.Equal(t, 6, got[0]+got[1])
+		assert.Greater(t, got[0], got[1])
+	})
+
+	t.Run("minimum 1 per bucket", func(t *testing.T) {
+		got := distributeProportional([]int{10, 10, 10}, 3)
+		for i, g := range got {
+			assert.GreaterOrEqualf(t, g, 1, "bucket %d got %d", i, g)
+		}
+	})
+
+	t.Run("empty input", func(t *testing.T) {
+		assert.Nil(t, distributeProportional(nil, 10))
+		assert.Nil(t, distributeProportional([]int{}, 10))
+	})
+
+	t.Run("single bucket", func(t *testing.T) {
+		got := distributeProportional([]int{8}, 3)
+		assert.Equal(t, []int{3}, got)
+	})
+
+	t.Run("never exceeds counts", func(t *testing.T) {
+		got := distributeProportional([]int{2, 3}, 100)
+		assert.Equal(t, []int{2, 3}, got)
+	})
+}
+
 func TestDistributeDashRows(t *testing.T) {
 	t.Run("everything fits", func(t *testing.T) {
 		sections := []dashSection{
@@ -509,6 +544,27 @@ func TestDashboardNavRebuiltFromTrimmedView(t *testing.T) {
 
 	assert.LessOrEqual(t, len(m.dashNav), 5)
 	assert.Less(t, m.dashCursor, len(m.dashNav))
+}
+
+func TestOverlayContentWidth(t *testing.T) {
+	tests := []struct {
+		name      string
+		termWidth int
+		want      int
+	}{
+		{"wide terminal caps at 72", 200, 72},
+		{"normal terminal", 100, 72},
+		{"narrow terminal", 60, 48},
+		{"very narrow caps at 30", 30, 30},
+		{"minimum clamp", 20, 30},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := newTestModel()
+			m.width = tt.termWidth
+			assert.Equal(t, tt.want, m.overlayContentWidth())
+		})
+	}
 }
 
 func TestDashboardDefaultOnLaunchWithHouse(t *testing.T) {
