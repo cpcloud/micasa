@@ -266,6 +266,10 @@ These have been repeatedly requested. Violating them wastes the user's time.
   `nix shell 'nixpkgs#vhs'`, `nix run '.#capture-screenshots'`,
   `nix search 'nixpkgs' vhs`. Bare `nixpkgs#foo` silently drops everything
   after the `#`.
+- **Pre-commit must run via Nix**: Always run `nix run '.#pre-commit'`
+  before committing. Never skip it or use a different invocation. If running
+  it is not possible, stop and ask the user why it cannot be run before
+  proceeding.
 - **Fallback to `nix develop` for missing dev commands**: If a development
   command is unavailable in PATH (for example `go`, `golangci-lint`, or other
   toolchain binaries), retry it with `nix develop -c <command>` before
