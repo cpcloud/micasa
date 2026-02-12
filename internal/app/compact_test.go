@@ -38,43 +38,37 @@ func TestFormatInterval(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Status icons
+// Status abbreviation
 // ---------------------------------------------------------------------------
 
-func TestStatusIconsAreDefined(t *testing.T) {
-	styles := DefaultStyles()
+func TestStatusFirstCharDistinct(t *testing.T) {
+	// Every status should have a unique first character so the
+	// single-letter display is unambiguous.
 	statuses := []string{
 		"ideating", "planned", "quoted",
 		"underway", "delayed", "completed", "abandoned",
 	}
+	seen := make(map[byte]string)
 	for _, s := range statuses {
-		icon, ok := styles.StatusIcons[s]
-		assert.True(t, ok, "expected icon for status %q", s)
-		assert.NotEmpty(t, icon, "icon for %q should not be empty", s)
-	}
-}
-
-func TestStatusIconsAreDistinct(t *testing.T) {
-	styles := DefaultStyles()
-	seen := make(map[string]string) // icon -> status
-	for status, icon := range styles.StatusIcons {
-		if prev, ok := seen[icon]; ok {
-			t.Errorf("duplicate icon %q shared by %q and %q", icon, prev, status)
+		ch := s[0]
+		if prev, ok := seen[ch]; ok {
+			t.Errorf(
+				"statuses %q and %q share first char %q",
+				prev, s, string(ch),
+			)
 		}
-		seen[icon] = status
+		seen[ch] = s
 	}
 }
 
-func TestStatusIconsMatchStyleKeys(t *testing.T) {
+func TestStatusStylesExistForAll(t *testing.T) {
 	styles := DefaultStyles()
-	// Every status that has a style should have an icon, and vice versa.
-	for status := range styles.StatusStyles {
-		_, ok := styles.StatusIcons[status]
-		assert.True(t, ok, "StatusStyles has %q but StatusIcons does not", status)
-	}
-	for status := range styles.StatusIcons {
-		_, ok := styles.StatusStyles[status]
-		assert.True(t, ok, "StatusIcons has %q but StatusStyles does not", status)
+	for _, s := range []string{
+		"ideating", "planned", "quoted",
+		"underway", "delayed", "completed", "abandoned",
+	} {
+		_, ok := styles.StatusStyles[s]
+		assert.True(t, ok, "missing StatusStyle for %q", s)
 	}
 }
 

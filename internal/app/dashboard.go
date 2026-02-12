@@ -635,10 +635,7 @@ func (m *Model) dashProjectRows() []dashRow {
 	rows := make([]dashRow, 0, len(d.ActiveProjects))
 	for _, p := range d.ActiveProjects {
 		statusStyle := m.styles.StatusStyles[p.Status]
-		statusText := p.Status
-		if icon, ok := m.styles.StatusIcons[p.Status]; ok {
-			statusText = icon
-		}
+		statusText := strings.ToUpper(p.Status[:1])
 		budgetText := ""
 		budgetStyle := m.styles.Money
 		if p.BudgetCents != nil {
