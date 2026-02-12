@@ -23,6 +23,12 @@ Your house is quietly plotting to break while you sleep -- and you're dreaming a
 - **Is the dishwasher still under warranty?** Appliance tracking with purchase dates, warranty status, and maintenance history tied to each one.
 - **Who did we use last time?** A vendor directory with contact info, quote history, and every job they've done for you.
 
+## Keyboard driven
+
+Vim-style modal keys: `nav` mode to browse, `edit` mode to change things. Sort by any column, jump to columns with fuzzy search, hide what you don't need, and drill into related records.
+
+See the full [keybinding reference](https://micasa.dev/docs/reference/keybindings/).
+
 ## Install
 
 Requires Go 1.25+:
@@ -33,6 +39,8 @@ go install github.com/cpcloud/micasa/cmd/micasa@latest
 
 Or grab a binary from the [latest release](https://github.com/cpcloud/micasa/releases/latest).
 
+Linux, macOS, and Windows binaries are available for amd64 and arm64.
+
 ```sh
 micasa --demo         # poke around with sample data
 micasa                # start fresh with your own house
@@ -41,9 +49,11 @@ micasa --print-path   # show where the database lives
 
 > One SQLite file. Your data, your machine. Back it up with `cp`.
 
+Need Nix or container install options? Use the full [installation guide](https://micasa.dev/docs/getting-started/installation/).
+
 ## Documentation
 
-Full docs at [micasa.dev/docs](https://micasa.dev/docs/) -- installation, user guide, keybinding reference, configuration, and development setup.
+Full docs at [micasa.dev/docs](https://micasa.dev/docs/) -- start with [Installation](https://micasa.dev/docs/getting-started/installation/) and [First Run](https://micasa.dev/docs/getting-started/first-run/), then use the [Guide](https://micasa.dev/docs/guide/) and [Reference](https://micasa.dev/docs/reference/).
 
 ## Development
 
@@ -53,7 +63,7 @@ PRs welcome. The repo uses a [Nix](https://nixos.org) dev shell with pre-commit 
 
 ```sh
 nix develop          # enter dev shell
-go test ./...        # run tests
+go test -shuffle=on -v ./...        # run tests
 ```
 
 ## License
