@@ -263,6 +263,10 @@ These have been repeatedly requested. Violating them wastes the user's time.
   `nix shell 'nixpkgs#vhs'`, `nix run '.#capture-screenshots'`,
   `nix search 'nixpkgs' vhs`. Bare `nixpkgs#foo` silently drops everything
   after the `#`.
+- **Fallback to `nix develop` for missing dev commands**: If a development
+  command is unavailable in PATH (for example `go`, `golangci-lint`, or other
+  toolchain binaries), retry it with `nix develop -c <command>` before
+  declaring it unavailable.
 - **Dynamic nix store paths**: Use
   `nix build '.#micasa' --print-out-paths --no-link` to get the store path
   at runtime. Never hardcode `/nix/store/...` hashes in variables or
