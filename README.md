@@ -12,7 +12,7 @@ Your house is quietly plotting to break while you sleep -- and you're dreaming a
 > Single SQLite file. No cloud. No account. No subscriptions.
 
 <div align="center">
-  <img src="images/demo.gif" alt="micasa demo" width="800">
+  <img src="images/demo.webp" alt="micasa demo" width="800">
 </div>
 
 ## Features

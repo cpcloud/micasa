@@ -44,7 +44,7 @@ website/docs/
 
 # Build-time copies of shared assets
 website/images/favicon.svg
-website/images/demo.gif
+website/images/demo.webp
 docs/static/images/favicon.svg
 
 # Env / local

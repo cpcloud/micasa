@@ -155,7 +155,6 @@
             text = ''
               mkdir -p website/images docs/static/images
               cp images/favicon.svg website/images/favicon.svg
-              cp images/demo.gif website/images/demo.gif
               cp images/demo.webp website/images/demo.webp
               cp images/favicon.svg docs/static/images/favicon.svg
               rm -rf website/docs
@@ -179,6 +178,7 @@
               micasa
               pkgs.vhs
               pkgs.jetbrains-mono
+              pkgs.libwebp
             ];
             text = ''
               TMPDIR=$(mktemp -d)
@@ -198,7 +198,9 @@
               export FONTCONFIG_FILE="$FC_CONF"
 
               vhs docs/tapes/demo.tape
-              echo "Done: images/demo.gif"
+              gif2webp -m 6 images/demo.gif -o images/demo.webp
+              rm images/demo.gif
+              echo "Done: images/demo.webp"
             '';
           };
           # Captures a single VHS tape to PNG: capture-one <tape-file>
