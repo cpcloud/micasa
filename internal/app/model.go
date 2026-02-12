@@ -1275,8 +1275,10 @@ func (m *Model) formInitCmd() tea.Cmd {
 }
 
 const (
-	defaultWidth  = 80
-	defaultHeight = 24
+	defaultWidth    = 80
+	defaultHeight   = 24
+	minUsableWidth  = 80
+	minUsableHeight = 24
 )
 
 func (m *Model) effectiveWidth() int {
@@ -1291,6 +1293,10 @@ func (m *Model) effectiveHeight() int {
 		return m.height
 	}
 	return defaultHeight
+}
+
+func (m *Model) terminalTooSmall() bool {
+	return m.effectiveWidth() < minUsableWidth || m.effectiveHeight() < minUsableHeight
 }
 
 func selectRowByID(tab *Tab, id uint) bool {

@@ -13,6 +13,10 @@ import (
 )
 
 func (m *Model) buildView() string {
+	if m.terminalTooSmall() {
+		return m.buildTerminalTooSmallView()
+	}
+
 	if m.mode == modeForm && m.form != nil && m.formKind == formHouse {
 		return m.formFullScreen()
 	}
@@ -45,6 +49,34 @@ func (m *Model) buildView() string {
 	}
 
 	return base
+}
+
+func (m *Model) buildTerminalTooSmallView() string {
+	width := m.effectiveWidth()
+	height := m.effectiveHeight()
+
+	panel := lipgloss.JoinVertical(
+		lipgloss.Center,
+		m.styles.Error.Render("Terminal too small"),
+		"",
+		m.styles.HeaderHint.Render(
+			fmt.Sprintf(
+				"%dx%d — need at least %dx%d",
+				width,
+				height,
+				minUsableWidth,
+				minUsableHeight,
+			),
+		),
+	)
+
+	return lipgloss.Place(
+		width,
+		height,
+		lipgloss.Center,
+		lipgloss.Center,
+		clampLines(panel, width),
+	)
 }
 
 // buildBaseView renders the normal table/detail/form view with house, tabs,

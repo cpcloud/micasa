@@ -29,6 +29,27 @@ func TestBuildViewShowsFullHouseBox(t *testing.T) {
 	assert.Contains(t, lines[0], "╭", "first line should contain the top border")
 }
 
+func TestBuildViewShowsTerminalTooSmallMessage(t *testing.T) {
+	m := newTestModel()
+	m.width = minUsableWidth - 1
+	m.height = minUsableHeight - 1
+	m.showDashboard = true
+	m.showNotePreview = true
+
+	output := m.buildView()
+	assert.Contains(t, output, "Terminal too small")
+	assert.Contains(t, output, "need at least 80x24")
+}
+
+func TestBuildViewDoesNotShowTerminalTooSmallMessageAtMinimumSize(t *testing.T) {
+	m := newTestModel()
+	m.width = minUsableWidth
+	m.height = minUsableHeight
+
+	output := m.buildView()
+	assert.NotContains(t, output, "Terminal too small")
+}
+
 func TestNaturalWidthsIgnoreMax(t *testing.T) {
 	specs := []columnSpec{
 		{Title: "ID", Min: 4, Max: 6},
