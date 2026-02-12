@@ -24,11 +24,12 @@ func magFormat(c cell, includeUnit bool) string {
 	}
 
 	// Only transform kinds that carry meaningful numeric data.
-	// Skip cellReadonly (IDs, ages, counts) and non-numeric kinds.
+	// cellText is excluded because it covers phone numbers, serial numbers,
+	// model numbers, and other identifiers that happen to look numeric.
 	switch c.Kind {
-	case cellText, cellMoney, cellDrilldown:
-		// Potentially numeric; continue to parsing below.
-	case cellReadonly, cellDate, cellWarranty, cellUrgency, cellNotes, cellStatus:
+	case cellMoney, cellDrilldown:
+		// Definitely numeric; continue to parsing below.
+	default:
 		return value
 	}
 

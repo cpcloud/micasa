@@ -79,21 +79,30 @@ func TestMagFormatSkipsReadonly(t *testing.T) {
 	assert.Equal(t, "42", magFormat(c, false))
 }
 
-func TestMagFormatSkipsNonNumeric(t *testing.T) {
+func TestMagFormatSkipsNonNumericKinds(t *testing.T) {
 	tests := []struct {
 		name  string
 		value string
 		kind  cellKind
 	}{
-		{"text", "Kitchen Remodel", cellText},
+		{"text name", "Kitchen Remodel", cellText},
 		{"status", "underway", cellStatus},
 		{"date", "2026-02-12", cellDate},
 		{"warranty date", "2027-06-15", cellWarranty},
 		{"urgency date", "2026-03-01", cellUrgency},
 		{"notes", "Some long note", cellNotes},
-		{"empty", "", cellText},
-		{"dash", "\u2014", cellMoney},
+		{"empty text", "", cellText},
+		{"dash money", "\u2014", cellMoney},
 		{"readonly id", "7", cellReadonly},
+
+		// Numeric-looking cellText values that must NOT be transformed:
+		// phone numbers, serial numbers, model numbers, zip codes.
+		{"phone number", "5551234567", cellText},
+		{"formatted phone", "(555) 123-4567", cellText},
+		{"serial number", "123456789", cellText},
+		{"model number", "12345", cellText},
+		{"zip code", "90210", cellText},
+		{"interval", "3m", cellText},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
