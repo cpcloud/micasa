@@ -879,9 +879,10 @@ func (m *Model) tableView(tab *Tab) string {
 	if effectiveHeight < 2 {
 		effectiveHeight = 2
 	}
+	displayCells := compactMoneyCells(vp.Cells)
 	rows := renderRows(
 		vp.Specs,
-		vp.Cells,
+		displayCells,
 		tab.Rows,
 		vp.Widths,
 		vp.PlainSeps,

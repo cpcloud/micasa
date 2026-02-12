@@ -77,3 +77,61 @@ func TestStatusIconsMatchStyleKeys(t *testing.T) {
 		assert.True(t, ok, "StatusIcons has %q but StatusStyles does not", status)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Compact money
+// ---------------------------------------------------------------------------
+
+func TestCompactMoneyValue(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"small stays full", "$500.00", "500.00"},
+		{"thousands", "$5,234.23", "5.2k"},
+		{"round thousands", "$45,000.00", "45k"},
+		{"millions", "$1,300,000.00", "1.3M"},
+		{"empty", "", ""},
+		{"dash", "—", "—"},
+		{"unparseable", "not money", "not money"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, compactMoneyValue(tt.input))
+		})
+	}
+}
+
+func TestCompactMoneyCells(t *testing.T) {
+	rows := [][]cell{
+		{
+			{Value: "1", Kind: cellReadonly},
+			{Value: "Kitchen", Kind: cellText},
+			{Value: "$5,234.23", Kind: cellMoney},
+			{Value: "3", Kind: cellDrilldown},
+		},
+		{
+			{Value: "2", Kind: cellReadonly},
+			{Value: "Deck", Kind: cellText},
+			{Value: "$100.00", Kind: cellMoney},
+			{Value: "", Kind: cellMoney},
+		},
+	}
+	out := compactMoneyCells(rows)
+
+	// Non-money cells unchanged.
+	assert.Equal(t, "1", out[0][0].Value)
+	assert.Equal(t, "Kitchen", out[0][1].Value)
+	assert.Equal(t, "3", out[0][3].Value)
+
+	// Money cells compacted ($ stripped for bare display).
+	assert.Equal(t, "5.2k", out[0][2].Value)
+	assert.Equal(t, "100.00", out[1][2].Value)
+
+	// Empty money cell stays empty.
+	assert.Equal(t, "", out[1][3].Value)
+
+	// Original rows not modified.
+	assert.Equal(t, "$5,234.23", rows[0][2].Value)
+}
