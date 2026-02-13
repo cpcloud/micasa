@@ -235,15 +235,9 @@ func DefaultStyles() Styles {
 			Foreground(success).
 			Bold(true),
 		ChatUser: lipgloss.NewStyle().
-			Foreground(onAccent).
-			Background(secondary).
-			Padding(0, 1).
-			Bold(true),
+			Foreground(secondary),
 		ChatAssistant: lipgloss.NewStyle().
-			Foreground(onAccent).
-			Background(accent).
-			Padding(0, 1).
-			Bold(true),
+			Foreground(accent),
 		ChatNotice: lipgloss.NewStyle().
 			Foreground(success).
 			Italic(true),
