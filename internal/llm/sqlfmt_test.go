@@ -24,17 +24,17 @@ func TestFormatSQLSingleColumn(t *testing.T) {
 
 func TestFormatSQLMultipleClauses(t *testing.T) {
 	got := FormatSQL(
-		"SELECT name, budget_ct / 100.0 AS budget FROM projects "+
+		"SELECT name, budget_cents / 100.0 AS budget FROM projects "+
 			"WHERE status = 'underway' AND deleted_at IS NULL "+
-			"ORDER BY budget_ct DESC LIMIT 5",
+			"ORDER BY budget_cents DESC LIMIT 5",
 		0,
 	)
 	expected := "SELECT name,\n" +
-		"  budget_ct / 100.0 AS budget\n" +
+		"  budget_cents / 100.0 AS budget\n" +
 		"FROM projects\n" +
 		"WHERE status = 'underway'\n" +
 		"  AND deleted_at IS NULL\n" +
-		"ORDER BY budget_ct DESC\n" +
+		"ORDER BY budget_cents DESC\n" +
 		"LIMIT 5"
 	assert.Equal(t, expected, got)
 }
@@ -56,12 +56,12 @@ func TestFormatSQLJoin(t *testing.T) {
 
 func TestFormatSQLSubquery(t *testing.T) {
 	got := FormatSQL(
-		"SELECT name FROM projects WHERE id IN (SELECT project_id FROM quotes WHERE amount_ct > 10000)",
+		"SELECT name FROM projects WHERE id IN (SELECT project_id FROM quotes WHERE total_cents > 10000)",
 		0,
 	)
 	assert.Contains(t, got, "SELECT name")
 	assert.Contains(t, got, "FROM projects")
-	assert.Contains(t, got, "WHERE id IN (SELECT project_id FROM quotes WHERE amount_ct > 10000)")
+	assert.Contains(t, got, "WHERE id IN (SELECT project_id FROM quotes WHERE total_cents > 10000)")
 }
 
 func TestFormatSQLGroupBy(t *testing.T) {
@@ -104,12 +104,12 @@ func TestFormatSQLPreservesStrings(t *testing.T) {
 
 func TestFormatSQLDateFunctions(t *testing.T) {
 	got := FormatSQL(
-		"SELECT name, date(last_serviced, '+' || interval_months || ' months') AS next_due "+
+		"SELECT name, date(last_serviced_at, '+' || interval_months || ' months') AS next_due "+
 			"FROM maintenance_items WHERE deleted_at IS NULL ORDER BY next_due",
 		0,
 	)
 	assert.Contains(t, got, "SELECT name")
-	assert.Contains(t, got, "date(last_serviced, '+' || interval_months || ' months') AS next_due")
+	assert.Contains(t, got, "date(last_serviced_at, '+' || interval_months || ' months') AS next_due")
 	assert.Contains(t, got, "FROM maintenance_items")
 	assert.Contains(t, got, "ORDER BY next_due")
 }
@@ -128,7 +128,7 @@ func TestFormatSQLAlreadyFormatted(t *testing.T) {
 
 func TestFormatSQLBetween(t *testing.T) {
 	got := FormatSQL(
-		"SELECT name FROM appliances WHERE warranty_exp BETWEEN date('now') AND date('now', '+90 days')",
+		"SELECT name FROM appliances WHERE warranty_expiry BETWEEN date('now') AND date('now', '+90 days')",
 		0,
 	)
 	assert.Contains(t, got, "BETWEEN")
@@ -137,12 +137,12 @@ func TestFormatSQLBetween(t *testing.T) {
 
 func TestFormatSQLAggregateWithJoin(t *testing.T) {
 	got := FormatSQL(
-		"SELECT SUM(q.amount_ct) / 100.0 AS total FROM quotes q "+
+		"SELECT SUM(q.total_cents) / 100.0 AS total FROM quotes q "+
 			"JOIN projects p ON q.project_id = p.id "+
 			"WHERE p.deleted_at IS NULL AND q.deleted_at IS NULL",
 		0,
 	)
-	expected := "SELECT SUM(q.amount_ct) / 100.0 AS total\n" +
+	expected := "SELECT SUM(q.total_cents) / 100.0 AS total\n" +
 		"FROM quotes q\n" +
 		"JOIN projects p\nON q.project_id = p.id\n" +
 		"WHERE p.deleted_at IS NULL\n" +
@@ -152,7 +152,7 @@ func TestFormatSQLAggregateWithJoin(t *testing.T) {
 
 func TestFormatSQLWrapsLongLines(t *testing.T) {
 	got := FormatSQL(
-		"SELECT name, date(last_serviced, '+' || interval_months || ' months') AS next_due "+
+		"SELECT name, date(last_serviced_at, '+' || interval_months || ' months') AS next_due "+
 			"FROM maintenance_items WHERE deleted_at IS NULL ORDER BY next_due",
 		40,
 	)

@@ -16,7 +16,7 @@ var testTables = []TableInfo{
 		Columns: []ColumnInfo{
 			{Name: "id", Type: "integer", PK: true},
 			{Name: "title", Type: "text", NotNull: true},
-			{Name: "budget_ct", Type: "integer"},
+			{Name: "budget_cents", Type: "integer"},
 			{Name: "status", Type: "text"},
 		},
 	},
@@ -76,14 +76,14 @@ func TestBuildSQLPromptIncludesDDL(t *testing.T) {
 	assert.Contains(t, prompt, "CREATE TABLE projects")
 	assert.Contains(t, prompt, "id integer PRIMARY KEY")
 	assert.Contains(t, prompt, "title text NOT NULL")
-	assert.Contains(t, prompt, "budget_ct integer")
+	assert.Contains(t, prompt, "budget_cents integer")
 	assert.Contains(t, prompt, "CREATE TABLE appliances")
 }
 
 func TestBuildSQLPromptIncludesFewShotExamples(t *testing.T) {
 	prompt := BuildSQLPrompt(testTables, testNow, "")
 	assert.Contains(t, prompt, "SELECT COUNT(*)")
-	assert.Contains(t, prompt, "budget_ct / 100.0")
+	assert.Contains(t, prompt, "budget_cents / 100.0")
 	assert.Contains(t, prompt, "deleted_at IS NULL")
 }
 
