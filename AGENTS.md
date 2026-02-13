@@ -311,6 +311,10 @@ These have been repeatedly requested. Violating them wastes the user's time.
   StrReplace, Grep, and Glob tools instead of shell equivalents (`cat`,
   `sed`, `grep`, `find`, `echo >`, etc.). Only use Shell for commands that
   genuinely need a shell (build, test, git, nix, etc.).
+- **Use stdlib/codebase constants instead of magic numbers**: If constants
+  are available in the standard library (e.g. `math.MaxInt64`, `math.MinInt64`)
+  or defined in the codebase, always use those instead of inlining the literal
+  values. This improves readability, maintainability, and prevents typos.
 - **Audit docs on feature/fix changes**: When features or fixes are
   introduced, check whether documentation (Hugo docs, README, website)
   needs updating. Also consider whether the demo GIF (`record-demo`) and
