@@ -963,7 +963,7 @@ func (m *Model) renderChatMessages() string {
 
 	innerW := m.chatViewportWidth()
 	var parts []string
-	for _, msg := range m.chat.Messages {
+	for i, msg := range m.chat.Messages {
 		var rendered string
 		switch msg.Role {
 		case "user":
@@ -985,6 +985,12 @@ func (m *Model) renderChatMessages() string {
 				rendered = label + "\n" + renderMarkdown(text, innerW-2)
 			} else {
 				rendered = label
+			}
+			// Add subtle separator after assistant response (end of Q&A pair).
+			// Skip if it's the last message to avoid trailing separator.
+			if i < len(m.chat.Messages)-1 && text != "" {
+				sep := strings.Repeat("─", innerW)
+				rendered += "\n" + lipgloss.NewStyle().Foreground(textDim).Render(sep)
 			}
 		case "sql":
 			// Leave room for glamour's code block padding/border.
