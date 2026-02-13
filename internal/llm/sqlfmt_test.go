@@ -64,6 +64,24 @@ func TestFormatSQLSubquery(t *testing.T) {
 	assert.Contains(t, got, "WHERE id IN (SELECT project_id FROM quotes WHERE total_cents > 10000)")
 }
 
+func TestFormatSQLNestedSubquery(t *testing.T) {
+	got := FormatSQL(
+		"SELECT name, (SELECT COUNT(*) FROM quotes WHERE project_id = projects.id) AS quote_count FROM projects WHERE status = 'active'",
+		0,
+	)
+	// Verify main query columns are on separate lines
+	assert.Contains(t, got, "SELECT name,")
+	assert.Contains(t, got, "AS quote_count")
+	assert.Contains(t, got, "FROM projects")
+	assert.Contains(t, got, "WHERE status = 'active'")
+	// Verify each column is on its own line
+	lines := strings.Split(got, "\n")
+	assert.Equal(t, 4, len(lines), "should have 4 lines: SELECT, column with subquery, FROM, WHERE")
+	// Second line should be indented and contain the subquery
+	assert.True(t, strings.HasPrefix(lines[1], "  "), "second column should be indented")
+	assert.Contains(t, lines[1], "SELECT COUNT(*)", "should contain nested SELECT on column line")
+}
+
 func TestFormatSQLGroupBy(t *testing.T) {
 	got := FormatSQL(
 		"SELECT status, COUNT(*) AS cnt FROM projects "+
@@ -84,7 +102,10 @@ func TestFormatSQLGroupBy(t *testing.T) {
 }
 
 func TestFormatSQLKeywordsUppercased(t *testing.T) {
-	got := FormatSQL("select name from projects where status = 'underway' and deleted_at is null limit 1", 0)
+	got := FormatSQL(
+		"select name from projects where status = 'underway' and deleted_at is null limit 1",
+		0,
+	)
 	assert.Contains(t, got, "SELECT")
 	assert.Contains(t, got, "FROM")
 	assert.Contains(t, got, "WHERE")
@@ -109,7 +130,11 @@ func TestFormatSQLDateFunctions(t *testing.T) {
 		0,
 	)
 	assert.Contains(t, got, "SELECT name")
-	assert.Contains(t, got, "date(last_serviced_at, '+' || interval_months || ' months') AS next_due")
+	assert.Contains(
+		t,
+		got,
+		"date(last_serviced_at, '+' || interval_months || ' months') AS next_due",
+	)
 	assert.Contains(t, got, "FROM maintenance_items")
 	assert.Contains(t, got, "ORDER BY next_due")
 }

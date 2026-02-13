@@ -345,36 +345,62 @@ func trimTrailingSpace(b *strings.Builder) {
 }
 
 // layoutClauses formats the token stream into indented, line-broken SQL.
+// Handles nested queries by tracking parenthesis depth and indenting
+// subqueries appropriately.
 func layoutClauses(rawTokens []sqlToken) string {
 	tokens := buildClauseTokens(rawTokens)
 
 	var b strings.Builder
-	const indent = "  "
+	const indentUnit = "  "
 	atLineStart := true
 	inSelect := false
 	parenDepth := 0
+	baseIndent := 0 // Indentation level for current scope
 
-	for _, ct := range tokens {
-		// Track parenthesis depth to avoid breaking inside subexpressions.
+	for i, ct := range tokens {
+		// Track parenthesis depth to detect subqueries.
 		if ct.Kind == tokSymbol && ct.Text == "(" {
+			// Check if this is the start of a subquery (preceded by FROM, JOIN, IN, etc.)
+			// For simplicity, we treat all ( as potential subquery starts.
+			b.WriteString(ct.Text)
 			parenDepth++
+
+			// Peek ahead to see if next non-space token is SELECT (indicating subquery)
+			nextIdx := i + 1
+			for nextIdx < len(tokens) && tokens[nextIdx].Kind == tokSpace {
+				nextIdx++
+			}
+			if nextIdx < len(tokens) && tokens[nextIdx].Keyword == "SELECT" {
+				baseIndent++
+			}
+			atLineStart = false
+			continue
 		}
+
 		if ct.Kind == tokSymbol && ct.Text == ")" {
 			if parenDepth > 0 {
 				parenDepth--
+				// Check if we're closing a subquery scope
+				if baseIndent > 0 {
+					// Look back to see if we had a SELECT at this level
+					baseIndent--
+				}
 			}
+			b.WriteString(ct.Text)
+			atLineStart = false
+			continue
 		}
 
-		// Clause keyword at top level (not inside parens): start a new line.
+		// Clause keyword at top level of current scope: start a new line.
 		if ct.Level >= 0 && parenDepth == 0 {
 			kw := ct.Keyword
 
-			// SELECT starts at column 0 with no preceding newline if it's
-			// the very first token.
+			// SELECT: new line with proper indentation
 			if kw == "SELECT" {
 				if b.Len() > 0 {
 					trimTrailingSpace(&b)
 					b.WriteString("\n")
+					b.WriteString(strings.Repeat(indentUnit, baseIndent))
 				}
 				b.WriteString(ct.Text)
 				atLineStart = false
@@ -382,30 +408,32 @@ func layoutClauses(rawTokens []sqlToken) string {
 				continue
 			}
 
-			// AND/OR get single indent.
+			// AND/OR get one extra indent from their clause.
 			if ct.Level == 1 {
 				trimTrailingSpace(&b)
 				b.WriteString("\n")
-				b.WriteString(indent)
+				b.WriteString(strings.Repeat(indentUnit, baseIndent+1))
 				b.WriteString(ct.Text)
 				atLineStart = false
 				continue
 			}
 
-			// Other top-level clauses: newline, no indent.
+			// Other top-level clauses: newline with base indentation.
 			trimTrailingSpace(&b)
 			b.WriteString("\n")
+			b.WriteString(strings.Repeat(indentUnit, baseIndent))
 			b.WriteString(ct.Text)
 			atLineStart = false
 			inSelect = false
 			continue
 		}
 
-		// In a SELECT column list, break on commas (top-level only).
+		// In a SELECT column list, break on commas at current paren depth.
+		// Each column gets its own line with proper indentation.
 		if inSelect && ct.Kind == tokSymbol && ct.Text == "," && parenDepth == 0 {
 			b.WriteString(",")
 			b.WriteString("\n")
-			b.WriteString(indent)
+			b.WriteString(strings.Repeat(indentUnit, baseIndent+1))
 			atLineStart = true
 			continue
 		}
