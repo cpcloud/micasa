@@ -122,29 +122,7 @@ micasa --print-path   # show where the database lives</code></pre>
 <section id="testimonials">
   <div class="container">
     <h2>What <span class="accent">people</span> are saying</h2>
-    <div class="testimonials-grid">
-
-      <blockquote class="testimonial">
-        <p>My partner asked why I was typing in a terminal at midnight and I said &ldquo;furnace filter logistics.&rdquo; We&rsquo;re in counseling now.</p>
-        <cite>&mdash; Anonymous Homeowner</cite>
-      </blockquote>
-
-      <blockquote class="testimonial">
-        <p>A client showed up with a printed maintenance history sorted by date. I charged them less because honestly it saved me an hour.</p>
-        <cite>&mdash; Local Plumber, Allegedly</cite>
-      </blockquote>
-
-      <blockquote class="testimonial">
-        <p>I was going to use a spreadsheet like a normal person but here we are.</p>
-        <cite>&mdash; Hacker News Commenter, Almost Certainly</cite>
-      </blockquote>
-
-      <blockquote class="testimonial">
-        <p>I can now tell you the exact date I last cleaned the gutters. Nobody has ever asked me this. I am ready.</p>
-        <cite>&mdash; Overqualified Homeowner</cite>
-      </blockquote>
-
-    </div>
+    <div class="testimonials-grid" id="testimonials-grid"></div>
   </div>
 </section>
 
@@ -753,6 +731,64 @@ micasa --print-path   # show where the database lives</code></pre>
   // Kick off
   spawn();
   requestAnimationFrame(tick);
+})();
+</script>
+
+<script>
+// Randomly pick testimonials on each page load.
+(function () {
+  var all = [
+    {
+      text: 'My partner asked why I was typing in a terminal at midnight. I said \u201cthe water heater warranty expires in eleven days.\u201d She said \u201cwe rent.\u201d',
+      cite: 'Anonymous'
+    },
+    {
+      text: 'A client pulled out a laptop and showed me a sorted maintenance log going back three years. I have been a plumber for twenty years and I have never felt so unprepared for a house call.',
+      cite: 'A Plumber, Allegedly'
+    },
+    {
+      text: 'I was going to use a spreadsheet like a normal person. Then I was going to use Notion like a normal person. Then I installed a TUI from GitHub at 2am. I am no longer a normal person.',
+      cite: 'Hacker News Commenter, Almost Certainly'
+    },
+    {
+      text: 'I can tell you the exact date I last cleaned the gutters, which filter is in the furnace, and what I paid the electrician in 2024. Nobody has ever asked me for any of this. I am ready.',
+      cite: 'Overqualified Homeowner'
+    },
+    {
+      text: 'My wife asked if I\u2019d called the roofer. I pulled up a timestamped service log, a quote comparison, and a vendor contact sheet. She said \u201cso\u2026 no?\u201d',
+      cite: 'Local Dad'
+    },
+    {
+      text: 'Finally replaced the sticky note on the fridge. It said \u201ccall roofer.\u201d It had been there since we moved in. The roofer has retired.',
+      cite: 'Suburban Archaeologist'
+    },
+    {
+      text: 'It\u2019s like having a filing cabinet except it\u2019s one file and I understand what\u2019s in it.',
+      cite: 'Reluctant Convert'
+    }
+  ];
+
+  // Fisher-Yates shuffle, then take the first N.
+  var SHOW = 4;
+  for (var i = all.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = all[i]; all[i] = all[j]; all[j] = tmp;
+  }
+  var pick = all.slice(0, SHOW);
+
+  var grid = document.getElementById('testimonials-grid');
+  if (!grid) return;
+  for (var k = 0; k < pick.length; k++) {
+    var bq = document.createElement('blockquote');
+    bq.className = 'testimonial';
+    var p = document.createElement('p');
+    p.textContent = pick[k].text;
+    var cite = document.createElement('cite');
+    cite.textContent = '\u2014 ' + pick[k].cite;
+    bq.appendChild(p);
+    bq.appendChild(cite);
+    grid.appendChild(bq);
+  }
 })();
 </script>
 </body>
