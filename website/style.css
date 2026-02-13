@@ -404,6 +404,30 @@ section + section {
   color: var(--cream);
 }
 
+/* --- Testimonials --- */
+.testimonials-grid {
+  display: grid;
+  gap: 2rem;
+}
+
+.testimonial {
+  border-left: 3px solid var(--rule);
+  padding-left: 1.25rem;
+}
+
+.testimonial p {
+  font-style: italic;
+  color: var(--charcoal-soft);
+  margin-bottom: 0.4rem;
+}
+
+.testimonial cite {
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+  font-size: 0.75rem;
+  font-style: normal;
+  color: var(--warm-gray);
+}
+
 /* --- Origin --- */
 .origin-quote {
   font-family: "DM Serif Display", "Georgia", serif;
