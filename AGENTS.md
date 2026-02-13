@@ -253,11 +253,6 @@ It's very likely another agent has been working and just run out of context.
 
 These have been repeatedly requested. Violating them wastes the user's time.
 
-- **Spaces around operators**: Always put spaces around binary operators
-  (`+`, `==`, `&&`, etc.) in Go code, including inside function call
-  arguments. `gofumpt` (via `golines`) may strip spaces in some contexts
-  and leave them in others -- accept whatever the formatter produces
-  after a commit, but always write new code with spaces.
 - **No `cd`**: You are already in the workspace directory. Never prepend `cd
   /path && ...` to shell commands. Use the `working_directory` parameter if you
   need a different directory.
