@@ -43,7 +43,12 @@ func TestBuildSystemPromptIncludesSchema(t *testing.T) {
 }
 
 func TestBuildSystemPromptIncludesData(t *testing.T) {
-	prompt := BuildSystemPrompt(nil, "### projects (3 rows)\n\n- id: 1, title: Fix roof\n", testNow, "")
+	prompt := BuildSystemPrompt(
+		nil,
+		"### projects (3 rows)\n\n- id: 1, title: Fix roof\n",
+		testNow,
+		"",
+	)
 	assert.Contains(t, prompt, "Fix roof")
 	assert.Contains(t, prompt, "Current Data")
 }
@@ -173,4 +178,22 @@ func TestExtractSQLStripsTrailingSemicolons(t *testing.T) {
 func TestExtractSQLTrimsWhitespace(t *testing.T) {
 	sql := ExtractSQL("  \n  SELECT 1  \n  ")
 	assert.Equal(t, "SELECT 1", sql)
+}
+
+func TestBuildSQLPromptIncludesEntityRelationships(t *testing.T) {
+	prompt := BuildSQLPrompt(testTables, testNow, "")
+	assert.Contains(t, prompt, "## Entity Relationships")
+	assert.Contains(t, prompt, "Foreign key relationships")
+	assert.Contains(t, prompt, "projects.project_type_id")
+	assert.Contains(t, prompt, "maintenance_items.appliance_id")
+	assert.Contains(t, prompt, "NO direct FK between projects and appliances")
+}
+
+func TestBuildSystemPromptIncludesEntityRelationships(t *testing.T) {
+	prompt := BuildSystemPrompt(testTables, "", testNow, "")
+	assert.Contains(t, prompt, "## Entity Relationships")
+	assert.Contains(t, prompt, "Foreign key relationships")
+	assert.Contains(t, prompt, "projects.project_type_id")
+	assert.Contains(t, prompt, "maintenance_items.appliance_id")
+	assert.Contains(t, prompt, "NO direct FK between projects and appliances")
 }
