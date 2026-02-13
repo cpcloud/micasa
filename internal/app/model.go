@@ -158,6 +158,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.handleChatChunk(typed)
 		}
 		return m, nil
+	case sqlStreamStartedMsg:
+		if m.chat != nil {
+			return m, m.handleSQLStreamStarted(typed)
+		}
+		return m, nil
+	case sqlChunkMsg:
+		if m.chat != nil {
+			return m, m.handleSQLChunk(typed)
+		}
+		return m, nil
 	case sqlResultMsg:
 		if m.chat != nil {
 			return m, m.handleSQLResult(typed)

@@ -27,24 +27,26 @@ type chatMessage struct {
 
 // chatState holds the state of the LLM chat overlay.
 type chatState struct {
-	Messages    []chatMessage
-	Input       textinput.Model
-	Viewport    viewport.Model
-	Spinner     spinner.Model
-	Streaming   bool // true while an LLM response is being streamed
-	StreamCh    <-chan llm.StreamChunk
-	CancelFn    context.CancelFunc
-	Progress    progress.Model // pull progress bar
-	Pulling     bool           // true while a model pull is in progress
-	PullDisplay string         // current pull status text, rendered as fixed chrome
-	PullPeak    float64        // high-water mark so the bar never goes backwards
-	PullCancel  context.CancelFunc
-	Completer   *modelCompleter // non-nil when the model picker is showing
-	ShowSQL     bool            // when true, show generated SQL as a notice
-	History     []string        // past user inputs, newest last
-	HistoryCur  int             // index into History for up/down browsing (-1 = live input)
-	HistoryBuf  string          // stashed live input while browsing history
-	Visible     bool            // false when the overlay is hidden but session persists
+	Messages     []chatMessage
+	Input        textinput.Model
+	Viewport     viewport.Model
+	Spinner      spinner.Model
+	Streaming    bool                   // true while an LLM response is being streamed
+	StreamingSQL bool                   // true during SQL generation (stage 1)
+	StreamCh     <-chan llm.StreamChunk // for stage 2 (answer streaming)
+	SQLStreamCh  <-chan llm.StreamChunk // for stage 1 (SQL generation)
+	CancelFn     context.CancelFunc
+	Progress     progress.Model // pull progress bar
+	Pulling      bool           // true while a model pull is in progress
+	PullDisplay  string         // current pull status text, rendered as fixed chrome
+	PullPeak     float64        // high-water mark so the bar never goes backwards
+	PullCancel   context.CancelFunc
+	Completer    *modelCompleter // non-nil when the model picker is showing
+	ShowSQL      bool            // when true, show generated SQL as a notice
+	History      []string        // past user inputs, newest last
+	HistoryCur   int             // index into History for up/down browsing (-1 = live input)
+	HistoryBuf   string          // stashed live input while browsing history
+	Visible      bool            // false when the overlay is hidden but session persists
 }
 
 // modelCompleter is the inline autocomplete list for /model.
@@ -96,6 +98,13 @@ type chatChunkMsg struct {
 	Content string
 	Done    bool
 	Err     error
+}
+
+// sqlChunkMsg delivers partial SQL during streaming generation (stage 1).
+type sqlChunkMsg struct {
+	Content string // partial SQL
+	Done    bool   // true when SQL generation is complete
+	Err     error  // non-nil if SQL generation failed
 }
 
 // sqlResultMsg delivers the result of stage 1 (NL → SQL) back to the
@@ -259,47 +268,58 @@ func (m *Model) submitChat() tea.Cmd {
 		Role: "user", Content: query,
 	})
 	m.chat.Streaming = true
+	m.chat.StreamingSQL = true
 	m.chat.Messages = append(m.chat.Messages, chatMessage{
 		Role: "notice", Content: "generating query",
 	})
+	// Add an empty SQL message that we'll update as chunks arrive.
+	m.chat.Messages = append(m.chat.Messages, chatMessage{
+		Role: "sql", Content: "",
+	})
 	m.refreshChatViewport()
 
-	// Stage 1 runs in a goroutine: generate SQL, validate, execute.
+	// Stage 1: Stream SQL generation.
+	return tea.Batch(m.startSQLStream(query), m.chat.Spinner.Tick)
+}
+
+// startSQLStream initiates streaming SQL generation (stage 1).
+func (m *Model) startSQLStream(query string) tea.Cmd {
 	client := m.llmClient
-	store := m.store
 	tables := m.buildTableInfo()
 	extraContext := m.llmExtraContext
 
-	stage1 := func() tea.Msg {
+	return func() tea.Msg {
 		sqlPrompt := llm.BuildSQLPrompt(tables, time.Now(), extraContext)
 		messages := []llm.Message{
 			{Role: "system", Content: sqlPrompt},
 			{Role: "user", Content: query},
 		}
 
-		raw, err := client.ChatComplete(context.Background(), messages)
+		ctx, cancel := context.WithCancel(context.Background())
+
+		streamCh, err := client.ChatStream(ctx, messages)
 		if err != nil {
-			return sqlResultMsg{Question: query, Err: fmt.Errorf("SQL generation failed: %w", err)}
+			return sqlStreamStartedMsg{
+				Question: query,
+				CancelFn: cancel,
+				Err:      fmt.Errorf("SQL generation failed: %w", err),
+			}
 		}
 
-		sql := llm.ExtractSQL(raw)
-		if sql == "" {
-			return sqlResultMsg{Question: query, Err: fmt.Errorf("LLM returned empty SQL")}
-		}
-
-		cols, rows, err := store.ReadOnlyQuery(sql)
-		if err != nil {
-			return sqlResultMsg{Question: query, SQL: sql, Err: fmt.Errorf("query error: %w", err)}
-		}
-
-		return sqlResultMsg{
+		return sqlStreamStartedMsg{
 			Question: query,
-			SQL:      sql,
-			Columns:  cols,
-			Rows:     rows,
+			Channel:  streamCh,
+			CancelFn: cancel,
 		}
 	}
-	return tea.Batch(stage1, m.chat.Spinner.Tick)
+}
+
+// sqlStreamStartedMsg delivers the SQL stream channel back to the update loop.
+type sqlStreamStartedMsg struct {
+	Question string
+	Channel  <-chan llm.StreamChunk
+	CancelFn context.CancelFunc
+	Err      error
 }
 
 // handleSlashCommand dispatches chat slash commands.
@@ -853,6 +873,121 @@ func (m *Model) removeLastNotice() {
 	}
 }
 
+// handleSQLStreamStarted processes the initial SQL stream setup.
+func (m *Model) handleSQLStreamStarted(msg sqlStreamStartedMsg) tea.Cmd {
+	if msg.Err != nil {
+		m.chat.Streaming = false
+		m.chat.StreamingSQL = false
+		m.removeLastNotice() // Remove "generating query"
+		// Remove empty SQL message we added.
+		if len(m.chat.Messages) > 0 && m.chat.Messages[len(m.chat.Messages)-1].Role == "sql" {
+			m.chat.Messages = m.chat.Messages[:len(m.chat.Messages)-1]
+		}
+		m.chat.Messages = append(m.chat.Messages, chatMessage{
+			Role: "error", Content: msg.Err.Error(),
+		})
+		m.refreshChatViewport()
+		return nil
+	}
+
+	// Store the cancel function and channel, then start reading chunks.
+	m.chat.CancelFn = msg.CancelFn
+	m.chat.SQLStreamCh = msg.Channel
+	return waitForSQLChunk(msg.Channel)
+}
+
+// waitForSQLChunk returns a Cmd that reads the next SQL chunk from the stream.
+func waitForSQLChunk(ch <-chan llm.StreamChunk) tea.Cmd {
+	return func() tea.Msg {
+		chunk, ok := <-ch
+		if !ok {
+			return sqlChunkMsg{Done: true}
+		}
+		return sqlChunkMsg{
+			Content: chunk.Content,
+			Done:    chunk.Done,
+			Err:     chunk.Err,
+		}
+	}
+}
+
+// handleSQLChunk processes a single SQL token from the stream.
+func (m *Model) handleSQLChunk(msg sqlChunkMsg) tea.Cmd {
+	if msg.Err != nil {
+		m.chat.Streaming = false
+		m.chat.StreamingSQL = false
+		m.removeLastNotice()
+		// Remove incomplete SQL message.
+		if len(m.chat.Messages) > 0 && m.chat.Messages[len(m.chat.Messages)-1].Role == "sql" {
+			m.chat.Messages = m.chat.Messages[:len(m.chat.Messages)-1]
+		}
+		m.chat.Messages = append(m.chat.Messages, chatMessage{
+			Role: "error", Content: msg.Err.Error(),
+		})
+		m.refreshChatViewport()
+		return nil
+	}
+
+	// Append to the SQL message (last message should be the sql one).
+	if len(m.chat.Messages) > 0 {
+		lastIdx := len(m.chat.Messages) - 1
+		if m.chat.Messages[lastIdx].Role == "sql" {
+			m.chat.Messages[lastIdx].Content += msg.Content
+			m.refreshChatViewport()
+		}
+	}
+
+	if msg.Done {
+		// SQL generation complete. Extract, validate, and execute.
+		m.chat.StreamingSQL = false
+		m.chat.SQLStreamCh = nil
+		sql := ""
+		if len(m.chat.Messages) > 0 && m.chat.Messages[len(m.chat.Messages)-1].Role == "sql" {
+			sql = llm.ExtractSQL(m.chat.Messages[len(m.chat.Messages)-1].Content)
+		}
+		m.removeLastNotice() // Remove "generating query"
+
+		if sql == "" {
+			m.chat.Streaming = false
+			// Remove empty SQL message.
+			if len(m.chat.Messages) > 0 && m.chat.Messages[len(m.chat.Messages)-1].Role == "sql" {
+				m.chat.Messages = m.chat.Messages[:len(m.chat.Messages)-1]
+			}
+			m.chat.Messages = append(m.chat.Messages, chatMessage{
+				Role: "error", Content: "LLM returned empty SQL",
+			})
+			m.refreshChatViewport()
+			return nil
+		}
+
+		// Execute the SQL query.
+		return m.executeSQLQuery(sql)
+	}
+
+	// More chunks coming.
+	return waitForSQLChunk(m.chat.SQLStreamCh)
+}
+
+// executeSQLQuery runs the generated SQL and starts stage 2 (summary).
+func (m *Model) executeSQLQuery(sql string) tea.Cmd {
+	store := m.store
+	query := m.chat.Messages[len(m.chat.Messages)-3].Content // user message is 3 back
+
+	return func() tea.Msg {
+		cols, rows, err := store.ReadOnlyQuery(sql)
+		if err != nil {
+			return sqlResultMsg{Question: query, SQL: sql, Err: fmt.Errorf("query error: %w", err)}
+		}
+
+		return sqlResultMsg{
+			Question: query,
+			SQL:      sql,
+			Columns:  cols,
+			Rows:     rows,
+		}
+	}
+}
+
 func (m *Model) handleChatChunk(msg chatChunkMsg) tea.Cmd {
 	if m.chat == nil {
 		return nil
@@ -1010,7 +1145,7 @@ func (m *Model) renderChatMessages() string {
 			rendered = m.styles.Error.Render("error: " + wordWrap(msg.Content, innerW-9))
 		case "notice":
 			// Show spinner for "generating query" notice during SQL generation.
-			if msg.Content == "generating query" && m.chat.Streaming {
+			if msg.Content == "generating query" && m.chat.StreamingSQL {
 				rendered = m.chat.Spinner.View() + " " + m.styles.ChatNotice.Render(msg.Content)
 			} else {
 				rendered = m.styles.ChatNotice.Render(msg.Content)
@@ -1098,8 +1233,14 @@ func (m *Model) handleChatKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.chat.Streaming && m.chat.CancelFn != nil {
 			m.chat.CancelFn()
 			m.chat.Streaming = false
+			m.chat.StreamingSQL = false
+			m.chat.SQLStreamCh = nil
 			// Remove "generating query" notice and add cancellation message.
 			m.removeLastNotice()
+			// If we have an incomplete SQL message, remove it.
+			if len(m.chat.Messages) > 0 && m.chat.Messages[len(m.chat.Messages)-1].Role == "sql" {
+				m.chat.Messages = m.chat.Messages[:len(m.chat.Messages)-1]
+			}
 			m.chat.Messages = append(m.chat.Messages, chatMessage{
 				Role: "notice", Content: "Cancelled",
 			})
