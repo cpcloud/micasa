@@ -260,7 +260,7 @@ func (m *Model) submitChat() tea.Cmd {
 	})
 	m.chat.Streaming = true
 	m.chat.Messages = append(m.chat.Messages, chatMessage{
-		Role: "notice", Content: "generating query\u2026",
+		Role: "notice", Content: "generating query",
 	})
 	m.refreshChatViewport()
 
@@ -700,7 +700,7 @@ func (m *Model) handleSQLResult(msg sqlResultMsg) tea.Cmd {
 		return nil
 	}
 
-	// Remove the "generating query..." notice.
+	// Remove the "generating query" notice.
 	m.removeLastNotice()
 
 	if msg.Err != nil {
@@ -1009,8 +1009,8 @@ func (m *Model) renderChatMessages() string {
 		case "error":
 			rendered = m.styles.Error.Render("error: " + wordWrap(msg.Content, innerW-9))
 		case "notice":
-			// Show spinner for "generating query..." notice during SQL generation.
-			if msg.Content == "generating query…" && m.chat.Streaming {
+			// Show spinner for "generating query" notice during SQL generation.
+			if msg.Content == "generating query" && m.chat.Streaming {
 				rendered = m.chat.Spinner.View() + " " + m.styles.ChatNotice.Render(msg.Content)
 			} else {
 				rendered = m.styles.ChatNotice.Render(msg.Content)
