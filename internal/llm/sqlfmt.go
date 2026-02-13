@@ -337,10 +337,13 @@ func advancePastSequence(tokens []sqlToken, pos, wordCount int) int {
 // trimTrailingSpace removes a single trailing space from the builder if
 // present. Used before inserting a newline so lines don't end with whitespace.
 func trimTrailingSpace(b *strings.Builder) {
-	s := b.String()
-	if len(s) > 0 && s[len(s)-1] == ' ' {
-		b.Reset()
-		b.WriteString(s[:len(s)-1])
+	n := b.Len()
+	if n > 0 {
+		s := b.String()
+		if s[n-1] == ' ' {
+			b.Reset()
+			b.WriteString(s[:n-1])
+		}
 	}
 }
 

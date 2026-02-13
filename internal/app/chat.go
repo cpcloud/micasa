@@ -314,7 +314,7 @@ func (m *Model) submitChat() tea.Cmd {
 	m.chat.Streaming = true
 	m.chat.StreamingSQL = true
 	m.chat.Messages = append(m.chat.Messages, chatMessage{
-		Role: "notice", Content: "generating query",
+		Role: roleNotice, Content: "generating query",
 	})
 	// Add an empty assistant message that we'll populate with SQL and later the answer.
 	m.chat.Messages = append(m.chat.Messages, chatMessage{
@@ -466,7 +466,7 @@ func (m *Model) handleModelsListMsg(msg modelsListMsg) {
 		b.WriteString("  (no models available)")
 	}
 	m.chat.Messages = append(m.chat.Messages, chatMessage{
-		Role: "notice", Content: strings.TrimRight(b.String(), "\n"),
+		Role: roleNotice, Content: strings.TrimRight(b.String(), "\n"),
 	})
 	m.refreshChatViewport()
 }
@@ -586,7 +586,7 @@ func (m *Model) cmdSwitchModel(name string) tea.Cmd {
 	}
 	if m.chat.Pulling {
 		m.chat.Messages = append(m.chat.Messages, chatMessage{
-			Role: "error", Content: "a model pull is already in progress",
+			Role: roleError, Content: "a model pull is already in progress",
 		})
 		m.refreshChatViewport()
 		return nil
@@ -758,7 +758,6 @@ func cleanPullStatus(status, model string) string {
 	}
 }
 
-// handleChatChunk processes a single streamed token.
 // handleSQLResult processes the stage 1 output. On success, it kicks off
 // stage 2 (streaming summary). On failure, it falls back to the single-stage
 // approach with the full data dump.
@@ -802,7 +801,7 @@ func (m *Model) handleSQLResult(msg sqlResultMsg) tea.Cmd {
 		cancel()
 		m.chat.Streaming = false
 		m.chat.Messages = append(m.chat.Messages, chatMessage{
-			Role: "error", Content: err.Error(),
+			Role: roleError, Content: err.Error(),
 		})
 		m.refreshChatViewport()
 		return nil
@@ -827,7 +826,7 @@ func (m *Model) startFallbackStream(question string) tea.Cmd {
 		cancel()
 		m.chat.Streaming = false
 		m.chat.Messages = append(m.chat.Messages, chatMessage{
-			Role: "error", Content: err.Error(),
+			Role: roleError, Content: err.Error(),
 		})
 		m.refreshChatViewport()
 		return nil
@@ -836,7 +835,7 @@ func (m *Model) startFallbackStream(question string) tea.Cmd {
 	m.chat.StreamCh = ch
 	m.chat.CancelFn = cancel
 	m.chat.Messages = append(m.chat.Messages, chatMessage{
-		Role: "assistant", Content: "",
+		Role: roleAssistant, Content: "",
 	})
 	m.refreshChatViewport()
 
