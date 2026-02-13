@@ -1426,6 +1426,18 @@ func (m *Model) terminalTooSmall() bool {
 	return m.effectiveWidth() < minUsableWidth || m.effectiveHeight() < minUsableHeight
 }
 
+// hasActiveOverlay returns true when any overlay is currently shown. Overlays
+// include dashboard, calendar, note preview, column finder, and help. When
+// true, main tab keybindings should be hidden from the status bar since they
+// are not accessible.
+func (m *Model) hasActiveOverlay() bool {
+	return m.showDashboard ||
+		m.calendar != nil ||
+		m.showNotePreview ||
+		m.columnFinder != nil ||
+		m.helpViewport != nil
+}
+
 func selectRowByID(tab *Tab, id uint) bool {
 	for idx, meta := range tab.Rows {
 		if meta.ID == id {

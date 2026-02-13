@@ -356,7 +356,8 @@ func TestDashboardStatusBarShowsNormal(t *testing.T) {
 	m.height = 40
 	m.showDashboard = true
 	status := m.statusView()
-	assert.Contains(t, status, "NAV")
+	// With overlay active, main tab keybindings should be hidden.
+	assert.NotContains(t, status, "NAV")
 }
 
 func TestBuildDashNav(t *testing.T) {

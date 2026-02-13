@@ -251,6 +251,12 @@ func (m *Model) statusView() string {
 		return m.withStatusMessage(help)
 	}
 
+	// When overlays are active, don't show main tab keybindings since they're
+	// not accessible. Overlays show their own relevant hints.
+	if m.hasActiveOverlay() {
+		return m.withStatusMessage("")
+	}
+
 	// Both badges render at the same width to prevent layout shift.
 	// Anchor to the wider label so the narrower one gets padded, not squeezed.
 	navW := lipgloss.Width(m.styles.ModeNormal.Render("NAV"))
