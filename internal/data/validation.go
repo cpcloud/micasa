@@ -17,16 +17,17 @@ import (
 const DateLayout = "2006-01-02"
 
 var (
-	ErrInvalidMoney = errors.New("invalid money value")
-	ErrInvalidDate  = errors.New("invalid date value")
-	ErrInvalidInt   = errors.New("invalid integer value")
-	ErrInvalidFloat = errors.New("invalid decimal value")
+	ErrInvalidMoney  = errors.New("invalid money value")
+	ErrNegativeMoney = errors.New("negative money value")
+	ErrInvalidDate   = errors.New("invalid date value")
+	ErrInvalidInt    = errors.New("invalid integer value")
+	ErrInvalidFloat  = errors.New("invalid decimal value")
 )
 
 func ParseRequiredCents(input string) (int64, error) {
 	cents, err := parseCents(strings.TrimSpace(input))
 	if err != nil {
-		return 0, ErrInvalidMoney
+		return 0, err
 	}
 	return cents, nil
 }
@@ -38,7 +39,7 @@ func ParseOptionalCents(input string) (*int64, error) {
 	}
 	cents, err := parseCents(trimmed)
 	if err != nil {
-		return nil, ErrInvalidMoney
+		return nil, err
 	}
 	return &cents, nil
 }
@@ -182,6 +183,10 @@ func ComputeNextDue(last *time.Time, intervalMonths int) *time.Time {
 
 func parseCents(input string) (int64, error) {
 	clean := strings.ReplaceAll(input, ",", "")
+	// Reject negative values -- all money fields are costs/fees/budgets.
+	if strings.HasPrefix(clean, "-") {
+		return 0, ErrNegativeMoney
+	}
 	clean = strings.TrimPrefix(clean, "$")
 	if clean == "" {
 		return 0, ErrInvalidMoney

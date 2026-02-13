@@ -33,8 +33,19 @@ func Open(path string) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open db: %w", err)
 	}
-	if err := db.Exec("PRAGMA foreign_keys = ON").Error; err != nil {
-		return nil, fmt.Errorf("enable foreign keys: %w", err)
+	pragmas := []struct {
+		sql  string
+		desc string
+	}{
+		{"PRAGMA foreign_keys = ON", "enable foreign keys"},
+		{"PRAGMA journal_mode = WAL", "enable WAL mode"},
+		{"PRAGMA synchronous = NORMAL", "set synchronous mode"},
+		{"PRAGMA busy_timeout = 5000", "set busy timeout"},
+	}
+	for _, p := range pragmas {
+		if err := db.Exec(p.sql).Error; err != nil {
+			return nil, fmt.Errorf("%s: %w", p.desc, err)
+		}
 	}
 	return &Store{db: db}, nil
 }
@@ -710,11 +721,11 @@ func (s *Store) RestoreServiceLog(id uint) error {
 		return err
 	}
 	if err := s.requireParentAlive(&MaintenanceItem{}, entry.MaintenanceItemID); err != nil {
-		return fmt.Errorf("maintenance item is deleted -- restore it first")
+		return parentRestoreError("maintenance item", err)
 	}
 	if entry.VendorID != nil {
 		if err := s.requireParentAlive(&Vendor{}, *entry.VendorID); err != nil {
-			return fmt.Errorf("vendor is deleted -- restore it first")
+			return parentRestoreError("vendor", err)
 		}
 	}
 	return s.restoreEntity(&ServiceLogEntry{}, DeletionEntityServiceLog, id)
@@ -784,7 +795,7 @@ func (s *Store) RestoreProject(id uint) error {
 	}
 	if project.PreferredVendorID != nil {
 		if err := s.requireParentAlive(&Vendor{}, *project.PreferredVendorID); err != nil {
-			return fmt.Errorf("preferred vendor is deleted -- restore it first")
+			return parentRestoreError("preferred vendor", err)
 		}
 	}
 	return s.restoreEntity(&Project{}, DeletionEntityProject, id)
@@ -796,10 +807,10 @@ func (s *Store) RestoreQuote(id uint) error {
 		return err
 	}
 	if err := s.requireParentAlive(&Project{}, quote.ProjectID); err != nil {
-		return fmt.Errorf("project is deleted -- restore it first")
+		return parentRestoreError("project", err)
 	}
 	if err := s.requireParentAlive(&Vendor{}, quote.VendorID); err != nil {
-		return fmt.Errorf("vendor is deleted -- restore it first")
+		return parentRestoreError("vendor", err)
 	}
 	return s.restoreEntity(&Quote{}, DeletionEntityQuote, id)
 }
@@ -811,7 +822,7 @@ func (s *Store) RestoreMaintenance(id uint) error {
 	}
 	if item.ApplianceID != nil {
 		if err := s.requireParentAlive(&Appliance{}, *item.ApplianceID); err != nil {
-			return fmt.Errorf("appliance is deleted -- restore it first or clear the link")
+			return parentRestoreError("appliance", err)
 		}
 	}
 	return s.restoreEntity(&MaintenanceItem{}, DeletionEntityMaintenance, id)
@@ -821,11 +832,39 @@ func (s *Store) RestoreAppliance(id uint) error {
 	return s.restoreEntity(&Appliance{}, DeletionEntityAppliance, id)
 }
 
-// requireParentAlive returns an error if the given parent record is
-// soft-deleted (or doesn't exist). Uses the default GORM scope which
-// excludes soft-deleted rows.
+var (
+	// ErrParentDeleted indicates the parent record exists but is soft-deleted.
+	ErrParentDeleted = errors.New("parent record is deleted")
+	// ErrParentNotFound indicates the parent record doesn't exist at all.
+	ErrParentNotFound = errors.New("parent record not found")
+)
+
+// requireParentAlive returns ErrParentDeleted if the parent record is
+// soft-deleted, or ErrParentNotFound if it doesn't exist at all. Returns nil
+// when the parent is alive.
 func (s *Store) requireParentAlive(model any, id uint) error {
-	return s.db.First(model, id).Error
+	err := s.db.First(model, id).Error
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+	// Distinguish soft-deleted from truly missing.
+	if err := s.db.Unscoped().First(model, id).Error; err != nil {
+		return ErrParentNotFound
+	}
+	return ErrParentDeleted
+}
+
+// parentRestoreError returns a user-facing error message for a failed parent
+// alive check, distinguishing soft-deleted parents (restorable) from missing
+// parents (permanently gone).
+func parentRestoreError(entity string, err error) error {
+	if errors.Is(err, ErrParentNotFound) {
+		return fmt.Errorf("%s no longer exists", entity)
+	}
+	return fmt.Errorf("%s is deleted -- restore it first", entity)
 }
 
 // countDependents counts non-deleted rows in model where fkColumn equals id.

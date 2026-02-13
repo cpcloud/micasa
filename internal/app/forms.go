@@ -4,6 +4,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -1512,10 +1513,17 @@ func optionalDate(label string) func(string) error {
 	}
 }
 
+func moneyError(label string, err error) error {
+	if errors.Is(err, data.ErrNegativeMoney) {
+		return fmt.Errorf("%s must be a positive amount", label)
+	}
+	return fmt.Errorf("%s should look like 1250.00", label)
+}
+
 func optionalMoney(label string) func(string) error {
 	return func(input string) error {
 		if _, err := data.ParseOptionalCents(input); err != nil {
-			return fmt.Errorf("%s should look like 1250.00", label)
+			return moneyError(label, err)
 		}
 		return nil
 	}
@@ -1524,7 +1532,7 @@ func optionalMoney(label string) func(string) error {
 func requiredMoney(label string) func(string) error {
 	return func(input string) error {
 		if _, err := data.ParseRequiredCents(input); err != nil {
-			return fmt.Errorf("%s should look like 1250.00", label)
+			return moneyError(label, err)
 		}
 		return nil
 	}

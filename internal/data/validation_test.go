@@ -91,6 +91,30 @@ func TestFormatCentsNegative(t *testing.T) {
 	assert.Equal(t, "-$5.00", FormatCents(-500))
 }
 
+func TestParseCentsRejectsNegative(t *testing.T) {
+	// Leading-negative inputs return ErrNegativeMoney specifically.
+	for _, input := range []string{"-$5.00", "-5.00", "-$1,234.56"} {
+		_, err := ParseRequiredCents(input)
+		assert.ErrorIs(t, err, ErrNegativeMoney, "input=%q", input)
+	}
+	// Malformed negatives (sign in wrong position, bare dash) return ErrInvalidMoney.
+	for _, input := range []string{"$-100", "--$5", "-", "-$"} {
+		_, err := ParseRequiredCents(input)
+		assert.Error(t, err, "input=%q should be rejected", input)
+	}
+}
+
+func TestParseCentsFormatRoundtrip(t *testing.T) {
+	// FormatCents output should parse back to the same value.
+	values := []int64{0, 1, 99, 100, 123456}
+	for _, cents := range values {
+		formatted := FormatCents(cents)
+		parsed, err := ParseRequiredCents(formatted)
+		require.NoError(t, err, "roundtrip failed for %d (formatted=%q)", cents, formatted)
+		assert.Equal(t, cents, parsed, "roundtrip mismatch for %d (formatted=%q)", cents, formatted)
+	}
+}
+
 func TestFormatCentsZero(t *testing.T) {
 	assert.Equal(t, "$0.00", FormatCents(0))
 }
