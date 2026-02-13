@@ -145,3 +145,24 @@ func TestDataDump(t *testing.T) {
 	// Should include actual data rows as bullet points.
 	assert.Contains(t, dump, "- ")
 }
+
+func TestColumnHints(t *testing.T) {
+	store := newTestStoreWithDemoData(t, testSeed)
+
+	hints := store.ColumnHints()
+	assert.NotEmpty(t, hints)
+	// Should include project statuses (seeded by demo data).
+	assert.Contains(t, hints, "project statuses")
+	// Should include project types from SeedDefaults.
+	assert.Contains(t, hints, "project types")
+	// Each line is a bullet.
+	assert.Contains(t, hints, "- ")
+}
+
+func TestColumnHintsEmptyDB(t *testing.T) {
+	store := newTestStore(t)
+	// Empty DB (no SeedDefaults) should still not panic.
+	hints := store.ColumnHints()
+	// May be empty or have only categories from migration.
+	assert.NotContains(t, hints, "vendor names")
+}

@@ -72,7 +72,7 @@ func TestBuildSystemPromptIncludesExtraContext(t *testing.T) {
 // --- BuildSQLPrompt ---
 
 func TestBuildSQLPromptIncludesDDL(t *testing.T) {
-	prompt := BuildSQLPrompt(testTables, testNow, "")
+	prompt := BuildSQLPrompt(testTables, testNow, "", "")
 	assert.Contains(t, prompt, "CREATE TABLE projects")
 	assert.Contains(t, prompt, "id integer PRIMARY KEY")
 	assert.Contains(t, prompt, "title text NOT NULL")
@@ -81,25 +81,25 @@ func TestBuildSQLPromptIncludesDDL(t *testing.T) {
 }
 
 func TestBuildSQLPromptIncludesFewShotExamples(t *testing.T) {
-	prompt := BuildSQLPrompt(testTables, testNow, "")
+	prompt := BuildSQLPrompt(testTables, testNow, "", "")
 	assert.Contains(t, prompt, "SELECT COUNT(*)")
 	assert.Contains(t, prompt, "budget_cents / 100.0")
 	assert.Contains(t, prompt, "deleted_at IS NULL")
 }
 
 func TestBuildSQLPromptIncludesRules(t *testing.T) {
-	prompt := BuildSQLPrompt(testTables, testNow, "")
+	prompt := BuildSQLPrompt(testTables, testNow, "", "")
 	assert.Contains(t, prompt, "single SELECT statement")
 	assert.Contains(t, prompt, "never INSERT")
 }
 
 func TestBuildSQLPromptIncludesCurrentDate(t *testing.T) {
-	prompt := BuildSQLPrompt(testTables, testNow, "")
+	prompt := BuildSQLPrompt(testTables, testNow, "", "")
 	assert.Contains(t, prompt, "Friday, February 13, 2026")
 }
 
 func TestBuildSQLPromptIncludesExtraContext(t *testing.T) {
-	prompt := BuildSQLPrompt(testTables, testNow, "Budgets are in CAD.")
+	prompt := BuildSQLPrompt(testTables, testNow, "", "Budgets are in CAD.")
 	assert.Contains(t, prompt, "Additional context")
 	assert.Contains(t, prompt, "Budgets are in CAD")
 }
@@ -181,7 +181,7 @@ func TestExtractSQLTrimsWhitespace(t *testing.T) {
 }
 
 func TestBuildSQLPromptIncludesEntityRelationships(t *testing.T) {
-	prompt := BuildSQLPrompt(testTables, testNow, "")
+	prompt := BuildSQLPrompt(testTables, testNow, "", "")
 	assert.Contains(t, prompt, "## Entity Relationships")
 	assert.Contains(t, prompt, "Foreign key relationships")
 	assert.Contains(t, prompt, "projects.project_type_id")
@@ -199,13 +199,25 @@ func TestBuildSystemPromptIncludesEntityRelationships(t *testing.T) {
 }
 
 func TestBuildSQLPromptIncludesCaseInsensitiveGuidance(t *testing.T) {
-	prompt := BuildSQLPrompt(testTables, testNow, "")
+	prompt := BuildSQLPrompt(testTables, testNow, "", "")
 	assert.Contains(t, prompt, "case-insensitive matching")
 	assert.Contains(t, prompt, "LOWER()")
 }
 
+func TestBuildSQLPromptIncludesColumnHints(t *testing.T) {
+	hints := "- project types: electrical, flooring, plumbing\n"
+	prompt := BuildSQLPrompt(testTables, testNow, hints, "")
+	assert.Contains(t, prompt, "Known values in the database")
+	assert.Contains(t, prompt, "electrical, flooring, plumbing")
+}
+
+func TestBuildSQLPromptOmitsColumnHintsWhenEmpty(t *testing.T) {
+	prompt := BuildSQLPrompt(testTables, testNow, "", "")
+	assert.NotContains(t, prompt, "Known values")
+}
+
 func TestBuildSQLPromptIncludesGroupByExamples(t *testing.T) {
-	prompt := BuildSQLPrompt(testTables, testNow, "")
+	prompt := BuildSQLPrompt(testTables, testNow, "", "")
 	assert.Contains(t, prompt, "GROUP BY")
 	assert.Contains(t, prompt, "total spending by project status")
 	assert.Contains(t, prompt, "vendors have given me the most quotes")

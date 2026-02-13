@@ -29,7 +29,12 @@ type ColumnInfo struct {
 // a natural-language question into a single SELECT statement. The prompt
 // includes the current date, the full schema as DDL, and few-shot examples.
 // If extraContext is non-empty, it's appended at the end.
-func BuildSQLPrompt(tables []TableInfo, now time.Time, extraContext string) string {
+func BuildSQLPrompt(
+	tables []TableInfo,
+	now time.Time,
+	columnHints string,
+	extraContext string,
+) string {
 	var b strings.Builder
 	b.WriteString(sqlSystemPreamble)
 	b.WriteString(dateContext(now))
@@ -41,6 +46,10 @@ func BuildSQLPrompt(tables []TableInfo, now time.Time, extraContext string) stri
 	b.WriteString("```\n")
 	b.WriteString(entityRelationships())
 	b.WriteString(sqlSchemaNotes)
+	if columnHints != "" {
+		b.WriteString("\n\n## Known values in the database\n\n")
+		b.WriteString(columnHints)
+	}
 	b.WriteString("\n\n")
 	b.WriteString(sqlFewShot)
 	if extraContext != "" {
@@ -258,9 +267,10 @@ RULES:
 const sqlSchemaNotes = `
 Notes:
 - Maintenance scheduling: next_due = date(` + data.ColLastServicedAt + `, '+' || ` + data.ColIntervalMonths + ` || ' months')
-- Project statuses stored in the database: ideating, planned, quoted, underway, delayed, completed, abandoned. The UI shows abbreviated labels: idea, plan, bid, wip, hold, done, drop. When the user refers to a status by EITHER the full name or the short label, map it to the stored value. Examples: "plan" or "planned" → WHERE status = 'planned'; "wip" or "underway" → WHERE status = 'underway'.
+- The UI shows abbreviated status labels: idea=ideating, plan=planned, bid=quoted, wip=underway, hold=delayed, done=completed, drop=abandoned. Map user terms to the stored value.
 - Warranty expiry is in the ` + data.ColWarrantyExpiry + ` column (date string)
-- ALWAYS use case-insensitive matching for user-facing text (names, titles, descriptions, categories, vendor names). Use LOWER() on both sides for = and LIKE: WHERE LOWER(name) = LOWER('flooring'), WHERE LOWER(title) LIKE LOWER('%hvac%'). The only exception is enum columns with known exact values (status, interval unit).`
+- ALWAYS use case-insensitive matching for user-facing text (names, titles, descriptions, categories, vendor names). Use LOWER() on both sides for = and LIKE: WHERE LOWER(name) = LOWER('flooring'), WHERE LOWER(title) LIKE LOWER('%hvac%'). The only exception is enum columns with known exact values (status, interval unit).
+- When available, use the exact spellings from the database for statuses, type names, vendor names, etc.`
 
 const sqlFewShot = `## Examples
 
@@ -281,9 +291,6 @@ SQL: SELECT SUM(q.total_cents) / 100.0 AS total_dollars FROM quotes q JOIN proje
 
 User: Show me all maintenance items and when they're next due
 SQL: SELECT name, last_serviced_at, interval_months, date(last_serviced_at, '+' || interval_months || ' months') AS next_due FROM maintenance_items WHERE deleted_at IS NULL ORDER BY next_due
-
-User: Tell me about flooring
-SQL: SELECT p.title, p.status, pt.name AS type, p.budget_cents / 100.0 AS budget_dollars, p.actual_cents / 100.0 AS actual_dollars FROM projects p LEFT JOIN project_types pt ON p.project_type_id = pt.id WHERE (LOWER(p.title) LIKE LOWER('%flooring%') OR LOWER(p.description) LIKE LOWER('%flooring%') OR LOWER(pt.name) LIKE LOWER('%flooring%')) AND p.deleted_at IS NULL
 
 User: Which projects involve HVAC work?
 SQL: SELECT title, status, description FROM projects WHERE (LOWER(title) LIKE LOWER('%hvac%') OR LOWER(description) LIKE LOWER('%hvac%')) AND deleted_at IS NULL
@@ -328,7 +335,7 @@ const fallbackSchemaNotes = `
 Schema notes:
 - Soft-deleted rows have a non-NULL deleted_at and should be treated as removed.
 - Maintenance scheduling: next_due = last_serviced + interval_months.
-- Project statuses stored in the database: ideating, planned, quoted, underway, delayed, completed, abandoned. The UI shows abbreviated labels (idea, plan, bid, wip, hold, done, drop), so the user may use either form.`
+- Project statuses: ideating, planned, quoted, underway, delayed, completed, abandoned (UI abbreviations: idea, plan, bid, wip, hold, done, drop).`
 
 const fallbackGuidelines = `## How to answer
 Look at the data above, find the relevant rows, and answer the question directly.

@@ -329,10 +329,14 @@ func (m *Model) submitChat() tea.Cmd {
 func (m *Model) startSQLStream(query string) tea.Cmd {
 	client := m.llmClient
 	tables := m.buildTableInfo()
+	columnHints := ""
+	if m.store != nil {
+		columnHints = m.store.ColumnHints()
+	}
 	extraContext := m.llmExtraContext
 
 	return func() tea.Msg {
-		sqlPrompt := llm.BuildSQLPrompt(tables, time.Now(), extraContext)
+		sqlPrompt := llm.BuildSQLPrompt(tables, time.Now(), columnHints, extraContext)
 
 		// Build conversation history: system + all previous user/assistant exchanges + current query.
 		messages := []llm.Message{

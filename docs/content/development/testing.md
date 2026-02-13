@@ -39,6 +39,7 @@ Tests live alongside the code they test:
 | `internal/app/inline_input_test.go` | Inline text input editing |
 | `internal/app/calendar_test.go` | Date picker overlay |
 | `internal/app/column_finder_test.go` | Fuzzy column finder |
+| `internal/app/chat_test.go` | Chat overlay, LLM streaming, cancellation |
 | `internal/app/mag_test.go` | Mag mode (order-of-magnitude easter egg) |
 | `internal/app/notes_test.go` | Note preview overlay |
 | `internal/app/vendor_test.go` | Vendor tab operations |
@@ -47,6 +48,7 @@ Tests live alongside the code they test:
 | `internal/app/demo_data_test.go` | Demo data seeding |
 | `internal/app/model_with_store_test.go` | Model integration with store |
 | `internal/app/model_with_demo_data_test.go` | Model with demo data |
+| `internal/data/query_test.go` | Read-only query validation, data dump, column hints |
 | `internal/data/store_test.go` | CRUD operations, queries |
 | `internal/data/dashboard_test.go` | Dashboard-specific queries |
 | `internal/data/validation_test.go` | Parsing helpers |

@@ -185,6 +185,51 @@ func (s *Store) DataDump() string {
 	return b.String()
 }
 
+// columnHint pairs a human label with a SQL query that returns distinct values.
+type columnHint struct {
+	Label string
+	Query string
+}
+
+// columnHints defines the queries for populating known-value hints.
+// Each query must return a single text column of distinct non-null values
+// from non-deleted rows, ordered alphabetically.
+var columnHints = []columnHint{
+	{
+		"project statuses (stored values)",
+		"SELECT DISTINCT status FROM projects WHERE deleted_at IS NULL ORDER BY status",
+	},
+	{"project types", "SELECT DISTINCT name FROM project_types ORDER BY name"},
+	{"vendor names", "SELECT DISTINCT name FROM vendors WHERE deleted_at IS NULL ORDER BY name"},
+	{
+		"appliance names",
+		"SELECT DISTINCT name FROM appliances WHERE deleted_at IS NULL ORDER BY name",
+	},
+	{"maintenance categories", "SELECT DISTINCT name FROM maintenance_categories ORDER BY name"},
+	{
+		"maintenance item names",
+		"SELECT DISTINCT name FROM maintenance_items WHERE deleted_at IS NULL ORDER BY name",
+	},
+}
+
+// ColumnHints queries the database for distinct values in key columns and
+// returns them as a formatted string suitable for inclusion in an LLM prompt.
+// Returns empty string if no hints are available.
+func (s *Store) ColumnHints() string {
+	var b strings.Builder
+	for _, h := range columnHints {
+		var values []string
+		if err := s.db.Raw(h.Query).Scan(&values).Error; err != nil || len(values) == 0 {
+			continue
+		}
+		b.WriteString("- " + h.Label + ": " + strings.Join(values, ", ") + "\n")
+	}
+	if b.Len() == 0 {
+		return ""
+	}
+	return b.String()
+}
+
 // isNoiseColumn returns true for internal/bookkeeping columns that add
 // clutter without helping the LLM answer user questions.
 func isNoiseColumn(col string) bool {
