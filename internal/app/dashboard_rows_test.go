@@ -171,36 +171,45 @@ func TestDashExpiringRowsEmpty(t *testing.T) {
 // overhead
 // ---------------------------------------------------------------------------
 
-func TestOverheadSingleSection(t *testing.T) {
-	s := dashSection{title: "Projects", rows: make([]dashRow, 3)}
-	assert.Equal(t, 1, s.overhead())
-}
-
-func TestOverheadSubSections(t *testing.T) {
-	s := dashSection{
-		title:     "Maintenance",
-		subTitles: []string{"Overdue", "Upcoming"},
-		subCounts: []int{3, 2},
+func TestOverhead(t *testing.T) {
+	tests := []struct {
+		name string
+		s    dashSection
+		want int
+	}{
+		{
+			"single section",
+			dashSection{title: "Projects", rows: make([]dashRow, 3)},
+			1,
+		},
+		{
+			"two non-empty sub-sections",
+			dashSection{
+				title: "Maintenance", subTitles: []string{"Overdue", "Upcoming"},
+				subCounts: []int{3, 2},
+			},
+			3, // 2 sub-headers + 1 blank separator
+		},
+		{
+			"one empty sub-section",
+			dashSection{
+				title: "Maintenance", subTitles: []string{"Overdue", "Upcoming"},
+				subCounts: []int{3, 0},
+			},
+			1,
+		},
+		{
+			"all sub-sections empty",
+			dashSection{
+				title: "Maintenance", subTitles: []string{"Overdue", "Upcoming"},
+				subCounts: []int{0, 0},
+			},
+			1,
+		},
 	}
-	// 2 sub-headers + 1 blank separator = 3
-	assert.Equal(t, 3, s.overhead())
-}
-
-func TestOverheadSubSectionsOneEmpty(t *testing.T) {
-	s := dashSection{
-		title:     "Maintenance",
-		subTitles: []string{"Overdue", "Upcoming"},
-		subCounts: []int{3, 0},
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, tt.s.overhead())
+		})
 	}
-	// Only 1 non-empty sub-section -> overhead = 1.
-	assert.Equal(t, 1, s.overhead())
-}
-
-func TestOverheadAllSubSectionsEmpty(t *testing.T) {
-	s := dashSection{
-		title:     "Maintenance",
-		subTitles: []string{"Overdue", "Upcoming"},
-		subCounts: []int{0, 0},
-	}
-	assert.Equal(t, 1, s.overhead())
 }

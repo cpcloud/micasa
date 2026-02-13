@@ -105,62 +105,79 @@ func TestColumnWidthsTruncatedColumnsGetExtraFirst(t *testing.T) {
 }
 
 func TestWidenTruncated(t *testing.T) {
-	widths := []int{4, 10, 8}
-	natural := []int{4, 15, 8}
-	remaining := widenTruncated(widths, natural, 3)
-	// Should widen column 1 from 10 to 13 (3 extra given).
-	assert.Equal(t, 13, widths[1])
-	assert.Equal(t, 0, remaining)
-}
-
-func TestWidenTruncatedCapsAtNatural(t *testing.T) {
-	widths := []int{4, 10, 8}
-	natural := []int{4, 12, 8}
-	remaining := widenTruncated(widths, natural, 5)
-	// Column 1 needs 2 more to reach natural. 5 - 2 = 3 remaining.
-	assert.Equal(t, 12, widths[1])
-	assert.Equal(t, 3, remaining)
+	t.Run("distributes all extra space", func(t *testing.T) {
+		widths := []int{4, 10, 8}
+		remaining := widenTruncated(widths, []int{4, 15, 8}, 3)
+		assert.Equal(t, 13, widths[1])
+		assert.Equal(t, 0, remaining)
+	})
+	t.Run("caps at natural width", func(t *testing.T) {
+		widths := []int{4, 10, 8}
+		remaining := widenTruncated(widths, []int{4, 12, 8}, 5)
+		assert.Equal(t, 12, widths[1])
+		assert.Equal(t, 3, remaining)
+	})
 }
 
 // --- Column visibility tests ---
 
-func TestNextVisibleColForward(t *testing.T) {
-	specs := []columnSpec{
-		{Title: "A"}, {Title: "B", HideOrder: 1}, {Title: "C"}, {Title: "D"},
+func TestNextVisibleCol(t *testing.T) {
+	tests := []struct {
+		name    string
+		specs   []columnSpec
+		from    int
+		forward bool
+		want    int
+	}{
+		{
+			"forward skips hidden",
+			[]columnSpec{{Title: "A"}, {Title: "B", HideOrder: 1}, {Title: "C"}, {Title: "D"}},
+			0,
+			true,
+			2,
+		},
+		{
+			"backward skips hidden",
+			[]columnSpec{{Title: "A"}, {Title: "B", HideOrder: 1}, {Title: "C"}, {Title: "D"}},
+			2,
+			false,
+			0,
+		},
+		{
+			"clamps forward at edge",
+			[]columnSpec{{Title: "A"}, {Title: "B", HideOrder: 1}, {Title: "C", HideOrder: 2}},
+			0,
+			true,
+			0,
+		},
+		{
+			"clamps backward at edge",
+			[]columnSpec{{Title: "A"}, {Title: "B", HideOrder: 1}, {Title: "C", HideOrder: 2}},
+			0,
+			false,
+			0,
+		},
+		{"all visible forward", []columnSpec{{Title: "A"}, {Title: "B"}, {Title: "C"}}, 1, true, 2},
+		{
+			"clamps at right edge",
+			[]columnSpec{{Title: "A"}, {Title: "B"}, {Title: "C"}},
+			2,
+			true,
+			2,
+		},
+		{
+			"clamps at left edge",
+			[]columnSpec{{Title: "A"}, {Title: "B"}, {Title: "C"}},
+			0,
+			false,
+			0,
+		},
 	}
-	assert.Equal(t, 2, nextVisibleCol(specs, 0, true))
-}
-
-func TestNextVisibleColBackward(t *testing.T) {
-	specs := []columnSpec{
-		{Title: "A"}, {Title: "B", HideOrder: 1}, {Title: "C"}, {Title: "D"},
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, nextVisibleCol(tt.specs, tt.from, tt.forward))
+		})
 	}
-	assert.Equal(t, 0, nextVisibleCol(specs, 2, false))
-}
-
-func TestNextVisibleColClampsAtEdge(t *testing.T) {
-	specs := []columnSpec{
-		{Title: "A"}, {Title: "B", HideOrder: 1}, {Title: "C", HideOrder: 2},
-	}
-	// Only A is visible; forward from A should stay at A (clamp).
-	assert.Equal(t, 0, nextVisibleCol(specs, 0, true))
-	// Backward from A should also stay at A.
-	assert.Equal(t, 0, nextVisibleCol(specs, 0, false))
-}
-
-func TestNextVisibleColAllVisible(t *testing.T) {
-	specs := []columnSpec{{Title: "A"}, {Title: "B"}, {Title: "C"}}
-	assert.Equal(t, 2, nextVisibleCol(specs, 1, true))
-}
-
-func TestNextVisibleColClampsRight(t *testing.T) {
-	specs := []columnSpec{{Title: "A"}, {Title: "B"}, {Title: "C"}}
-	assert.Equal(t, 2, nextVisibleCol(specs, 2, true))
-}
-
-func TestNextVisibleColClampsLeftAllVisible(t *testing.T) {
-	specs := []columnSpec{{Title: "A"}, {Title: "B"}, {Title: "C"}}
-	assert.Equal(t, 0, nextVisibleCol(specs, 0, false))
 }
 
 func TestFirstVisibleCol(t *testing.T) {
@@ -268,52 +285,50 @@ func TestShowAllColumns(t *testing.T) {
 	}
 }
 
-func TestJoinCellsPerGapSeparators(t *testing.T) {
-	cells := []string{"A", "B", "C"}
-	seps := []string{" | ", " ⋯ "}
-	assert.Equal(t, "A | B ⋯ C", joinCells(cells, seps))
+func TestJoinCells(t *testing.T) {
+	t.Run("per-gap separators", func(t *testing.T) {
+		assert.Equal(
+			t,
+			"A | B \u22ef C",
+			joinCells([]string{"A", "B", "C"}, []string{" | ", " \u22ef "}),
+		)
+	})
+	t.Run("fallback separator", func(t *testing.T) {
+		assert.Equal(t, "A | B | C", joinCells([]string{"A", "B", "C"}, []string{" | "}))
+	})
 }
 
-func TestJoinCellsFallbackSeparator(t *testing.T) {
-	cells := []string{"A", "B", "C"}
-	seps := []string{" | "}
-	assert.Equal(t, "A | B | C", joinCells(cells, seps))
-}
-
-func TestGapSeparatorsDetectsCollapsedGaps(t *testing.T) {
-	// visToFull [0, 3, 4]: gap between 0→3 has hidden cols, 3→4 doesn't.
-	visToFull := []int{0, 3, 4}
-	normal := "│"
-	styles := DefaultStyles()
-	plainSeps, collapsedSeps := gapSeparators(visToFull, 5, normal, styles)
-	require.Len(t, collapsedSeps, 2)
-	// First gap should be collapsed (contains ⋯), second normal.
-	assert.NotEqual(t, normal, collapsedSeps[0], "first gap should be collapsed separator")
-	assert.Equal(t, normal, collapsedSeps[1], "second gap should be normal separator")
-	// Plain seps should all be normal.
-	assert.Equal(t, normal, plainSeps[0])
-	assert.Equal(t, normal, plainSeps[1])
-}
-
-func TestGapSeparatorsSingleColumn(t *testing.T) {
-	plainSeps, collapsedSeps := gapSeparators([]int{2}, 5, "│", DefaultStyles())
-	assert.Empty(t, plainSeps)
-	assert.Empty(t, collapsedSeps)
+func TestGapSeparators(t *testing.T) {
+	t.Run("detects collapsed gaps", func(t *testing.T) {
+		normal := "\u2502"
+		styles := DefaultStyles()
+		plainSeps, collapsedSeps := gapSeparators([]int{0, 3, 4}, 5, normal, styles)
+		require.Len(t, collapsedSeps, 2)
+		assert.NotEqual(t, normal, collapsedSeps[0], "first gap should be collapsed separator")
+		assert.Equal(t, normal, collapsedSeps[1], "second gap should be normal separator")
+		assert.Equal(t, normal, plainSeps[0])
+		assert.Equal(t, normal, plainSeps[1])
+	})
+	t.Run("single column returns empty", func(t *testing.T) {
+		plainSeps, collapsedSeps := gapSeparators([]int{2}, 5, "\u2502", DefaultStyles())
+		assert.Empty(t, plainSeps)
+		assert.Empty(t, collapsedSeps)
+	})
 }
 
 func TestHiddenColumnNames(t *testing.T) {
-	specs := []columnSpec{
-		{Title: "ID"},
-		{Title: "Name", HideOrder: 1},
-		{Title: "Status"},
-		{Title: "Cost", HideOrder: 2},
-	}
-	assert.Equal(t, []string{"Name", "Cost"}, hiddenColumnNames(specs))
-}
-
-func TestHiddenColumnNamesNoneHidden(t *testing.T) {
-	specs := []columnSpec{{Title: "A"}, {Title: "B"}}
-	assert.Empty(t, hiddenColumnNames(specs))
+	t.Run("returns hidden names in order", func(t *testing.T) {
+		specs := []columnSpec{
+			{Title: "ID"},
+			{Title: "Name", HideOrder: 1},
+			{Title: "Status"},
+			{Title: "Cost", HideOrder: 2},
+		}
+		assert.Equal(t, []string{"Name", "Cost"}, hiddenColumnNames(specs))
+	})
+	t.Run("empty when none hidden", func(t *testing.T) {
+		assert.Empty(t, hiddenColumnNames([]columnSpec{{Title: "A"}, {Title: "B"}}))
+	})
 }
 
 func TestNextHideOrder(t *testing.T) {
@@ -325,40 +340,30 @@ func TestNextHideOrder(t *testing.T) {
 	assert.Equal(t, 4, nextHideOrder(specs))
 }
 
-func TestRenderHiddenBadgesEmpty(t *testing.T) {
-	specs := []columnSpec{{Title: "A"}, {Title: "B"}}
-	assert.Empty(t, renderHiddenBadges(specs, 0, DefaultStyles()))
-}
-
-func TestRenderHiddenBadgesLeftOnly(t *testing.T) {
-	specs := []columnSpec{
-		{Title: "ID", HideOrder: 1},
-		{Title: "Name"},
-		{Title: "Status"},
-	}
-	out := renderHiddenBadges(specs, 2, DefaultStyles())
-	assert.Contains(t, out, "ID")
-}
-
-func TestRenderHiddenBadgesRightOnly(t *testing.T) {
-	specs := []columnSpec{
-		{Title: "ID"},
-		{Title: "Name"},
-		{Title: "Cost", HideOrder: 1},
-	}
-	out := renderHiddenBadges(specs, 0, DefaultStyles())
-	assert.Contains(t, out, "Cost")
-}
-
-func TestRenderHiddenBadgesBothSides(t *testing.T) {
-	specs := []columnSpec{
-		{Title: "ID", HideOrder: 1},
-		{Title: "Name"},
-		{Title: "Cost", HideOrder: 2},
-	}
-	out := renderHiddenBadges(specs, 1, DefaultStyles())
-	assert.Contains(t, out, "ID")
-	assert.Contains(t, out, "Cost")
+func TestRenderHiddenBadges(t *testing.T) {
+	styles := DefaultStyles()
+	t.Run("empty when none hidden", func(t *testing.T) {
+		specs := []columnSpec{{Title: "A"}, {Title: "B"}}
+		assert.Empty(t, renderHiddenBadges(specs, 0, styles))
+	})
+	t.Run("left only", func(t *testing.T) {
+		specs := []columnSpec{{Title: "ID", HideOrder: 1}, {Title: "Name"}, {Title: "Status"}}
+		assert.Contains(t, renderHiddenBadges(specs, 2, styles), "ID")
+	})
+	t.Run("right only", func(t *testing.T) {
+		specs := []columnSpec{{Title: "ID"}, {Title: "Name"}, {Title: "Cost", HideOrder: 1}}
+		assert.Contains(t, renderHiddenBadges(specs, 0, styles), "Cost")
+	})
+	t.Run("both sides", func(t *testing.T) {
+		specs := []columnSpec{
+			{Title: "ID", HideOrder: 1},
+			{Title: "Name"},
+			{Title: "Cost", HideOrder: 2},
+		}
+		out := renderHiddenBadges(specs, 1, styles)
+		assert.Contains(t, out, "ID")
+		assert.Contains(t, out, "Cost")
+	})
 }
 
 func TestRenderHiddenBadgesStableWidthAcrossCursorMoves(t *testing.T) {
@@ -396,49 +401,42 @@ func TestColumnWidthsFixedValuesStillStabilize(t *testing.T) {
 
 // --- Line clamping tests ---
 
-func TestClampLinesBasic(t *testing.T) {
-	assert.Equal(t, "hell…", clampLines("hello world", 5))
+func TestClampLines(t *testing.T) {
+	t.Run("truncates long line", func(t *testing.T) {
+		assert.Equal(t, "hell…", clampLines("hello world", 5))
+	})
+	t.Run("multiline truncates only long lines", func(t *testing.T) {
+		got := clampLines("short\na very long line here\nok", 8)
+		lines := strings.Split(got, "\n")
+		require.Len(t, lines, 3)
+		assert.Equal(t, "short", lines[0])
+		assert.Equal(t, "ok", lines[2])
+		assert.Less(t, len(lines[1]), len("a very long line here"))
+	})
+	t.Run("noop when fits", func(t *testing.T) {
+		assert.Equal(t, "fits", clampLines("fits", 100))
+	})
 }
 
-func TestClampLinesMultiline(t *testing.T) {
-	input := "short\na very long line here\nok"
-	got := clampLines(input, 8)
-	lines := strings.Split(got, "\n")
-	require.Len(t, lines, 3)
-	assert.Equal(t, "short", lines[0])
-	assert.Equal(t, "ok", lines[2])
-	// The middle line should be truncated.
-	assert.Less(t, len(lines[1]), len("a very long line here"))
-}
-
-func TestClampLinesNoopWhenFits(t *testing.T) {
-	assert.Equal(t, "fits", clampLines("fits", 100))
-}
-
-func TestTruncateLeftBasic(t *testing.T) {
-	got := truncateLeft("/home/user/long/path/to/data.db", 15)
-	assert.True(t, strings.HasPrefix(got, "…"))
-	assert.True(t, strings.HasSuffix(got, "data.db"))
-	assert.LessOrEqual(t, lipgloss.Width(got), 15)
-}
-
-func TestTruncateLeftNoopWhenFits(t *testing.T) {
-	assert.Equal(t, "short.db", truncateLeft("short.db", 20))
-}
-
-func TestTruncateLeftGraphemeClusters(t *testing.T) {
-	// Flag emoji is a multi-rune grapheme cluster (two regional indicators).
-	// A rune-based approach would split it; grapheme-aware truncation keeps
-	// it intact or removes it entirely.
-	s := "\U0001F1EF\U0001F1F5/path/to/file.db" // 🇯🇵/path/to/file.db
-	got := truncateLeft(s, 15)
-	assert.LessOrEqual(t, lipgloss.Width(got), 15)
-	assert.True(t, strings.HasPrefix(got, "\u2026"))
-}
-
-func TestTruncateLeftZeroWidth(t *testing.T) {
-	assert.Empty(t, truncateLeft("anything", 0))
-	assert.Empty(t, truncateLeft("anything", -1))
+func TestTruncateLeft(t *testing.T) {
+	t.Run("truncates long path", func(t *testing.T) {
+		got := truncateLeft("/home/user/long/path/to/data.db", 15)
+		assert.True(t, strings.HasPrefix(got, "\u2026"))
+		assert.True(t, strings.HasSuffix(got, "data.db"))
+		assert.LessOrEqual(t, lipgloss.Width(got), 15)
+	})
+	t.Run("noop when fits", func(t *testing.T) {
+		assert.Equal(t, "short.db", truncateLeft("short.db", 20))
+	})
+	t.Run("grapheme clusters", func(t *testing.T) {
+		got := truncateLeft("\U0001F1EF\U0001F1F5/path/to/file.db", 15)
+		assert.LessOrEqual(t, lipgloss.Width(got), 15)
+		assert.True(t, strings.HasPrefix(got, "\u2026"))
+	})
+	t.Run("zero and negative width", func(t *testing.T) {
+		assert.Empty(t, truncateLeft("anything", 0))
+		assert.Empty(t, truncateLeft("anything", -1))
+	})
 }
 
 // --- Viewport tests ---
@@ -481,18 +479,17 @@ func TestEnsureCursorVisibleNoopWhenVisible(t *testing.T) {
 	assert.Equal(t, 0, tab.ViewOffset)
 }
 
-func TestViewportSortsAdjustsOffset(t *testing.T) {
-	sorts := []sortEntry{{Col: 3, Dir: sortAsc}, {Col: 5, Dir: sortDesc}}
-	adjusted := viewportSorts(sorts, 2)
-	assert.Equal(t, 1, adjusted[0].Col)
-	assert.Equal(t, 3, adjusted[1].Col)
-}
-
-func TestViewportSortsNoOffset(t *testing.T) {
-	sorts := []sortEntry{{Col: 1, Dir: sortAsc}}
-	adjusted := viewportSorts(sorts, 0)
-	assert.Equal(t, 1, adjusted[0].Col)
-	assert.Equal(t, sortAsc, adjusted[0].Dir)
+func TestViewportSorts(t *testing.T) {
+	t.Run("adjusts column indices by offset", func(t *testing.T) {
+		adjusted := viewportSorts([]sortEntry{{Col: 3, Dir: sortAsc}, {Col: 5, Dir: sortDesc}}, 2)
+		assert.Equal(t, 1, adjusted[0].Col)
+		assert.Equal(t, 3, adjusted[1].Col)
+	})
+	t.Run("no offset passthrough", func(t *testing.T) {
+		adjusted := viewportSorts([]sortEntry{{Col: 1, Dir: sortAsc}}, 0)
+		assert.Equal(t, 1, adjusted[0].Col)
+		assert.Equal(t, sortAsc, adjusted[0].Dir)
+	})
 }
 
 func TestApplianceAge(t *testing.T) {
@@ -599,25 +596,27 @@ func TestHelpContentIncludesProjectStatusFilterShortcuts(t *testing.T) {
 	}
 }
 
-func TestHeaderTitleWidthLink(t *testing.T) {
-	spec := columnSpec{
-		Title: "Project",
-		Link:  &columnLink{TargetTab: tabProjects},
+func TestHeaderTitleWidth(t *testing.T) {
+	tests := []struct {
+		name string
+		spec columnSpec
+		want int
+	}{
+		{
+			"link",
+			columnSpec{Title: "Project", Link: &columnLink{TargetTab: tabProjects}},
+			lipgloss.Width("Project") + 1 + lipgloss.Width(linkArrow),
+		},
+		{
+			"drilldown",
+			columnSpec{Title: "Log", Kind: cellDrilldown},
+			lipgloss.Width("Log") + 1 + lipgloss.Width(drilldownArrow),
+		},
+		{"plain", columnSpec{Title: "Name"}, lipgloss.Width("Name")},
 	}
-	expected := lipgloss.Width("Project") + 1 + lipgloss.Width(linkArrow)
-	assert.Equal(t, expected, headerTitleWidth(spec))
-}
-
-func TestHeaderTitleWidthDrilldown(t *testing.T) {
-	spec := columnSpec{
-		Title: "Log",
-		Kind:  cellDrilldown,
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, headerTitleWidth(tt.spec))
+		})
 	}
-	expected := lipgloss.Width("Log") + 1 + lipgloss.Width(drilldownArrow)
-	assert.Equal(t, expected, headerTitleWidth(spec))
-}
-
-func TestHeaderTitleWidthPlain(t *testing.T) {
-	spec := columnSpec{Title: "Name"}
-	assert.Equal(t, lipgloss.Width("Name"), headerTitleWidth(spec))
 }

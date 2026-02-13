@@ -42,14 +42,11 @@ func TestHandlerForFormKind(t *testing.T) {
 	}
 }
 
-func TestHandlerForFormKindHouseReturnsNil(t *testing.T) {
+func TestHandlerForFormKindReturnsNilForNonTabKinds(t *testing.T) {
 	m := newTestModel()
-	assert.Nil(t, m.handlerForFormKind(formHouse))
-}
-
-func TestHandlerForFormKindUnknownReturnsNil(t *testing.T) {
-	m := newTestModel()
-	assert.Nil(t, m.handlerForFormKind(formNone))
+	for _, kind := range []FormKind{formHouse, formNone} {
+		assert.Nilf(t, m.handlerForFormKind(kind), "expected nil handler for %v", kind)
+	}
 }
 
 func TestHandlerFormKindMatchesTabKind(t *testing.T) {

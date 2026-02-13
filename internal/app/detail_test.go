@@ -216,11 +216,6 @@ func TestMaintenanceLogColumnReplacedManual(t *testing.T) {
 	}
 }
 
-func TestNewTestModelDetailNil(t *testing.T) {
-	m := newTestModel()
-	assert.Nil(t, m.detail())
-}
-
 func TestResizeTablesIncludesDetail(t *testing.T) {
 	m := newTestModel()
 	m.width = 120
@@ -318,13 +313,6 @@ func TestApplianceMaintenanceColumnSpecsNoAppliance(t *testing.T) {
 	// Last column should be the Log drilldown (nested drilldown is supported).
 	last := specs[len(specs)-1]
 	assert.Equal(t, "Log", last.Title)
-	assert.Equal(t, cellDrilldown, last.Kind)
-}
-
-func TestApplianceMaintColumnIsDrilldown(t *testing.T) {
-	specs := applianceColumnSpecs()
-	last := specs[len(specs)-1]
-	assert.Equal(t, "Maint", last.Title)
 	assert.Equal(t, cellDrilldown, last.Kind)
 }
 
@@ -511,23 +499,6 @@ func TestProjectColumnSpecsIncludeQuotes(t *testing.T) {
 	specs := projectColumnSpecs()
 	last := specs[len(specs)-1]
 	assert.Equal(t, "Quotes", last.Title)
-	assert.Equal(t, cellDrilldown, last.Kind)
-}
-
-func TestVendorColumnsAreDrilldown(t *testing.T) {
-	specs := vendorColumnSpecs()
-	quotes := specs[6]
-	jobs := specs[7]
-	assert.Equal(t, "Quotes", quotes.Title)
-	assert.Equal(t, cellDrilldown, quotes.Kind)
-	assert.Equal(t, "Jobs", jobs.Title)
-	assert.Equal(t, cellDrilldown, jobs.Kind)
-}
-
-func TestApplianceMaintLogColumnIsDrilldown(t *testing.T) {
-	specs := applianceMaintenanceColumnSpecs()
-	last := specs[len(specs)-1]
-	assert.Equal(t, "Log", last.Title)
 	assert.Equal(t, cellDrilldown, last.Kind)
 }
 

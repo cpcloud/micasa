@@ -563,46 +563,25 @@ func TestMaintenanceHandlerSyncFixedValues(t *testing.T) {
 // Handler with non-existent IDs
 // ---------------------------------------------------------------------------
 
-func TestProjectHandlerSnapshotNonExistent(t *testing.T) {
+func TestHandlerSnapshotNonExistent(t *testing.T) {
 	m := newTestModelWithStore(t)
-	h := projectHandler{}
-	_, ok := h.Snapshot(m.store, 99999)
-	assert.False(t, ok)
-}
-
-func TestQuoteHandlerSnapshotNonExistent(t *testing.T) {
-	m := newTestModelWithStore(t)
-	h := quoteHandler{}
-	_, ok := h.Snapshot(m.store, 99999)
-	assert.False(t, ok)
-}
-
-func TestMaintenanceHandlerSnapshotNonExistent(t *testing.T) {
-	m := newTestModelWithStore(t)
-	h := maintenanceHandler{}
-	_, ok := h.Snapshot(m.store, 99999)
-	assert.False(t, ok)
-}
-
-func TestApplianceHandlerSnapshotNonExistent(t *testing.T) {
-	m := newTestModelWithStore(t)
-	h := applianceHandler{}
-	_, ok := h.Snapshot(m.store, 99999)
-	assert.False(t, ok)
-}
-
-func TestVendorHandlerSnapshotNonExistent(t *testing.T) {
-	m := newTestModelWithStore(t)
-	h := vendorHandler{}
-	_, ok := h.Snapshot(m.store, 99999)
-	assert.False(t, ok)
-}
-
-func TestServiceLogHandlerSnapshotNonExistent(t *testing.T) {
-	m := newTestModelWithStore(t)
-	h := serviceLogHandler{maintenanceItemID: 1}
-	_, ok := h.Snapshot(m.store, 99999)
-	assert.False(t, ok)
+	handlers := []struct {
+		name string
+		h    TabHandler
+	}{
+		{"project", projectHandler{}},
+		{"quote", quoteHandler{}},
+		{"maintenance", maintenanceHandler{}},
+		{"appliance", applianceHandler{}},
+		{"vendor", vendorHandler{}},
+		{"serviceLog", serviceLogHandler{maintenanceItemID: 1}},
+	}
+	for _, tc := range handlers {
+		t.Run(tc.name, func(t *testing.T) {
+			_, ok := tc.h.Snapshot(m.store, 99999)
+			assert.False(t, ok)
+		})
+	}
 }
 
 // ---------------------------------------------------------------------------

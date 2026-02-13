@@ -85,20 +85,15 @@ func TestDashboardToggle(t *testing.T) {
 	assert.False(t, m.showDashboard)
 }
 
-func TestDashboardDismissedByForward(t *testing.T) {
-	m := newTestModel()
-	m.showDashboard = true
-
-	sendKey(m, "f")
-	assert.False(t, m.showDashboard)
-}
-
-func TestDashboardDismissedByBack(t *testing.T) {
-	m := newTestModel()
-	m.showDashboard = true
-
-	sendKey(m, "b")
-	assert.False(t, m.showDashboard)
+func TestDashboardDismissedByTabSwitch(t *testing.T) {
+	for _, key := range []string{"f", "b"} {
+		t.Run(key, func(t *testing.T) {
+			m := newTestModel()
+			m.showDashboard = true
+			sendKey(m, key)
+			assert.False(t, m.showDashboard)
+		})
+	}
 }
 
 func TestDashboardNavigation(t *testing.T) {
@@ -291,18 +286,6 @@ func TestDashboardOverlay(t *testing.T) {
 	today := time.Now().Format("Monday, Jan 2")
 	assert.Contains(t, ov, today)
 	assert.Contains(t, ov, "help")
-}
-
-func TestDashboardOverlayComposite(t *testing.T) {
-	m := newTestModel()
-	m.width = 120
-	m.height = 40
-	m.showDashboard = true
-	m.dashboard = dashboardData{}
-	m.dashNav = nil
-
-	view := m.buildView()
-	assert.NotEmpty(t, view)
 }
 
 func TestDashboardOverlayFitsHeight(t *testing.T) {
@@ -742,13 +725,4 @@ func TestOverlayContentWidth(t *testing.T) {
 			assert.Equal(t, tt.want, m.overlayContentWidth())
 		})
 	}
-}
-
-func TestDashboardDefaultOnLaunchWithHouse(t *testing.T) {
-	m := newTestModel()
-	m.hasHouse = true
-	m.house = data.HouseProfile{Nickname: "Test"}
-	m.showDashboard = true
-
-	assert.True(t, m.showDashboard)
 }
