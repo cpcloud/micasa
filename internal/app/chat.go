@@ -1076,7 +1076,7 @@ func (m *Model) handleChatKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			m.deactivateCompleter()
 			return m, nil
-		case "ctrl+c":
+		case "ctrl+q":
 			return m, tea.Interrupt
 		}
 	}
@@ -1094,7 +1094,7 @@ func (m *Model) handleChatKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.toggleSQL()
 		return m, nil
 	case "ctrl+c":
-		// Cancel stream or pull, otherwise quit.
+		// Cancel stream or pull if active.
 		if m.chat.Streaming && m.chat.CancelFn != nil {
 			m.chat.CancelFn()
 			m.chat.Streaming = false
@@ -1112,9 +1112,8 @@ func (m *Model) handleChatKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.refreshChatViewport()
 			return m, nil
 		}
-		// No active operations -- clean up and quit.
-		m.cancelChatOperations()
-		return m, tea.Interrupt
+		// No active operations -- ctrl+c does nothing in chat.
+		return m, nil
 	case "up", "ctrl+p":
 		if m.chat.Input.Focused() && !m.chat.Streaming {
 			m.historyBack()

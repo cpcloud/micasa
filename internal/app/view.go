@@ -251,7 +251,7 @@ func (m *Model) statusView() string {
 			dirtyIndicator,
 			m.helpItem("ctrl+s", "save"),
 			m.helpItem("esc", "cancel"),
-			m.helpItem("ctrl+c", "quit"),
+			m.helpItem("ctrl+q", "quit"),
 		)
 		return m.withStatusMessage(help)
 	}
@@ -776,7 +776,7 @@ func (m *Model) helpContent() string {
 				{"@", "Ask LLM"},
 				{"i", "Edit mode"},
 				{"?", "Help"},
-				{"q", "Quit"},
+				{"q / ctrl+q", "Quit"},
 			},
 		},
 		{
@@ -805,7 +805,7 @@ func (m *Model) helpContent() string {
 				{"enter", "Send message"},
 				{"ctrl+s", "Toggle SQL display"},
 				{"\u2191/\u2193", "Prompt history"},
-				{"ctrl+c", "Cancel stream"},
+				{"ctrl+c", "Cancel operation"},
 				{"esc", "Hide chat"},
 			},
 		},

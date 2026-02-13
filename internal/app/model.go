@@ -143,9 +143,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.resizeTables()
 		m.updateAllViewports()
 	case tea.KeyMsg:
-		if typed.String() == "ctrl+c" {
+		if typed.String() == "ctrl+q" {
 			m.cancelChatOperations()
 			return m, tea.Interrupt
+		}
+		if typed.String() == "ctrl+c" {
+			// Cancel any ongoing LLM operations but don't quit.
+			m.cancelChatOperations()
+			return m, nil
 		}
 	case chatChunkMsg:
 		// Chunks arriving after chat is closed are harmlessly dropped.
