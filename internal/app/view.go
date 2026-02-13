@@ -949,6 +949,10 @@ func (m *Model) tableView(tab *Tab) string {
 // the dim state.
 func dimBackground(s string) string {
 	dimmed := strings.ReplaceAll(s, "\033[0m", "\033[0;2m")
+	// Neutralize cancel-faint markers left by a previous cancelFaint pass
+	// (nested overlays). Without this, \033[22m codes embedded in an
+	// earlier overlay's content would override the dim we're applying.
+	dimmed = strings.ReplaceAll(dimmed, "\033[22m", "\033[2m")
 	lines := strings.Split(dimmed, "\n")
 	for i, line := range lines {
 		lines[i] = "\033[2m" + line

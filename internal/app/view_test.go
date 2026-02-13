@@ -620,3 +620,17 @@ func TestHeaderTitleWidth(t *testing.T) {
 		})
 	}
 }
+
+func TestDimBackgroundNeutralizesCancelFaint(t *testing.T) {
+	// Simulate a composited overlay: cancelFaint injects \033[22m (normal
+	// intensity) so the overlay content stays bright. A subsequent
+	// dimBackground pass must neutralize those markers so the entire
+	// background dims uniformly (nested overlay scenario).
+	inner := cancelFaint("dashboard content")
+	assert.Contains(t, inner, "\033[22m", "cancelFaint should inject normal-intensity")
+
+	dimmed := dimBackground(inner)
+	assert.NotContains(t, dimmed, "\033[22m",
+		"dimBackground should neutralize cancel-faint markers from nested overlays")
+	assert.Contains(t, dimmed, "\033[2m", "dimBackground should apply faint")
+}
