@@ -1198,6 +1198,7 @@ func (m *Model) renderChatMessages() string {
 			label := m.styles.ChatAssistant.Render(" " + m.llmModelLabel() + " ")
 			text := msg.Content
 			sql := msg.SQL
+			isLastMessage := i == len(m.chat.Messages)-1
 
 			var parts []string
 
@@ -1220,13 +1221,14 @@ func (m *Model) renderChatMessages() string {
 			}
 
 			// Determine what to show on the label line.
-			if m.chat.StreamingSQL && sql == "" {
+			// Only show spinner for the currently streaming message (last one).
+			if isLastMessage && m.chat.StreamingSQL && sql == "" {
 				// Stage 1: generating SQL query
 				labelLine := label + "  " + m.chat.Spinner.View() + " " + m.styles.HeaderHint.Render(
 					"generating query",
 				)
 				rendered = labelLine
-			} else if text == "" && m.chat.Streaming && !m.chat.StreamingSQL {
+			} else if isLastMessage && text == "" && m.chat.Streaming && !m.chat.StreamingSQL {
 				// Stage 2: thinking about response (may have SQL already)
 				labelLine := label + "  " + m.chat.Spinner.View() + " " + m.styles.HeaderHint.Render("thinking")
 				// If we have parts (e.g., SQL), show them below the label.
@@ -1349,16 +1351,18 @@ func (m *Model) handleChatKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// Cancel context - this will close the stream channel and any
 			// pending waitForChunk/waitForSQLChunk will return nil.
 			cancelFn()
-			// Remove "generating query" notice and add cancellation message.
+			// Remove all trailing notices and incomplete assistant messages.
 			m.removeLastNotice()
-			// If we have an incomplete assistant message, remove it.
+			// Remove the assistant message that was being streamed.
+			// It doesn't matter if it has partial content or SQL - if we're
+			// cancelling, we don't want to show it.
 			if len(m.chat.Messages) > 0 &&
-				m.chat.Messages[len(m.chat.Messages)-1].Role == roleAssistant &&
-				m.chat.Messages[len(m.chat.Messages)-1].Content == "" {
+				m.chat.Messages[len(m.chat.Messages)-1].Role == roleAssistant {
 				m.chat.Messages = m.chat.Messages[:len(m.chat.Messages)-1]
 			}
+			// Add cancellation notice.
 			m.chat.Messages = append(m.chat.Messages, chatMessage{
-				Role: roleNotice, Content: "Cancelled",
+				Role: roleNotice, Content: "Interrupted",
 			})
 			m.refreshChatViewport()
 			return m, nil
