@@ -63,6 +63,7 @@ type quoteFormData struct {
 	Email        string
 	Phone        string
 	Website      string
+	VendorNotes  string // not shown in UI; carried through to preserve existing value
 	Total        string
 	Labor        string
 	Materials    string
@@ -1362,6 +1363,7 @@ func (m *Model) parseQuoteFormData() (data.Quote, data.Vendor, error) {
 		Email:       strings.TrimSpace(values.Email),
 		Phone:       strings.TrimSpace(values.Phone),
 		Website:     strings.TrimSpace(values.Website),
+		Notes:       values.VendorNotes,
 	}
 	return quote, vendor, nil
 }
@@ -1549,6 +1551,7 @@ func quoteFormValues(quote data.Quote) *quoteFormData {
 		Email:        quote.Vendor.Email,
 		Phone:        quote.Vendor.Phone,
 		Website:      quote.Vendor.Website,
+		VendorNotes:  quote.Vendor.Notes,
 		Total:        data.FormatCents(quote.TotalCents),
 		Labor:        data.FormatOptionalCents(quote.LaborCents),
 		Materials:    data.FormatOptionalCents(quote.MaterialsCents),

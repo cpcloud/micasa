@@ -994,26 +994,17 @@ func findOrCreateVendor(tx *gorm.DB, vendor Vendor) (Vendor, error) {
 		}
 		existing.DeletedAt.Valid = false
 	}
-	updates := map[string]any{}
-	if vendor.ContactName != "" {
-		updates[ColContactName] = vendor.ContactName
+	// Unconditionally overwrite contact fields so callers can clear them
+	// (e.g. user blanks a phone number in the quote form).
+	updates := map[string]any{
+		ColContactName: vendor.ContactName,
+		ColEmail:       vendor.Email,
+		ColPhone:       vendor.Phone,
+		ColWebsite:     vendor.Website,
+		ColNotes:       vendor.Notes,
 	}
-	if vendor.Email != "" {
-		updates[ColEmail] = vendor.Email
-	}
-	if vendor.Phone != "" {
-		updates[ColPhone] = vendor.Phone
-	}
-	if vendor.Website != "" {
-		updates[ColWebsite] = vendor.Website
-	}
-	if vendor.Notes != "" {
-		updates[ColNotes] = vendor.Notes
-	}
-	if len(updates) > 0 {
-		if err := tx.Model(&existing).Updates(updates).Error; err != nil {
-			return Vendor{}, err
-		}
+	if err := tx.Model(&existing).Updates(updates).Error; err != nil {
+		return Vendor{}, err
 	}
 	return existing, nil
 }

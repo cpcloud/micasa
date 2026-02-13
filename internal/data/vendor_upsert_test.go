@@ -30,13 +30,37 @@ func TestFindOrCreateVendorNewVendor(t *testing.T) {
 	assert.Equal(t, "New Plumber", v.Name)
 }
 
-func TestFindOrCreateVendorExistingNoUpdates(t *testing.T) {
+func TestFindOrCreateVendorExistingClearsFields(t *testing.T) {
 	db := openTestDB(t)
 	require.NoError(t, db.Create(&Vendor{Name: "Existing Co", Phone: "555-0000"}).Error)
 
+	// Passing empty contact fields clears them on the existing vendor.
 	v, err := findOrCreateVendor(db, Vendor{Name: "Existing Co"})
 	require.NoError(t, err)
-	assert.Equal(t, "555-0000", v.Phone, "should keep original phone")
+
+	var reloaded Vendor
+	require.NoError(t, db.First(&reloaded, v.ID).Error)
+	assert.Empty(t, reloaded.Phone, "empty phone should clear existing value")
+}
+
+func TestFindOrCreateVendorExistingPreservesWhenPassedThrough(t *testing.T) {
+	db := openTestDB(t)
+	require.NoError(t, db.Create(&Vendor{
+		Name: "Preserve Co", Phone: "555-0000", Notes: "keep me",
+	}).Error)
+
+	// Passing the existing values back preserves them.
+	v, err := findOrCreateVendor(db, Vendor{
+		Name:  "Preserve Co",
+		Phone: "555-0000",
+		Notes: "keep me",
+	})
+	require.NoError(t, err)
+
+	var reloaded Vendor
+	require.NoError(t, db.First(&reloaded, v.ID).Error)
+	assert.Equal(t, "555-0000", reloaded.Phone)
+	assert.Equal(t, "keep me", reloaded.Notes)
 }
 
 func TestFindOrCreateVendorExistingWithUpdates(t *testing.T) {

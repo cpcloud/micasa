@@ -138,8 +138,11 @@ func cellValueAt(tab *Tab, row, col int) string {
 }
 
 func compareMoney(a, b string) int {
-	pa := parseMoney(a)
-	pb := parseMoney(b)
+	pa, okA := parseMoney(a)
+	pb, okB := parseMoney(b)
+	if !okA || !okB {
+		return compareStrings(a, b)
+	}
 	if pa < pb {
 		return -1
 	}
@@ -191,13 +194,13 @@ func compareStrings(a, b string) int {
 	return 0
 }
 
-// parseMoney strips $, commas, and parses as float64 cents.
-func parseMoney(s string) float64 {
+// parseMoney strips $, commas, and parses as float64.
+func parseMoney(s string) (float64, bool) {
 	s = strings.ReplaceAll(s, "$", "")
 	s = strings.ReplaceAll(s, ",", "")
 	s = strings.TrimSpace(s)
-	v, _ := strconv.ParseFloat(s, 64)
-	return v
+	v, err := strconv.ParseFloat(s, 64)
+	return v, err == nil
 }
 
 // reorderTab rearranges CellRows, Rows (meta), and the table's rows
