@@ -11,6 +11,7 @@ import (
 
 func TestMagFormatMoneyWithUnit(t *testing.T) {
 	// Used by magCents for dashboard (input still has $ from FormatCents).
+	// No internal padding; rendering layer handles alignment.
 	tests := []struct {
 		name  string
 		value string
@@ -32,8 +33,9 @@ func TestMagFormatMoneyWithUnit(t *testing.T) {
 }
 
 func TestMagFormatBareMoney(t *testing.T) {
-	// Table cells now carry $ from FormatCents. With includeUnit=false
+	// Table cells carry $ from FormatCents. With includeUnit=false
 	// the mag output strips the $ (header carries the unit instead).
+	// No internal padding; table renderer handles alignment.
 	tests := []struct {
 		name  string
 		value string
@@ -147,6 +149,45 @@ func TestMagTransformCells(t *testing.T) {
 
 	// Original rows are not modified.
 	assert.Equal(t, "$5,234.23", rows[0][2].Value)
+}
+
+func TestMagTransformText(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			"dollar amount",
+			"You spent $5,234.23 on kitchen.",
+			"You spent $ \U0001F8214 on kitchen.",
+		},
+		{
+			"multiple amounts",
+			"Budget is $10,000.00 and actual is $8,500.00.",
+			"Budget is $ \U0001F8214 and actual is $ \U0001F8214.",
+		},
+		{
+			"negative amount",
+			"Loss of -$500.00 this month.",
+			"Loss of -$ \U0001F8213 this month.",
+		},
+		{
+			"no amounts",
+			"The project is underway.",
+			"The project is underway.",
+		},
+		{
+			"small amount",
+			"Just $5.00.",
+			"Just $ \U0001F8211.",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, magTransformText(tt.input))
+		})
+	}
 }
 
 func TestMagModeToggle(t *testing.T) {
