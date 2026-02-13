@@ -173,7 +173,7 @@ func TestMagTransformText(t *testing.T) {
 			"Loss of -$ \U0001F8213 this month.",
 		},
 		{
-			"no amounts",
+			"no amounts or numbers",
 			"The project is underway.",
 			"The project is underway.",
 		},
@@ -181,6 +181,26 @@ func TestMagTransformText(t *testing.T) {
 			"small amount",
 			"Just $5.00.",
 			"Just $ \U0001F8211.",
+		},
+		{
+			"bare count",
+			"There is 1 flooring project.",
+			"There is \U0001F8210 flooring project.",
+		},
+		{
+			"larger bare count",
+			"You have 42 maintenance items.",
+			"You have \U0001F8212 maintenance items.",
+		},
+		{
+			"bare number with commas",
+			"Total is 1,000 items.",
+			"Total is \U0001F8213 items.",
+		},
+		{
+			"mixed dollars and bare numbers",
+			"Found 3 projects totaling $15,000.00.",
+			"Found \U0001F8210 projects totaling $ \U0001F8214.",
 		},
 	}
 	for _, tt := range tests {
