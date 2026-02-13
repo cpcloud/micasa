@@ -82,18 +82,22 @@ func magOptionalCents(cents *int64) string {
 	return magCents(*cents)
 }
 
-// magMoneyRe matches dollar amounts like $1,234.56 or -$5.00 in prose.
-var magMoneyRe = regexp.MustCompile(`-?\$[\d,]+(?:\.\d+)?`)
+// magTextRe matches dollar amounts ($1,234.56, -$5.00) and standalone bare
+// numbers (42, 1,000, 3.14) in prose. Dollar amounts are tried first via
+// alternation so their digits aren't consumed by the bare-number branch.
+// A single-pass replace ensures output digits (like the 4 in 🠡4) are never
+// re-matched.
+var magTextRe = regexp.MustCompile(`-?\$[\d,]+(?:\.\d+)?|\b\d[\d,]*(?:\.\d+)?\b`)
 
-// magTransformText replaces dollar amounts in free-form text with magnitude
-// notation. Used to post-process LLM responses when mag mode is on.
-// Does not pad (no width preservation needed in prose).
+// magTransformText replaces dollar amounts and bare numbers in free-form
+// text with magnitude notation. Used to post-process LLM responses when
+// mag mode is on.
 func magTransformText(s string) string {
-	return magMoneyRe.ReplaceAllStringFunc(s, func(match string) string {
-		c := cell{Value: match, Kind: cellMoney}
-		result := magFormat(c, true)
-		// Strip leading padding -- prose doesn't need right-alignment.
-		return strings.TrimLeft(result, " ")
+	return magTextRe.ReplaceAllStringFunc(s, func(match string) string {
+		if strings.ContainsRune(match, '$') {
+			return magFormat(cell{Value: match, Kind: cellMoney}, true)
+		}
+		return magFormat(cell{Value: match, Kind: cellDrilldown}, false)
 	})
 }
 
