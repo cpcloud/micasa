@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/cpcloud/micasa/internal/data"
 )
 
 // TableInfo describes a database table for context injection.
@@ -255,9 +257,9 @@ RULES:
 
 const sqlSchemaNotes = `
 Notes:
-- Maintenance scheduling: next_due = date(last_serviced_at, '+' || interval_months || ' months')
+- Maintenance scheduling: next_due = date(` + data.ColLastServicedAt + `, '+' || ` + data.ColIntervalMonths + ` || ' months')
 - Project statuses: ideating, planned, quoted, underway, delayed, completed, abandoned
-- Warranty expiry is in the warranty_expiry column (date string)
+- Warranty expiry is in the ` + data.ColWarrantyExpiry + ` column (date string)
 - For case-insensitive text search, use UPPER() or LOWER() on both sides: WHERE LOWER(title) LIKE LOWER('%hvac%')`
 
 const sqlFewShot = `## Examples
