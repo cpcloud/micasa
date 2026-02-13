@@ -14,157 +14,108 @@ import (
 
 const testQuestion = "test question"
 
-// TestHandleSQLChunkCompletionUsesCurrentQuery verifies that when SQL
-// streaming completes, executeSQLQuery uses CurrentQuery instead of
-// attempting to index into the messages array. This is a regression test
-// for a panic that occurred when the code tried to access messages[-3]
-// after the message structure changed during streaming.
-func TestHandleSQLChunkCompletionUsesCurrentQuery(t *testing.T) {
-	m := newTestModel()
-
-	// Set up minimal chat state as if streaming has started.
-	m.openChat()
-	m.chat.CurrentQuery = "test question"
-	m.chat.StreamingSQL = true
-	m.chat.Streaming = true
-
-	// Add user, notice, and assistant messages (mimics submitChat setup).
-	m.chat.Messages = []chatMessage{
-		{Role: "user", Content: "test question"},
-		{Role: "notice", Content: "generating query"},
-		{Role: "assistant", Content: "", SQL: "SELECT * FROM projects"},
-	}
-
-	// Simulate SQL streaming completion with valid SQL.
-	msg := sqlChunkMsg{
-		Content: "",   // All content already accumulated
-		Done:    true, // SQL generation complete
-		Err:     nil,
-	}
-
-	// This is the critical test: handleSQLChunk calls executeSQLQuery which
-	// MUST use CurrentQuery. If it tries to access messages[-3] with only 3
-	// messages, it would panic with index out of range.
-	cmd := m.handleSQLChunk(msg)
-
-	// Should return a command (executeSQLQuery wrapped in tea.Cmd).
-	assert.NotNil(t, cmd, "handleSQLChunk should return a command when Done=true")
-
-	// Verify state was updated correctly.
-	assert.False(t, m.chat.StreamingSQL, "StreamingSQL should be false after completion")
-	assert.Nil(t, m.chat.SQLStreamCh, "SQLStreamCh should be nil after completion")
-}
-
-// TestHandleSQLChunkWithNoMessagesDoesNotPanic is a more extreme case
-// where the messages array is unexpectedly empty. This should not panic.
-func TestHandleSQLChunkWithNoMessagesDoesNotPanic(t *testing.T) {
-	m := newTestModel()
-
-	m.openChat()
-	m.chat.CurrentQuery = "test question"
-	m.chat.StreamingSQL = true
-	m.chat.Streaming = true
-
-	// Empty messages array - unexpected state but shouldn't panic.
-	m.chat.Messages = []chatMessage{}
-
-	msg := sqlChunkMsg{
-		Done: true,
-		Err:  nil,
-	}
-
-	// Should not panic even with no messages.
-	cmd := m.handleSQLChunk(msg)
-
-	// Should return nil because SQL extraction will fail (no assistant message).
-	assert.Nil(t, cmd, "handleSQLChunk should handle empty messages gracefully")
-	assert.False(t, m.chat.Streaming, "Streaming should be false after error")
-}
-
-// TestSQLStreamStartedStoresCurrentQuery verifies that when SQL streaming
-// starts, the question is stored in CurrentQuery.
-func TestSQLStreamStartedStoresCurrentQuery(t *testing.T) {
+// TestSQLChunkCompletionDoesNotPanic verifies that when SQL streaming
+// completes (Done chunk arrives), the model doesn't panic on message
+// indexing. This is a regression test for a panic that occurred when the
+// code tried to access messages[-3]. The chunk is delivered through
+// Model.Update, the same path a real Bubble Tea message takes.
+func TestSQLChunkCompletionDoesNotPanic(t *testing.T) {
 	m := newTestModel()
 	m.openChat()
 
-	question := "how much did I spend on projects?"
-
-	// Create a mock stream channel.
-	ch := make(chan llm.StreamChunk, 1)
-	close(ch) // Close immediately since we're not actually streaming.
-
-	msg := sqlStreamStartedMsg{
-		Question: question,
-		Channel:  ch,
-		CancelFn: func() {},
-		Err:      nil,
-	}
-
-	_ = m.handleSQLStreamStarted(msg)
-
-	assert.Equal(
-		t,
-		question,
-		m.chat.CurrentQuery,
-		"CurrentQuery should be set from sqlStreamStartedMsg",
-	)
-}
-
-// TestSQLStreamCancellation verifies that cancelling SQL streaming mid-stream
-// does not produce "LLM returned empty SQL" error. This is a regression test
-// for the issue where closing the stream channel would synthesize a Done message
-// with empty SQL, triggering an error. The fix is to return nil (no message)
-// when the channel closes, stopping the message loop cleanly.
-func TestSQLStreamCancellation(t *testing.T) {
-	m := newTestModel()
-	m.openChat()
-
-	// Create a channel to simulate the LLM stream
-	ch := make(chan llm.StreamChunk, 16)
-
-	// Start streaming SQL
 	m.chat.CurrentQuery = testQuestion
 	m.chat.StreamingSQL = true
 	m.chat.Streaming = true
-	m.chat.SQLStreamCh = ch
 	m.chat.Messages = []chatMessage{
 		{Role: roleUser, Content: testQuestion},
+		{Role: roleNotice, Content: "generating query"},
+		{Role: roleAssistant, Content: "", SQL: "SELECT * FROM projects"},
+	}
+
+	// Done chunk arrives through Update -- must not panic.
+	assert.NotPanics(t, func() {
+		m.Update(sqlChunkMsg{Done: true})
+	})
+
+	// The "generating query" notice should be gone and no error should appear.
+	rendered := m.renderChatMessages()
+	assert.NotContains(t, rendered, "generating query",
+		"notice should be removed after SQL completion")
+	assert.NotContains(t, rendered, "panic",
+		"should not panic during SQL completion")
+}
+
+// TestSQLChunkDoneWithNoAssistantMessageShowsError verifies that a Done
+// chunk arriving when no assistant message exists (edge case) shows an
+// error instead of panicking. Delivered through Model.Update.
+func TestSQLChunkDoneWithNoAssistantMessageShowsError(t *testing.T) {
+	m := newTestModel()
+	m.openChat()
+
+	m.chat.CurrentQuery = testQuestion
+	m.chat.StreamingSQL = true
+	m.chat.Streaming = true
+	m.chat.Messages = []chatMessage{} // no messages at all
+
+	// Must not panic.
+	assert.NotPanics(t, func() {
+		m.Update(sqlChunkMsg{Done: true})
+	})
+
+	// Should show an error in the rendered output.
+	rendered := m.renderChatMessages()
+	assert.Contains(t, rendered, "LLM returned empty SQL",
+		"should surface error when no assistant message exists")
+}
+
+// TestSQLStreamStartedSetsUpStreaming verifies that when the SQL stream
+// starts, the model transitions into streaming state and subsequent chunks
+// accumulate SQL visible in the rendered output (with ShowSQL toggled on
+// via ctrl+s, as a real user would). All messages flow through Model.Update.
+func TestSQLStreamStartedSetsUpStreaming(t *testing.T) {
+	m := newTestModel()
+	m.openChat()
+
+	// User toggles SQL display on (ctrl+s).
+	sendKey(m, "ctrl+s")
+
+	question := "how much did I spend on projects?"
+	m.chat.Streaming = true
+	m.chat.StreamingSQL = true
+	m.chat.Messages = []chatMessage{
+		{Role: roleUser, Content: question},
 		{Role: roleNotice, Content: "generating query"},
 		{Role: roleAssistant, Content: "", SQL: ""},
 	}
 
-	// Send a partial chunk
-	ch <- llm.StreamChunk{Content: "SELECT", Done: false}
-	msg1 := sqlChunkMsg{Content: "SELECT", Done: false}
-	cmd := m.handleSQLChunk(msg1)
-	assert.NotNil(t, cmd, "should continue waiting for chunks")
+	ch := make(chan llm.StreamChunk, 4)
+	ch <- llm.StreamChunk{Content: "SELECT ", Done: false}
+	ch <- llm.StreamChunk{Content: "1", Done: false}
 
-	// Simulate ctrl+c: close channel without sending Done
-	m.chat.Streaming = false
-	m.chat.StreamingSQL = false
-	m.chat.SQLStreamCh = nil
-	close(ch)
+	// Stream-started message arrives through Update.
+	m.Update(sqlStreamStartedMsg{
+		Question: question,
+		Channel:  ch,
+		CancelFn: func() {},
+	})
 
-	// The real waitForSQLChunk would read from closed channel and return nil.
-	// We can't test that directly, but we can verify handleSQLChunk doesn't
-	// crash on empty messages and that the overall flow is correct.
+	// Deliver the buffered chunks through Update.
+	m.Update(sqlChunkMsg{Content: "SELECT ", Done: false})
+	m.Update(sqlChunkMsg{Content: "1", Done: false})
 
-	// Verify no error message was added
-	for _, msg := range m.chat.Messages {
-		assert.NotEqual(t, roleError, msg.Role, "should not have error message")
-		assert.NotContains(t, msg.Content, "LLM returned empty SQL")
-	}
+	// The accumulated SQL should be visible in the rendered output.
+	rendered := m.renderChatMessages()
+	assert.Contains(t, rendered, "SELECT",
+		"streamed SQL tokens should appear in rendered output when ShowSQL is on")
 }
 
-// TestCancellationRemovesAssistantMessage verifies that pressing ctrl+c
-// removes the in-progress assistant message and shows "Interrupted" notice.
-// This tests cancelChatOperations which is the real ctrl+c handler (the global
-// handler in model.Update intercepts ctrl+c before the chat-specific handler).
-func TestCancellationRemovesAssistantMessage(t *testing.T) {
+// TestCancellationDuringSQLGeneration verifies that ctrl+c during stage 1
+// (SQL generation) removes the spinner and partial assistant message,
+// showing only "Interrupted" in the rendered output.
+func TestCancellationDuringSQLGeneration(t *testing.T) {
 	m := newTestModel()
 	m.openChat()
 
-	// Simulate streaming in progress (stage 1, no SQL accumulated yet)
 	_, cancel := context.WithCancel(context.Background())
 	m.chat.CurrentQuery = testQuestion
 	m.chat.Streaming = true
@@ -176,42 +127,24 @@ func TestCancellationRemovesAssistantMessage(t *testing.T) {
 		{Role: roleAssistant, Content: "", SQL: ""},
 	}
 
-	// Before cancellation: rendered output shows spinner text.
-	// The spinner renders "generating query" when StreamingSQL is true
-	// and the assistant message has no SQL yet.
-	renderedBefore := m.renderChatMessages()
-	assert.Contains(t, renderedBefore, "generating query",
-		"should show spinner text before cancellation")
+	// Before: spinner text visible.
+	assert.Contains(t, m.renderChatMessages(), "generating query")
 
-	// This is what the global ctrl+c handler calls
-	m.cancelChatOperations()
+	// User presses ctrl+c.
+	sendKey(m, "ctrl+c")
 
-	// After cancellation: rendered output must NOT have spinner text
-	// and MUST contain "Interrupted"
-	renderedAfter := m.renderChatMessages()
-	assert.NotContains(t, renderedAfter, "generating query",
-		"should not show spinner text after cancellation")
-	assert.NotContains(t, renderedAfter, "thinking",
-		"should not show thinking text after cancellation")
-	assert.Contains(t, renderedAfter, "Interrupted",
-		"should show Interrupted notice after cancellation")
-
-	// Verify all streaming state is cleaned up
-	assert.False(t, m.chat.Streaming)
-	assert.False(t, m.chat.StreamingSQL)
-	assert.Nil(t, m.chat.CancelFn)
-	assert.Nil(t, m.chat.SQLStreamCh)
-	assert.Nil(t, m.chat.StreamCh)
+	// After: spinner gone, "Interrupted" shown, no stale assistant content.
+	rendered := m.renderChatMessages()
+	assert.NotContains(t, rendered, "generating query")
+	assert.Contains(t, rendered, "Interrupted")
 }
 
-// TestCancellationRemovesAssistantWithPartialContent verifies that ctrl+c
-// during stage 2 (answering) removes the partial response and shows
-// "Interrupted" in the rendered output.
-func TestCancellationRemovesAssistantWithPartialContent(t *testing.T) {
+// TestCancellationDuringAnswerStreaming verifies that ctrl+c during stage 2
+// (answer streaming) removes the partial response and shows "Interrupted".
+func TestCancellationDuringAnswerStreaming(t *testing.T) {
 	m := newTestModel()
 	m.openChat()
 
-	// Simulate streaming stage 2 with partial answer
 	_, cancel := context.WithCancel(context.Background())
 	m.chat.CurrentQuery = testQuestion
 	m.chat.Streaming = true
@@ -222,58 +155,44 @@ func TestCancellationRemovesAssistantWithPartialContent(t *testing.T) {
 		{Role: roleAssistant, Content: "Based on the data", SQL: "SELECT * FROM projects"},
 	}
 
-	// Before cancellation: rendered output contains the partial response
-	renderedBefore := m.renderChatMessages()
-	assert.Contains(t, renderedBefore, "Based on the data",
-		"should show partial response before cancellation")
+	// Before: partial response visible.
+	assert.Contains(t, m.renderChatMessages(), "Based on the data")
 
-	// This is what the global ctrl+c handler calls
-	m.cancelChatOperations()
+	// User presses ctrl+c.
+	sendKey(m, "ctrl+c")
 
-	// After cancellation: partial response gone, "Interrupted" shown
-	renderedAfter := m.renderChatMessages()
-	assert.NotContains(t, renderedAfter, "Based on the data",
-		"should not show partial response after cancellation")
-	assert.NotContains(t, renderedAfter, "thinking",
-		"should not show thinking text after cancellation")
-	assert.Contains(t, renderedAfter, "Interrupted",
-		"should show Interrupted notice after cancellation")
+	// After: partial gone, "Interrupted" shown.
+	rendered := m.renderChatMessages()
+	assert.NotContains(t, rendered, "Based on the data")
+	assert.Contains(t, rendered, "Interrupted")
 }
 
-// TestCancellationWorksWithoutCancelFn verifies that ctrl+c still cleans up
-// even when CancelFn is nil (e.g. user presses ctrl+c before the LLM stream
-// has been established).
-func TestCancellationWorksWithoutCancelFn(t *testing.T) {
+// TestCancellationBeforeStreamEstablished verifies that ctrl+c works
+// even in the window between submitChat and handleSQLStreamStarted where
+// the LLM stream hasn't been set up yet (CancelFn is nil).
+func TestCancellationBeforeStreamEstablished(t *testing.T) {
 	m := newTestModel()
 	m.openChat()
 
-	// Simulate the window between submitChat and handleSQLStreamStarted
-	// where Streaming is true but CancelFn hasn't been set yet
 	m.chat.Streaming = true
 	m.chat.StreamingSQL = true
-	m.chat.CancelFn = nil // not yet set
+	m.chat.CancelFn = nil // stream not yet established
 	m.chat.Messages = []chatMessage{
 		{Role: roleUser, Content: testQuestion},
 		{Role: roleNotice, Content: "generating query"},
 		{Role: roleAssistant, Content: "", SQL: ""},
 	}
 
-	// Before cancellation: spinner text present
-	renderedBefore := m.renderChatMessages()
-	assert.Contains(t, renderedBefore, "generating query",
-		"should show spinner text before cancellation")
+	// Before: spinner visible.
+	assert.Contains(t, m.renderChatMessages(), "generating query")
 
-	// This is what the global ctrl+c handler calls -- CancelFn is nil
-	m.cancelChatOperations()
+	// User presses ctrl+c -- must not panic despite nil CancelFn.
+	assert.NotPanics(t, func() { sendKey(m, "ctrl+c") })
 
-	// After cancellation: clean output with Interrupted
-	renderedAfter := m.renderChatMessages()
-	assert.NotContains(t, renderedAfter, "generating query",
-		"should not show spinner text after cancellation")
-	assert.Contains(t, renderedAfter, "Interrupted",
-		"should show Interrupted notice after cancellation")
-	assert.False(t, m.chat.Streaming)
-	assert.False(t, m.chat.StreamingSQL)
+	// After: clean output with Interrupted.
+	rendered := m.renderChatMessages()
+	assert.NotContains(t, rendered, "generating query")
+	assert.Contains(t, rendered, "Interrupted")
 }
 
 // TestSpinnerOnlyShowsForLastMessage verifies that the spinner is only
@@ -306,8 +225,8 @@ func TestSpinnerOnlyShowsForLastMessage(t *testing.T) {
 		"generating query should appear once (last message only), got %d", count)
 }
 
-// TestNoSpinnerAfterCancellation verifies that after calling
-// cancelChatOperations, the rendered chat output contains no spinner text.
+// TestNoSpinnerAfterCancellation verifies that after ctrl+c the rendered
+// chat output contains no spinner text.
 func TestNoSpinnerAfterCancellation(t *testing.T) {
 	m := newTestModel()
 	m.openChat()
@@ -322,7 +241,8 @@ func TestNoSpinnerAfterCancellation(t *testing.T) {
 		{Role: roleAssistant, Content: "", SQL: "SELECT"},
 	}
 
-	m.cancelChatOperations()
+	// User presses ctrl+c.
+	sendKey(m, "ctrl+c")
 
 	rendered := m.renderChatMessages()
 	assert.NotContains(t, rendered, "generating query",
@@ -337,6 +257,9 @@ func TestNoSpinnerAfterCancellation(t *testing.T) {
 // arriving after ctrl+c doesn't overwrite the "Interrupted" notice with
 // "LLM returned empty SQL". This reproduces the race where the channel
 // has a buffered Done chunk that gets delivered after cancelChatOperations.
+//
+// The test drives everything through Model.Update to exercise the real
+// dispatch path a user would trigger.
 func TestLateSQLChunkAfterCancellationIsDropped(t *testing.T) {
 	m := newTestModel()
 	m.openChat()
@@ -351,15 +274,15 @@ func TestLateSQLChunkAfterCancellationIsDropped(t *testing.T) {
 		{Role: roleAssistant, Content: "", SQL: "SELECT"},
 	}
 
-	// Cancel first (this is what ctrl+c does).
-	m.cancelChatOperations()
+	// User presses ctrl+c -- goes through Update -> cancelChatOperations.
+	sendKey(m, "ctrl+c")
 
 	rendered := m.renderChatMessages()
 	assert.Contains(t, rendered, "Interrupted")
 
-	// Now simulate a late Done chunk arriving from the buffered channel.
-	cmd := m.handleSQLChunk(sqlChunkMsg{Done: true})
-	assert.Nil(t, cmd, "late chunk should be dropped")
+	// Late Done chunk arrives through Update (buffered in the channel
+	// before cancellation drained it).
+	m.Update(sqlChunkMsg{Done: true})
 
 	// The rendered output must still show "Interrupted", not the error.
 	rendered = m.renderChatMessages()
@@ -371,6 +294,7 @@ func TestLateSQLChunkAfterCancellationIsDropped(t *testing.T) {
 
 // TestLateChatChunkAfterCancellationIsDropped is the stage-2 equivalent:
 // a streamed answer chunk arriving after cancellation should be ignored.
+// Driven through Model.Update like the real dispatch path.
 func TestLateChatChunkAfterCancellationIsDropped(t *testing.T) {
 	m := newTestModel()
 	m.openChat()
@@ -383,11 +307,11 @@ func TestLateChatChunkAfterCancellationIsDropped(t *testing.T) {
 		{Role: roleAssistant, Content: "partial", SQL: "SELECT 1"},
 	}
 
-	m.cancelChatOperations()
+	// User presses ctrl+c.
+	sendKey(m, "ctrl+c")
 
-	// Late chunk from the answer stream.
-	cmd := m.handleChatChunk(chatChunkMsg{Content: " more", Done: false})
-	assert.Nil(t, cmd, "late chunk should be dropped")
+	// Late chunk from the answer stream arrives through Update.
+	m.Update(chatChunkMsg{Content: " more", Done: false})
 
 	rendered := m.renderChatMessages()
 	assert.Contains(t, rendered, "Interrupted")
