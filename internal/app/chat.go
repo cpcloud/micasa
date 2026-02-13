@@ -1129,7 +1129,7 @@ func (m *Model) renderChatMessages() string {
 				parts = append(parts, sqlBlock)
 			}
 
-			// Show response or status.
+			// Show response if available.
 			if text != "" {
 				parts = append(parts, renderMarkdown(text, innerW-2))
 			}
@@ -1140,21 +1140,20 @@ func (m *Model) renderChatMessages() string {
 				// Stage 1: generating SQL query
 				labelLine = label + "  " + m.chat.Spinner.View() + " " + m.styles.HeaderHint.Render("generating query")
 			} else if text == "" && m.chat.Streaming && !m.chat.StreamingSQL {
-				// Stage 2: thinking about response
+				// Stage 2: thinking about response (may have SQL already)
 				labelLine = label + "  " + m.chat.Spinner.View() + " " + m.styles.HeaderHint.Render("thinking")
+				// If we have parts (e.g., SQL), show them below the label.
+				if len(parts) > 0 {
+					rendered = labelLine + "\n" + strings.Join(parts, "\n")
+				} else {
+					rendered = labelLine
+				}
 			} else if len(parts) > 0 {
-				// Has content to show below
-				labelLine = label
-				rendered = labelLine + "\n" + strings.Join(parts, "\n")
+				// Has content to show below (SQL and/or response)
+				rendered = label + "\n" + strings.Join(parts, "\n")
 			} else {
 				// Empty state
-				labelLine = label
-				rendered = labelLine
-			}
-
-			// If we set labelLine but not rendered, use it.
-			if rendered == "" {
-				rendered = labelLine
+				rendered = label
 			}
 
 			// Add subtle separator after assistant response (end of Q&A pair).
