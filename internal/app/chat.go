@@ -1077,7 +1077,7 @@ func (m *Model) handleChatKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.deactivateCompleter()
 			return m, nil
 		case "ctrl+q":
-			return m, tea.Interrupt
+			return m, tea.Quit
 		}
 	}
 

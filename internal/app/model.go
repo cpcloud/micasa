@@ -145,7 +145,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		if typed.String() == "ctrl+q" {
 			m.cancelChatOperations()
-			return m, tea.Interrupt
+			return m, tea.Quit
 		}
 		if typed.String() == "ctrl+c" {
 			// Cancel any ongoing LLM operations but don't quit.
