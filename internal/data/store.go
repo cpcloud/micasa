@@ -14,6 +14,8 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/iancoleman/strcase"
+
 	"github.com/cpcloud/micasa/internal/fake"
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
@@ -1191,12 +1193,31 @@ func findOrCreateVendor(tx *gorm.DB, vendor Vendor) (Vendor, error) {
 }
 
 // titleFromFilename derives a human-friendly title from a filename by
-// stripping the extension, replacing underscores and hyphens with spaces,
-// collapsing runs of whitespace, and title-casing the result.
+// stripping all extensions (including compound ones like .tar.gz),
+// splitting on camelCase / snake_case / kebab-case / dot boundaries via
+// strcase, and title-casing each word.
 func titleFromFilename(name string) string {
-	name = strings.TrimSuffix(name, filepath.Ext(name))
-	name = strings.NewReplacer("_", " ", "-", " ").Replace(name)
+	name = strings.TrimSpace(name)
+
+	// Strip recognized MIME extensions iteratively to handle compound
+	// extensions like .tar.gz while preserving dots that are part of the
+	// stem (e.g. "report.v2.final.pdf" keeps "report.v2.final").
+	for {
+		ext := filepath.Ext(name)
+		if ext == "" || ext == name {
+			break
+		}
+		if mime.TypeByExtension(ext) == "" {
+			break
+		}
+		name = strings.TrimSuffix(name, ext)
+	}
+
+	// Split on word boundaries (camelCase, snake_case, kebab, dots).
+	name = strcase.ToDelimited(name, ' ')
 	name = strings.Join(strings.Fields(name), " ")
+
+	// Title-case each word.
 	runes := []rune(name)
 	wordStart := true
 	for i, r := range runes {
@@ -1206,8 +1227,6 @@ func titleFromFilename(name string) string {
 		}
 		if wordStart {
 			runes[i] = unicode.ToUpper(r)
-		} else {
-			runes[i] = unicode.ToLower(r)
 		}
 		wordStart = false
 	}

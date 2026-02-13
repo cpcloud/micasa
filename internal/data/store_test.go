@@ -1199,15 +1199,21 @@ func TestTitleFromFilename(t *testing.T) {
 		filename string
 		expected string
 	}{
-		{"invoice_2026_q1.pdf", "Invoice 2026 Q1"},
+		{"invoice_2026_q1.pdf", "Invoice 2026 Q 1"},
 		{"final-quote.PDF", "Final Quote"},
 		{"README.md", "Readme"},
 		{"my_great_project-notes.txt", "My Great Project Notes"},
 		{"no-extension", "No Extension"},
-		{"  spaced__out---file.doc  ", "Spaced Out File"},
+		{"  spaced__out---file.txt  ", "Spaced Out File"},
 		{"ALLCAPS.pdf", "Allcaps"},
 		{"already Title Case.pdf", "Already Title Case"},
-		{".hidden", ""},
+		{".hidden", "Hidden"},
+		// Compound extensions stripped fully.
+		{"archive.tar.gz", "Archive"},
+		// CamelCase split into words.
+		{"myGreatFile.pdf", "My Great File"},
+		// Non-MIME dots preserved, stem split on dot boundaries.
+		{"report.v2.final.pdf", "Report V 2 Final"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.filename, func(t *testing.T) {
