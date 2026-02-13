@@ -53,6 +53,11 @@ Tests live alongside the code they test:
 | `internal/data/validate_path_test.go` | Database path validation |
 | `internal/data/vendor_upsert_test.go` | Vendor upsert logic |
 | `internal/data/seed_demo_test.go` | Demo data seeding |
+| `internal/data/settings_test.go` | Settings and chat history storage |
+| `internal/data/settings_integration_test.go` | Cross-session persistence |
+| `internal/llm/client_test.go` | LLM client HTTP interactions, error parsing |
+| `internal/llm/prompt_test.go` | Prompt building, date/context injection |
+| `internal/llm/sqlfmt_test.go` | SQL pretty-printer |
 
 ## Test philosophy
 
