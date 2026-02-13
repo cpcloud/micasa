@@ -197,3 +197,17 @@ func TestBuildSystemPromptIncludesEntityRelationships(t *testing.T) {
 	assert.Contains(t, prompt, "maintenance_items.appliance_id")
 	assert.Contains(t, prompt, "NO direct FK between projects and appliances")
 }
+
+func TestBuildSQLPromptIncludesCaseInsensitiveGuidance(t *testing.T) {
+	prompt := BuildSQLPrompt(testTables, testNow, "")
+	assert.Contains(t, prompt, "case-insensitive text search")
+	assert.Contains(t, prompt, "UPPER() or LOWER()")
+}
+
+func TestBuildSQLPromptIncludesGroupByExamples(t *testing.T) {
+	prompt := BuildSQLPrompt(testTables, testNow, "")
+	assert.Contains(t, prompt, "GROUP BY")
+	assert.Contains(t, prompt, "total spending by project status")
+	assert.Contains(t, prompt, "vendors have given me the most quotes")
+	assert.Contains(t, prompt, "average quote amount")
+}

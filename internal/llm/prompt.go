@@ -257,7 +257,8 @@ const sqlSchemaNotes = `
 Notes:
 - Maintenance scheduling: next_due = date(last_serviced, '+' || interval_months || ' months')
 - Project statuses: ideating, planned, quoted, underway, delayed, completed, abandoned
-- Warranty expiry is in the warranty_exp column (date string)`
+- Warranty expiry is in the warranty_exp column (date string)
+- For case-insensitive text search, use UPPER() or LOWER() on both sides: WHERE LOWER(title) LIKE LOWER('%hvac%')`
 
 const sqlFewShot = `## Examples
 
@@ -280,7 +281,16 @@ User: Show me all maintenance items and when they're next due
 SQL: SELECT name, last_serviced, interval_months, date(last_serviced, '+' || interval_months || ' months') AS next_due FROM maintenance_items WHERE deleted_at IS NULL ORDER BY next_due
 
 User: Which projects involve HVAC work?
-SQL: SELECT title, status, description FROM projects WHERE (title LIKE '%HVAC%' OR description LIKE '%HVAC%') AND deleted_at IS NULL
+SQL: SELECT title, status, description FROM projects WHERE (LOWER(title) LIKE LOWER('%hvac%') OR LOWER(description) LIKE LOWER('%hvac%')) AND deleted_at IS NULL
+
+User: Show me total spending by project status
+SQL: SELECT status, SUM(actual_ct) / 100.0 AS total_dollars FROM projects WHERE deleted_at IS NULL GROUP BY status ORDER BY total_dollars DESC
+
+User: Which vendors have given me the most quotes?
+SQL: SELECT v.name, COUNT(q.id) AS quote_count FROM vendors v JOIN quotes q ON v.id = q.vendor_id WHERE v.deleted_at IS NULL AND q.deleted_at IS NULL GROUP BY v.id, v.name ORDER BY quote_count DESC
+
+User: What's the average quote amount for each project type?
+SQL: SELECT pt.name AS project_type, AVG(q.total_ct) / 100.0 AS avg_quote_dollars FROM project_types pt JOIN projects p ON pt.id = p.project_type_id JOIN quotes q ON p.id = q.project_id WHERE p.deleted_at IS NULL AND q.deleted_at IS NULL GROUP BY pt.id, pt.name ORDER BY avg_quote_dollars DESC
 
 Now generate SQL for the user's question.`
 
