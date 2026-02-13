@@ -28,6 +28,35 @@ const (
 	DeletionEntityVendor      = "vendor"
 )
 
+// Column name constants for use in raw SQL queries. Centralising these
+// prevents drift between struct fields and hand-written SQL fragments.
+const (
+	ColID                = "id"
+	ColName              = "name"
+	ColCreatedAt         = "created_at"
+	ColUpdatedAt         = "updated_at"
+	ColDeletedAt         = "deleted_at"
+	ColStatus            = "status"
+	ColActualCents       = "actual_cents"
+	ColCostCents         = "cost_cents"
+	ColIntervalMonths    = "interval_months"
+	ColWarrantyExpiry    = "warranty_expiry"
+	ColServicedAt        = "serviced_at"
+	ColReceivedDate      = "received_date"
+	ColRestoredAt        = "restored_at"
+	ColVendorID          = "vendor_id"
+	ColProjectID         = "project_id"
+	ColApplianceID       = "appliance_id"
+	ColMaintenanceItemID = "maintenance_item_id"
+	ColEntity            = "entity"
+	ColTargetID          = "target_id"
+	ColContactName       = "contact_name"
+	ColEmail             = "email"
+	ColPhone             = "phone"
+	ColWebsite           = "website"
+	ColNotes             = "notes"
+)
+
 func ProjectStatuses() []string {
 	return []string{
 		ProjectStatusIdeating,

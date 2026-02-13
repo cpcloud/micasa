@@ -176,12 +176,12 @@ func (s *Store) SeedDemoDataFrom(h *fake.HomeFaker) error {
 
 	typeID := func(name string) uint {
 		var pt ProjectType
-		s.db.Where("name = ?", name).First(&pt)
+		s.db.Where(ColName+" = ?", name).First(&pt)
 		return pt.ID
 	}
 	catID := func(name string) uint {
 		var mc MaintenanceCategory
-		s.db.Where("name = ?", name).First(&mc)
+		s.db.Where(ColName+" = ?", name).First(&mc)
 		return mc.ID
 	}
 
@@ -353,7 +353,7 @@ func (s *Store) UpdateHouseProfile(profile HouseProfile) error {
 
 func (s *Store) ProjectTypes() ([]ProjectType, error) {
 	var types []ProjectType
-	if err := s.db.Order("name").Find(&types).Error; err != nil {
+	if err := s.db.Order(ColName).Find(&types).Error; err != nil {
 		return nil, err
 	}
 	return types, nil
@@ -361,7 +361,7 @@ func (s *Store) ProjectTypes() ([]ProjectType, error) {
 
 func (s *Store) MaintenanceCategories() ([]MaintenanceCategory, error) {
 	var categories []MaintenanceCategory
-	if err := s.db.Order("name").Find(&categories).Error; err != nil {
+	if err := s.db.Order(ColName).Find(&categories).Error; err != nil {
 		return nil, err
 	}
 	return categories, nil
@@ -369,7 +369,7 @@ func (s *Store) MaintenanceCategories() ([]MaintenanceCategory, error) {
 
 func (s *Store) ListVendors(includeDeleted bool) ([]Vendor, error) {
 	var vendors []Vendor
-	db := s.db.Order("name")
+	db := s.db.Order(ColName)
 	if includeDeleted {
 		db = db.Unscoped()
 	}
@@ -397,17 +397,17 @@ func (s *Store) UpdateVendor(vendor Vendor) error {
 
 // CountQuotesByVendor returns the number of non-deleted quotes per vendor ID.
 func (s *Store) CountQuotesByVendor(vendorIDs []uint) (map[uint]int, error) {
-	return s.countByFK(&Quote{}, "vendor_id", vendorIDs)
+	return s.countByFK(&Quote{}, ColVendorID, vendorIDs)
 }
 
 // CountServiceLogsByVendor returns the number of non-deleted service log entries per vendor ID.
 func (s *Store) CountServiceLogsByVendor(vendorIDs []uint) (map[uint]int, error) {
-	return s.countByFK(&ServiceLogEntry{}, "vendor_id", vendorIDs)
+	return s.countByFK(&ServiceLogEntry{}, ColVendorID, vendorIDs)
 }
 
 // CountQuotesByProject returns the number of non-deleted quotes per project ID.
 func (s *Store) CountQuotesByProject(projectIDs []uint) (map[uint]int, error) {
-	return s.countByFK(&Quote{}, "project_id", projectIDs)
+	return s.countByFK(&Quote{}, ColProjectID, projectIDs)
 }
 
 // ListQuotesByVendor returns all quotes for a specific vendor.
@@ -416,14 +416,14 @@ func (s *Store) ListQuotesByVendor(
 	includeDeleted bool,
 ) ([]Quote, error) {
 	var quotes []Quote
-	db := s.db.Where("vendor_id = ?", vendorID).
+	db := s.db.Where(ColVendorID+" = ?", vendorID).
 		Preload("Vendor", func(q *gorm.DB) *gorm.DB {
 			return q.Unscoped()
 		}).
 		Preload("Project", func(q *gorm.DB) *gorm.DB {
 			return q.Unscoped()
 		}).
-		Order("received_date desc, id desc")
+		Order(ColReceivedDate + " desc, " + ColID + " desc")
 	if includeDeleted {
 		db = db.Unscoped()
 	}
@@ -439,14 +439,14 @@ func (s *Store) ListQuotesByProject(
 	includeDeleted bool,
 ) ([]Quote, error) {
 	var quotes []Quote
-	db := s.db.Where("project_id = ?", projectID).
+	db := s.db.Where(ColProjectID+" = ?", projectID).
 		Preload("Vendor", func(q *gorm.DB) *gorm.DB {
 			return q.Unscoped()
 		}).
 		Preload("Project", func(q *gorm.DB) *gorm.DB {
 			return q.Unscoped()
 		}).
-		Order("received_date desc, id desc")
+		Order(ColReceivedDate + " desc, " + ColID + " desc")
 	if includeDeleted {
 		db = db.Unscoped()
 	}
@@ -462,12 +462,12 @@ func (s *Store) ListServiceLogsByVendor(
 	includeDeleted bool,
 ) ([]ServiceLogEntry, error) {
 	var entries []ServiceLogEntry
-	db := s.db.Where("vendor_id = ?", vendorID).
+	db := s.db.Where(ColVendorID+" = ?", vendorID).
 		Preload("Vendor", func(q *gorm.DB) *gorm.DB {
 			return q.Unscoped()
 		}).
 		Preload("MaintenanceItem").
-		Order("serviced_at desc, id desc")
+		Order(ColServicedAt + " desc, " + ColID + " desc")
 	if includeDeleted {
 		db = db.Unscoped()
 	}
@@ -482,7 +482,7 @@ func (s *Store) ListProjects(includeDeleted bool) ([]Project, error) {
 	db := s.db.Preload("ProjectType").Preload("PreferredVendor", func(q *gorm.DB) *gorm.DB {
 		return q.Unscoped()
 	})
-	db = db.Order("updated_at desc")
+	db = db.Order(ColUpdatedAt + " desc")
 	if includeDeleted {
 		db = db.Unscoped()
 	}
@@ -500,7 +500,7 @@ func (s *Store) ListQuotes(includeDeleted bool) ([]Quote, error) {
 	db = db.Preload("Project", func(q *gorm.DB) *gorm.DB {
 		return q.Unscoped().Preload("ProjectType")
 	})
-	db = db.Order("updated_at desc")
+	db = db.Order(ColUpdatedAt + " desc")
 	if includeDeleted {
 		db = db.Unscoped()
 	}
@@ -516,7 +516,7 @@ func (s *Store) ListMaintenance(includeDeleted bool) ([]MaintenanceItem, error) 
 	db = db.Preload("Appliance", func(q *gorm.DB) *gorm.DB {
 		return q.Unscoped()
 	})
-	db = db.Order("updated_at desc")
+	db = db.Order(ColUpdatedAt + " desc")
 	if includeDeleted {
 		db = db.Unscoped()
 	}
@@ -532,8 +532,8 @@ func (s *Store) ListMaintenanceByAppliance(
 ) ([]MaintenanceItem, error) {
 	var items []MaintenanceItem
 	db := s.db.Preload("Category").
-		Where("appliance_id = ?", applianceID).
-		Order("updated_at desc")
+		Where(ColApplianceID+" = ?", applianceID).
+		Order(ColUpdatedAt + " desc")
 	if includeDeleted {
 		db = db.Unscoped()
 	}
@@ -615,7 +615,7 @@ func (s *Store) UpdateMaintenance(item MaintenanceItem) error {
 
 func (s *Store) ListAppliances(includeDeleted bool) ([]Appliance, error) {
 	var items []Appliance
-	db := s.db.Order("updated_at desc")
+	db := s.db.Order(ColUpdatedAt + " desc")
 	if includeDeleted {
 		db = db.Unscoped()
 	}
@@ -648,11 +648,11 @@ func (s *Store) ListServiceLog(
 	includeDeleted bool,
 ) ([]ServiceLogEntry, error) {
 	var entries []ServiceLogEntry
-	db := s.db.Where("maintenance_item_id = ?", maintenanceItemID).
+	db := s.db.Where(ColMaintenanceItemID+" = ?", maintenanceItemID).
 		Preload("Vendor", func(q *gorm.DB) *gorm.DB {
 			return q.Unscoped()
 		}).
-		Order("serviced_at desc, id desc")
+		Order(ColServicedAt + " desc, " + ColID + " desc")
 	if includeDeleted {
 		db = db.Unscoped()
 	}
@@ -721,17 +721,17 @@ func (s *Store) RestoreServiceLog(id uint) error {
 // CountServiceLogs returns the number of non-deleted service log entries per
 // maintenance item ID for the given set of IDs.
 func (s *Store) CountServiceLogs(itemIDs []uint) (map[uint]int, error) {
-	return s.countByFK(&ServiceLogEntry{}, "maintenance_item_id", itemIDs)
+	return s.countByFK(&ServiceLogEntry{}, ColMaintenanceItemID, itemIDs)
 }
 
 // CountMaintenanceByAppliance returns the count of non-deleted maintenance
 // items for each appliance ID.
 func (s *Store) CountMaintenanceByAppliance(applianceIDs []uint) (map[uint]int, error) {
-	return s.countByFK(&MaintenanceItem{}, "appliance_id", applianceIDs)
+	return s.countByFK(&MaintenanceItem{}, ColApplianceID, applianceIDs)
 }
 
 func (s *Store) DeleteVendor(id uint) error {
-	n, err := s.countDependents(&Quote{}, "vendor_id", id)
+	n, err := s.countDependents(&Quote{}, ColVendorID, id)
 	if err != nil {
 		return err
 	}
@@ -746,7 +746,7 @@ func (s *Store) RestoreVendor(id uint) error {
 }
 
 func (s *Store) DeleteProject(id uint) error {
-	n, err := s.countDependents(&Quote{}, "project_id", id)
+	n, err := s.countDependents(&Quote{}, ColProjectID, id)
 	if err != nil {
 		return err
 	}
@@ -761,7 +761,7 @@ func (s *Store) DeleteQuote(id uint) error {
 }
 
 func (s *Store) DeleteMaintenance(id uint) error {
-	n, err := s.countDependents(&ServiceLogEntry{}, "maintenance_item_id", id)
+	n, err := s.countDependents(&ServiceLogEntry{}, ColMaintenanceItemID, id)
 	if err != nil {
 		return err
 	}
@@ -855,8 +855,8 @@ func (s *Store) restoreEntity(model any, entity string, id uint) error {
 func (s *Store) LastDeletion(entity string) (DeletionRecord, error) {
 	var record DeletionRecord
 	err := s.db.
-		Where("entity = ? AND restored_at IS NULL", entity).
-		Order("id desc").
+		Where(ColEntity+" = ? AND "+ColRestoredAt+" IS NULL", entity).
+		Order(ColID + " desc").
 		First(&record).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return DeletionRecord{}, gorm.ErrRecordNotFound
@@ -880,7 +880,7 @@ func (s *Store) seedProjectTypes() error {
 		{Name: "Windows"},
 	}
 	for _, projectType := range types {
-		if err := s.db.FirstOrCreate(&projectType, "name = ?", projectType.Name).
+		if err := s.db.FirstOrCreate(&projectType, ColName+" = ?", projectType.Name).
 			Error; err != nil {
 			return err
 		}
@@ -901,7 +901,7 @@ func (s *Store) seedMaintenanceCategories() error {
 		{Name: "Structural"},
 	}
 	for _, category := range categories {
-		if err := s.db.FirstOrCreate(&category, "name = ?", category.Name).
+		if err := s.db.FirstOrCreate(&category, ColName+" = ?", category.Name).
 			Error; err != nil {
 			return err
 		}
@@ -911,8 +911,8 @@ func (s *Store) seedMaintenanceCategories() error {
 
 func (s *Store) restoreByID(model any, id uint) error {
 	return s.db.Unscoped().Model(model).
-		Where("id = ?", id).
-		Update("deleted_at", nil).Error
+		Where(ColID+" = ?", id).
+		Update(ColDeletedAt, nil).Error
 }
 
 func (s *Store) logDeletion(entity string, id uint) error {
@@ -927,8 +927,8 @@ func (s *Store) logDeletion(entity string, id uint) error {
 func (s *Store) markDeletionRestored(entity string, id uint) error {
 	restoredAt := time.Now()
 	return s.db.Model(&DeletionRecord{}).
-		Where("entity = ? AND target_id = ? AND restored_at IS NULL", entity, id).
-		Update("restored_at", restoredAt).Error
+		Where(ColEntity+" = ? AND "+ColTargetID+" = ? AND "+ColRestoredAt+" IS NULL", entity, id).
+		Update(ColRestoredAt, restoredAt).Error
 }
 
 // countByFK groups rows in model by fkColumn and returns a count per FK value.
@@ -960,9 +960,9 @@ func (s *Store) countByFK(model any, fkColumn string, ids []uint) (map[uint]int,
 // updateByIDWith updates a record by ID, preserving id, created_at, and
 // deleted_at. Works with both Store.db and transaction handles.
 func updateByIDWith(db *gorm.DB, model any, id uint, values any) error {
-	return db.Model(model).Where("id = ?", id).
+	return db.Model(model).Where(ColID+" = ?", id).
 		Select("*").
-		Omit("id", "created_at", "deleted_at").
+		Omit(ColID, ColCreatedAt, ColDeletedAt).
 		Updates(values).Error
 }
 
@@ -977,7 +977,7 @@ func findOrCreateVendor(tx *gorm.DB, vendor Vendor) (Vendor, error) {
 	// Search unscoped so we find soft-deleted vendors too -- the unique
 	// index on name spans all rows regardless of deleted_at.
 	var existing Vendor
-	err := tx.Unscoped().Where("name = ?", vendor.Name).First(&existing).Error
+	err := tx.Unscoped().Where(ColName+" = ?", vendor.Name).First(&existing).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		if err := tx.Create(&vendor).Error; err != nil {
 			return Vendor{}, err
@@ -989,26 +989,26 @@ func findOrCreateVendor(tx *gorm.DB, vendor Vendor) (Vendor, error) {
 	}
 	// Restore the vendor if it was soft-deleted.
 	if existing.DeletedAt.Valid {
-		if err := tx.Unscoped().Model(&existing).Update("deleted_at", nil).Error; err != nil {
+		if err := tx.Unscoped().Model(&existing).Update(ColDeletedAt, nil).Error; err != nil {
 			return Vendor{}, err
 		}
 		existing.DeletedAt.Valid = false
 	}
 	updates := map[string]any{}
 	if vendor.ContactName != "" {
-		updates["contact_name"] = vendor.ContactName
+		updates[ColContactName] = vendor.ContactName
 	}
 	if vendor.Email != "" {
-		updates["email"] = vendor.Email
+		updates[ColEmail] = vendor.Email
 	}
 	if vendor.Phone != "" {
-		updates["phone"] = vendor.Phone
+		updates[ColPhone] = vendor.Phone
 	}
 	if vendor.Website != "" {
-		updates["website"] = vendor.Website
+		updates[ColWebsite] = vendor.Website
 	}
 	if vendor.Notes != "" {
-		updates["notes"] = vendor.Notes
+		updates[ColNotes] = vendor.Notes
 	}
 	if len(updates) > 0 {
 		if err := tx.Model(&existing).Updates(updates).Error; err != nil {

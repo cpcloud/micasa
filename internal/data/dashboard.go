@@ -15,12 +15,12 @@ import (
 func (s *Store) ListMaintenanceWithSchedule() ([]MaintenanceItem, error) {
 	var items []MaintenanceItem
 	err := s.db.
-		Where("interval_months > 0").
+		Where(ColIntervalMonths+" > 0").
 		Preload("Category").
 		Preload("Appliance", func(q *gorm.DB) *gorm.DB {
 			return q.Unscoped()
 		}).
-		Order("updated_at desc").
+		Order(ColUpdatedAt + " desc").
 		Find(&items).Error
 	return items, err
 }
@@ -30,9 +30,9 @@ func (s *Store) ListMaintenanceWithSchedule() ([]MaintenanceItem, error) {
 func (s *Store) ListActiveProjects() ([]Project, error) {
 	var projects []Project
 	err := s.db.
-		Where("status IN ?", []string{ProjectStatusInProgress, ProjectStatusDelayed}).
+		Where(ColStatus+" IN ?", []string{ProjectStatusInProgress, ProjectStatusDelayed}).
 		Preload("ProjectType").
-		Order("updated_at desc").
+		Order(ColUpdatedAt + " desc").
 		Find(&projects).Error
 	return projects, err
 }
@@ -47,8 +47,8 @@ func (s *Store) ListExpiringWarranties(
 	from := now.Add(-lookBack)
 	to := now.Add(horizon)
 	err := s.db.
-		Where("warranty_expiry IS NOT NULL AND warranty_expiry BETWEEN ? AND ?", from, to).
-		Order("warranty_expiry asc").
+		Where(ColWarrantyExpiry+" IS NOT NULL AND "+ColWarrantyExpiry+" BETWEEN ? AND ?", from, to).
+		Order(ColWarrantyExpiry + " asc").
 		Find(&appliances).Error
 	return appliances, err
 }
@@ -62,7 +62,7 @@ func (s *Store) ListRecentServiceLogs(limit int) ([]ServiceLogEntry, error) {
 		Preload("Vendor", func(q *gorm.DB) *gorm.DB {
 			return q.Unscoped()
 		}).
-		Order("serviced_at desc, id desc").
+		Order(ColServicedAt + " desc, " + ColID + " desc").
 		Limit(limit).
 		Find(&entries).Error
 	return entries, err
@@ -73,8 +73,8 @@ func (s *Store) ListRecentServiceLogs(limit int) ([]ServiceLogEntry, error) {
 func (s *Store) YTDServiceSpendCents(yearStart time.Time) (int64, error) {
 	var total *int64
 	err := s.db.Model(&ServiceLogEntry{}).
-		Select("COALESCE(SUM(cost_cents), 0)").
-		Where("serviced_at >= ?", yearStart).
+		Select("COALESCE(SUM("+ColCostCents+"), 0)").
+		Where(ColServicedAt+" >= ?", yearStart).
 		Scan(&total).Error
 	if err != nil {
 		return 0, err
@@ -90,7 +90,7 @@ func (s *Store) YTDServiceSpendCents(yearStart time.Time) (int64, error) {
 func (s *Store) YTDProjectSpendCents() (int64, error) {
 	var total *int64
 	err := s.db.Model(&Project{}).
-		Select("COALESCE(SUM(actual_cents), 0)").
+		Select("COALESCE(SUM(" + ColActualCents + "), 0)").
 		Scan(&total).Error
 	if err != nil {
 		return 0, err
