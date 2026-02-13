@@ -1122,37 +1122,39 @@ func (m *Model) renderChatMessages() string {
 				if sqlWidth < 30 {
 					sqlWidth = 30
 				}
-				// Add a subtle indicator for the SQL section.
-				sqlHeader := lipgloss.NewStyle().
-					Foreground(textDim).
-					Italic(true).
-					Render("query:")
 				sqlBlock := renderMarkdown(
 					"```sql\n"+llm.FormatSQL(sql, sqlWidth)+"\n```",
 					innerW-2,
 				)
-				parts = append(parts, sqlHeader, sqlBlock)
+				parts = append(parts, sqlBlock)
 			}
 
-			if text == "" && m.chat.Streaming {
-				statusLine := m.chat.Spinner.View() + " " + m.styles.HeaderHint.Render("thinking")
-				parts = append(parts, statusLine)
-			} else if text != "" {
-				// Add a subtle indicator for the response section if SQL is shown.
-				if m.chat.ShowSQL && sql != "" {
-					responseHeader := lipgloss.NewStyle().
-						Foreground(textDim).
-						Italic(true).
-						Render("response:")
-					parts = append(parts, responseHeader)
-				}
+			// Show response or status.
+			if text != "" {
 				parts = append(parts, renderMarkdown(text, innerW-2))
 			}
 
-			if len(parts) > 0 {
-				rendered = label + "\n" + strings.Join(parts, "\n")
+			// Determine what to show on the label line.
+			var labelLine string
+			if m.chat.StreamingSQL && sql == "" {
+				// Stage 1: generating SQL query
+				labelLine = label + "  " + m.chat.Spinner.View() + " " + m.styles.HeaderHint.Render("generating query")
+			} else if text == "" && m.chat.Streaming && !m.chat.StreamingSQL {
+				// Stage 2: thinking about response
+				labelLine = label + "  " + m.chat.Spinner.View() + " " + m.styles.HeaderHint.Render("thinking")
+			} else if len(parts) > 0 {
+				// Has content to show below
+				labelLine = label
+				rendered = labelLine + "\n" + strings.Join(parts, "\n")
 			} else {
-				rendered = label
+				// Empty state
+				labelLine = label
+				rendered = labelLine
+			}
+
+			// If we set labelLine but not rendered, use it.
+			if rendered == "" {
+				rendered = labelLine
 			}
 
 			// Add subtle separator after assistant response (end of Q&A pair).
@@ -1164,12 +1166,11 @@ func (m *Model) renderChatMessages() string {
 		case "error":
 			rendered = m.styles.Error.Render("error: " + wordWrap(msg.Content, innerW-9))
 		case "notice":
-			// Show spinner for "generating query" notice during SQL generation.
-			if msg.Content == "generating query" && m.chat.StreamingSQL {
-				rendered = m.chat.Spinner.View() + " " + m.styles.ChatNotice.Render(msg.Content)
-			} else {
-				rendered = m.styles.ChatNotice.Render(msg.Content)
+			// Skip "generating query" notice - status is shown inline with model label.
+			if msg.Content == "generating query" {
+				continue
 			}
+			rendered = m.styles.ChatNotice.Render(msg.Content)
 		}
 		parts = append(parts, rendered)
 	}
