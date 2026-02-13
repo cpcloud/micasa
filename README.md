@@ -22,12 +22,21 @@ Your house is quietly plotting to break while you sleep -- and you're dreaming a
 - **How much would it actually cost to...** Quotes side by side, vendor history, and the math you need to actually decide.
 - **Is the dishwasher still under warranty?** Appliance tracking with purchase dates, warranty status, and maintenance history tied to each one.
 - **Who did we use last time?** A vendor directory with contact info, quote history, and every job they've done for you.
+- **How much have I spent on plumbing?** Press `@` to chat with a local LLM about your data. It writes the SQL, runs the query, and summarizes the results -- all on your machine.
 
 ## Keyboard driven
 
 Vim-style modal keys: `nav` mode to browse, `edit` mode to change things. Sort by any column, jump to columns with fuzzy search, hide what you don't need, and drill into related records.
 
 See the full [keybinding reference](https://micasa.dev/docs/reference/keybindings/).
+
+## Local LLM chat
+
+Ask questions about your home data in plain English. micasa connects to a local [Ollama](https://ollama.com) server (or any OpenAI-compatible API) and translates your question into SQL, executes it, and summarizes the results.
+
+The model has access to your schema and actual database values, so it can handle fuzzy references like "plumbing stuff" or "planned projects." Toggle `ctrl+s` to see the generated SQL, or `ctrl+o` for magnitude notation that replaces dollar amounts with their order of magnitude.
+
+See the [LLM chat guide](https://micasa.dev/docs/guide/llm-chat/) and [configuration reference](https://micasa.dev/docs/reference/configuration/) for setup.
 
 ## Install
 

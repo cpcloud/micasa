@@ -1,7 +1,7 @@
 +++
 title = "Configuration"
 weight = 2
-description = "CLI flags, environment variables, and database path resolution."
+description = "CLI flags, environment variables, config file, and LLM setup."
 linkTitle = "Configuration"
 +++
 
@@ -69,6 +69,25 @@ export MICASA_DB_PATH=/path/to/my/house.db
 micasa   # uses /path/to/my/house.db
 ```
 
+### `OLLAMA_HOST`
+
+Sets the LLM API base URL, overriding the config file value. If the URL
+doesn't end with `/v1`, it's appended automatically:
+
+```sh
+export OLLAMA_HOST=http://192.168.1.50:11434
+micasa   # connects to http://192.168.1.50:11434/v1
+```
+
+### `MICASA_LLM_MODEL`
+
+Sets the LLM model name, overriding the config file value:
+
+```sh
+export MICASA_LLM_MODEL=llama3.3
+micasa   # uses llama3.3 instead of the default qwen3
+```
+
 ### Platform data directory
 
 micasa uses platform-aware data directories (via
@@ -84,7 +103,7 @@ argument or `MICASA_DB_PATH`), the database is stored at:
 On Linux, `XDG_DATA_HOME` is respected per the [XDG Base Directory
 Specification](https://specifications.freedesktop.org/basedir-spec/latest/).
 
-## Resolution order
+## Database path resolution order
 
 The database path is resolved in this order:
 
@@ -94,3 +113,83 @@ The database path is resolved in this order:
 
 In `--demo` mode without a path argument, an in-memory database (`:memory:`)
 is used.
+
+## Config file
+
+micasa reads a TOML config file from your platform's config directory:
+
+| Platform | Default path |
+|----------|-------------|
+| Linux    | `$XDG_CONFIG_HOME/micasa/config.toml` (default `~/.config/micasa/config.toml`) |
+| macOS    | `~/Library/Application Support/micasa/config.toml` |
+| Windows  | `%APPDATA%\micasa\config.toml` |
+
+The config file is optional. If it doesn't exist, all settings use their
+defaults. Unset fields fall back to defaults -- you only need to specify the
+values you want to change.
+
+### Example config
+
+```toml
+# micasa configuration
+
+[llm]
+# Base URL for an OpenAI-compatible API endpoint.
+# Ollama (default): http://localhost:11434/v1
+# llama.cpp:        http://localhost:8080/v1
+# LM Studio:        http://localhost:1234/v1
+base_url = "http://localhost:11434/v1"
+
+# Model name passed in chat requests.
+model = "qwen3"
+
+# Optional: custom context appended to all system prompts.
+# Use this to inject domain-specific details about your house, currency, etc.
+# extra_context = "My house is a 1920s craftsman in Portland, OR. All budgets are in CAD."
+```
+
+### `[llm]` section
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `base_url` | string | `http://localhost:11434/v1` | Root URL of an OpenAI-compatible API. micasa appends `/chat/completions`, `/models`, etc. |
+| `model` | string | `qwen3` | Model identifier sent in chat requests. Must be available on the server. |
+| `extra_context` | string | (empty) | Free-form text appended to all LLM system prompts. Useful for telling the model about your house, preferred currency, or regional conventions. |
+
+### Supported LLM backends
+
+micasa talks to any server that implements the OpenAI chat completions API
+with streaming (SSE). [Ollama](https://ollama.com) is the primary tested
+backend:
+
+| Backend | Default URL | Notes |
+|---------|-------------|-------|
+| [Ollama](https://ollama.com) | `http://localhost:11434/v1` | Default and tested. Models are pulled automatically if not present. |
+| [llama.cpp server](https://github.com/ggml-org/llama.cpp) | `http://localhost:8080/v1` | Should work (untested). Pass `--host` and `--port` when starting the server. |
+| [LM Studio](https://lmstudio.ai) | `http://localhost:1234/v1` | Should work (untested). Enable the local server in LM Studio settings. |
+
+### Override precedence
+
+Environment variables override config file values. The full precedence order
+(highest to lowest):
+
+1. `OLLAMA_HOST` / `MICASA_LLM_MODEL` environment variables
+2. Config file values
+3. Built-in defaults
+
+### `extra_context` examples
+
+The `extra_context` field is injected into every system prompt sent to the
+LLM, giving it persistent knowledge about your situation:
+
+```toml
+[llm]
+extra_context = """
+My house is a 1920s craftsman bungalow in Portland, OR.
+All costs are in USD. Property tax is assessed annually in November.
+The HVAC system is a heat pump (Mitsubishi hyper-heat) -- no gas furnace.
+"""
+```
+
+This helps the model give more relevant answers without you repeating context
+in every question.

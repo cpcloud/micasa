@@ -9,9 +9,11 @@ Complete reference of every keybinding in micasa, organized by mode.
 
 ## Global (all modes)
 
-| Key      | Action |
-|----------|--------|
-| `ctrl+c` | Force quit (exit code 130) |
+| Key       | Action |
+|-----------|--------|
+| `ctrl+q`  | Quit (exit code 0) |
+| `ctrl+c`  | Cancel in-flight operation, or force quit if nothing is running |
+| `ctrl+o`  | Toggle magnitude notation for numeric values |
 
 ## Normal mode
 
@@ -58,8 +60,8 @@ Complete reference of every keybinding in micasa, organized by mode.
 |---------|--------|
 | `enter` | Drilldown into detail view, follow FK link, or preview notes |
 | `i`     | Enter Edit mode |
+| `@`     | Open LLM chat overlay |
 | `?`     | Open help overlay |
-| `q`     | Quit (exit code 0) |
 | `esc`   | Close detail view, or clear status message |
 
 ## Edit mode
@@ -87,6 +89,36 @@ Same as Normal mode, except `d` and `u` are rebound:
 | `r`   | Redo undone edit |
 | `esc` | Return to Normal mode |
 
+## Chat overlay
+
+Press `@` from Normal or Edit mode to open the LLM chat. The overlay
+captures all keyboard input until dismissed. See the
+[LLM Chat guide]({{< ref "/guide/llm-chat" >}}) for full details.
+
+### Text input
+
+| Key              | Action |
+|------------------|--------|
+| `enter`          | Submit query or slash command |
+| `up` / `ctrl+p`  | Previous prompt from history |
+| `down` / `ctrl+n` | Next prompt from history |
+| `esc`            | Hide chat overlay (session is preserved) |
+| `ctrl+c`         | Cancel in-flight LLM request |
+| `ctrl+s`         | Toggle SQL query display |
+| `ctrl+o`         | Toggle magnitude notation |
+| `ctrl+q`         | Quit |
+
+### Model picker
+
+When typing `/model `, an autocomplete picker appears:
+
+| Key              | Action |
+|------------------|--------|
+| `up` / `ctrl+p`  | Move cursor up |
+| `down` / `ctrl+n` | Move cursor down |
+| `enter`          | Select model (pulls if not downloaded) |
+| `esc`            | Dismiss picker |
+
 ## Form mode
 
 | Key       | Action |
@@ -109,7 +141,6 @@ When the dashboard overlay is open:
 | `D`       | Close dashboard |
 | `tab`     | Dismiss dashboard and switch tab |
 | `?`       | Open help overlay (stacks on dashboard) |
-| `q`       | Quit |
 
 ## Date picker
 

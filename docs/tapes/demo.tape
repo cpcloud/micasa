@@ -100,8 +100,10 @@ Sleep 1s
 # Dashboard
 Type "D"
 Sleep 3s
+Type "D"
+Sleep 3s
 
 # Quit (hidden so the post-exit terminal doesn't leak into the recording)
 Hide
-Type "q"
+Ctrl+Q
 Sleep 1s

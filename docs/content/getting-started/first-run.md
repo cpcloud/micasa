@@ -56,3 +56,13 @@ A typical workflow to get started:
 
 Don't worry about entering everything at once. micasa is designed for
 incremental data entry -- add things as you think of them, edit later.
+
+## LLM chat
+
+If you have a local LLM server running (like [Ollama](https://ollama.com)),
+press `@` to open the chat overlay and ask questions about your data in plain
+English -- "How much have I spent on plumbing?" or "When is the HVAC filter
+due?"
+
+See [LLM Chat]({{< ref "/guide/llm-chat" >}}) for setup details and
+[Configuration]({{< ref "/reference/configuration" >}}) for backend options.

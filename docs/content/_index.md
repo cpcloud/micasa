@@ -24,6 +24,8 @@ No cloud. No account. No subscriptions.
   warranties, and YTD spending at a glance
 - **[Vim-style modal navigation]({{< ref "/guide/navigation" >}})** with Normal and Edit modes, multi-column
   sorting, column hiding, and cross-tab FK links
+- **[LLM chat]({{< ref "/guide/llm-chat" >}})** -- ask questions about your home data in plain English,
+  powered by a local LLM ([Ollama](https://ollama.com))
 
 ## What it doesn't do
 
