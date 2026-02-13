@@ -440,6 +440,13 @@ These have been repeatedly requested. Violating them wastes the user's time.
   `docs/content/development/testing.md` to include the new file and a
   brief description of what it covers.
 
+- **Two-strike rule for bug fixes**: If your second attempt at fixing a bug
+  doesn't work, STOP adding flags, special cases, or band-aids. Re-read the
+  code path end-to-end, identify the *root cause*, and fix that instead.
+  Iterating on symptoms produces commit chains of 10+ "fix" commits that
+  each fail in a new way. See `POSTMORTEMS.md` for real examples from this
+  repo.
+
 If the user asks you to learn something, add it to this "Hard rules" section
 so it survives context resets. This file is always injected; external files
 like `LEARNINGS.md` are not.
