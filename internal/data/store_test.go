@@ -1194,6 +1194,68 @@ func TestCreateDocumentRequiresFile(t *testing.T) {
 	require.ErrorContains(t, err, "document file is required")
 }
 
+func TestTitleFromFilename(t *testing.T) {
+	tests := []struct {
+		filename string
+		expected string
+	}{
+		{"invoice_2026_q1.pdf", "Invoice 2026 Q1"},
+		{"final-quote.PDF", "Final Quote"},
+		{"README.md", "Readme"},
+		{"my_great_project-notes.txt", "My Great Project Notes"},
+		{"no-extension", "No Extension"},
+		{"  spaced__out---file.doc  ", "Spaced Out File"},
+		{"ALLCAPS.pdf", "Allcaps"},
+		{"already Title Case.pdf", "Already Title Case"},
+		{".hidden", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.filename, func(t *testing.T) {
+			assert.Equal(t, tt.expected, titleFromFilename(tt.filename))
+		})
+	}
+}
+
+func TestDocumentTitleAutoFilledFromFilename(t *testing.T) {
+	store := newTestStore(t)
+
+	filePath := filepath.Join(t.TempDir(), "quarterly_budget-report.pdf")
+	require.NoError(t, os.WriteFile(filePath, []byte("pdf content"), 0o600))
+
+	require.NoError(t, store.CreateDocument(Document{}, filePath))
+	docs, err := store.ListDocuments(false)
+	require.NoError(t, err)
+	require.Len(t, docs, 1)
+	assert.Equal(t, "Quarterly Budget Report", docs[0].Title)
+}
+
+func TestDocumentExplicitTitleNotOverwritten(t *testing.T) {
+	store := newTestStore(t)
+
+	filePath := filepath.Join(t.TempDir(), "boring_name.pdf")
+	require.NoError(t, os.WriteFile(filePath, []byte("content"), 0o600))
+
+	require.NoError(t, store.CreateDocument(Document{Title: "My Custom Title"}, filePath))
+	docs, err := store.ListDocuments(false)
+	require.NoError(t, err)
+	require.Len(t, docs, 1)
+	assert.Equal(t, "My Custom Title", docs[0].Title)
+}
+
+func TestDocumentTitleRequiredOnEditWithoutFile(t *testing.T) {
+	store := newTestStore(t)
+
+	filePath := filepath.Join(t.TempDir(), "doc.txt")
+	require.NoError(t, os.WriteFile(filePath, []byte("hello"), 0o600))
+	require.NoError(t, store.CreateDocument(Document{Title: "Original"}, filePath))
+
+	docs, _ := store.ListDocuments(false)
+	doc := docs[0]
+	doc.Title = ""
+	err := store.UpdateDocument(doc, "")
+	require.ErrorContains(t, err, "document title is required")
+}
+
 func newTestStore(t *testing.T) *Store {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "test.db")

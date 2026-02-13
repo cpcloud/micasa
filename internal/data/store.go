@@ -1190,10 +1190,35 @@ func findOrCreateVendor(tx *gorm.DB, vendor Vendor) (Vendor, error) {
 	return existing, nil
 }
 
+// titleFromFilename derives a human-friendly title from a filename by
+// stripping the extension, replacing underscores and hyphens with spaces,
+// collapsing runs of whitespace, and title-casing the result.
+func titleFromFilename(name string) string {
+	name = strings.TrimSuffix(name, filepath.Ext(name))
+	name = strings.NewReplacer("_", " ", "-", " ").Replace(name)
+	name = strings.Join(strings.Fields(name), " ")
+	runes := []rune(name)
+	wordStart := true
+	for i, r := range runes {
+		if unicode.IsSpace(r) {
+			wordStart = true
+			continue
+		}
+		if wordStart {
+			runes[i] = unicode.ToUpper(r)
+		} else {
+			runes[i] = unicode.ToLower(r)
+		}
+		wordStart = false
+	}
+	return string(runes)
+}
+
 // normalizeDocument validates required fields and, when a source file path is
 // provided, reads the content into the BLOB field and populates derived
-// metadata (filename, size, MIME type, checksum). On updates where no new
-// file is supplied these fields are left untouched.
+// metadata (filename, size, MIME type, checksum). When the title is blank and
+// a source file is supplied, the title is auto-filled from the filename. On
+// updates where no new file is supplied these fields are left untouched.
 func normalizeDocument(doc *Document, sourcePath string) error {
 	doc.Title = strings.TrimSpace(doc.Title)
 	doc.EntityKind = strings.TrimSpace(doc.EntityKind)
@@ -1204,12 +1229,12 @@ func normalizeDocument(doc *Document, sourcePath string) error {
 	if doc.EntityKind == "" {
 		doc.EntityID = nil
 	}
-	if doc.Title == "" {
-		return fmt.Errorf("document title is required")
-	}
 
 	sourcePath = strings.TrimSpace(sourcePath)
 	if sourcePath == "" {
+		if doc.Title == "" {
+			return fmt.Errorf("document title is required")
+		}
 		// No new file -- keep existing BLOB content and metadata.
 		return nil
 	}
@@ -1224,6 +1249,14 @@ func normalizeDocument(doc *Document, sourcePath string) error {
 	}
 	if info.IsDir() {
 		return fmt.Errorf("document path must be a file")
+	}
+
+	// Auto-fill title from filename when the user left it blank.
+	if doc.Title == "" {
+		doc.Title = titleFromFilename(info.Name())
+	}
+	if doc.Title == "" {
+		return fmt.Errorf("document title is required")
 	}
 
 	content, err := os.ReadFile(absPath) //nolint:gosec // user-selected local file via TUI picker

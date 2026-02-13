@@ -672,9 +672,8 @@ func (m *Model) openDocumentForm(values *documentFormData) {
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Title").
-				Placeholder("Final quote PDF").
-				Value(&values.Title).
-				Validate(requiredText("title")),
+				Placeholder("auto-filled from filename if blank").
+				Value(&values.Title),
 			huh.NewFilePicker().
 				Title("Document file").
 				Description("Pick a file to import (leave blank to keep current)").
