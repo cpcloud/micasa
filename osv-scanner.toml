@@ -4,3 +4,11 @@
 [[IgnoredVulns]]
 id = "GO-2026-4341"
 reason = "net/url.ParseQuery only reached via gorm DSN parsing with a local file path we control"
+
+[[IgnoredVulns]]
+id = "GO-2026-4337"
+reason = "crypto/tls session resumption issue; only TLS target is a user-configured local LLM server; blocked on nixpkgs shipping Go >=1.25.7"
+
+[[IgnoredVulns]]
+id = "GO-2026-4340"
+reason = "crypto/tls handshake-level info disclosure requiring network-local attacker; only TLS target is a user-configured local LLM server; blocked on nixpkgs shipping Go >=1.25.6"
