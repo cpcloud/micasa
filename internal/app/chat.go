@@ -21,8 +21,9 @@ import (
 
 // chatMessage is one turn in the conversation.
 type chatMessage struct {
-	Role    string // "user", "assistant", "error", "notice", or "sql"
+	Role    string // "user", "assistant", "error", or "notice"
 	Content string
+	SQL     string // For assistant messages: the SQL query used (if any)
 }
 
 // chatState holds the state of the LLM chat overlay.
@@ -272,9 +273,9 @@ func (m *Model) submitChat() tea.Cmd {
 	m.chat.Messages = append(m.chat.Messages, chatMessage{
 		Role: "notice", Content: "generating query",
 	})
-	// Add an empty SQL message that we'll update as chunks arrive.
+	// Add an empty assistant message that we'll populate with SQL and later the answer.
 	m.chat.Messages = append(m.chat.Messages, chatMessage{
-		Role: "sql", Content: "",
+		Role: "assistant", Content: "", SQL: "",
 	})
 	m.refreshChatViewport()
 
@@ -732,12 +733,7 @@ func (m *Model) handleSQLResult(msg sqlResultMsg) tea.Cmd {
 		return m.startFallbackStream(msg.Question)
 	}
 
-	// Always store the SQL in the message history so we can retroactively
-	// show/hide it when the user toggles SQL display.
-	m.chat.Messages = append(m.chat.Messages, chatMessage{
-		Role: "sql", Content: msg.SQL,
-	})
-
+	// The SQL is already stored in the assistant message's SQL field.
 	// Stage 2: summarize results via streaming LLM call.
 	resultsTable := llm.FormatResultsTable(msg.Columns, msg.Rows)
 	summaryPrompt := llm.BuildSummaryPrompt(
@@ -767,9 +763,7 @@ func (m *Model) handleSQLResult(msg sqlResultMsg) tea.Cmd {
 
 	m.chat.StreamCh = ch
 	m.chat.CancelFn = cancel
-	m.chat.Messages = append(m.chat.Messages, chatMessage{
-		Role: "assistant", Content: "",
-	})
+	// The assistant message already exists from stage 1; we'll populate its Content field.
 	m.refreshChatViewport()
 
 	return waitForChunk(ch)
@@ -879,8 +873,8 @@ func (m *Model) handleSQLStreamStarted(msg sqlStreamStartedMsg) tea.Cmd {
 		m.chat.Streaming = false
 		m.chat.StreamingSQL = false
 		m.removeLastNotice() // Remove "generating query"
-		// Remove empty SQL message we added.
-		if len(m.chat.Messages) > 0 && m.chat.Messages[len(m.chat.Messages)-1].Role == "sql" {
+		// Remove empty assistant message we added.
+		if len(m.chat.Messages) > 0 && m.chat.Messages[len(m.chat.Messages)-1].Role == "assistant" {
 			m.chat.Messages = m.chat.Messages[:len(m.chat.Messages)-1]
 		}
 		m.chat.Messages = append(m.chat.Messages, chatMessage{
@@ -917,8 +911,8 @@ func (m *Model) handleSQLChunk(msg sqlChunkMsg) tea.Cmd {
 		m.chat.Streaming = false
 		m.chat.StreamingSQL = false
 		m.removeLastNotice()
-		// Remove incomplete SQL message.
-		if len(m.chat.Messages) > 0 && m.chat.Messages[len(m.chat.Messages)-1].Role == "sql" {
+		// Remove incomplete assistant message.
+		if len(m.chat.Messages) > 0 && m.chat.Messages[len(m.chat.Messages)-1].Role == "assistant" {
 			m.chat.Messages = m.chat.Messages[:len(m.chat.Messages)-1]
 		}
 		m.chat.Messages = append(m.chat.Messages, chatMessage{
@@ -928,11 +922,11 @@ func (m *Model) handleSQLChunk(msg sqlChunkMsg) tea.Cmd {
 		return nil
 	}
 
-	// Append to the SQL message (last message should be the sql one).
+	// Append to the SQL field of the assistant message (last message should be the assistant one).
 	if len(m.chat.Messages) > 0 {
 		lastIdx := len(m.chat.Messages) - 1
-		if m.chat.Messages[lastIdx].Role == "sql" {
-			m.chat.Messages[lastIdx].Content += msg.Content
+		if m.chat.Messages[lastIdx].Role == "assistant" {
+			m.chat.Messages[lastIdx].SQL += msg.Content
 			m.refreshChatViewport()
 		}
 	}
@@ -942,15 +936,15 @@ func (m *Model) handleSQLChunk(msg sqlChunkMsg) tea.Cmd {
 		m.chat.StreamingSQL = false
 		m.chat.SQLStreamCh = nil
 		sql := ""
-		if len(m.chat.Messages) > 0 && m.chat.Messages[len(m.chat.Messages)-1].Role == "sql" {
-			sql = llm.ExtractSQL(m.chat.Messages[len(m.chat.Messages)-1].Content)
+		if len(m.chat.Messages) > 0 && m.chat.Messages[len(m.chat.Messages)-1].Role == "assistant" {
+			sql = llm.ExtractSQL(m.chat.Messages[len(m.chat.Messages)-1].SQL)
 		}
 		m.removeLastNotice() // Remove "generating query"
-
+		
 		if sql == "" {
 			m.chat.Streaming = false
-			// Remove empty SQL message.
-			if len(m.chat.Messages) > 0 && m.chat.Messages[len(m.chat.Messages)-1].Role == "sql" {
+			// Remove incomplete assistant message.
+			if len(m.chat.Messages) > 0 && m.chat.Messages[len(m.chat.Messages)-1].Role == "assistant" {
 				m.chat.Messages = m.chat.Messages[:len(m.chat.Messages)-1]
 			}
 			m.chat.Messages = append(m.chat.Messages, chatMessage{
@@ -958,6 +952,11 @@ func (m *Model) handleSQLChunk(msg sqlChunkMsg) tea.Cmd {
 			})
 			m.refreshChatViewport()
 			return nil
+		}
+
+		// Store the cleaned SQL back into the message.
+		if len(m.chat.Messages) > 0 && m.chat.Messages[len(m.chat.Messages)-1].Role == "assistant" {
+			m.chat.Messages[len(m.chat.Messages)-1].SQL = sql
 		}
 
 		// Execute the SQL query.
@@ -1110,37 +1109,55 @@ func (m *Model) renderChatMessages() string {
 		case "assistant":
 			label := m.styles.ChatAssistant.Render(" " + m.llmModelLabel() + " ")
 			text := msg.Content
-			if text == "" && m.chat.Streaming {
-				rendered = label + "  " + m.chat.Spinner.View() + " " + m.styles.HeaderHint.Render(
-					"thinking",
+			sql := msg.SQL
+			
+			var parts []string
+			
+			// Show SQL if toggle is on and SQL exists.
+			if m.chat.ShowSQL && sql != "" {
+				sqlWidth := innerW - 8
+				if sqlWidth < 30 {
+					sqlWidth = 30
+				}
+				// Add a subtle indicator for the SQL section.
+				sqlHeader := lipgloss.NewStyle().
+					Foreground(textDim).
+					Italic(true).
+					Render("query:")
+				sqlBlock := renderMarkdown(
+					"```sql\n"+llm.FormatSQL(sql, sqlWidth)+"\n```",
+					innerW-2,
 				)
+				parts = append(parts, sqlHeader, sqlBlock)
+			}
+			
+			if text == "" && m.chat.Streaming {
+				statusLine := m.chat.Spinner.View() + " " + m.styles.HeaderHint.Render("thinking")
+				parts = append(parts, statusLine)
 			} else if text != "" {
-				// Markdown gets its own line since it can be multi-line,
-				// but no blank line gap -- keeps it compact.
-				rendered = label + "\n" + renderMarkdown(text, innerW-2)
+				// Add a subtle indicator for the response section if SQL is shown.
+				if m.chat.ShowSQL && sql != "" {
+					responseHeader := lipgloss.NewStyle().
+						Foreground(textDim).
+						Italic(true).
+						Render("response:")
+					parts = append(parts, responseHeader)
+				}
+				parts = append(parts, renderMarkdown(text, innerW-2))
+			}
+			
+			if len(parts) > 0 {
+				rendered = label + "\n" + strings.Join(parts, "\n")
 			} else {
 				rendered = label
 			}
+			
 			// Add subtle separator after assistant response (end of Q&A pair).
 			// Skip if it's the last message to avoid trailing separator.
 			if i < len(m.chat.Messages)-1 && text != "" {
 				sep := strings.Repeat("─", innerW)
 				rendered += "\n" + lipgloss.NewStyle().Foreground(textDim).Render(sep)
 			}
-		case "sql":
-			// Only render SQL messages when ShowSQL is true.
-			if !m.chat.ShowSQL {
-				continue
-			}
-			// Leave room for glamour's code block padding/border.
-			sqlWidth := innerW - 8
-			if sqlWidth < 30 {
-				sqlWidth = 30
-			}
-			rendered = renderMarkdown(
-				"```sql\n"+llm.FormatSQL(msg.Content, sqlWidth)+"\n```",
-				innerW-2,
-			)
 		case "error":
 			rendered = m.styles.Error.Render("error: " + wordWrap(msg.Content, innerW-9))
 		case "notice":
@@ -1237,8 +1254,8 @@ func (m *Model) handleChatKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.chat.SQLStreamCh = nil
 			// Remove "generating query" notice and add cancellation message.
 			m.removeLastNotice()
-			// If we have an incomplete SQL message, remove it.
-			if len(m.chat.Messages) > 0 && m.chat.Messages[len(m.chat.Messages)-1].Role == "sql" {
+			// If we have an incomplete assistant message, remove it.
+			if len(m.chat.Messages) > 0 && m.chat.Messages[len(m.chat.Messages)-1].Role == "assistant" && m.chat.Messages[len(m.chat.Messages)-1].Content == "" {
 				m.chat.Messages = m.chat.Messages[:len(m.chat.Messages)-1]
 			}
 			m.chat.Messages = append(m.chat.Messages, chatMessage{
