@@ -19,7 +19,7 @@ changes can go straight to a PR.
 
 ## AI-assisted code
 
-micasa itself is pair-programmed with an AI coding agent, so AI-assisted
+micasa is 100% vibe-coded with an AI coding agent, so AI-assisted
 contributions are welcome -- with one hard requirement: **you must understand
 and stand behind the code you submit.**
 
