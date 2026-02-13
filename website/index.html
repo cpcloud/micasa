@@ -837,6 +837,28 @@ micasa --print-path   # show where the database lives</code></pre>
     bq.appendChild(cite);
     grid.appendChild(bq);
   }
+
+  // Staggered fade-in when the section scrolls into view.
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var items = grid.querySelectorAll('.testimonial');
+  var STAGGER = 150; // ms between each card
+  var revealed = false;
+  var observer = new IntersectionObserver(function (entries) {
+    if (revealed) return;
+    for (var e = 0; e < entries.length; e++) {
+      if (entries[e].isIntersecting) {
+        revealed = true;
+        for (var n = 0; n < items.length; n++) {
+          (function (el, delay) {
+            setTimeout(function () { el.classList.add('visible'); }, delay);
+          })(items[n], n * STAGGER);
+        }
+        observer.disconnect();
+        break;
+      }
+    }
+  }, { threshold: 0.15 });
+  observer.observe(grid);
 })();
 </script>
 </body>

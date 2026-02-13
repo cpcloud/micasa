@@ -413,6 +413,22 @@ section + section {
 .testimonial {
   border-left: 3px solid var(--rule);
   padding-left: 1.25rem;
+  opacity: 0;
+  transform: translateY(1.2rem);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.testimonial.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .testimonial {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
 }
 
 .testimonial p {
