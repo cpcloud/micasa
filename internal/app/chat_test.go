@@ -105,3 +105,20 @@ func TestSQLStreamStartedStoresCurrentQuery(t *testing.T) {
 		"CurrentQuery should be set from sqlStreamStartedMsg",
 	)
 }
+
+// TestChatMagModeToggle verifies that ctrl+m toggles magnitude mode on/off.
+func TestChatMagModeToggle(t *testing.T) {
+	m := newTestModel()
+	m.openChat()
+
+	// Initially off.
+	assert.False(t, m.chat.MagMode)
+
+	// Toggle on.
+	sendKey(m, "ctrl+m")
+	assert.True(t, m.chat.MagMode)
+
+	// Toggle off.
+	sendKey(m, "ctrl+m")
+	assert.False(t, m.chat.MagMode)
+}

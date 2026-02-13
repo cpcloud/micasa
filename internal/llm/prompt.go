@@ -57,6 +57,7 @@ func BuildSummaryPrompt(
 	question, sql, resultsTable string,
 	now time.Time,
 	extraContext string,
+	magMode bool,
 ) string {
 	var b strings.Builder
 	b.WriteString(summarySystemPreamble)
@@ -69,6 +70,9 @@ func BuildSummaryPrompt(
 	b.WriteString(resultsTable)
 	b.WriteString("\n```\n\n")
 	b.WriteString(summaryGuidelines)
+	if magMode {
+		b.WriteString(magModeGuideline)
+	}
 	if extraContext != "" {
 		b.WriteString("\n\n## Additional context\n\n")
 		b.WriteString(extraContext)
@@ -84,6 +88,7 @@ func BuildSystemPrompt(
 	dataSummary string,
 	now time.Time,
 	extraContext string,
+	magMode bool,
 ) string {
 	var b strings.Builder
 	b.WriteString(fallbackPreamble)
@@ -101,6 +106,9 @@ func BuildSystemPrompt(
 	}
 	b.WriteString("\n\n")
 	b.WriteString(fallbackGuidelines)
+	if magMode {
+		b.WriteString(magModeGuideline)
+	}
 	if extraContext != "" {
 		b.WriteString("\n\n## Additional context\n\n")
 		b.WriteString(extraContext)
@@ -307,6 +315,9 @@ const summaryGuidelines = `RULES:
 4. If the result set is empty, say you didn't find any matching data.
 5. Do NOT show raw SQL or table formatting. Speak naturally.
 6. Do NOT invent data that isn't in the results.`
+
+const magModeGuideline = `
+7. MAGNITUDE MODE: Format ALL numeric values using order-of-magnitude notation with the 🠡 symbol. Examples: $🠡3 for thousands, $🠡6 for millions, 🠡2 for hundreds. Even single numbers must use this format. Calculate the magnitude as floor(log10(abs(value))). For zero, use 🠡0.`
 
 // ---------- Fallback (single-stage) ----------
 
