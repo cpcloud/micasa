@@ -590,8 +590,12 @@ func (m *Model) handlePullProgress(msg pullProgressMsg) tea.Cmd {
 		m.chat.PullCancel = nil
 		m.chat.PullDisplay = ""
 		m.chat.PullPeak = 0
+		errMsg := "pull failed: " + msg.Err.Error()
+		if msg.Model != "" {
+			errMsg = fmt.Sprintf("pull failed for '%s': %s", msg.Model, msg.Err.Error())
+		}
 		m.chat.Messages = append(m.chat.Messages, chatMessage{
-			Role: "error", Content: "pull failed: " + msg.Err.Error(),
+			Role: "error", Content: errMsg,
 		})
 		m.refreshChatViewport()
 		return nil
