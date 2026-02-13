@@ -4,6 +4,7 @@
 package data
 
 import (
+	"math"
 	"testing"
 	"time"
 
@@ -239,4 +240,52 @@ func TestFormatCompactOptionalCents(t *testing.T) {
 	assert.Empty(t, FormatCompactOptionalCents(nil))
 	cents := int64(250000)
 	assert.Equal(t, "$2.5k", FormatCompactOptionalCents(&cents))
+}
+
+// Overflow and edge case tests added during code audit.
+
+func TestParseCentsOverflow(t *testing.T) {
+	// Max safe value is 92233720368547758 dollars.
+	// Anything higher should be rejected to prevent overflow when multiplying by 100.
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"one dollar over", "$92233720368547759.00"},
+		{"way over", "$999999999999999999999.99"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseRequiredCents(tt.input)
+			assert.Error(t, err, "should reject overflow: %s", tt.input)
+		})
+	}
+}
+
+func TestParseCentsAtMaxSafeValue(t *testing.T) {
+	// Max safe value: 92233720368547758 dollars = 9223372036854775800 cents
+	// This is just under int64 max (9223372036854775807) when multiplied by 100.
+	cents, err := ParseRequiredCents("$92233720368547758.00")
+	require.NoError(t, err)
+	assert.Equal(t, int64(9223372036854775800), cents)
+
+	// With cents, we can go up to .07 (max is 9223372036854775807)
+	cents, err = ParseRequiredCents("$92233720368547758.07")
+	require.NoError(t, err)
+	assert.Equal(t, int64(9223372036854775807), cents)
+}
+
+func TestFormatCentsMinInt64(t *testing.T) {
+	// math.MinInt64 cannot be negated without overflow.
+	// We handle this by treating it as MaxInt64 for display.
+	formatted := FormatCents(math.MinInt64)
+	// Should not panic and should produce a reasonable (if slightly off) result
+	assert.Contains(t, formatted, "-$")
+	assert.Contains(t, formatted, "92,233,720,368,547,758.07")
+}
+
+func TestFormatCompactCentsMinInt64(t *testing.T) {
+	formatted := FormatCompactCents(math.MinInt64)
+	// Should not panic
+	assert.Contains(t, formatted, "-$")
 }

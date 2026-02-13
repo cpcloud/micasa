@@ -6,6 +6,7 @@ package data
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -46,7 +47,14 @@ func FormatCents(cents int64) string {
 	sign := ""
 	if cents < 0 {
 		sign = "-"
-		cents = -cents
+		// Special case: math.MinInt64 cannot be negated without overflow.
+		// Treat it as math.MaxInt64 for display purposes (off by one cent is
+		// acceptable for an impossibly large negative value).
+		if cents == math.MinInt64 {
+			cents = math.MaxInt64
+		} else {
+			cents = -cents
+		}
 	}
 	dollars := cents / 100
 	remainder := cents % 100
@@ -67,7 +75,12 @@ func FormatCompactCents(cents int64) string {
 	sign := ""
 	if cents < 0 {
 		sign = "-"
-		cents = -cents
+		// Special case: math.MinInt64 cannot be negated without overflow.
+		if cents == math.MinInt64 {
+			cents = math.MaxInt64
+		} else {
+			cents = -cents
+		}
 	}
 	dollars := float64(cents) / 100.0
 	if dollars < 1000 {
@@ -179,6 +192,12 @@ func parseCents(input string) (int64, error) {
 	}
 	wholePart, err := parseDigits(parts[0], true)
 	if err != nil {
+		return 0, ErrInvalidMoney
+	}
+	// Check for overflow before multiplication by 100.
+	// Max safe value: math.MaxInt64 / 100 dollars.
+	const maxDollars = math.MaxInt64 / 100
+	if wholePart > maxDollars {
 		return 0, ErrInvalidMoney
 	}
 	frac := int64(0)
