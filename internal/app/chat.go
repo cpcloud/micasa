@@ -1214,13 +1214,13 @@ func (m *Model) renderChatMessages() string {
 		var rendered string
 		switch msg.Role {
 		case roleUser:
-			label := m.styles.ChatUser.Render(" you ")
+			label := m.styles.ChatUser.Render("›")
 			// Inline compact: label then content on same line.
-			textW := innerW - lipgloss.Width(label) - 2
+			textW := innerW - lipgloss.Width(label) - 1
 			text := wordWrap(msg.Content, textW)
-			rendered = label + "  " + text
+			rendered = label + " " + text
 		case roleAssistant:
-			label := m.styles.ChatAssistant.Render(" " + m.llmModelLabel() + " ")
+			label := m.styles.ChatAssistant.Render(m.llmModelLabel())
 			text := msg.Content
 			sql := msg.SQL
 			isLastMessage := i == len(m.chat.Messages)-1
