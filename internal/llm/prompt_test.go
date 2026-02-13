@@ -200,8 +200,8 @@ func TestBuildSystemPromptIncludesEntityRelationships(t *testing.T) {
 
 func TestBuildSQLPromptIncludesCaseInsensitiveGuidance(t *testing.T) {
 	prompt := BuildSQLPrompt(testTables, testNow, "")
-	assert.Contains(t, prompt, "case-insensitive text search")
-	assert.Contains(t, prompt, "UPPER() or LOWER()")
+	assert.Contains(t, prompt, "case-insensitive matching")
+	assert.Contains(t, prompt, "LOWER()")
 }
 
 func TestBuildSQLPromptIncludesGroupByExamples(t *testing.T) {

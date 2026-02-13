@@ -260,7 +260,7 @@ Notes:
 - Maintenance scheduling: next_due = date(` + data.ColLastServicedAt + `, '+' || ` + data.ColIntervalMonths + ` || ' months')
 - Project statuses: ideating, planned, quoted, underway, delayed, completed, abandoned
 - Warranty expiry is in the ` + data.ColWarrantyExpiry + ` column (date string)
-- For case-insensitive text search, use UPPER() or LOWER() on both sides: WHERE LOWER(title) LIKE LOWER('%hvac%')`
+- ALWAYS use case-insensitive matching for user-facing text (names, titles, descriptions, categories, vendor names). Use LOWER() on both sides for = and LIKE: WHERE LOWER(name) = LOWER('flooring'), WHERE LOWER(title) LIKE LOWER('%hvac%'). The only exception is enum columns with known exact values (status, interval unit).`
 
 const sqlFewShot = `## Examples
 
@@ -271,16 +271,19 @@ User: What's my most expensive project?
 SQL: SELECT name, budget_cents / 100.0 AS budget_dollars FROM projects WHERE deleted_at IS NULL ORDER BY budget_cents DESC LIMIT 1
 
 User: When is the HVAC filter due?
-SQL: SELECT m.name, m.last_serviced_at, m.interval_months, date(m.last_serviced_at, '+' || m.interval_months || ' months') AS next_due FROM maintenance_items m WHERE m.name LIKE '%HVAC%' AND m.deleted_at IS NULL
+SQL: SELECT m.name, m.last_serviced_at, m.interval_months, date(m.last_serviced_at, '+' || m.interval_months || ' months') AS next_due FROM maintenance_items m WHERE LOWER(m.name) LIKE LOWER('%hvac%') AND m.deleted_at IS NULL
 
 User: Which appliances have expiring warranties in the next 90 days?
 SQL: SELECT name, warranty_expiry FROM appliances WHERE warranty_expiry IS NOT NULL AND warranty_expiry BETWEEN date('now') AND date('now', '+90 days') AND deleted_at IS NULL
 
 User: How much have I spent on plumbing?
-SQL: SELECT SUM(q.total_cents) / 100.0 AS total_dollars FROM quotes q JOIN projects p ON q.project_id = p.id JOIN project_types pt ON p.project_type_id = pt.id WHERE pt.name = 'plumbing' AND p.deleted_at IS NULL AND q.deleted_at IS NULL
+SQL: SELECT SUM(q.total_cents) / 100.0 AS total_dollars FROM quotes q JOIN projects p ON q.project_id = p.id JOIN project_types pt ON p.project_type_id = pt.id WHERE LOWER(pt.name) = LOWER('plumbing') AND p.deleted_at IS NULL AND q.deleted_at IS NULL
 
 User: Show me all maintenance items and when they're next due
 SQL: SELECT name, last_serviced_at, interval_months, date(last_serviced_at, '+' || interval_months || ' months') AS next_due FROM maintenance_items WHERE deleted_at IS NULL ORDER BY next_due
+
+User: Tell me about flooring
+SQL: SELECT p.title, p.status, pt.name AS type, p.budget_cents / 100.0 AS budget_dollars, p.actual_cents / 100.0 AS actual_dollars FROM projects p LEFT JOIN project_types pt ON p.project_type_id = pt.id WHERE (LOWER(p.title) LIKE LOWER('%flooring%') OR LOWER(p.description) LIKE LOWER('%flooring%') OR LOWER(pt.name) LIKE LOWER('%flooring%')) AND p.deleted_at IS NULL
 
 User: Which projects involve HVAC work?
 SQL: SELECT title, status, description FROM projects WHERE (LOWER(title) LIKE LOWER('%hvac%') OR LOWER(description) LIKE LOWER('%hvac%')) AND deleted_at IS NULL
