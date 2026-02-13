@@ -1098,6 +1098,12 @@ func (m *Model) handleChatKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.chat.Streaming && m.chat.CancelFn != nil {
 			m.chat.CancelFn()
 			m.chat.Streaming = false
+			// Remove "generating query" notice and add cancellation message.
+			m.removeLastNotice()
+			m.chat.Messages = append(m.chat.Messages, chatMessage{
+				Role: "notice", Content: "Cancelled",
+			})
+			m.refreshChatViewport()
 			return m, nil
 		}
 		if m.chat.Pulling && m.chat.PullCancel != nil {
