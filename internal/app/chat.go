@@ -710,12 +710,11 @@ func (m *Model) handleSQLResult(msg sqlResultMsg) tea.Cmd {
 		return m.startFallbackStream(msg.Question)
 	}
 
-	// Show the generated SQL if the user has opted in via /sql.
-	if m.chat.ShowSQL {
-		m.chat.Messages = append(m.chat.Messages, chatMessage{
-			Role: "sql", Content: msg.SQL,
-		})
-	}
+	// Always store the SQL in the message history so we can retroactively
+	// show/hide it when the user toggles SQL display.
+	m.chat.Messages = append(m.chat.Messages, chatMessage{
+		Role: "sql", Content: msg.SQL,
+	})
 
 	// Stage 2: summarize results via streaming LLM call.
 	resultsTable := llm.FormatResultsTable(msg.Columns, msg.Rows)
@@ -824,6 +823,8 @@ func (m *Model) toggleSQL() {
 		return
 	}
 	m.chat.ShowSQL = !m.chat.ShowSQL
+	// Refresh viewport to immediately show/hide SQL for all messages.
+	m.refreshChatViewport()
 }
 
 // sqlHintItem renders the ctrl+s hint with color indicating whether SQL
@@ -993,6 +994,10 @@ func (m *Model) renderChatMessages() string {
 				rendered += "\n" + lipgloss.NewStyle().Foreground(textDim).Render(sep)
 			}
 		case "sql":
+			// Only render SQL messages when ShowSQL is true.
+			if !m.chat.ShowSQL {
+				continue
+			}
 			// Leave room for glamour's code block padding/border.
 			sqlWidth := innerW - 8
 			if sqlWidth < 30 {
