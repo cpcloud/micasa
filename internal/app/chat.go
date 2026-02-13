@@ -1249,28 +1249,27 @@ func (m *Model) renderChatMessages() string {
 				parts = append(parts, renderMarkdown(display, innerW-2))
 			}
 
+			// Join content parts, trimming glamour's leading whitespace.
+			body := strings.TrimLeft(strings.Join(parts, "\n"), "\n")
+
 			// Determine what to show on the label line.
 			// Only show spinner for the currently streaming message (last one).
 			if isLastMessage && m.chat.StreamingSQL && sql == "" {
 				// Stage 1: generating SQL query
-				labelLine := label + "  " + m.chat.Spinner.View() + " " + m.styles.HeaderHint.Render(
+				rendered = label + "  " + m.chat.Spinner.View() + " " + m.styles.HeaderHint.Render(
 					"generating query",
 				)
-				rendered = labelLine
 			} else if isLastMessage && text == "" && m.chat.Streaming && !m.chat.StreamingSQL {
 				// Stage 2: thinking about response (may have SQL already)
 				labelLine := label + "  " + m.chat.Spinner.View() + " " + m.styles.HeaderHint.Render("thinking")
-				// If we have parts (e.g., SQL), show them below the label.
-				if len(parts) > 0 {
-					rendered = labelLine + "\n" + strings.Join(parts, "\n")
+				if body != "" {
+					rendered = labelLine + "\n" + body
 				} else {
 					rendered = labelLine
 				}
-			} else if len(parts) > 0 {
-				// Has content to show below (SQL and/or response)
-				rendered = label + "\n" + strings.Join(parts, "\n")
+			} else if body != "" {
+				rendered = label + "\n" + body
 			} else {
-				// Empty state
 				rendered = label
 			}
 
