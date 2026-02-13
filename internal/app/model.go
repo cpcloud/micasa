@@ -425,10 +425,6 @@ func (m *Model) handleNormalKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 		return nil, true
 	case "f":
 		if !m.inDetail() {
-			if tab := m.activeTab(); tab != nil && hasPins(tab) {
-				m.setStatusError("Clear pins (N) before switching tabs.")
-				return nil, true
-			}
 			if m.showDashboard {
 				m.showDashboard = false
 			}
@@ -437,10 +433,6 @@ func (m *Model) handleNormalKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 		return nil, true
 	case "b":
 		if !m.inDetail() {
-			if tab := m.activeTab(); tab != nil && hasPins(tab) {
-				m.setStatusError("Clear pins (N) before switching tabs.")
-				return nil, true
-			}
 			if m.showDashboard {
 				m.showDashboard = false
 			}

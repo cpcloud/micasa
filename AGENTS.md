@@ -446,6 +446,10 @@ These have been repeatedly requested. Violating them wastes the user's time.
   the current PR.
 - **CI commits use `ci:` scope**: Use `ci:` (not `fix:`) for CI workflow
   changes unless the user explicitly says otherwise.
+- **`fix:` is for user-facing bugs only**: Never use `fix:` (or `fix(test):`)
+  for commits that only fix a broken test. Use `test:` or `chore(test):`
+  instead. `fix:` triggers a semantic-release patch bump and implies
+  a user-visible bug was resolved.
 - **Don't mention AGENTS.md in PR descriptions**: When AGENTS.md changes
   accompany other work, omit them from the PR summary. Only mention
   AGENTS.md if the PR is solely about agent rules.
@@ -512,8 +516,10 @@ Every time the user makes a request that doesn't have a GitHub issue,
 create one. When you complete the task, note it in the "Session log"
 section with the task ID and a brief description of what you did.
 
-For big features, write down the plan in `PLANS.md` before doing anything, just
-in case things crash or otherwise go haywire, be diligent about this.
+For big or core features and key design decisions, write a plan document in the
+`plans/` directory (e.g. `plans/row-filtering.md`) before doing anything. These
+are committed to the repo as permanent design records -- not throwaway scratch.
+Name the file after the feature or decision. Be diligent about this.
 
 # Session log
 

@@ -1,6 +1,6 @@
 +++
 title = "Sorting and Columns"
-weight = 8
+weight = 2
 description = "Multi-column sorting, column hiding, and horizontal scrolling."
 linkTitle = "Sorting & Columns"
 +++

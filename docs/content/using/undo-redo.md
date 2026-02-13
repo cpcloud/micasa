@@ -1,6 +1,6 @@
 +++
 title = "Undo and Redo"
-weight = 9
+weight = 4
 description = "Multi-level undo and redo for data edits."
 linkTitle = "Undo & Redo"
 +++

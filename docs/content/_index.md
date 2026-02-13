@@ -22,7 +22,7 @@ No cloud. No account. No subscriptions.
   maintenance history tied to each one
 - **[Dashboard]({{< ref "/guide/dashboard" >}})** showing overdue maintenance, active projects, expiring
   warranties, and YTD spending at a glance
-- **[Vim-style modal navigation]({{< ref "/guide/navigation" >}})** with Normal and Edit modes, multi-column
+- **[Vim-style modal navigation]({{< ref "/using/navigation" >}})** with Normal and Edit modes, multi-column
   sorting, column hiding, and cross-tab FK links
 - **[LLM chat]({{< ref "/guide/llm-chat" >}})** -- ask questions about your home data in plain English,
   powered by a local LLM ([Ollama](https://ollama.com))

@@ -1,6 +1,6 @@
 +++
 title = "Vendors"
-weight = 7
+weight = 6
 description = "Browse and manage your vendors."
 linkTitle = "Vendors"
 +++

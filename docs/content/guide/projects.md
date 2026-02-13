@@ -1,6 +1,6 @@
 +++
 title = "Projects"
-weight = 3
+weight = 2
 description = "Track home improvement projects from idea to completion."
 linkTitle = "Projects"
 +++

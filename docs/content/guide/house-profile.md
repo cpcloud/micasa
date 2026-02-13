@@ -1,6 +1,6 @@
 +++
 title = "House Profile"
-weight = 2
+weight = 1
 description = "Your home's physical and financial details."
 linkTitle = "House Profile"
 +++

@@ -27,6 +27,7 @@ have full table navigation:
 | `s` / `S`   | Sort column / clear sorts |
 | `/`         | Jump to column (fuzzy find) |
 | `c` / `C`   | Hide column / show all |
+| `n` / `N`   | Pin cell value / toggle filter |
 | `H`         | Toggle house profile |
 | `D`         | Toggle dashboard     |
 | `i`         | Enter Edit mode      |
