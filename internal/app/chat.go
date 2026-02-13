@@ -388,7 +388,9 @@ func (m *Model) handleModelsListMsg(msg modelsListMsg) {
 	var b strings.Builder
 	for _, name := range msg.Models {
 		if name == current {
-			b.WriteString("  " + name + " (active)\n")
+			// Use accent-colored bullet to indicate active model.
+			marker := lipgloss.NewStyle().Foreground(accent).Render("• ")
+			b.WriteString(marker + name + "\n")
 		} else {
 			b.WriteString("  " + name + "\n")
 		}
