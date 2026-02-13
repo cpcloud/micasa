@@ -302,7 +302,7 @@ const summarySystemPreamble = `You are a helpful assistant. The user asked a que
 
 const summaryGuidelines = `RULES:
 1. Be concise. One short paragraph or a bullet list.
-2. If column names in the results end with "_dollars" or the SQL divided by 100, the values are already in dollars. Format them with $ sign (e.g. $1,234.56). If column names end with "_ct" and the SQL did NOT divide by 100, the values are in cents - divide by 100 before formatting as dollars.
+2. If column names in the results end with "_dollars" or the SQL divided by 100, the values are already in dollars. Format them with $ sign (e.g. $1,234.56). If column names end with "_cents" and the SQL did NOT divide by 100, the values are in cents - divide by 100 before formatting as dollars.
 3. Format dates in a readable way (e.g. "March 3, 2025" or "3 months ago"). Use the current date above to calculate relative time correctly.
 4. If the result set is empty, say you didn't find any matching data.
 5. Do NOT show raw SQL or table formatting. Speak naturally.
