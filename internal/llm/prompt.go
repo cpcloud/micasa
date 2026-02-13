@@ -50,7 +50,11 @@ func BuildSQLPrompt(tables []TableInfo, now time.Time, extraContext string) stri
 // BuildSummaryPrompt creates a system prompt for the second stage: turning
 // SQL results into a concise natural-language answer.
 // If extraContext is non-empty, it's appended at the end.
-func BuildSummaryPrompt(question, sql, resultsTable string, now time.Time, extraContext string) string {
+func BuildSummaryPrompt(
+	question, sql, resultsTable string,
+	now time.Time,
+	extraContext string,
+) string {
 	var b strings.Builder
 	b.WriteString(summarySystemPreamble)
 	b.WriteString(dateContext(now))
@@ -72,7 +76,12 @@ func BuildSummaryPrompt(question, sql, resultsTable string, now time.Time, extra
 // BuildSystemPrompt assembles the old single-stage system prompt, used as
 // a fallback when the two-stage pipeline fails.
 // If extraContext is non-empty, it's appended at the end.
-func BuildSystemPrompt(tables []TableInfo, dataSummary string, now time.Time, extraContext string) string {
+func BuildSystemPrompt(
+	tables []TableInfo,
+	dataSummary string,
+	now time.Time,
+	extraContext string,
+) string {
 	var b strings.Builder
 	b.WriteString(fallbackPreamble)
 	b.WriteString(dateContext(now))
@@ -157,6 +166,10 @@ func formatDDL(t TableInfo) string {
 		if c.NotNull {
 			b.WriteString(" NOT NULL")
 		}
+		// Add inline comment for cents columns to make it explicit.
+		if strings.HasSuffix(c.Name, "_ct") {
+			b.WriteString("  -- cents (divide by 100 for dollars)")
+		}
 		if i < len(t.Columns)-1 {
 			b.WriteString(",")
 		}
@@ -232,7 +245,7 @@ const summarySystemPreamble = `You are a helpful assistant. The user asked a que
 
 const summaryGuidelines = `RULES:
 1. Be concise. One short paragraph or a bullet list.
-2. Format money as dollars (e.g. $1,234.56).
+2. If column names in the results end with "_dollars" or the SQL divided by 100, the values are already in dollars. Format them with $ sign (e.g. $1,234.56). If column names end with "_ct" and the SQL did NOT divide by 100, the values are in cents - divide by 100 before formatting as dollars.
 3. Format dates in a readable way (e.g. "March 3, 2025" or "3 months ago"). Use the current date above to calculate relative time correctly.
 4. If the result set is empty, say you didn't find any matching data.
 5. Do NOT show raw SQL or table formatting. Speak naturally.
