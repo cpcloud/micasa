@@ -37,6 +37,7 @@ type chatState struct {
 	StreamCh     <-chan llm.StreamChunk // for stage 2 (answer streaming)
 	SQLStreamCh  <-chan llm.StreamChunk // for stage 1 (SQL generation)
 	CancelFn     context.CancelFunc
+	CurrentQuery string         // the user's current question being processed
 	Progress     progress.Model // pull progress bar
 	Pulling      bool           // true while a model pull is in progress
 	PullDisplay  string         // current pull status text, rendered as fixed chrome
@@ -884,9 +885,10 @@ func (m *Model) handleSQLStreamStarted(msg sqlStreamStartedMsg) tea.Cmd {
 		return nil
 	}
 
-	// Store the cancel function and channel, then start reading chunks.
+	// Store the cancel function, channel, and question, then start reading chunks.
 	m.chat.CancelFn = msg.CancelFn
 	m.chat.SQLStreamCh = msg.Channel
+	m.chat.CurrentQuery = msg.Question
 	return waitForSQLChunk(msg.Channel)
 }
 
@@ -940,11 +942,12 @@ func (m *Model) handleSQLChunk(msg sqlChunkMsg) tea.Cmd {
 			sql = llm.ExtractSQL(m.chat.Messages[len(m.chat.Messages)-1].SQL)
 		}
 		m.removeLastNotice() // Remove "generating query"
-		
+
 		if sql == "" {
 			m.chat.Streaming = false
 			// Remove incomplete assistant message.
-			if len(m.chat.Messages) > 0 && m.chat.Messages[len(m.chat.Messages)-1].Role == "assistant" {
+			if len(m.chat.Messages) > 0 &&
+				m.chat.Messages[len(m.chat.Messages)-1].Role == "assistant" {
 				m.chat.Messages = m.chat.Messages[:len(m.chat.Messages)-1]
 			}
 			m.chat.Messages = append(m.chat.Messages, chatMessage{
@@ -970,7 +973,7 @@ func (m *Model) handleSQLChunk(msg sqlChunkMsg) tea.Cmd {
 // executeSQLQuery runs the generated SQL and starts stage 2 (summary).
 func (m *Model) executeSQLQuery(sql string) tea.Cmd {
 	store := m.store
-	query := m.chat.Messages[len(m.chat.Messages)-3].Content // user message is 3 back
+	query := m.chat.CurrentQuery
 
 	return func() tea.Msg {
 		cols, rows, err := store.ReadOnlyQuery(sql)
@@ -1110,9 +1113,9 @@ func (m *Model) renderChatMessages() string {
 			label := m.styles.ChatAssistant.Render(" " + m.llmModelLabel() + " ")
 			text := msg.Content
 			sql := msg.SQL
-			
+
 			var parts []string
-			
+
 			// Show SQL if toggle is on and SQL exists.
 			if m.chat.ShowSQL && sql != "" {
 				sqlWidth := innerW - 8
@@ -1130,7 +1133,7 @@ func (m *Model) renderChatMessages() string {
 				)
 				parts = append(parts, sqlHeader, sqlBlock)
 			}
-			
+
 			if text == "" && m.chat.Streaming {
 				statusLine := m.chat.Spinner.View() + " " + m.styles.HeaderHint.Render("thinking")
 				parts = append(parts, statusLine)
@@ -1145,13 +1148,13 @@ func (m *Model) renderChatMessages() string {
 				}
 				parts = append(parts, renderMarkdown(text, innerW-2))
 			}
-			
+
 			if len(parts) > 0 {
 				rendered = label + "\n" + strings.Join(parts, "\n")
 			} else {
 				rendered = label
 			}
-			
+
 			// Add subtle separator after assistant response (end of Q&A pair).
 			// Skip if it's the last message to avoid trailing separator.
 			if i < len(m.chat.Messages)-1 && text != "" {
@@ -1255,7 +1258,9 @@ func (m *Model) handleChatKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// Remove "generating query" notice and add cancellation message.
 			m.removeLastNotice()
 			// If we have an incomplete assistant message, remove it.
-			if len(m.chat.Messages) > 0 && m.chat.Messages[len(m.chat.Messages)-1].Role == "assistant" && m.chat.Messages[len(m.chat.Messages)-1].Content == "" {
+			if len(m.chat.Messages) > 0 &&
+				m.chat.Messages[len(m.chat.Messages)-1].Role == "assistant" &&
+				m.chat.Messages[len(m.chat.Messages)-1].Content == "" {
 				m.chat.Messages = m.chat.Messages[:len(m.chat.Messages)-1]
 			}
 			m.chat.Messages = append(m.chat.Messages, chatMessage{
