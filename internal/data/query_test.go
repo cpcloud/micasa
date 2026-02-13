@@ -95,7 +95,9 @@ func TestReadOnlyQueryRejectsAttach(t *testing.T) {
 
 func TestReadOnlyQueryRejectsPragma(t *testing.T) {
 	store := newTestStore(t)
-	_, _, err := store.ReadOnlyQuery("SELECT * FROM pragma_table_info('projects') WHERE 1=1 PRAGMA journal_mode")
+	_, _, err := store.ReadOnlyQuery(
+		"SELECT * FROM pragma_table_info('projects') WHERE 1=1 PRAGMA journal_mode",
+	)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "disallowed keyword: PRAGMA")
 }

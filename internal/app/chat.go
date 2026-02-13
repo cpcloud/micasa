@@ -300,10 +300,13 @@ func (m *Model) startSQLStream(query string) tea.Cmd {
 
 	return func() tea.Msg {
 		sqlPrompt := llm.BuildSQLPrompt(tables, time.Now(), extraContext)
+
+		// Build conversation history: system + all previous user/assistant exchanges + current query.
 		messages := []llm.Message{
 			{Role: "system", Content: sqlPrompt},
-			{Role: roleUser, Content: query},
 		}
+		messages = append(messages, m.buildConversationHistory()...)
+		messages = append(messages, llm.Message{Role: roleUser, Content: query})
 
 		ctx, cancel := context.WithCancel(context.Background())
 
@@ -927,7 +930,9 @@ func waitForSQLChunk(ch <-chan llm.StreamChunk) tea.Cmd {
 	return func() tea.Msg {
 		chunk, ok := <-ch
 		if !ok {
-			return sqlChunkMsg{Done: true}
+			// Channel closed (likely due to cancellation or error).
+			// Return nil to stop the message loop without triggering Done handler.
+			return nil
 		}
 		return sqlChunkMsg{
 			Content: chunk.Content,
@@ -939,12 +944,6 @@ func waitForSQLChunk(ch <-chan llm.StreamChunk) tea.Cmd {
 
 // handleSQLChunk processes a single SQL token from the stream.
 func (m *Model) handleSQLChunk(msg sqlChunkMsg) tea.Cmd {
-	// If we're no longer streaming SQL, this chunk arrived after cancellation.
-	// Ignore it silently.
-	if !m.chat.StreamingSQL {
-		return nil
-	}
-
 	if msg.Err != nil {
 		m.chat.Streaming = false
 		m.chat.StreamingSQL = false
@@ -1035,12 +1034,6 @@ func (m *Model) handleChatChunk(msg chatChunkMsg) tea.Cmd {
 		return nil
 	}
 
-	// If we're no longer streaming, this chunk arrived after cancellation.
-	// Ignore it silently.
-	if !m.chat.Streaming {
-		return nil
-	}
-
 	if msg.Err != nil {
 		m.chat.Streaming = false
 		m.chat.CancelFn = nil
@@ -1069,7 +1062,7 @@ func (m *Model) handleChatChunk(msg chatChunkMsg) tea.Cmd {
 }
 
 // buildFallbackMessages assembles the full message list for the single-stage
-// fallback: system prompt with schema + full data dump, then the question.
+// fallback: system prompt with schema + full data dump, conversation history, then the question.
 func (m *Model) buildFallbackMessages(question string) []llm.Message {
 	tables := m.buildTableInfo()
 	dataDump := ""
@@ -1084,10 +1077,46 @@ func (m *Model) buildFallbackMessages(question string) []llm.Message {
 		m.chat.MagMode,
 	)
 
-	return []llm.Message{
+	messages := []llm.Message{
 		{Role: "system", Content: systemPrompt},
-		{Role: roleUser, Content: question},
 	}
+	messages = append(messages, m.buildConversationHistory()...)
+	messages = append(messages, llm.Message{Role: roleUser, Content: question})
+	return messages
+}
+
+// buildConversationHistory converts the chat message history into LLM messages.
+// Only includes user and assistant messages (not notices or errors) up to the
+// last complete assistant response. Excludes the pending/streaming message.
+func (m *Model) buildConversationHistory() []llm.Message {
+	if m.chat == nil || len(m.chat.Messages) == 0 {
+		return nil
+	}
+
+	var history []llm.Message
+	// Iterate through messages, but stop before any incomplete assistant message.
+	for i, msg := range m.chat.Messages {
+		// Skip the last message if it's an incomplete assistant message (currently streaming).
+		if i == len(m.chat.Messages)-1 &&
+			msg.Role == roleAssistant &&
+			msg.Content == "" &&
+			(m.chat.Streaming || m.chat.StreamingSQL) {
+			break
+		}
+
+		switch msg.Role {
+		case roleUser:
+			history = append(history, llm.Message{Role: "user", Content: msg.Content})
+		case roleAssistant:
+			// Only include completed assistant messages.
+			if msg.Content != "" {
+				history = append(history, llm.Message{Role: "assistant", Content: msg.Content})
+			}
+			// Skip roleError and roleNotice - these are UI elements, not conversation.
+		}
+	}
+
+	return history
 }
 
 // buildTableInfo queries the database schema and returns it in the format
@@ -1126,7 +1155,9 @@ func waitForChunk(ch <-chan llm.StreamChunk) tea.Cmd {
 	return func() tea.Msg {
 		chunk, ok := <-ch
 		if !ok {
-			return chatChunkMsg{Done: true}
+			// Channel closed (likely due to cancellation or error).
+			// Return nil to stop the message loop without triggering Done handler.
+			return nil
 		}
 		return chatChunkMsg{
 			Content: chunk.Content,
@@ -1310,13 +1341,13 @@ func (m *Model) handleChatKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c":
 		// Cancel stream or pull if active.
 		if m.chat.Streaming && m.chat.CancelFn != nil {
-			// Set flags first to prevent processing the cancellation chunk.
 			cancelFn := m.chat.CancelFn
 			m.chat.Streaming = false
 			m.chat.StreamingSQL = false
 			m.chat.SQLStreamCh = nil
 			m.chat.CancelFn = nil
-			// Now cancel - any chunks that arrive will be ignored.
+			// Cancel context - this will close the stream channel and any
+			// pending waitForChunk/waitForSQLChunk will return nil.
 			cancelFn()
 			// Remove "generating query" notice and add cancellation message.
 			m.removeLastNotice()

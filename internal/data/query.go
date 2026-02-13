@@ -13,12 +13,12 @@ const maxQueryRows = 200
 
 // PragmaColumn mirrors the output of PRAGMA table_info.
 type PragmaColumn struct {
-	CID       int    `gorm:"column:cid"`
-	Name      string `gorm:"column:name"`
-	Type      string `gorm:"column:type"`
-	NotNull   bool   `gorm:"column:notnull"`
+	CID       int     `gorm:"column:cid"`
+	Name      string  `gorm:"column:name"`
+	Type      string  `gorm:"column:type"`
+	NotNull   bool    `gorm:"column:notnull"`
 	DfltValue *string `gorm:"column:dflt_value"`
-	PK        int    `gorm:"column:pk"`
+	PK        int     `gorm:"column:pk"`
 }
 
 // TableNames returns the names of all non-internal tables in the database.
@@ -77,7 +77,9 @@ func (s *Store) ReadOnlyQuery(query string) (columns []string, rows [][]string, 
 	if err != nil {
 		return nil, nil, fmt.Errorf("execute query: %w", err)
 	}
-	defer sqlRows.Close()
+	defer func() {
+		_ = sqlRows.Close()
+	}()
 
 	columns, err = sqlRows.Columns()
 	if err != nil {
@@ -135,7 +137,7 @@ func (s *Store) DataDump() string {
 		}
 		cols, err := sqlRows.Columns()
 		if err != nil {
-			sqlRows.Close()
+			_ = sqlRows.Close()
 			continue
 		}
 		var rows [][]string
@@ -158,7 +160,7 @@ func (s *Store) DataDump() string {
 			}
 			rows = append(rows, row)
 		}
-		sqlRows.Close()
+		_ = sqlRows.Close()
 
 		if len(rows) == 0 {
 			continue
@@ -218,8 +220,8 @@ func isSafeIdentifier(s string) bool {
 		return false
 	}
 	for _, r := range s {
-		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
-			(r >= '0' && r <= '9') || r == '_') {
+		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') &&
+			(r < '0' || r > '9') && r != '_' {
 			return false
 		}
 	}
