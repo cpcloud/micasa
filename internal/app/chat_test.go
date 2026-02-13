@@ -329,10 +329,10 @@ func TestChatMagModeToggle(t *testing.T) {
 	assert.False(t, m.magMode)
 
 	// Toggle on from within chat.
-	sendKey(m, "ctrl+m")
+	sendKey(m, "ctrl+o")
 	assert.True(t, m.magMode)
 
 	// Toggle off.
-	sendKey(m, "ctrl+m")
+	sendKey(m, "ctrl+o")
 	assert.False(t, m.magMode)
 }

@@ -1365,7 +1365,7 @@ func (m *Model) handleChatKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+s":
 		m.toggleSQL()
 		return m, nil
-	case "ctrl+m":
+	case "ctrl+o":
 		m.toggleMagMode()
 		return m, nil
 	case "ctrl+c":
