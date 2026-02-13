@@ -343,6 +343,14 @@ These have been repeatedly requested. Violating them wastes the user's time.
   temporarily set `vendorHash = pkgs.lib.fakeHash;` (not `""`) to get the
   expected hash from the error without a noisy warning, then paste in the
   real hash.
+- **Run `nix flake update` periodically**: Before committing/PRing, run
+  `nix flake update` to pull the latest nixpkgs (which may include newer
+  Go versions, updated tools, security patches, etc.). Then deal with
+  the consequences: rebuild (`nix build '.#micasa'`), re-run tests, fix
+  any breakage from updated packages, update `vendorHash` if needed, and
+  re-run `osv-scanner` since a newer Go may resolve previously-ignored
+  stdlib CVEs (remove stale `[[IgnoredVulns]]` entries when they're
+  fixed).
 - **Run `go mod tidy` before committing** to keep `go.mod`/`go.sum` clean.
 - **Use `testify/assert` and `testify/require` for all test assertions**:
   All tests use `github.com/stretchr/testify`. Use `require` for
@@ -355,6 +363,15 @@ These have been repeatedly requested. Violating them wastes the user's time.
   Go-related files have changed (`.go`, `go.mod`, `go.sum`, `flake.nix`,
   `osv-scanner.toml`). These catch common Go errors and security
   vulnerabilities respectively.
+- **OSV scanner findings are blockers, not advisories.** When `osv-scanner`
+  reports vulnerabilities, you MUST fix them before committing/pushing.
+  Update the dependency (`go get pkg@latest`), bump the Go version in
+  `go.mod`, and update `vendorHash` in `flake.nix`. If a fix is genuinely
+  unavailable (e.g. nixpkgs hasn't shipped the required Go version yet),
+  add an `[[IgnoredVulns]]` entry to `osv-scanner.toml` with a specific
+  reason explaining why the vulnerability is low-risk for this application
+  AND what's blocking the fix. NEVER dismiss scanner output as "not our
+  problem" or "toolchain-level" without acting on it.
 - **Record every user request** as a GitHub issue
   (`gh issue create --repo cpcloud/micasa`) if one doesn't already exist.
   Use conventional-commit-style titles (e.g. `feat(ui): ...`,
