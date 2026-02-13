@@ -299,7 +299,7 @@ func TestDashboardOverlayFitsHeight(t *testing.T) {
 	for i := range overdue {
 		overdue[i] = maintenanceUrgency{
 			Item: data.MaintenanceItem{
-				ID:   uint(i + 1),
+				ID:   uint(i + 1), //nolint:gosec // i bounded by slice length (≤12)
 				Name: fmt.Sprintf("Long maintenance task %d", i+1),
 			},
 			DaysFromNow:   -(i + 1),
@@ -312,7 +312,7 @@ func TestDashboardOverlayFitsHeight(t *testing.T) {
 			Title:  fmt.Sprintf("Project with a fairly long name %d", i+1),
 			Status: data.ProjectStatusInProgress,
 		}
-		projects[i].ID = uint(100 + i)
+		projects[i].ID = uint(100 + i) //nolint:gosec // i bounded by slice length (≤8)
 	}
 	m.dashboard = dashboardData{
 		Overdue:           overdue,
@@ -648,14 +648,17 @@ func TestDashboardViewTrimRows(t *testing.T) {
 	overdue := make([]maintenanceUrgency, 8)
 	for i := range overdue {
 		overdue[i] = maintenanceUrgency{
-			Item:        data.MaintenanceItem{ID: uint(i + 1), Name: fmt.Sprintf("Task %d", i+1)},
+			Item: data.MaintenanceItem{
+				ID:   uint(i + 1), //nolint:gosec // i bounded by slice length (≤8)
+				Name: fmt.Sprintf("Task %d", i+1),
+			},
 			DaysFromNow: -(i + 1),
 		}
 	}
 	projects := make([]data.Project, 5)
 	for i := range projects {
 		projects[i] = data.Project{Title: fmt.Sprintf("Proj %d", i+1), Status: "underway"}
-		projects[i].ID = uint(100 + i)
+		projects[i].ID = uint(100 + i) //nolint:gosec // i bounded by slice length (≤5)
 	}
 	m.dashboard = dashboardData{
 		Overdue:        overdue,
@@ -692,7 +695,10 @@ func TestDashboardNavRebuiltFromTrimmedView(t *testing.T) {
 	overdue := make([]maintenanceUrgency, 10)
 	for i := range overdue {
 		overdue[i] = maintenanceUrgency{
-			Item:        data.MaintenanceItem{ID: uint(i + 1), Name: fmt.Sprintf("Item %d", i+1)},
+			Item: data.MaintenanceItem{
+				ID:   uint(i + 1), //nolint:gosec // i bounded by slice length (≤10)
+				Name: fmt.Sprintf("Item %d", i+1),
+			},
 			DaysFromNow: -(i + 1),
 		}
 	}

@@ -7,8 +7,9 @@ reason = "net/url.ParseQuery only reached via gorm DSN parsing with a local file
 
 [[IgnoredVulns]]
 id = "GO-2026-4337"
-reason = "crypto/tls session resumption issue; only TLS target is a user-configured local LLM server; blocked on nixpkgs shipping Go >=1.25.7"
+reason = "requires mutating ClientCAs/RootCAs between TLS handshakes; micasa uses a plain http.Client and never touches TLS config"
 
 [[IgnoredVulns]]
 id = "GO-2026-4340"
-reason = "crypto/tls handshake-level info disclosure requiring network-local attacker; only TLS target is a user-configured local LLM server; blocked on nixpkgs shipping Go >=1.25.6"
+reason = "minor TLS 1.3 info disclosure requiring network-local attacker; default config is plaintext HTTP to localhost; even over HTTPS a compromised server already sees all prompts and controls all responses, strictly dominating this vuln"
+

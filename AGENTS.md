@@ -270,9 +270,11 @@ These have been repeatedly requested. Violating them wastes the user's time.
   `nix search 'nixpkgs' vhs`. Bare `nixpkgs#foo` silently drops everything
   after the `#`.
 - **Pre-commit must run via Nix**: Always run `nix run '.#pre-commit'`
-  before committing. Never skip it or use a different invocation. If running
-  it is not possible, stop and ask the user why it cannot be run before
-  proceeding.
+  **as a separate explicit step before every `git commit`**. Do not rely
+  on the git hook firing during commit -- run it proactively so issues
+  are caught and fixed before the commit attempt, not during it. Never
+  skip it or use a different invocation. If running it is not possible,
+  stop and ask the user why it cannot be run before proceeding.
 - **Fallback to `nix develop` for missing dev commands**: If a development
   command is unavailable in PATH (for example `go`, `golangci-lint`, or other
   toolchain binaries), retry it with `nix develop -c <command>` before
@@ -364,14 +366,16 @@ These have been repeatedly requested. Violating them wastes the user's time.
   `osv-scanner.toml`). These catch common Go errors and security
   vulnerabilities respectively.
 - **OSV scanner findings are blockers, not advisories.** When `osv-scanner`
-  reports vulnerabilities, you MUST fix them before committing/pushing.
-  Update the dependency (`go get pkg@latest`), bump the Go version in
-  `go.mod`, and update `vendorHash` in `flake.nix`. If a fix is genuinely
-  unavailable (e.g. nixpkgs hasn't shipped the required Go version yet),
-  add an `[[IgnoredVulns]]` entry to `osv-scanner.toml` with a specific
-  reason explaining why the vulnerability is low-risk for this application
-  AND what's blocking the fix. NEVER dismiss scanner output as "not our
-  problem" or "toolchain-level" without acting on it.
+  reports vulnerabilities, you MUST address them before committing/pushing.
+  First, try to fix: update the dependency (`go get pkg@latest`), bump
+  the Go version in `go.mod`, update `vendorHash` in `flake.nix`. If the
+  vulnerability genuinely does not apply to this application's usage (e.g.
+  the affected code path is never reached, the preconditions don't hold),
+  add an `[[IgnoredVulns]]` entry to `osv-scanner.toml` with a reason
+  explaining *why the vuln doesn't affect micasa specifically* -- not
+  "blocked on upstream" or "toolchain-level". The reason must be about
+  the application's architecture, not about inability to upgrade. NEVER
+  dismiss scanner output without analyzing whether the vuln is reachable.
 - **Record every user request** as a GitHub issue
   (`gh issue create --repo cpcloud/micasa`) if one doesn't already exist.
   Use conventional-commit-style titles (e.g. `feat(ui): ...`,
