@@ -319,7 +319,7 @@ func TestLateChatChunkAfterCancellationIsDropped(t *testing.T) {
 		"partial content should have been removed by cancellation")
 }
 
-// TestChatMagModeToggle verifies that ctrl+m toggles the global mag mode
+// TestChatMagModeToggle verifies that ctrl+o toggles the global mag mode
 // even when the chat overlay is active.
 func TestChatMagModeToggle(t *testing.T) {
 	m := newTestModel()
@@ -335,4 +335,45 @@ func TestChatMagModeToggle(t *testing.T) {
 	// Toggle off.
 	sendKey(m, "ctrl+o")
 	assert.False(t, m.magMode)
+}
+
+// TestChatMagModeTogglesRenderedOutput verifies that toggling mag mode
+// updates dollar amounts in already-displayed LLM responses.
+func TestChatMagModeTogglesRenderedOutput(t *testing.T) {
+	m := newTestModel()
+	m.width = 120
+	m.height = 40
+	m.openChat()
+
+	// Simulate a completed assistant response with dollar amounts.
+	m.chat.Messages = []chatMessage{
+		{Role: roleUser, Content: "how much did I spend?"},
+		{Role: roleAssistant, Content: "You spent $5,234.23 on kitchen renovations."},
+	}
+	m.refreshChatViewport()
+
+	// Mag mode off: original dollar amount should appear in the viewport.
+	vpContent := m.chat.Viewport.View()
+	assert.Contains(t, vpContent, "$5,234.23",
+		"dollar amount should appear verbatim with mag mode off")
+	assert.NotContains(t, vpContent, magArrow,
+		"mag arrow should not appear with mag mode off")
+
+	// Toggle mag mode on from within chat.
+	sendKey(m, "ctrl+o")
+	assert.True(t, m.magMode)
+
+	vpContent = m.chat.Viewport.View()
+	assert.NotContains(t, vpContent, "$5,234.23",
+		"original dollar amount should be replaced with mag mode on")
+	assert.Contains(t, vpContent, magArrow,
+		"mag arrow should appear with mag mode on")
+
+	// Toggle back off.
+	sendKey(m, "ctrl+o")
+	assert.False(t, m.magMode)
+
+	vpContent = m.chat.Viewport.View()
+	assert.Contains(t, vpContent, "$5,234.23",
+		"dollar amount should reappear after toggling mag mode off")
 }

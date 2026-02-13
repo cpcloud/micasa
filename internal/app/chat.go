@@ -779,6 +779,9 @@ func (m *Model) handleSQLResult(msg sqlResultMsg) tea.Cmd {
 
 	// The SQL is already stored in the assistant message's SQL field.
 	// Stage 2: summarize results via streaming LLM call.
+	// Always send unformatted numbers to the LLM so the stored response
+	// contains regular dollar amounts. Client-side magTransformText handles
+	// mag notation at render time, making it toggleable.
 	resultsTable := llm.FormatResultsTable(msg.Columns, msg.Rows)
 	summaryPrompt := llm.BuildSummaryPrompt(
 		msg.Question,
@@ -786,7 +789,6 @@ func (m *Model) handleSQLResult(msg sqlResultMsg) tea.Cmd {
 		resultsTable,
 		time.Now(),
 		m.llmExtraContext,
-		m.magMode,
 	)
 
 	messages := []llm.Message{
@@ -1098,7 +1100,6 @@ func (m *Model) buildFallbackMessages(question string) []llm.Message {
 		dataDump,
 		time.Now(),
 		m.llmExtraContext,
-		m.magMode,
 	)
 
 	messages := []llm.Message{
@@ -1241,7 +1242,11 @@ func (m *Model) renderChatMessages() string {
 
 			// Show response if available.
 			if text != "" {
-				parts = append(parts, renderMarkdown(text, innerW-2))
+				display := text
+				if m.magMode {
+					display = magTransformText(display)
+				}
+				parts = append(parts, renderMarkdown(display, innerW-2))
 			}
 
 			// Determine what to show on the label line.

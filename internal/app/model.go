@@ -377,6 +377,9 @@ func (m *Model) handleCommonKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 		return nil, true
 	case "ctrl+o":
 		m.magMode = !m.magMode
+		if m.chat != nil && m.chat.Visible {
+			m.refreshChatViewport()
+		}
 		return nil, true
 	case "h", "left":
 		if tab := m.effectiveTab(); tab != nil {

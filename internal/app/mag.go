@@ -6,6 +6,7 @@ package app
 import (
 	"fmt"
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -63,7 +64,6 @@ func magFormat(c cell, includeUnit bool) string {
 	if f == 0 {
 		return fmt.Sprintf("%s%s%s0", sign, unit, magArrow)
 	}
-
 	mag := int(math.Round(math.Log10(math.Abs(f))))
 	return fmt.Sprintf("%s%s%s%d", sign, unit, magArrow, mag)
 }
@@ -80,6 +80,21 @@ func magOptionalCents(cents *int64) string {
 		return ""
 	}
 	return magCents(*cents)
+}
+
+// magMoneyRe matches dollar amounts like $1,234.56 or -$5.00 in prose.
+var magMoneyRe = regexp.MustCompile(`-?\$[\d,]+(?:\.\d+)?`)
+
+// magTransformText replaces dollar amounts in free-form text with magnitude
+// notation. Used to post-process LLM responses when mag mode is on.
+// Does not pad (no width preservation needed in prose).
+func magTransformText(s string) string {
+	return magMoneyRe.ReplaceAllStringFunc(s, func(match string) string {
+		c := cell{Value: match, Kind: cellMoney}
+		result := magFormat(c, true)
+		// Strip leading padding -- prose doesn't need right-alignment.
+		return strings.TrimLeft(result, " ")
+	})
 }
 
 // magTransformCells returns a copy of the cell grid with numeric values
