@@ -245,14 +245,15 @@ func TestFormatCompactOptionalCents(t *testing.T) {
 // Overflow and edge case tests added during code audit.
 
 func TestParseCentsOverflow(t *testing.T) {
-	// Max safe value is 92233720368547758 dollars.
-	// Anything higher should be rejected to prevent overflow when multiplying by 100.
 	tests := []struct {
 		name  string
 		input string
 	}{
 		{"one dollar over", "$92233720368547759.00"},
 		{"way over", "$999999999999999999999.99"},
+		// wholePart == maxDollars but frac pushes past MaxInt64
+		{"frac overflow at boundary", "$92233720368547758.08"},
+		{"frac overflow .99 at boundary", "$92233720368547758.99"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

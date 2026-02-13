@@ -194,8 +194,7 @@ func parseCents(input string) (int64, error) {
 	if err != nil {
 		return 0, ErrInvalidMoney
 	}
-	// Check for overflow before multiplication by 100.
-	// Max safe value: math.MaxInt64 / 100 dollars.
+	// Guard against overflow: wholePart*100 + frac must fit in int64.
 	const maxDollars = math.MaxInt64 / 100
 	if wholePart > maxDollars {
 		return 0, ErrInvalidMoney
@@ -213,7 +212,12 @@ func parseCents(input string) (int64, error) {
 			frac *= 10
 		}
 	}
-	return wholePart*100 + frac, nil
+	cents := wholePart*100 + frac
+	// Final overflow check: frac can push past MaxInt64 when wholePart == maxDollars.
+	if cents < 0 {
+		return 0, ErrInvalidMoney
+	}
+	return cents, nil
 }
 
 func parseDigits(input string, allowEmpty bool) (int64, error) {
