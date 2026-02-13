@@ -4,6 +4,7 @@
 package data
 
 import (
+	"errors"
 	"time"
 
 	"gorm.io/gorm"
@@ -39,7 +40,7 @@ func (s *Store) GetSetting(key string) (string, error) {
 	var setting Setting
 	err := s.db.Where("key = ?", key).First(&setting).Error
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return "", nil
 		}
 		return "", err
