@@ -955,11 +955,8 @@ func (m *Model) refreshChatViewport() {
 
 // renderChatMessages formats the conversation for display in the viewport.
 func (m *Model) renderChatMessages() string {
-	if m.chat == nil || len(m.chat.Messages) == 0 {
-		return m.styles.HeaderHint.Render(
-			"Ask a question about your home data.\n" +
-				"Type /help for commands.",
-		)
+	if m.chat == nil {
+		return ""
 	}
 
 	innerW := m.chatViewportWidth()
