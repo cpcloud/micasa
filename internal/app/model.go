@@ -475,8 +475,6 @@ func (m *Model) handleNormalKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 	case "@":
 		m.openChat()
 		return nil, true
-	case "q":
-		return tea.Quit, true
 	case keyEsc:
 		if m.inDetail() {
 			m.closeDetail()

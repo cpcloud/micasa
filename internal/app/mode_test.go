@@ -164,10 +164,10 @@ func TestNextTabAdvances(t *testing.T) {
 func TestQuitOnlyInNormalMode(t *testing.T) {
 	m := newTestModel()
 
-	// In edit mode, 'q' should not quit (no cmd returned).
+	// In edit mode, 'ctrl+q' should quit (returns tea.Quit).
 	sendKey(m, "i")
-	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
-	assert.Nil(t, cmd, "'q' should not produce a command in edit mode")
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlQ})
+	assert.NotNil(t, cmd, "'ctrl+q' should quit even in edit mode")
 }
 
 func TestIKeyDoesNothingInEditMode(t *testing.T) {
@@ -286,8 +286,6 @@ func TestHelpAbsorbsOtherKeys(t *testing.T) {
 	require.NotNil(t, m.helpViewport, "expected help visible")
 
 	// Keys that would normally affect the model should be absorbed.
-	sendKey(m, "q")
-	assert.NotNil(t, m.helpViewport, "help should absorb 'q' without quitting")
 	sendKey(m, "i")
 	assert.Equal(t, modeNormal, m.mode, "'i' should not switch to edit mode while help is open")
 }

@@ -441,8 +441,8 @@ func (m *Model) normalModeStatusHints(modeBadge string) []statusHint {
 	} else {
 		hints = append(hints, statusHint{
 			id:       "exit",
-			full:     m.helpItem("q", "quit"),
-			compact:  m.renderKeys("q"),
+			full:     m.helpItem("ctrl+q", "quit"),
+			compact:  m.renderKeys("ctrl+q"),
 			priority: 0,
 			required: true,
 		})
@@ -776,7 +776,7 @@ func (m *Model) helpContent() string {
 				{"@", "Ask LLM"},
 				{"i", "Edit mode"},
 				{"?", "Help"},
-				{"q / ctrl+q", "Quit"},
+				{"ctrl+q", "Quit"},
 			},
 		},
 		{

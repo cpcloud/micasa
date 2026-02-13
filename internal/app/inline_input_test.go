@@ -47,10 +47,6 @@ func TestInlineInputAbsorbsKeys(t *testing.T) {
 	showHouseBefore := m.showHouse
 	sendKey(m, "tab")
 	assert.Equal(t, showHouseBefore, m.showHouse, "tab should be absorbed by inline input")
-
-	// 'q' should not quit -- inline input should still be active.
-	sendKey(m, "q")
-	assert.NotNil(t, m.inlineInput, "inline input should still be active after pressing q")
 }
 
 func TestInlineInputTypingUpdatesValue(t *testing.T) {
