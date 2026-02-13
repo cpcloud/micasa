@@ -141,6 +141,7 @@ type PullChunk struct {
 	Digest    string `json:"digest"`
 	Total     int64  `json:"total"`
 	Completed int64  `json:"completed"`
+	Error     string `json:"error"` // Ollama streams errors in this field
 }
 
 // PullScanner wraps the streaming response from the Ollama pull API.

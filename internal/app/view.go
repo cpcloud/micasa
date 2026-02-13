@@ -43,6 +43,11 @@ func (m *Model) buildView() string {
 		base = overlay.Composite(fg, dimBackground(base), overlay.Center, overlay.Center, 0, 0)
 	}
 
+	if m.chat != nil && m.chat.Visible {
+		fg := cancelFaint(m.buildChatOverlay())
+		base = overlay.Composite(fg, dimBackground(base), overlay.Center, overlay.Center, 0, 0)
+	}
+
 	if m.helpViewport != nil {
 		fg := cancelFaint(m.buildHelpOverlay())
 		base = overlay.Composite(fg, dimBackground(base), overlay.Center, overlay.Center, 0, 0)
@@ -415,6 +420,7 @@ func (m *Model) normalModeStatusHints(modeBadge string) []statusHint {
 		})
 	}
 	hints = append(hints,
+		statusHint{id: "ask", full: m.helpItem("@", "ask"), priority: 3},
 		statusHint{id: "edit", full: m.helpItem("i", "edit"), priority: 2},
 		statusHint{
 			id:       "help",
@@ -767,6 +773,7 @@ func (m *Model) helpContent() string {
 				{"enter", drilldownArrow + " drilldown / " + linkArrow + " follow link / preview"},
 				{"tab", "House profile"},
 				{"D", "Summary"},
+				{"@", "Ask LLM"},
 				{"i", "Edit mode"},
 				{"?", "Help"},
 				{"q", "Quit"},
@@ -790,6 +797,16 @@ func (m *Model) helpContent() string {
 				{"1-9", "Jump to Nth option"},
 				{"ctrl+s", "Save"},
 				{"esc", "Cancel"},
+			},
+		},
+		{
+			title: "Chat (@)",
+			bindings: []binding{
+				{"enter", "Send message"},
+				{"ctrl+s", "Toggle SQL display"},
+				{"\u2191/\u2193", "Prompt history"},
+				{"ctrl+c", "Cancel stream"},
+				{"esc", "Hide chat"},
 			},
 		},
 		{

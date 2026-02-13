@@ -1,0 +1,1369 @@
+// Copyright 2026 Phillip Cloud
+// Licensed under the Apache License, Version 2.0
+
+package app
+
+import (
+	"context"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/charmbracelet/bubbles/progress"
+	"github.com/charmbracelet/bubbles/spinner"
+	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/glamour"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/cpcloud/micasa/internal/llm"
+)
+
+// chatMessage is one turn in the conversation.
+type chatMessage struct {
+	Role    string // "user", "assistant", "error", "notice", or "sql"
+	Content string
+}
+
+// chatState holds the state of the LLM chat overlay.
+type chatState struct {
+	Messages    []chatMessage
+	Input       textinput.Model
+	Viewport    viewport.Model
+	Spinner     spinner.Model
+	Streaming   bool // true while an LLM response is being streamed
+	StreamCh    <-chan llm.StreamChunk
+	CancelFn    context.CancelFunc
+	Progress    progress.Model // pull progress bar
+	Pulling     bool           // true while a model pull is in progress
+	PullDisplay string         // current pull status text, rendered as fixed chrome
+	PullPeak    float64        // high-water mark so the bar never goes backwards
+	PullCancel  context.CancelFunc
+	Completer   *modelCompleter // non-nil when the model picker is showing
+	ShowSQL     bool            // when true, show generated SQL as a notice
+	History     []string        // past user inputs, newest last
+	HistoryCur  int             // index into History for up/down browsing (-1 = live input)
+	HistoryBuf  string          // stashed live input while browsing history
+	Visible     bool            // false when the overlay is hidden but session persists
+}
+
+// modelCompleter is the inline autocomplete list for /model.
+type modelCompleter struct {
+	All     []modelCompleterEntry // local + well-known models
+	Matches []modelCompleterMatch
+	Cursor  int
+	Loading bool
+}
+
+type modelCompleterEntry struct {
+	Name  string
+	Local bool // true if already downloaded on the server
+}
+
+type modelCompleterMatch struct {
+	Name      string
+	Score     int
+	Positions []int
+	Active    bool // true if this is the currently selected model
+	Local     bool // true if already available on the server
+}
+
+const modelCommandPrefix = "/model "
+
+// completerMaxLines is the fixed number of lines the completer occupies.
+// The viewport shrinks by this amount when the completer is active so the
+// overall overlay height stays constant.
+const completerMaxLines = 8
+
+// Popular models that appear in the completer even when the server doesn't
+// have them downloaded yet. Users can select one and it will be pulled.
+var wellKnownModels = []string{
+	"deepseek-r1:32b",
+	"gemma3:12b",
+	"gemma3:27b",
+	"llama3.1:70b",
+	"llama3.2",
+	"llama3.3",
+	"mistral-small:24b",
+	"phi-4:14b",
+	"qwen3:8b",
+	"qwen3:32b",
+	"qwen3:72b",
+}
+
+// chatChunkMsg delivers a single streamed token to the Bubbletea update loop.
+type chatChunkMsg struct {
+	Content string
+	Done    bool
+	Err     error
+}
+
+// sqlResultMsg delivers the result of stage 1 (NL → SQL) back to the
+// update loop so stage 2 (summary) can proceed.
+type sqlResultMsg struct {
+	Question string // original user question
+	SQL      string // generated SELECT statement
+	Columns  []string
+	Rows     [][]string
+	Err      error // set if SQL generation, validation, or execution failed
+}
+
+// modelsListMsg delivers the result of an async ListModels call.
+type modelsListMsg struct {
+	Models []string
+	Err    error
+}
+
+// pullProgressMsg delivers progress from the Ollama pull API.
+type pullProgressMsg struct {
+	Status    string
+	Percent   float64 // 0.0 - 1.0; -1 when unknown
+	Done      bool
+	Err       error
+	Model     string
+	PullState *ollamaPullState
+}
+
+// ollamaPullState tracks the streaming pull HTTP response.
+type ollamaPullState struct {
+	Model   string
+	Cancel  context.CancelFunc
+	Scanner *llm.PullScanner
+}
+
+// openChat shows the chat overlay. If a session already exists it is
+// un-hidden; otherwise a fresh session is created.
+func (m *Model) openChat() {
+	if m.chat != nil {
+		// Session exists but was hidden -- just show it again.
+		m.chat.Visible = true
+		m.chat.Input.Focus()
+		m.refreshChatViewport()
+		return
+	}
+
+	ti := textinput.New()
+	ti.Placeholder = "Ask about your home data... (/help for commands)"
+	ti.CharLimit = 500
+	ti.Width = m.chatInputWidth()
+	ti.Focus()
+
+	vp := viewport.New(m.chatViewportWidth(), m.chatViewportHeight())
+	vp.KeyMap.Left.SetEnabled(false)
+	vp.KeyMap.Right.SetEnabled(false)
+
+	prog := progress.New(
+		progress.WithGradient(accent.Dark, success.Dark),
+		progress.WithFillCharacters('━', '┄'),
+	)
+	prog.PercentageStyle = lipgloss.NewStyle().Foreground(textDim)
+
+	sp := spinner.New(spinner.WithSpinner(spinner.Dot))
+	sp.Style = lipgloss.NewStyle().Foreground(accent)
+
+	// Load persisted prompt history from the database.
+	var history []string
+	if m.store != nil {
+		if h, err := m.store.LoadChatHistory(); err == nil {
+			history = h
+		}
+	}
+
+	m.chat = &chatState{
+		Input:      ti,
+		Viewport:   vp,
+		Spinner:    sp,
+		Progress:   prog,
+		Visible:    true,
+		History:    history,
+		HistoryCur: -1,
+	}
+
+	// If no LLM client, show a hint instead of failing silently.
+	if m.llmClient == nil {
+		m.chat.Messages = append(m.chat.Messages, chatMessage{
+			Role: "notice",
+			Content: fmt.Sprintf(
+				"No LLM configured. Create %s with:\n\n[llm]\nbase_url = \"http://localhost:11434/v1\"\nmodel = \"qwen3\"",
+				m.configPath,
+			),
+		})
+		m.refreshChatViewport()
+	}
+}
+
+// hideChat hides the chat overlay but preserves the session so the user
+// can return to it with @. In-flight streams are cancelled since the user
+// won't be watching them.
+func (m *Model) hideChat() {
+	if m.chat == nil {
+		return
+	}
+	if m.chat.Streaming && m.chat.CancelFn != nil {
+		m.chat.CancelFn()
+		m.chat.Streaming = false
+	}
+	m.chat.Input.Blur()
+	m.chat.Visible = false
+}
+
+// submitChat processes the user's input. Slash commands are intercepted;
+// everything else enters the two-stage pipeline (NL → SQL → results → English).
+func (m *Model) submitChat() tea.Cmd {
+	if m.chat == nil {
+		return nil
+	}
+	query := strings.TrimSpace(m.chat.Input.Value())
+	if query == "" {
+		return nil
+	}
+	m.chat.Input.SetValue("")
+
+	// Record in history for up/down browsing, deduplicating consecutive repeats.
+	if len(m.chat.History) == 0 || m.chat.History[len(m.chat.History)-1] != query {
+		m.chat.History = append(m.chat.History, query)
+		// Persist to database for cross-session history.
+		if m.store != nil {
+			_ = m.store.AppendChatInput(query)
+		}
+	}
+	m.chat.HistoryCur = -1
+	m.chat.HistoryBuf = ""
+
+	// Slash commands.
+	if strings.HasPrefix(query, "/") {
+		return m.handleSlashCommand(query)
+	}
+
+	// Regular LLM query -- two-stage pipeline.
+	if m.llmClient == nil {
+		return nil
+	}
+
+	m.chat.Messages = append(m.chat.Messages, chatMessage{
+		Role: "user", Content: query,
+	})
+	m.chat.Streaming = true
+	m.chat.Messages = append(m.chat.Messages, chatMessage{
+		Role: "notice", Content: "generating query\u2026",
+	})
+	m.refreshChatViewport()
+
+	// Stage 1 runs in a goroutine: generate SQL, validate, execute.
+	client := m.llmClient
+	store := m.store
+	tables := m.buildTableInfo()
+	extraContext := m.llmExtraContext
+
+	stage1 := func() tea.Msg {
+		sqlPrompt := llm.BuildSQLPrompt(tables, time.Now(), extraContext)
+		messages := []llm.Message{
+			{Role: "system", Content: sqlPrompt},
+			{Role: "user", Content: query},
+		}
+
+		raw, err := client.ChatComplete(context.Background(), messages)
+		if err != nil {
+			return sqlResultMsg{Question: query, Err: fmt.Errorf("SQL generation failed: %w", err)}
+		}
+
+		sql := llm.ExtractSQL(raw)
+		if sql == "" {
+			return sqlResultMsg{Question: query, Err: fmt.Errorf("LLM returned empty SQL")}
+		}
+
+		cols, rows, err := store.ReadOnlyQuery(sql)
+		if err != nil {
+			return sqlResultMsg{Question: query, SQL: sql, Err: fmt.Errorf("query error: %w", err)}
+		}
+
+		return sqlResultMsg{
+			Question: query,
+			SQL:      sql,
+			Columns:  cols,
+			Rows:     rows,
+		}
+	}
+	return tea.Batch(stage1, m.chat.Spinner.Tick)
+}
+
+// handleSlashCommand dispatches chat slash commands.
+func (m *Model) handleSlashCommand(input string) tea.Cmd {
+	parts := strings.Fields(input)
+	cmd := strings.ToLower(parts[0])
+
+	switch cmd {
+	case "/models":
+		return m.cmdListModels()
+	case "/model":
+		if len(parts) < 2 {
+			m.chat.Messages = append(m.chat.Messages, chatMessage{
+				Role: "notice",
+				Content: "Active model: " + m.llmModelLabel() +
+					"\nUsage: /model <name>",
+			})
+			m.refreshChatViewport()
+			return nil
+		}
+		return m.cmdSwitchModel(parts[1])
+	case "/sql":
+		m.toggleSQL()
+		return nil
+	case "/help":
+		m.chat.Messages = append(m.chat.Messages, chatMessage{
+			Role: "notice",
+			Content: "/models          list available models\n" +
+				"/model <name>    switch model (pulls if needed)\n" +
+				"/sql             toggle SQL query display\n" +
+				"/help            show this help",
+		})
+		m.refreshChatViewport()
+		return nil
+	default:
+		m.chat.Messages = append(m.chat.Messages, chatMessage{
+			Role: "error", Content: "unknown command: " + cmd + " (try /help)",
+		})
+		m.refreshChatViewport()
+		return nil
+	}
+}
+
+// cmdListModels fetches models from the server and displays them.
+func (m *Model) cmdListModels() tea.Cmd {
+	if m.llmClient == nil {
+		return nil
+	}
+	client := m.llmClient
+	return func() tea.Msg {
+		models, err := client.ListModels(context.Background())
+		return modelsListMsg{Models: models, Err: err}
+	}
+}
+
+// handleModelsListMsg populates the completer if active, or renders the
+// model list into the chat (for /models command).
+func (m *Model) handleModelsListMsg(msg modelsListMsg) {
+	if m.chat == nil {
+		return
+	}
+
+	// Feed the completer if it's waiting for results.
+	if mc := m.chat.Completer; mc != nil && mc.Loading {
+		mc.Loading = false
+		if msg.Err == nil {
+			mc.All = mergeModelLists(msg.Models)
+		} else {
+			// Server unreachable -- show well-known models only.
+			mc.All = mergeModelLists(nil)
+		}
+		m.refilterCompleter()
+		return
+	}
+
+	// Otherwise this was a /models command -- render into chat.
+	if msg.Err != nil {
+		m.chat.Messages = append(m.chat.Messages, chatMessage{
+			Role: "error", Content: msg.Err.Error(),
+		})
+		m.refreshChatViewport()
+		return
+	}
+
+	current := m.llmModelLabel()
+	var b strings.Builder
+	for _, name := range msg.Models {
+		if name == current {
+			b.WriteString("  " + name + " (active)\n")
+		} else {
+			b.WriteString("  " + name + "\n")
+		}
+	}
+	if len(msg.Models) == 0 {
+		b.WriteString("  (no models available)")
+	}
+	m.chat.Messages = append(m.chat.Messages, chatMessage{
+		Role: "notice", Content: strings.TrimRight(b.String(), "\n"),
+	})
+	m.refreshChatViewport()
+}
+
+// completerQuery returns the filter text after "/model " if the input
+// currently matches the command prefix. Returns ("", false) otherwise.
+func (m *Model) completerQuery() (string, bool) {
+	val := m.chat.Input.Value()
+	if len(val) >= len(modelCommandPrefix) &&
+		strings.EqualFold(val[:len(modelCommandPrefix)], modelCommandPrefix) {
+		return val[len(modelCommandPrefix):], true
+	}
+	return "", false
+}
+
+// activateCompleter opens the model completer, fetching models if needed.
+func (m *Model) activateCompleter() tea.Cmd {
+	if m.chat.Completer != nil {
+		return nil // already active
+	}
+	m.chat.Completer = &modelCompleter{Loading: true}
+
+	if m.llmClient == nil {
+		m.chat.Completer.Loading = false
+		return nil
+	}
+	client := m.llmClient
+	return func() tea.Msg {
+		models, err := client.ListModels(context.Background())
+		return modelsListMsg{Models: models, Err: err}
+	}
+}
+
+// deactivateCompleter closes the model completer.
+func (m *Model) deactivateCompleter() {
+	m.chat.Completer = nil
+}
+
+// mergeModelLists combines server-local models with well-known models,
+// putting local models first and deduplicating.
+func mergeModelLists(serverModels []string) []modelCompleterEntry {
+	seen := make(map[string]bool, len(serverModels)+len(wellKnownModels))
+	var all []modelCompleterEntry
+
+	// Server models first (these are local).
+	for _, name := range serverModels {
+		seen[name] = true
+		all = append(all, modelCompleterEntry{Name: name, Local: true})
+	}
+
+	// Well-known models that aren't already local.
+	for _, name := range wellKnownModels {
+		if !seen[name] {
+			all = append(all, modelCompleterEntry{Name: name, Local: false})
+		}
+	}
+
+	return all
+}
+
+// refilterCompleter updates the completer match list from the current input.
+func (m *Model) refilterCompleter() {
+	mc := m.chat.Completer
+	if mc == nil {
+		return
+	}
+	query, _ := m.completerQuery()
+	current := m.llmModelLabel()
+
+	if query == "" {
+		mc.Matches = make([]modelCompleterMatch, len(mc.All))
+		for i, entry := range mc.All {
+			mc.Matches[i] = modelCompleterMatch{
+				Name: entry.Name, Local: entry.Local,
+				Active: entry.Name == current,
+			}
+		}
+		mc.clampCursor()
+		return
+	}
+
+	mc.Matches = mc.Matches[:0]
+	for _, entry := range mc.All {
+		if score, positions := fuzzyMatch(query, entry.Name); score > 0 {
+			mc.Matches = append(mc.Matches, modelCompleterMatch{
+				Name: entry.Name, Score: score, Positions: positions,
+				Active: entry.Name == current, Local: entry.Local,
+			})
+		}
+	}
+	// Sort by score descending.
+	for i := 1; i < len(mc.Matches); i++ {
+		key := mc.Matches[i]
+		j := i - 1
+		for j >= 0 && key.Score > mc.Matches[j].Score {
+			mc.Matches[j+1] = mc.Matches[j]
+			j--
+		}
+		mc.Matches[j+1] = key
+	}
+	mc.clampCursor()
+}
+
+func (mc *modelCompleter) clampCursor() {
+	if mc.Cursor >= len(mc.Matches) {
+		mc.Cursor = len(mc.Matches) - 1
+	}
+	if mc.Cursor < 0 {
+		mc.Cursor = 0
+	}
+}
+
+// cmdSwitchModel switches to a model, pulling it via the Ollama API if needed.
+func (m *Model) cmdSwitchModel(name string) tea.Cmd {
+	if m.llmClient == nil {
+		return nil
+	}
+	if m.chat.Pulling {
+		m.chat.Messages = append(m.chat.Messages, chatMessage{
+			Role: "error", Content: "a model pull is already in progress",
+		})
+		m.refreshChatViewport()
+		return nil
+	}
+
+	m.chat.PullDisplay = "checking " + name + "..."
+
+	client := m.llmClient
+	return func() tea.Msg {
+		models, _ := client.ListModels(context.Background())
+		for _, model := range models {
+			if model == name || strings.HasPrefix(model, name+":") {
+				return pullProgressMsg{
+					Status: "Switched to " + model,
+					Done:   true,
+					Model:  model,
+				}
+			}
+		}
+		return startPull(client, name)
+	}
+}
+
+// startPull initiates a model pull via the Ollama HTTP API and returns the
+// first progress message.
+func startPull(client *llm.Client, name string) tea.Msg {
+	ctx, cancel := context.WithCancel(context.Background())
+	scanner, err := client.PullModel(ctx, name)
+	if err != nil {
+		cancel()
+		return pullProgressMsg{Err: err, Done: true}
+	}
+
+	ps := &ollamaPullState{Model: name, Cancel: cancel, Scanner: scanner}
+	return readNextPullChunk(ps)
+}
+
+// readNextPullChunk reads the next JSON line from the pull stream.
+func readNextPullChunk(ps *ollamaPullState) tea.Msg {
+	chunk, err := ps.Scanner.Next()
+	if err != nil {
+		ps.Cancel()
+		return pullProgressMsg{Err: err, Done: true, PullState: ps, Model: ps.Model}
+	}
+	if chunk == nil {
+		ps.Cancel()
+		return pullProgressMsg{
+			Status:    ps.Model + " ready",
+			Done:      true,
+			Model:     ps.Model,
+			PullState: ps,
+		}
+	}
+	// Check if Ollama streamed an error in the chunk itself.
+	if chunk.Error != "" {
+		ps.Cancel()
+		return pullProgressMsg{
+			Err:       fmt.Errorf("%s", chunk.Error),
+			Done:      true,
+			PullState: ps,
+			Model:     ps.Model,
+		}
+	}
+	pct := -1.0
+	if chunk.Total > 0 {
+		pct = float64(chunk.Completed) / float64(chunk.Total)
+	}
+	return pullProgressMsg{
+		Status:    chunk.Status,
+		Percent:   pct,
+		PullState: ps,
+		Model:     ps.Model,
+	}
+}
+
+// handlePullProgress updates the pull notice message with download progress.
+// This runs independently of LLM streaming, so the user can keep chatting.
+func (m *Model) handlePullProgress(msg pullProgressMsg) tea.Cmd {
+	if m.chat == nil {
+		return nil
+	}
+
+	if msg.Err != nil {
+		m.chat.Pulling = false
+		m.chat.PullCancel = nil
+		m.chat.PullDisplay = ""
+		m.chat.PullPeak = 0
+		m.chat.Messages = append(m.chat.Messages, chatMessage{
+			Role: "error", Content: "pull failed: " + msg.Err.Error(),
+		})
+		m.refreshChatViewport()
+		return nil
+	}
+
+	if msg.Done {
+		m.chat.Pulling = false
+		m.chat.PullCancel = nil
+		m.chat.PullDisplay = ""
+		m.chat.PullPeak = 0
+		if msg.Model != "" {
+			m.llmClient.SetModel(msg.Model)
+			// Persist so the model survives across sessions.
+			_ = m.store.PutLastModel(msg.Model)
+		}
+		m.chat.Messages = append(m.chat.Messages, chatMessage{
+			Role: "notice", Content: msg.Status,
+		})
+		m.refreshChatViewport()
+		return nil
+	}
+
+	// Mark pull as active on the first progress chunk.
+	if !m.chat.Pulling {
+		m.chat.Pulling = true
+		if msg.PullState != nil {
+			m.chat.PullCancel = msg.PullState.Cancel
+		}
+	}
+
+	m.chat.PullDisplay = m.formatPullProgress(msg)
+
+	ps := msg.PullState
+	return func() tea.Msg { return readNextPullChunk(ps) }
+}
+
+// formatPullProgress builds a clean display string for pull progress.
+// The percentage is clamped to a high-water mark so the bar never goes
+// backwards when Ollama starts downloading a new layer.
+func (m *Model) formatPullProgress(msg pullProgressMsg) string {
+	label := cleanPullStatus(msg.Status, msg.Model)
+	if msg.Percent < 0 {
+		return label
+	}
+	pct := msg.Percent
+	if pct < m.chat.PullPeak {
+		pct = m.chat.PullPeak
+	}
+	m.chat.PullPeak = pct
+	barW := m.chatViewportWidth() - 4
+	if barW < 20 {
+		barW = 20
+	}
+	m.chat.Progress.Width = barW
+	return label + "\n" + m.chat.Progress.ViewAs(pct)
+}
+
+// cleanPullStatus tidies up Ollama's raw status strings into something
+// readable. Ollama sends things like "pulling sha256:abcdef123456..." which
+// aren't useful for the user.
+func cleanPullStatus(status, model string) string {
+	s := strings.ToLower(status)
+	switch {
+	case strings.HasPrefix(s, "pulling manifest"):
+		return "pulling " + model
+	case strings.HasPrefix(s, "pulling"):
+		return "downloading " + model
+	case strings.HasPrefix(s, "verifying"):
+		return "verifying " + model
+	case strings.HasPrefix(s, "writing"):
+		return "finalizing " + model
+	case s == "success":
+		return "ready"
+	default:
+		return status
+	}
+}
+
+// handleChatChunk processes a single streamed token.
+// handleSQLResult processes the stage 1 output. On success, it kicks off
+// stage 2 (streaming summary). On failure, it falls back to the single-stage
+// approach with the full data dump.
+func (m *Model) handleSQLResult(msg sqlResultMsg) tea.Cmd {
+	if m.chat == nil {
+		return nil
+	}
+
+	// Remove the "generating query..." notice.
+	m.removeLastNotice()
+
+	if msg.Err != nil {
+		// Fall back to single-stage: dump all data and ask directly.
+		m.chat.Messages = append(m.chat.Messages, chatMessage{
+			Role: "notice", Content: "falling back to direct query\u2026",
+		})
+		m.refreshChatViewport()
+		return m.startFallbackStream(msg.Question)
+	}
+
+	// Show the generated SQL if the user has opted in via /sql.
+	if m.chat.ShowSQL {
+		m.chat.Messages = append(m.chat.Messages, chatMessage{
+			Role: "sql", Content: msg.SQL,
+		})
+	}
+
+	// Stage 2: summarize results via streaming LLM call.
+	resultsTable := llm.FormatResultsTable(msg.Columns, msg.Rows)
+	summaryPrompt := llm.BuildSummaryPrompt(
+		msg.Question,
+		msg.SQL,
+		resultsTable,
+		time.Now(),
+		m.llmExtraContext,
+	)
+
+	messages := []llm.Message{
+		{Role: "system", Content: summaryPrompt},
+		{Role: "user", Content: "Summarize these results."},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	ch, err := m.llmClient.ChatStream(ctx, messages)
+	if err != nil {
+		cancel()
+		m.chat.Streaming = false
+		m.chat.Messages = append(m.chat.Messages, chatMessage{
+			Role: "error", Content: err.Error(),
+		})
+		m.refreshChatViewport()
+		return nil
+	}
+
+	m.chat.StreamCh = ch
+	m.chat.CancelFn = cancel
+	m.chat.Messages = append(m.chat.Messages, chatMessage{
+		Role: "assistant", Content: "",
+	})
+	m.refreshChatViewport()
+
+	return waitForChunk(ch)
+}
+
+// startFallbackStream uses the old single-stage approach: full data dump in
+// the system prompt, streamed response.
+func (m *Model) startFallbackStream(question string) tea.Cmd {
+	messages := m.buildFallbackMessages(question)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	ch, err := m.llmClient.ChatStream(ctx, messages)
+	if err != nil {
+		cancel()
+		m.chat.Streaming = false
+		m.chat.Messages = append(m.chat.Messages, chatMessage{
+			Role: "error", Content: err.Error(),
+		})
+		m.refreshChatViewport()
+		return nil
+	}
+
+	m.chat.StreamCh = ch
+	m.chat.CancelFn = cancel
+	m.chat.Messages = append(m.chat.Messages, chatMessage{
+		Role: "assistant", Content: "",
+	})
+	m.refreshChatViewport()
+
+	return waitForChunk(ch)
+}
+
+// historyBack moves to the previous entry in the prompt history.
+func (m *Model) historyBack() {
+	if len(m.chat.History) == 0 {
+		return
+	}
+	if m.chat.HistoryCur == -1 {
+		// Entering history -- stash the current live input.
+		m.chat.HistoryBuf = m.chat.Input.Value()
+		m.chat.HistoryCur = len(m.chat.History) - 1
+	} else if m.chat.HistoryCur > 0 {
+		m.chat.HistoryCur--
+	} else {
+		return // already at oldest
+	}
+	m.chat.Input.SetValue(m.chat.History[m.chat.HistoryCur])
+	m.chat.Input.CursorEnd()
+}
+
+// historyForward moves to the next entry in the prompt history, or back
+// to the live input buffer.
+func (m *Model) historyForward() {
+	if m.chat.HistoryCur == -1 {
+		return // not browsing history
+	}
+	if m.chat.HistoryCur < len(m.chat.History)-1 {
+		m.chat.HistoryCur++
+		m.chat.Input.SetValue(m.chat.History[m.chat.HistoryCur])
+		m.chat.Input.CursorEnd()
+	} else {
+		// Return to live input.
+		m.chat.HistoryCur = -1
+		m.chat.Input.SetValue(m.chat.HistoryBuf)
+		m.chat.Input.CursorEnd()
+	}
+}
+
+// toggleSQL flips the SQL display flag. The state is reflected in the
+// hint bar color -- no chat notice needed.
+func (m *Model) toggleSQL() {
+	if m.chat == nil {
+		return
+	}
+	m.chat.ShowSQL = !m.chat.ShowSQL
+}
+
+// sqlHintItem renders the ctrl+s hint with color indicating whether SQL
+// display is active: accent when on, dim when off.
+func (m *Model) sqlHintItem() string {
+	keycaps := m.renderKeys("ctrl+s")
+	label := "sql"
+	var style lipgloss.Style
+	if m.chat != nil && m.chat.ShowSQL {
+		style = lipgloss.NewStyle().Foreground(accent).Bold(true)
+	} else {
+		style = m.styles.HeaderHint
+	}
+	return strings.TrimSpace(keycaps + " " + style.Render(label))
+}
+
+// removeLastNotice removes the most recent notice message from the chat.
+func (m *Model) removeLastNotice() {
+	for i := len(m.chat.Messages) - 1; i >= 0; i-- {
+		if m.chat.Messages[i].Role == "notice" {
+			m.chat.Messages = append(m.chat.Messages[:i], m.chat.Messages[i+1:]...)
+			return
+		}
+	}
+}
+
+func (m *Model) handleChatChunk(msg chatChunkMsg) tea.Cmd {
+	if m.chat == nil {
+		return nil
+	}
+
+	if msg.Err != nil {
+		m.chat.Streaming = false
+		m.chat.Messages = append(m.chat.Messages, chatMessage{
+			Role: "error", Content: msg.Err.Error(),
+		})
+		m.refreshChatViewport()
+		return nil
+	}
+
+	if len(m.chat.Messages) > 0 && msg.Content != "" {
+		last := &m.chat.Messages[len(m.chat.Messages)-1]
+		if last.Role == "assistant" {
+			last.Content += msg.Content
+		}
+	}
+	m.refreshChatViewport()
+
+	if msg.Done {
+		m.chat.Streaming = false
+		return nil
+	}
+
+	return waitForChunk(m.chat.StreamCh)
+}
+
+// buildFallbackMessages assembles the full message list for the single-stage
+// fallback: system prompt with schema + full data dump, then the question.
+func (m *Model) buildFallbackMessages(question string) []llm.Message {
+	tables := m.buildTableInfo()
+	dataDump := ""
+	if m.store != nil {
+		dataDump = m.store.DataDump()
+	}
+	systemPrompt := llm.BuildSystemPrompt(tables, dataDump, time.Now(), m.llmExtraContext)
+
+	return []llm.Message{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: question},
+	}
+}
+
+// buildTableInfo queries the database schema and returns it in the format
+// the prompt builder expects.
+func (m *Model) buildTableInfo() []llm.TableInfo {
+	if m.store == nil {
+		return nil
+	}
+	names, err := m.store.TableNames()
+	if err != nil {
+		return nil
+	}
+	var tables []llm.TableInfo
+	for _, name := range names {
+		cols, err := m.store.TableColumns(name)
+		if err != nil {
+			continue
+		}
+		t := llm.TableInfo{Name: name}
+		for _, c := range cols {
+			t.Columns = append(t.Columns, llm.ColumnInfo{
+				Name:    c.Name,
+				Type:    c.Type,
+				NotNull: c.NotNull,
+				PK:      c.PK > 0,
+			})
+		}
+		tables = append(tables, t)
+	}
+	return tables
+}
+
+// waitForChunk returns a Cmd that blocks until the next chunk arrives on the
+// channel, then delivers it as a chatChunkMsg.
+func waitForChunk(ch <-chan llm.StreamChunk) tea.Cmd {
+	return func() tea.Msg {
+		chunk, ok := <-ch
+		if !ok {
+			return chatChunkMsg{Done: true}
+		}
+		return chatChunkMsg{
+			Content: chunk.Content,
+			Done:    chunk.Done,
+			Err:     chunk.Err,
+		}
+	}
+}
+
+// refreshChatViewport rebuilds the viewport content from the message history.
+func (m *Model) refreshChatViewport() {
+	if m.chat == nil {
+		return
+	}
+	content := m.renderChatMessages()
+	m.chat.Viewport.SetContent(content)
+	m.chat.Viewport.GotoBottom()
+}
+
+// renderChatMessages formats the conversation for display in the viewport.
+func (m *Model) renderChatMessages() string {
+	if m.chat == nil || len(m.chat.Messages) == 0 {
+		return m.styles.HeaderHint.Render(
+			"Ask a question about your home data.\n" +
+				"Type /help for commands.",
+		)
+	}
+
+	innerW := m.chatViewportWidth()
+	var parts []string
+	for _, msg := range m.chat.Messages {
+		var rendered string
+		switch msg.Role {
+		case "user":
+			label := m.styles.ChatUser.Render(" you ")
+			// Inline compact: label then content on same line.
+			textW := innerW - lipgloss.Width(label) - 2
+			text := wordWrap(msg.Content, textW)
+			rendered = label + "  " + text
+		case "assistant":
+			label := m.styles.ChatAssistant.Render(" " + m.llmModelLabel() + " ")
+			text := msg.Content
+			if text == "" && m.chat.Streaming {
+				rendered = label + "  " + m.chat.Spinner.View() + " " + m.styles.HeaderHint.Render(
+					"thinking",
+				)
+			} else if text != "" {
+				// Markdown gets its own line since it can be multi-line,
+				// but no blank line gap -- keeps it compact.
+				rendered = label + "\n" + renderMarkdown(text, innerW-2)
+			} else {
+				rendered = label
+			}
+		case "sql":
+			// Leave room for glamour's code block padding/border.
+			sqlWidth := innerW - 8
+			if sqlWidth < 30 {
+				sqlWidth = 30
+			}
+			rendered = renderMarkdown(
+				"```sql\n"+llm.FormatSQL(msg.Content, sqlWidth)+"\n```",
+				innerW-2,
+			)
+		case "error":
+			rendered = m.styles.Error.Render("error: " + wordWrap(msg.Content, innerW-9))
+		case "notice":
+			rendered = m.styles.ChatNotice.Render(msg.Content)
+		}
+		parts = append(parts, rendered)
+	}
+	return strings.Join(parts, "\n")
+}
+
+// renderMarkdown renders markdown text for terminal display using glamour.
+func renderMarkdown(text string, width int) string {
+	if width < 10 {
+		width = 10
+	}
+	r, err := glamour.NewTermRenderer(
+		glamour.WithAutoStyle(),
+		glamour.WithWordWrap(width),
+	)
+	if err != nil {
+		return wordWrap(text, width)
+	}
+	out, err := r.Render(text)
+	if err != nil {
+		return wordWrap(text, width)
+	}
+	return strings.TrimRight(out, "\n")
+}
+
+func (m *Model) llmModelLabel() string {
+	if m.llmClient != nil {
+		return m.llmClient.Model()
+	}
+	return "LLM"
+}
+
+// handleChatKey processes keys when the chat overlay is active.
+func (m *Model) handleChatKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Completer navigation takes priority over normal input handling.
+	if mc := m.chat.Completer; mc != nil && !mc.Loading {
+		switch key.String() {
+		case keyEsc:
+			// Dismiss completer but keep "/model " in the input so the user
+			// can edit and re-trigger.
+			m.deactivateCompleter()
+			return m, nil
+		case "up", "ctrl+p":
+			if mc.Cursor > 0 {
+				mc.Cursor--
+			}
+			return m, nil
+		case "down", "ctrl+n":
+			if mc.Cursor < len(mc.Matches)-1 {
+				mc.Cursor++
+			}
+			return m, nil
+		case keyEnter:
+			if len(mc.Matches) > 0 {
+				selected := mc.Matches[mc.Cursor].Name
+				m.deactivateCompleter()
+				m.chat.Input.SetValue("")
+				return m, m.cmdSwitchModel(selected)
+			}
+			m.deactivateCompleter()
+			return m, nil
+		case "ctrl+c":
+			return m, tea.Interrupt
+		}
+	}
+
+	switch key.String() {
+	case keyEsc:
+		m.hideChat()
+		return m, nil
+	case keyEnter:
+		if m.chat.Streaming {
+			return m, nil
+		}
+		return m, m.submitChat()
+	case "ctrl+s":
+		m.toggleSQL()
+		return m, nil
+	case "ctrl+c":
+		if m.chat.Streaming && m.chat.CancelFn != nil {
+			m.chat.CancelFn()
+			m.chat.Streaming = false
+			return m, nil
+		}
+		return m, tea.Interrupt
+	case "up", "ctrl+p":
+		if m.chat.Input.Focused() && !m.chat.Streaming {
+			m.historyBack()
+			return m, nil
+		}
+	case "down", "ctrl+n":
+		if m.chat.Input.Focused() && !m.chat.Streaming {
+			m.historyForward()
+			return m, nil
+		}
+	}
+
+	// Let the text input handle the keystroke, then check whether we need
+	// to activate or deactivate the completer based on the new input value.
+	if m.chat.Input.Focused() {
+		var cmd tea.Cmd
+		m.chat.Input, cmd = m.chat.Input.Update(key)
+		return m, m.syncCompleter(cmd)
+	}
+
+	var cmd tea.Cmd
+	m.chat.Viewport, cmd = m.chat.Viewport.Update(key)
+	return m, cmd
+}
+
+// syncCompleter checks the current input value and activates/deactivates
+// the model completer as needed. It wraps an existing Cmd from the text
+// input update so both can be batched.
+func (m *Model) syncCompleter(inputCmd tea.Cmd) tea.Cmd {
+	_, isModelCmd := m.completerQuery()
+	if isModelCmd {
+		if m.chat.Completer == nil {
+			// Just crossed into "/model " territory -- activate.
+			fetchCmd := m.activateCompleter()
+			if fetchCmd != nil {
+				return tea.Batch(inputCmd, fetchCmd)
+			}
+		} else {
+			// Already active -- just refilter.
+			m.refilterCompleter()
+		}
+	} else if m.chat.Completer != nil {
+		// Input no longer starts with "/model " -- dismiss.
+		m.deactivateCompleter()
+	}
+	return inputCmd
+}
+
+// --- Chat overlay rendering ---
+
+func (m *Model) buildChatOverlay() string {
+	if m.chat == nil {
+		return ""
+	}
+
+	contentW := m.chatOverlayWidth()
+	innerW := contentW - 4
+
+	titleText := " Ask "
+	if m.llmClient != nil {
+		titleText = " " + m.llmClient.Model() + " "
+	}
+	title := m.styles.HeaderSection.Render(titleText)
+
+	vpH := m.chatViewportHeight()
+	m.chat.Viewport.Width = innerW
+	m.chat.Viewport.Height = vpH
+	vpView := m.chat.Viewport.View()
+
+	m.chat.Input.Width = innerW - 2
+	inputView := m.chat.Input.View()
+
+	// Model completer list (between input and viewport).
+	completerView := m.renderModelCompleter(innerW)
+
+	var hintParts []string
+	if m.chat.Completer != nil {
+		hintParts = append(hintParts,
+			m.helpItem("up/down", "navigate"),
+			m.helpItem("enter", "select"),
+			m.helpItem("esc", "dismiss"),
+		)
+	} else {
+		hintParts = append(hintParts,
+			m.helpItem("enter", "send"),
+			m.sqlHintItem(),
+			m.helpItem("\u2191/\u2193", "history"),
+			m.helpItem("esc", "hide"),
+		)
+	}
+	hints := joinWithSeparator(m.helpSeparator(), hintParts...)
+
+	// Pull progress bar (fixed, always visible while pulling).
+	pullView := ""
+	if m.chat.PullDisplay != "" {
+		pullView = m.styles.ChatNotice.Render(m.chat.PullDisplay)
+	}
+
+	// Build layout: title, viewport, [completer], [pull progress], input, hints.
+	sections := []string{title, "", vpView, ""}
+	if completerView != "" {
+		sections = append(sections, completerView, "")
+	}
+	if pullView != "" {
+		sections = append(sections, pullView, "")
+	}
+	sections = append(sections, inputView, "", hints)
+
+	boxContent := lipgloss.JoinVertical(lipgloss.Left, sections...)
+
+	maxH := m.effectiveHeight() * 3 / 5
+	if maxH < 12 {
+		maxH = 12
+	}
+
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(accent).
+		Padding(1, 2).
+		Width(contentW).
+		MaxHeight(maxH).
+		Render(boxContent)
+}
+
+// renderModelCompleter renders the inline model completion list with a
+// fixed height of completerMaxLines so the overlay doesn't shift.
+func (m *Model) renderModelCompleter(innerW int) string {
+	mc := m.chat.Completer
+	if mc == nil {
+		return ""
+	}
+
+	lines := make([]string, completerMaxLines)
+
+	if mc.Loading {
+		lines[0] = m.styles.HeaderHint.Render("  loading models...")
+		for i := 1; i < completerMaxLines; i++ {
+			lines[i] = ""
+		}
+		return strings.Join(lines, "\n")
+	}
+
+	if len(mc.Matches) == 0 {
+		query, _ := m.completerQuery()
+		if query != "" {
+			lines[0] = m.styles.Empty.Render("  no matching models")
+		} else {
+			lines[0] = m.styles.Empty.Render("  no models available")
+		}
+		for i := 1; i < completerMaxLines; i++ {
+			lines[i] = ""
+		}
+		return strings.Join(lines, "\n")
+	}
+
+	maxVisible := completerMaxLines
+	if maxVisible > len(mc.Matches) {
+		maxVisible = len(mc.Matches)
+	}
+	start := mc.Cursor - maxVisible/2
+	if start < 0 {
+		start = 0
+	}
+	end := start + maxVisible
+	if end > len(mc.Matches) {
+		end = len(mc.Matches)
+		start = end - maxVisible
+		if start < 0 {
+			start = 0
+		}
+	}
+
+	pointer := lipgloss.NewStyle().Foreground(accent).Bold(true)
+	lineIdx := 0
+	for i := start; i < end; i++ {
+		entry := mc.Matches[i]
+		selected := i == mc.Cursor
+
+		label := m.highlightModelMatch(entry)
+
+		var line string
+		if selected {
+			line = pointer.Render("▸ ") + label
+		} else {
+			line = "  " + label
+		}
+
+		if lipgloss.Width(line) > innerW {
+			line = lipgloss.NewStyle().MaxWidth(innerW).Render(line)
+		}
+		lines[lineIdx] = line
+		lineIdx++
+	}
+	// Pad remaining lines to maintain fixed height.
+	for i := lineIdx; i < completerMaxLines; i++ {
+		lines[i] = ""
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+// highlightModelMatch renders a model name styled by its state:
+//   - Active:                accent (sky blue) + bold
+//   - Local but inactive:   bright text (clearly available)
+//   - Not downloaded:        dim text + italic (needs fetching)
+//
+// Fuzzy-matched characters get the accent highlight regardless.
+func (m *Model) highlightModelMatch(match modelCompleterMatch) string {
+	// Determine base and highlight styles from model state.
+	var baseStyle, highlightStyle lipgloss.Style
+	switch {
+	case match.Active:
+		baseStyle = lipgloss.NewStyle().Foreground(accent).Bold(true)
+		highlightStyle = lipgloss.NewStyle().Foreground(accent).Bold(true).Underline(true)
+	case match.Local:
+		baseStyle = lipgloss.NewStyle().Foreground(textBright)
+		highlightStyle = lipgloss.NewStyle().Foreground(accent).Bold(true)
+	default:
+		baseStyle = lipgloss.NewStyle().Foreground(textDim).Italic(true)
+		highlightStyle = lipgloss.NewStyle().Foreground(accent).Bold(true).Italic(true)
+	}
+
+	if len(match.Positions) == 0 {
+		return baseStyle.Render(match.Name)
+	}
+
+	posSet := make(map[int]bool, len(match.Positions))
+	for _, p := range match.Positions {
+		posSet[p] = true
+	}
+
+	runes := []rune(match.Name)
+	var b strings.Builder
+	inMatch := false
+	var run []rune
+
+	flush := func() {
+		if len(run) == 0 {
+			return
+		}
+		if inMatch {
+			b.WriteString(highlightStyle.Render(string(run)))
+		} else {
+			b.WriteString(baseStyle.Render(string(run)))
+		}
+		run = run[:0]
+	}
+
+	for i, r := range runes {
+		matched := posSet[i]
+		if matched != inMatch {
+			flush()
+			inMatch = matched
+		}
+		run = append(run, r)
+	}
+	flush()
+
+	return b.String()
+}
+
+// --- Layout helpers ---
+
+func (m *Model) chatOverlayWidth() int {
+	w := m.effectiveWidth() - 8
+	if w > 90 {
+		w = 90
+	}
+	if w < 40 {
+		w = 40
+	}
+	return w
+}
+
+func (m *Model) chatViewportWidth() int {
+	return m.chatOverlayWidth() - 8
+}
+
+func (m *Model) chatViewportHeight() int {
+	maxOverlay := m.effectiveHeight() * 3 / 5
+	// Chrome: border(2) + padding(2) + title(1) + blanks(3)
+	// + input(1) + blank(1) + hints(1) = 11 lines.
+	chrome := 11
+	if m.chat != nil && m.chat.Completer != nil {
+		// Reserve space for the completer + its surrounding blank line.
+		chrome += completerMaxLines + 1
+	}
+	if m.chat != nil && m.chat.PullDisplay != "" {
+		// Reserve space for the pull progress (label + bar + blank).
+		chrome += 3
+	}
+	h := maxOverlay - chrome
+	if h < 4 {
+		h = 4
+	}
+	return h
+}
+
+func (m *Model) chatInputWidth() int {
+	return m.chatOverlayWidth() - 10
+}

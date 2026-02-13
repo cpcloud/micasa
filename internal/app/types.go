@@ -114,7 +114,28 @@ type detailContext struct {
 }
 
 type Options struct {
-	DBPath string
+	DBPath     string
+	ConfigPath string
+	LLMConfig  *llmConfig // nil if LLM is not configured
+}
+
+// llmConfig holds resolved LLM settings passed from main after loading the
+// TOML config. Kept as a separate type so the app package doesn't import
+// config directly.
+type llmConfig struct {
+	BaseURL      string
+	Model        string
+	ExtraContext string
+}
+
+// SetLLM configures the LLM backend on the Options. Pass empty strings to
+// disable the LLM feature.
+func (o *Options) SetLLM(baseURL, model, extraContext string) {
+	if baseURL == "" || model == "" {
+		o.LLMConfig = nil
+		return
+	}
+	o.LLMConfig = &llmConfig{BaseURL: baseURL, Model: model, ExtraContext: extraContext}
 }
 
 type alignKind int

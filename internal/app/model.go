@@ -4,18 +4,21 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/cpcloud/micasa/internal/data"
+	"github.com/cpcloud/micasa/internal/llm"
 	"gorm.io/gorm"
 )
 
@@ -34,6 +37,10 @@ var (
 type Model struct {
 	store                 *data.Store
 	dbPath                string
+	configPath            string
+	llmClient             *llm.Client
+	llmExtraContext       string // user-provided context appended to prompts
+	chat                  *chatState // non-nil when chat overlay is open
 	styles                Styles
 	tabs                  []Tab
 	active                int
@@ -73,14 +80,38 @@ type Model struct {
 
 func NewModel(store *data.Store, options Options) (*Model, error) {
 	styles := DefaultStyles()
+
+	var client *llm.Client
+	var extraContext string
+	if options.LLMConfig != nil {
+		model := options.LLMConfig.Model
+		// Prefer the last-used model from the database if available.
+		if persisted, err := store.GetLastModel(); err == nil && persisted != "" {
+			model = persisted
+		} else {
+			// No persisted model -- try auto-detecting if the server has exactly one.
+			tempClient := llm.NewClient(options.LLMConfig.BaseURL, model)
+			if detected := autoDetectModel(tempClient); detected != "" {
+				model = detected
+				// Persist so we don't re-detect every startup.
+				_ = store.PutLastModel(model)
+			}
+		}
+		client = llm.NewClient(options.LLMConfig.BaseURL, model)
+		extraContext = options.LLMConfig.ExtraContext
+	}
+
 	model := &Model{
-		store:     store,
-		dbPath:    options.DBPath,
-		styles:    styles,
-		tabs:      NewTabs(styles),
-		active:    0,
-		showHouse: false,
-		mode:      modeNormal,
+		store:           store,
+		dbPath:          options.DBPath,
+		configPath:      options.ConfigPath,
+		llmClient:       client,
+		llmExtraContext: extraContext,
+		styles:     styles,
+		tabs:       NewTabs(styles),
+		active:     0,
+		showHouse:  false,
+		mode:       modeNormal,
 	}
 	if err := model.loadLookups(); err != nil {
 		return nil, err
@@ -115,6 +146,35 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if typed.String() == "ctrl+c" {
 			return m, tea.Interrupt
 		}
+	case chatChunkMsg:
+		// Chunks arriving after chat is closed are harmlessly dropped.
+		if m.chat != nil {
+			return m, m.handleChatChunk(typed)
+		}
+		return m, nil
+	case sqlResultMsg:
+		if m.chat != nil {
+			return m, m.handleSQLResult(typed)
+		}
+		return m, nil
+	case pullProgressMsg:
+		if m.chat != nil {
+			return m, m.handlePullProgress(typed)
+		}
+		return m, nil
+	case modelsListMsg:
+		if m.chat != nil {
+			m.handleModelsListMsg(typed)
+		}
+		return m, nil
+	case spinner.TickMsg:
+		if m.chat != nil && m.chat.Streaming {
+			var cmd tea.Cmd
+			m.chat.Spinner, cmd = m.chat.Spinner.Update(msg)
+			m.refreshChatViewport()
+			return m, cmd
+		}
+		return m, nil
 	}
 
 	// Help overlay: delegate scrolling to the viewport, esc or ? dismisses.
@@ -131,6 +191,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				vp, _ := m.helpViewport.Update(keyMsg)
 				m.helpViewport = &vp
 			}
+		}
+		return m, nil
+	}
+
+	// Chat overlay: absorb all keys when visible.
+	if m.chat != nil && m.chat.Visible {
+		if typed, ok := msg.(tea.KeyMsg); ok {
+			return m.handleChatKey(typed)
 		}
 		return m, nil
 	}
@@ -387,6 +455,9 @@ func (m *Model) handleNormalKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 		if m.mode == modeForm {
 			return m.formInitCmd(), true
 		}
+		return nil, true
+	case "@":
+		m.openChat()
 		return nil, true
 	case "q":
 		return tea.Quit, true
@@ -1606,3 +1677,17 @@ var tabKindIndex = func() map[TabKind]int {
 	}
 	return m
 }()
+
+// autoDetectModel checks if the LLM server has exactly one model available
+// and returns it. Returns "" if the server is unreachable or has zero/multiple
+// models (ambiguous cases where manual config is safer).
+func autoDetectModel(client *llm.Client) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	models, err := client.ListModels(ctx)
+	if err != nil || len(models) != 1 {
+		return ""
+	}
+	return models[0]
+}

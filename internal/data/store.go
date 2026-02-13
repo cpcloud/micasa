@@ -114,6 +114,8 @@ func (s *Store) AutoMigrate() error {
 		&MaintenanceItem{},
 		&ServiceLogEntry{},
 		&DeletionRecord{},
+		&Setting{},
+		&ChatInput{},
 	)
 }
 

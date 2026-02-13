@@ -50,6 +50,9 @@ type Styles struct {
 	CalCursor       lipgloss.Style // calendar: cursor day
 	CalSelected     lipgloss.Style // calendar: previously selected day
 	CalToday        lipgloss.Style // calendar: today marker
+	ChatUser        lipgloss.Style // chat: user message label
+	ChatAssistant   lipgloss.Style // chat: assistant message label
+	ChatNotice      lipgloss.Style // chat: system notice (model switch, pull progress)
 	StatusStyles    map[string]lipgloss.Style
 }
 
@@ -230,6 +233,19 @@ func DefaultStyles() Styles {
 		CalToday: lipgloss.NewStyle().
 			Foreground(success).
 			Bold(true),
+		ChatUser: lipgloss.NewStyle().
+			Foreground(onAccent).
+			Background(secondary).
+			Padding(0, 1).
+			Bold(true),
+		ChatAssistant: lipgloss.NewStyle().
+			Foreground(onAccent).
+			Background(accent).
+			Padding(0, 1).
+			Bold(true),
+		ChatNotice: lipgloss.NewStyle().
+			Foreground(success).
+			Italic(true),
 		StatusStyles: map[string]lipgloss.Style{
 			"ideating":  lipgloss.NewStyle().Foreground(muted),
 			"planned":   lipgloss.NewStyle().Foreground(accent),

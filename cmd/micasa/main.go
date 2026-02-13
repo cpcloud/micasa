@@ -12,6 +12,7 @@ import (
 	"github.com/alecthomas/kong"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/cpcloud/micasa/internal/app"
+	"github.com/cpcloud/micasa/internal/config"
 	"github.com/cpcloud/micasa/internal/data"
 )
 
@@ -57,7 +58,19 @@ func main() {
 			fail("seed demo data", err)
 		}
 	}
-	model, err := app.NewModel(store, app.Options{DBPath: dbPath})
+
+	cfg, err := config.Load()
+	if err != nil {
+		fail("load config", err)
+	}
+
+	opts := app.Options{
+		DBPath:     dbPath,
+		ConfigPath: config.Path(),
+	}
+	opts.SetLLM(cfg.LLM.BaseURL, cfg.LLM.Model, cfg.LLM.ExtraContext)
+
+	model, err := app.NewModel(store, opts)
 	if err != nil {
 		fail("initialize app", err)
 	}
