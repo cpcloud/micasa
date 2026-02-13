@@ -301,6 +301,13 @@ func (m *Model) submitChat() tea.Cmd {
 		return nil
 	}
 
+	// Remove trailing "Interrupted" notice from a previous cancellation.
+	if n := len(m.chat.Messages); n > 0 &&
+		m.chat.Messages[n-1].Role == roleNotice &&
+		m.chat.Messages[n-1].Content == "Interrupted" {
+		m.chat.Messages = m.chat.Messages[:n-1]
+	}
+
 	m.chat.Messages = append(m.chat.Messages, chatMessage{
 		Role: roleUser, Content: query,
 	})
