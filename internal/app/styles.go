@@ -53,6 +53,7 @@ type Styles struct {
 	ChatUser        lipgloss.Style // chat: user message label
 	ChatAssistant   lipgloss.Style // chat: assistant message label
 	ChatNotice      lipgloss.Style // chat: system notice (model switch, pull progress)
+	ChatInterrupted lipgloss.Style // chat: user-initiated cancellation
 	StatusStyles    map[string]lipgloss.Style
 }
 
@@ -245,6 +246,9 @@ func DefaultStyles() Styles {
 			Bold(true),
 		ChatNotice: lipgloss.NewStyle().
 			Foreground(success).
+			Italic(true),
+		ChatInterrupted: lipgloss.NewStyle().
+			Foreground(secondary).
 			Italic(true),
 		StatusStyles: map[string]lipgloss.Style{
 			"ideating":  lipgloss.NewStyle().Foreground(muted),

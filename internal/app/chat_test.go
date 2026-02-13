@@ -157,6 +157,8 @@ func TestSQLStreamCancellation(t *testing.T) {
 
 // TestCancellationRemovesAssistantMessage verifies that pressing ctrl+c
 // removes the in-progress assistant message and shows "Interrupted" notice.
+// This tests cancelChatOperations which is the real ctrl+c handler (the global
+// handler in model.Update intercepts ctrl+c before the chat-specific handler).
 func TestCancellationRemovesAssistantMessage(t *testing.T) {
 	m := newTestModel()
 	m.openChat()
@@ -173,31 +175,25 @@ func TestCancellationRemovesAssistantMessage(t *testing.T) {
 		{Role: roleAssistant, Content: "", SQL: "SELECT * FROM"},
 	}
 
-	// Verify assistant message exists
+	// Verify assistant message exists before cancellation
 	assert.Len(t, m.chat.Messages, 3)
 	assert.Equal(t, roleAssistant, m.chat.Messages[2].Role)
 
-	// Simulate ctrl+c by calling the handler logic
-	cancelFn := m.chat.CancelFn
-	m.chat.Streaming = false
-	m.chat.StreamingSQL = false
-	m.chat.SQLStreamCh = nil
-	m.chat.CancelFn = nil
-	cancelFn()
-	m.removeLastNotice()
-	if len(m.chat.Messages) > 0 &&
-		m.chat.Messages[len(m.chat.Messages)-1].Role == roleAssistant {
-		m.chat.Messages = m.chat.Messages[:len(m.chat.Messages)-1]
-	}
-	m.chat.Messages = append(m.chat.Messages, chatMessage{
-		Role: roleNotice, Content: "Interrupted",
-	})
+	// This is what the global ctrl+c handler calls
+	m.cancelChatOperations()
 
 	// Verify assistant message was removed and Interrupted notice added
 	assert.Len(t, m.chat.Messages, 2, "should have user + interrupted notice")
 	assert.Equal(t, roleUser, m.chat.Messages[0].Role)
 	assert.Equal(t, roleNotice, m.chat.Messages[1].Role)
 	assert.Equal(t, "Interrupted", m.chat.Messages[1].Content)
+
+	// Verify all streaming state is cleaned up
+	assert.False(t, m.chat.Streaming)
+	assert.False(t, m.chat.StreamingSQL)
+	assert.Nil(t, m.chat.CancelFn)
+	assert.Nil(t, m.chat.SQLStreamCh)
+	assert.Nil(t, m.chat.StreamCh)
 }
 
 // TestCancellationRemovesAssistantWithPartialContent verifies that ctrl+c
@@ -221,25 +217,47 @@ func TestCancellationRemovesAssistantWithPartialContent(t *testing.T) {
 	assert.Len(t, m.chat.Messages, 2)
 	assert.Equal(t, "Based on the data", m.chat.Messages[1].Content)
 
-	// Simulate ctrl+c
-	cancelFn := m.chat.CancelFn
-	m.chat.Streaming = false
-	m.chat.StreamingSQL = false
-	m.chat.CancelFn = nil
-	cancelFn()
-	m.removeLastNotice()
-	if len(m.chat.Messages) > 0 &&
-		m.chat.Messages[len(m.chat.Messages)-1].Role == roleAssistant {
-		m.chat.Messages = m.chat.Messages[:len(m.chat.Messages)-1]
-	}
-	m.chat.Messages = append(m.chat.Messages, chatMessage{
-		Role: roleNotice, Content: "Interrupted",
-	})
+	// This is what the global ctrl+c handler calls
+	m.cancelChatOperations()
 
 	// Verify partial assistant message was removed
 	assert.Len(t, m.chat.Messages, 2, "should have user + interrupted notice")
 	assert.Equal(t, roleNotice, m.chat.Messages[1].Role)
 	assert.Equal(t, "Interrupted", m.chat.Messages[1].Content)
+
+	// Verify all streaming state is cleaned up
+	assert.False(t, m.chat.Streaming)
+	assert.False(t, m.chat.StreamingSQL)
+	assert.Nil(t, m.chat.CancelFn)
+}
+
+// TestCancellationWorksWithoutCancelFn verifies that ctrl+c still cleans up
+// even when CancelFn is nil (e.g. user presses ctrl+c before the LLM stream
+// has been established).
+func TestCancellationWorksWithoutCancelFn(t *testing.T) {
+	m := newTestModel()
+	m.openChat()
+
+	// Simulate the window between submitChat and handleSQLStreamStarted
+	// where Streaming is true but CancelFn hasn't been set yet
+	m.chat.Streaming = true
+	m.chat.StreamingSQL = true
+	m.chat.CancelFn = nil // not yet set
+	m.chat.Messages = []chatMessage{
+		{Role: roleUser, Content: testQuestion},
+		{Role: roleNotice, Content: "generating query"},
+		{Role: roleAssistant, Content: "", SQL: ""},
+	}
+
+	// This is what the global ctrl+c handler calls
+	m.cancelChatOperations()
+
+	// Should still clean up even without CancelFn
+	assert.Len(t, m.chat.Messages, 2, "should have user + interrupted notice")
+	assert.Equal(t, roleNotice, m.chat.Messages[1].Role)
+	assert.Equal(t, "Interrupted", m.chat.Messages[1].Content)
+	assert.False(t, m.chat.Streaming)
+	assert.False(t, m.chat.StreamingSQL)
 }
 
 // TestSpinnerOnlyShowsForLastMessage verifies that the spinner is only
@@ -290,17 +308,8 @@ func TestNoSpinnerAfterCancellation(t *testing.T) {
 		{Role: roleAssistant, Content: "", SQL: "SELECT"},
 	}
 
-	// Simulate full cancellation flow
-	m.chat.Streaming = false
-	m.chat.StreamingSQL = false
-	m.removeLastNotice()
-	if len(m.chat.Messages) > 0 &&
-		m.chat.Messages[len(m.chat.Messages)-1].Role == roleAssistant {
-		m.chat.Messages = m.chat.Messages[:len(m.chat.Messages)-1]
-	}
-	m.chat.Messages = append(m.chat.Messages, chatMessage{
-		Role: roleNotice, Content: "Interrupted",
-	})
+	// Use the real cancelChatOperations function
+	m.cancelChatOperations()
 
 	// Verify state
 	assert.Len(t, m.chat.Messages, 2)
@@ -308,8 +317,7 @@ func TestNoSpinnerAfterCancellation(t *testing.T) {
 	assert.False(t, m.chat.Streaming)
 	assert.False(t, m.chat.StreamingSQL)
 
-	// Render should not include any spinner (can't test spinner.View() output
-	// but we verify the conditions for showing spinner are false)
+	// Last message is a notice, not assistant -- no spinner can render
 	lastMsg := m.chat.Messages[len(m.chat.Messages)-1]
 	assert.NotEqual(t, roleAssistant, lastMsg.Role, "last message should not be assistant")
 }

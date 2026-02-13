@@ -224,13 +224,34 @@ func (m *Model) hideChat() {
 }
 
 // cancelChatOperations cancels any in-flight LLM streams or model pulls.
+// When the chat is visible, this also cleans up messages and shows an
+// "Interrupted" notice.
 func (m *Model) cancelChatOperations() {
 	if m.chat == nil {
 		return
 	}
-	if m.chat.Streaming && m.chat.CancelFn != nil {
-		m.chat.CancelFn()
+	if m.chat.Streaming {
+		if m.chat.CancelFn != nil {
+			m.chat.CancelFn()
+		}
 		m.chat.Streaming = false
+		m.chat.StreamingSQL = false
+		m.chat.SQLStreamCh = nil
+		m.chat.StreamCh = nil
+		m.chat.CancelFn = nil
+
+		if m.chat.Visible {
+			// Remove the "generating query" notice and incomplete assistant message.
+			m.removeLastNotice()
+			if len(m.chat.Messages) > 0 &&
+				m.chat.Messages[len(m.chat.Messages)-1].Role == roleAssistant {
+				m.chat.Messages = m.chat.Messages[:len(m.chat.Messages)-1]
+			}
+			m.chat.Messages = append(m.chat.Messages, chatMessage{
+				Role: roleNotice, Content: "Interrupted",
+			})
+			m.refreshChatViewport()
+		}
 	}
 	if m.chat.Pulling && m.chat.PullCancel != nil {
 		m.chat.PullCancel()
@@ -238,6 +259,12 @@ func (m *Model) cancelChatOperations() {
 		m.chat.PullCancel = nil
 		m.chat.PullDisplay = ""
 		m.chat.PullPeak = 0
+		if m.chat.Visible {
+			m.chat.Messages = append(m.chat.Messages, chatMessage{
+				Role: roleNotice, Content: "Pull cancelled",
+			})
+			m.refreshChatViewport()
+		}
 	}
 }
 
@@ -1258,7 +1285,11 @@ func (m *Model) renderChatMessages() string {
 			if msg.Content == "generating query" {
 				continue
 			}
-			rendered = m.styles.ChatNotice.Render(msg.Content)
+			if msg.Content == "Interrupted" || msg.Content == "Pull cancelled" {
+				rendered = m.styles.ChatInterrupted.Render(msg.Content)
+			} else {
+				rendered = m.styles.ChatNotice.Render(msg.Content)
+			}
 		}
 		parts = append(parts, rendered)
 	}
@@ -1341,45 +1372,8 @@ func (m *Model) handleChatKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.toggleChatMag()
 		return m, nil
 	case "ctrl+c":
-		// Cancel stream or pull if active.
-		if m.chat.Streaming && m.chat.CancelFn != nil {
-			cancelFn := m.chat.CancelFn
-			m.chat.Streaming = false
-			m.chat.StreamingSQL = false
-			m.chat.SQLStreamCh = nil
-			m.chat.CancelFn = nil
-			// Cancel context - this will close the stream channel and any
-			// pending waitForChunk/waitForSQLChunk will return nil.
-			cancelFn()
-			// Remove all trailing notices and incomplete assistant messages.
-			m.removeLastNotice()
-			// Remove the assistant message that was being streamed.
-			// It doesn't matter if it has partial content or SQL - if we're
-			// cancelling, we don't want to show it.
-			if len(m.chat.Messages) > 0 &&
-				m.chat.Messages[len(m.chat.Messages)-1].Role == roleAssistant {
-				m.chat.Messages = m.chat.Messages[:len(m.chat.Messages)-1]
-			}
-			// Add cancellation notice.
-			m.chat.Messages = append(m.chat.Messages, chatMessage{
-				Role: roleNotice, Content: "Interrupted",
-			})
-			m.refreshChatViewport()
-			return m, nil
-		}
-		if m.chat.Pulling && m.chat.PullCancel != nil {
-			m.chat.PullCancel()
-			m.chat.Pulling = false
-			m.chat.PullCancel = nil
-			m.chat.PullDisplay = ""
-			m.chat.PullPeak = 0
-			m.chat.Messages = append(m.chat.Messages, chatMessage{
-				Role: roleNotice, Content: "Pull cancelled",
-			})
-			m.refreshChatViewport()
-			return m, nil
-		}
-		// No active operations -- ctrl+c does nothing in chat.
+		// Handled by the global ctrl+c handler in model.Update which calls
+		// cancelChatOperations. This case is unreachable but kept for clarity.
 		return m, nil
 	case "up", "ctrl+p":
 		if m.chat.Input.Focused() && !m.chat.Streaming {
