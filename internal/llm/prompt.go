@@ -215,7 +215,8 @@ const sqlSchemaNotes = `
 Notes:
 - Maintenance scheduling: next_due = date(last_serviced, '+' || interval_months || ' months')
 - Project statuses: ideating, planned, quoted, underway, delayed, completed, abandoned
-- Warranty expiry is in the warranty_exp column (date string)`
+- Warranty expiry is in the warranty_exp column (date string)
+- Projects do not directly link to appliances. To find projects involving appliances, search project titles/descriptions for appliance-related keywords, or look for mentions in related quotes/maintenance items.`
 
 const sqlFewShot = `## Examples
 
@@ -236,6 +237,9 @@ SQL: SELECT SUM(q.amount_ct) / 100.0 AS total_dollars FROM quotes q JOIN project
 
 User: Show me all maintenance items and when they're next due
 SQL: SELECT name, last_serviced, interval_months, date(last_serviced, '+' || interval_months || ' months') AS next_due FROM maintenance_items WHERE deleted_at IS NULL ORDER BY next_due
+
+User: Which projects involve HVAC work?
+SQL: SELECT title, status, description FROM projects WHERE (title LIKE '%HVAC%' OR description LIKE '%HVAC%') AND deleted_at IS NULL
 
 Now generate SQL for the user's question.`
 
