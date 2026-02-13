@@ -25,6 +25,7 @@ import (
 const (
 	keyEsc   = "esc"
 	keyEnter = "enter"
+	keyDown  = "down"
 )
 
 // Key bindings for help viewport (g/G for top/bottom are not in the
@@ -336,7 +337,7 @@ func (m *Model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 // widgets. Keys like D, b/f, ?, q fall through to the normal handlers.
 func (m *Model) handleDashboardKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 	switch key.String() {
-	case "j", "down":
+	case "j", keyDown:
 		m.dashDown()
 		return nil, true
 	case "k", "up":
@@ -577,7 +578,7 @@ func (m *Model) handleCalendarKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		calendarMove(m.calendar, -1)
 	case "l", "right":
 		calendarMove(m.calendar, 1)
-	case "j", "down":
+	case "j", keyDown:
 		calendarMove(m.calendar, 7)
 	case "k", "up":
 		calendarMove(m.calendar, -7)
