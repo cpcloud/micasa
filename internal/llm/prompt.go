@@ -37,6 +37,7 @@ func BuildSQLPrompt(tables []TableInfo, now time.Time, extraContext string) stri
 		b.WriteString("\n")
 	}
 	b.WriteString("```\n")
+	b.WriteString(entityRelationships())
 	b.WriteString(sqlSchemaNotes)
 	b.WriteString("\n\n")
 	b.WriteString(sqlFewShot)
@@ -90,6 +91,7 @@ func BuildSystemPrompt(
 		b.WriteString(formatTable(t))
 		b.WriteString("\n")
 	}
+	b.WriteString(entityRelationships())
 	b.WriteString(fallbackSchemaNotes)
 	if dataSummary != "" {
 		b.WriteString("\n\n## Current Data\n\n")
@@ -151,6 +153,46 @@ func ExtractSQL(raw string) string {
 // is so it can reason about relative time ("last month", "overdue", etc.).
 func dateContext(now time.Time) string {
 	return fmt.Sprintf("\n\n## Current date\n\nToday is %s.", now.Format("Monday, January 2, 2006"))
+}
+
+// entityRelationships returns a text representation of the schema's FK
+// relationships, helping the LLM understand how tables connect.
+func entityRelationships() string {
+	return `
+## Entity Relationships
+
+Foreign key relationships between tables:
+
+- projects.project_type_id → project_types.id (many-to-one, RESTRICT on delete)
+  Each project has one type; types are shared lookup values.
+
+- projects.preferred_vendor_id → vendors.id (many-to-one nullable, SET NULL on delete)
+  Projects can optionally specify a preferred vendor.
+
+- quotes.project_id → projects.id (many-to-one, RESTRICT on delete)
+  Each quote belongs to one project; projects can have multiple quotes.
+
+- quotes.vendor_id → vendors.id (many-to-one, RESTRICT on delete)
+  Each quote is from one vendor; vendors can submit multiple quotes.
+
+- maintenance_items.category_id → maintenance_categories.id (many-to-one, RESTRICT on delete)
+  Each maintenance item has one category; categories are shared lookup values.
+
+- maintenance_items.appliance_id → appliances.id (many-to-one nullable, SET NULL on delete)
+  Maintenance items can optionally link to an appliance. This is the ONLY direct
+  relationship between maintenance and appliances.
+
+- service_log_entries.maintenance_item_id → maintenance_items.id (many-to-one, CASCADE on delete)
+  Each service log entry tracks work done for one maintenance item.
+
+- service_log_entries.vendor_id → vendors.id (many-to-one nullable, SET NULL on delete)
+  Service logs can optionally record which vendor performed the work.
+
+Note: There is NO direct FK between projects and appliances. To find projects
+related to appliances, use text search (LIKE) on project.title or project.description
+for appliance names/types.
+
+`
 }
 
 // ---------- DDL formatting (for SQL generation prompt) ----------
@@ -215,8 +257,7 @@ const sqlSchemaNotes = `
 Notes:
 - Maintenance scheduling: next_due = date(last_serviced, '+' || interval_months || ' months')
 - Project statuses: ideating, planned, quoted, underway, delayed, completed, abandoned
-- Warranty expiry is in the warranty_exp column (date string)
-- Projects do not directly link to appliances. To find projects involving appliances, search project titles/descriptions for appliance-related keywords, or look for mentions in related quotes/maintenance items.`
+- Warranty expiry is in the warranty_exp column (date string)`
 
 const sqlFewShot = `## Examples
 
