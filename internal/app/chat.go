@@ -1163,15 +1163,15 @@ func (m *Model) renderChatMessages() string {
 			}
 
 			// Determine what to show on the label line.
-			var labelLine string
 			if m.chat.StreamingSQL && sql == "" {
 				// Stage 1: generating SQL query
-				labelLine = label + "  " + m.chat.Spinner.View() + " " + m.styles.HeaderHint.Render(
+				labelLine := label + "  " + m.chat.Spinner.View() + " " + m.styles.HeaderHint.Render(
 					"generating query",
 				)
+				rendered = labelLine
 			} else if text == "" && m.chat.Streaming && !m.chat.StreamingSQL {
 				// Stage 2: thinking about response (may have SQL already)
-				labelLine = label + "  " + m.chat.Spinner.View() + " " + m.styles.HeaderHint.Render("thinking")
+				labelLine := label + "  " + m.chat.Spinner.View() + " " + m.styles.HeaderHint.Render("thinking")
 				// If we have parts (e.g., SQL), show them below the label.
 				if len(parts) > 0 {
 					rendered = labelLine + "\n" + strings.Join(parts, "\n")
