@@ -16,6 +16,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/cpcloud/micasa/internal/data"
 	"github.com/cpcloud/micasa/internal/llm"
 )
 
@@ -328,14 +329,17 @@ func (m *Model) submitChat() tea.Cmd {
 // startSQLStream initiates streaming SQL generation (stage 1).
 func (m *Model) startSQLStream(query string) tea.Cmd {
 	client := m.llmClient
-	tables := m.buildTableInfo()
-	columnHints := ""
-	if m.store != nil {
-		columnHints = m.store.ColumnHints()
-	}
+	store := m.store
 	extraContext := m.llmExtraContext
 
 	return func() tea.Msg {
+		// Build schema info and column hints inside the goroutine to avoid
+		// blocking the UI thread with DB queries.
+		tables := buildTableInfoFrom(store)
+		columnHints := ""
+		if store != nil {
+			columnHints = store.ColumnHints()
+		}
 		sqlPrompt := llm.BuildSQLPrompt(tables, time.Now(), columnHints, extraContext)
 
 		// Build conversation history: system + all previous user/assistant exchanges + current query.
@@ -1151,16 +1155,22 @@ func (m *Model) buildConversationHistory() []llm.Message {
 // buildTableInfo queries the database schema and returns it in the format
 // the prompt builder expects.
 func (m *Model) buildTableInfo() []llm.TableInfo {
-	if m.store == nil {
+	return buildTableInfoFrom(m.store)
+}
+
+// buildTableInfoFrom queries schema metadata from the store. Extracted so it
+// can be called from background goroutines without holding a Model reference.
+func buildTableInfoFrom(store *data.Store) []llm.TableInfo {
+	if store == nil {
 		return nil
 	}
-	names, err := m.store.TableNames()
+	names, err := store.TableNames()
 	if err != nil {
 		return nil
 	}
 	var tables []llm.TableInfo
 	for _, name := range names {
-		cols, err := m.store.TableColumns(name)
+		cols, err := store.TableColumns(name)
 		if err != nil {
 			continue
 		}
