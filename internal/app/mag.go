@@ -64,7 +64,7 @@ func magFormat(c cell, includeUnit bool) string {
 		return fmt.Sprintf("%s%s%s0", sign, unit, magArrow)
 	}
 
-	mag := int(math.Floor(math.Log10(math.Abs(f))))
+	mag := int(math.Round(math.Log10(math.Abs(f))))
 	return fmt.Sprintf("%s%s%s%d", sign, unit, magArrow, mag)
 }
 

@@ -16,11 +16,11 @@ func TestMagFormatMoneyWithUnit(t *testing.T) {
 		value string
 		want  string
 	}{
-		{"thousands", "$5,234.23", "$ \U0001F8213"},
-		{"hundreds", "$500.00", "$ \U0001F8212"},
+		{"thousands", "$5,234.23", "$ \U0001F8214"},
+		{"hundreds", "$500.00", "$ \U0001F8213"},
 		{"millions", "$1,000,000.00", "$ \U0001F8216"},
 		{"zero", "$0.00", "$ \U0001F8210"},
-		{"negative", "-$5.00", "-$ \U0001F8210"},
+		{"negative", "-$5.00", "-$ \U0001F8211"},
 		{"negative large", "-$12,345.00", "-$ \U0001F8214"},
 	}
 	for _, tt := range tests {
@@ -39,14 +39,14 @@ func TestMagFormatBareMoney(t *testing.T) {
 		value string
 		want  string
 	}{
-		{"thousands", "$5,234.23", "\U0001F8213"},
-		{"hundreds", "$500.00", "\U0001F8212"},
+		{"thousands", "$5,234.23", "\U0001F8214"},
+		{"hundreds", "$500.00", "\U0001F8213"},
 		{"millions", "$1,000,000.00", "\U0001F8216"},
-		{"tens", "$42.00", "\U0001F8211"},
-		{"single digit", "$7.50", "\U0001F8210"},
-		{"sub-dollar", "$0.50", "\U0001F821-1"},
+		{"tens", "$42.00", "\U0001F8212"},
+		{"single digit", "$7.50", "\U0001F8211"},
+		{"sub-dollar", "$0.50", "\U0001F8210"},
 		{"zero", "$0.00", "\U0001F8210"},
-		{"negative", "-$5.00", "-\U0001F8210"},
+		{"negative", "-$5.00", "-\U0001F8211"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -62,7 +62,7 @@ func TestMagFormatDrilldown(t *testing.T) {
 		value string
 		want  string
 	}{
-		{"count", "42", "\U0001F8211"},
+		{"count", "42", "\U0001F8212"},
 		{"zero", "0", "\U0001F8210"},
 		{"large", "1000", "\U0001F8213"},
 	}
@@ -138,7 +138,7 @@ func TestMagTransformCells(t *testing.T) {
 	assert.Equal(t, "Deck", out[1][1].Value)
 
 	// Money cells: magnitude only ($ stripped by transform).
-	assert.Equal(t, "\U0001F8213", out[0][2].Value)
+	assert.Equal(t, "\U0001F8214", out[0][2].Value)
 	assert.Equal(t, "\U0001F8212", out[1][2].Value)
 
 	// Drilldown counts transformed.
@@ -167,8 +167,8 @@ func TestMagModeWorksInEditMode(t *testing.T) {
 }
 
 func TestMagCentsIncludesUnit(t *testing.T) {
-	assert.Equal(t, "$ \U0001F8213", magCents(523423))
-	assert.Equal(t, "$ \U0001F8212", magCents(50000))
+	assert.Equal(t, "$ \U0001F8214", magCents(523423))
+	assert.Equal(t, "$ \U0001F8213", magCents(50000))
 	assert.Equal(t, "$ \U0001F8210", magCents(100))
 }
 
