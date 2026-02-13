@@ -111,6 +111,7 @@ type tableViewport struct {
 	CollapsedSeps []string
 	Cursor        int
 	Sorts         []sortEntry
+	VisToFull     []int // viewport column index → full tab.Specs index
 }
 
 func computeTableViewport(tab *Tab, termWidth int, normalSep string, styles Styles) tableViewport {
@@ -141,9 +142,15 @@ func computeTableViewport(tab *Tab, termWidth int, normalSep string, styles Styl
 	if visColCursor < start || visColCursor >= end {
 		vp.Cursor = -1
 	}
+	vp.VisToFull = vpVisToFull
 
-	// Widths for the viewport columns using the full terminal width.
-	vp.Widths = columnWidths(vp.Specs, vp.Cells, termWidth, sepW)
+	// Compute widths from the full (unfiltered) cell rows when pins are
+	// active so that activating/deactivating a filter doesn't shift columns.
+	widthCells := vp.Cells
+	if len(tab.Pins) > 0 && len(tab.FullCellRows) > 0 {
+		widthCells = projectCellRows(tab.FullCellRows, visToFull, start, end)
+	}
+	vp.Widths = columnWidths(vp.Specs, widthCells, termWidth, sepW)
 
 	// Per-gap separators need to match the viewport's projected columns.
 	vp.PlainSeps, vp.CollapsedSeps = gapSeparators(vpVisToFull, len(tab.Specs), normalSep, styles)
@@ -172,6 +179,28 @@ func formatHeaderCell(title, indicator string, width int) string {
 		gap = width - titleW - indW
 	}
 	return title + strings.Repeat(" ", gap) + indicator
+}
+
+// projectCellRows projects fullCellRows through the visible column mapping
+// and viewport slice [start, end). Used to compute stable column widths from
+// the unfiltered data set.
+func projectCellRows(
+	fullCellRows [][]cell,
+	visToFull []int,
+	start, end int,
+) [][]cell {
+	vpMap := visToFull[start:end]
+	projected := make([][]cell, len(fullCellRows))
+	for r, row := range fullCellRows {
+		p := make([]cell, 0, len(vpMap))
+		for _, fi := range vpMap {
+			if fi < len(row) {
+				p = append(p, row[fi])
+			}
+		}
+		projected[r] = p
+	}
+	return projected
 }
 
 // viewportSorts adjusts sort entries so column indices are relative to the
@@ -240,6 +269,14 @@ func renderDivider(
 	return joinCells(parts, separators)
 }
 
+// pinRenderContext carries pin state into the rendering pipeline so cells and
+// rows can be styled for pin preview / filter mode.
+type pinRenderContext struct {
+	Pins     []filterPin // nil when no pins are active
+	RawCells [][]cell    // pre-transform cells for pin matching (viewport coords)
+	MagMode  bool        // true when magnitude display is active
+}
+
 func renderRows(
 	specs []columnSpec,
 	rows [][]cell,
@@ -251,6 +288,7 @@ func renderRows(
 	colCursor int,
 	height int,
 	styles Styles,
+	pinCtx pinRenderContext,
 ) []string {
 	total := len(rows)
 	if total == 0 {
@@ -266,12 +304,25 @@ func renderRows(
 	for i := start; i < end; i++ {
 		selected := i == cursor
 		deleted := i < len(meta) && meta[i].Deleted
+		dimmed := i < len(meta) && meta[i].Dimmed
 		// Show ⋯ on first, middle, and last visible rows only.
 		seps := plainSeps
 		if i == start || i == mid || i == end-1 {
 			seps = collapsedSeps
 		}
-		row := renderRow(specs, rows[i], widths, seps, selected, deleted, colCursor, styles)
+		row := renderRow(
+			specs,
+			rows[i],
+			widths,
+			seps,
+			selected,
+			deleted,
+			dimmed,
+			colCursor,
+			styles,
+			pinCtx,
+			i,
+		)
 		rendered = append(rendered, row)
 	}
 	return rendered
@@ -293,8 +344,11 @@ func renderRow(
 	separators []string,
 	selected bool,
 	deleted bool,
+	dimmed bool,
 	colCursor int,
 	styles Styles,
+	pinCtx pinRenderContext,
+	rowIdx int,
 ) string {
 	cells := make([]string, 0, len(specs))
 	for i, spec := range specs {
@@ -309,10 +363,35 @@ func renderRow(
 		} else if selected {
 			hl = highlightRow
 		}
-		rendered := renderCell(cellValue, spec, width, hl, deleted, styles)
+		// Use raw (pre-transform) cell for pin matching so the comparison
+		// stays consistent with how pins were stored, regardless of
+		// display transforms (compact money, mag mode).
+		pinMatch := false
+		if len(pinCtx.Pins) > 0 {
+			rawCell := cellValue
+			if rowIdx < len(pinCtx.RawCells) && i < len(pinCtx.RawCells[rowIdx]) {
+				rawCell = pinCtx.RawCells[rowIdx][i]
+			}
+			pinMatch = cellMatchesPin(pinCtx.Pins, i, rawCell, pinCtx.MagMode)
+		}
+		rendered := renderCell(cellValue, spec, width, hl, deleted, dimmed, pinMatch, styles)
 		cells = append(cells, rendered)
 	}
 	return joinCells(cells, separators)
+}
+
+// cellMatchesPin checks if a cell matches any pinned value for its column
+// (in the viewport's coordinate space). Uses the raw cell value (pre-display
+// transform) and applies mag formatting when magMode is true to stay
+// consistent with how pins were stored.
+func cellMatchesPin(pins []filterPin, col int, c cell, magMode bool) bool {
+	key := cellDisplayValue(c, magMode)
+	for _, pin := range pins {
+		if pin.Col == col {
+			return pin.Values[key]
+		}
+	}
+	return false
 }
 
 func renderCell(
@@ -321,6 +400,8 @@ func renderCell(
 	width int,
 	hl cellHighlight,
 	deleted bool,
+	dimmed bool,
+	pinMatch bool,
 	styles Styles,
 ) string {
 	if width < 1 {
@@ -332,7 +413,7 @@ func renderCell(
 		value = "—"
 		style = styles.Empty
 	} else if cellValue.Kind == cellDrilldown {
-		return renderPillCell(value, spec, width, hl, deleted, styles)
+		return renderPillCell(value, spec, width, hl, deleted, dimmed, styles)
 	} else if cellValue.Kind == cellStatus {
 		if s, ok := styles.StatusStyles[value]; ok {
 			style = s
@@ -344,8 +425,18 @@ func renderCell(
 		style = warrantyStyle(value)
 	}
 
+	// Pin match overrides semantic color with the muted/pin color.
+	if pinMatch {
+		style = styles.Pinned
+	}
+
 	if deleted {
 		style = style.Foreground(textDim).Strikethrough(true).Italic(true)
+	}
+
+	// Dimmed rows in pin preview mode.
+	if dimmed && !deleted {
+		style = style.Foreground(textDim)
 	}
 
 	// For cursor underline and deleted strikethrough, style just the
@@ -386,9 +477,13 @@ func renderPillCell(
 	width int,
 	hl cellHighlight,
 	deleted bool,
+	dimmed bool,
 	styles Styles,
 ) string {
 	style := styles.Drilldown
+	if dimmed && !deleted {
+		style = lipgloss.NewStyle().Foreground(textDim)
+	}
 	if deleted {
 		style = lipgloss.NewStyle().
 			Foreground(textDim).

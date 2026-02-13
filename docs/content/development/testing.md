@@ -24,6 +24,7 @@ Tests live alongside the code they test:
 |------|-------|
 | `internal/app/mode_test.go` | Mode transitions, key dispatch, KeyMap switching |
 | `internal/app/sort_test.go` | Sort cycling, comparators, multi-column ordering |
+| `internal/app/filter_test.go` | Pin/unpin, preview dimming, active filtering, cross-column AND, clear |
 | `internal/app/handlers_test.go` | TabHandler implementations |
 | `internal/app/handler_crud_test.go` | Handler CRUD operations |
 | `internal/app/detail_test.go` | Drilldown stack push/pop, nested drilldowns, breadcrumbs, vendor/project drilldowns |

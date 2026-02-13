@@ -59,6 +59,7 @@ func (k TabKind) String() string {
 type rowMeta struct {
 	ID      uint
 	Deleted bool
+	Dimmed  bool // true in pin preview mode for non-matching rows
 }
 
 type sortDir int
@@ -71,6 +72,13 @@ const (
 type sortEntry struct {
 	Col int
 	Dir sortDir
+}
+
+// filterPin holds the set of pinned values for a single column.
+// Multiple values in the same column use OR (IN) semantics.
+type filterPin struct {
+	Col    int             // index in tab.Specs
+	Values map[string]bool // lowercased pinned values
 }
 
 type Tab struct {
@@ -89,6 +97,16 @@ type Tab struct {
 	HideAbandoned bool // Projects tab only: hide rows with abandoned status
 	Sorts         []sortEntry
 	Stale         bool // true when data may be outdated; cleared on reload
+
+	// Pin-and-filter state.
+	Pins         []filterPin // active pins; AND across columns, OR within
+	FilterActive bool        // true = non-matching rows hidden; false = preview only
+
+	// Full data (pre-row-filter). Populated by reloadTab after project status
+	// filtering. Row filter operates on these without hitting the DB.
+	FullRows     []table.Row
+	FullMeta     []rowMeta
+	FullCellRows [][]cell
 }
 
 type statusKind int

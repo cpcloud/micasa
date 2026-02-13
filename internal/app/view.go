@@ -419,6 +419,7 @@ func (m *Model) normalModeStatusHints(modeBadge string) []statusHint {
 			priority: 6,
 		})
 	}
+	hints = append(hints, m.pinFilterHints()...)
 	hints = append(hints,
 		statusHint{id: "ask", full: m.helpItem("@", "ask"), priority: 3},
 		statusHint{id: "edit", full: m.helpItem("i", "edit"), priority: 2},
@@ -447,6 +448,55 @@ func (m *Model) normalModeStatusHints(modeBadge string) []statusHint {
 			required: true,
 		})
 	}
+	return hints
+}
+
+// pinFilterHints returns status bar hints for pin/filter state. Always shows
+// at least the n/N key hints; adds a pin summary or eager-mode indicator when
+// relevant.
+func (m *Model) pinFilterHints() []statusHint {
+	tab := m.effectiveTab()
+	if tab == nil {
+		return nil
+	}
+	var hints []statusHint
+	pinned := hasPins(tab)
+
+	// Indicator: show pin summary or eager-mode badge.
+	if pinned {
+		summary := m.styles.Pinned.Render(pinSummary(tab))
+		label := summary
+		if tab.FilterActive {
+			label = m.styles.Pinned.Render("FILTER") + " " + summary
+		}
+		hints = append(hints, statusHint{
+			id:       "pin-summary",
+			full:     label,
+			priority: 1,
+		})
+	} else if tab.FilterActive {
+		hints = append(hints, statusHint{
+			id:       "eager-filter",
+			full:     m.styles.Pinned.Render("FILTER"),
+			priority: 1,
+		})
+	}
+
+	// Key hints: always visible so the feature is discoverable.
+	hints = append(hints, statusHint{
+		id:       "pin-key",
+		full:     m.helpItem("n", "pin"),
+		priority: 3,
+	})
+	filterLabel := "filter"
+	if tab.FilterActive {
+		filterLabel = "unfilter"
+	}
+	hints = append(hints, statusHint{
+		id:       "filter-key",
+		full:     m.helpItem("N", filterLabel),
+		priority: 3,
+	})
 	return hints
 }
 
@@ -789,6 +839,8 @@ func (m *Model) helpContent() string {
 				{"t", "Hide/show settled projects"},
 				{"/", "Find column"},
 				{"c/C", "Hide / show columns"},
+				{"n", "Pin / unpin cell value"},
+				{"N", "Toggle filter on/off"},
 				{"enter", drilldownArrow + " drilldown / " + linkArrow + " follow link / preview"},
 				{"tab", "House profile"},
 				{"D", "Summary"},
@@ -953,6 +1005,8 @@ func (m *Model) tableView(tab *Tab) string {
 	} else {
 		displayCells = compactMoneyCells(vp.Cells)
 	}
+	// Translate pin column indices from tab-space to viewport-space.
+	pinCtx := m.viewportPinContext(tab, vp)
 	rows := renderRows(
 		vp.Specs,
 		displayCells,
@@ -964,12 +1018,17 @@ func (m *Model) tableView(tab *Tab) string {
 		vp.Cursor,
 		effectiveHeight,
 		m.styles,
+		pinCtx,
 	)
 
 	// Assemble body (header + divider + data rows).
 	bodyParts := []string{header, divider}
 	if len(rows) == 0 {
-		bodyParts = append(bodyParts, m.styles.Empty.Render("No entries yet."))
+		if tab.FilterActive && hasPins(tab) {
+			bodyParts = append(bodyParts, m.styles.Empty.Render("No matches."))
+		} else {
+			bodyParts = append(bodyParts, m.styles.Empty.Render("No entries yet."))
+		}
 	} else {
 		bodyParts = append(bodyParts, strings.Join(rows, "\n"))
 	}
@@ -982,6 +1041,33 @@ func (m *Model) tableView(tab *Tab) string {
 		bodyParts = append(bodyParts, centered)
 	}
 	return joinVerticalNonEmpty(bodyParts...)
+}
+
+// viewportPinContext translates the tab's pin column indices into viewport
+// coordinate space so the renderer can identify pinned cells.
+func (m *Model) viewportPinContext(tab *Tab, vp tableViewport) pinRenderContext {
+	if !hasPins(tab) {
+		return pinRenderContext{}
+	}
+	// Build a full→viewport column index map from VisToFull.
+	fullToVP := make(map[int]int, len(vp.VisToFull))
+	for vpIdx, fullIdx := range vp.VisToFull {
+		fullToVP[fullIdx] = vpIdx
+	}
+	var translated []filterPin
+	for _, pin := range tab.Pins {
+		if vpIdx, ok := fullToVP[pin.Col]; ok {
+			translated = append(translated, filterPin{
+				Col:    vpIdx,
+				Values: pin.Values,
+			})
+		}
+	}
+	return pinRenderContext{
+		Pins:     translated,
+		RawCells: vp.Cells,
+		MagMode:  m.magMode,
+	}
 }
 
 // dimBackground applies ANSI faint (dim) to an already-styled string. It

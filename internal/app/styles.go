@@ -34,6 +34,7 @@ type Styles struct {
 	Error           lipgloss.Style
 	Info            lipgloss.Style
 	DeletedLabel    lipgloss.Style
+	Pinned          lipgloss.Style
 	LinkIndicator   lipgloss.Style
 	Breadcrumb      lipgloss.Style
 	BreadcrumbArrow lipgloss.Style
@@ -187,6 +188,8 @@ func DefaultStyles() Styles {
 			Bold(true),
 		DeletedLabel: lipgloss.NewStyle().
 			Foreground(danger),
+		Pinned: lipgloss.NewStyle().
+			Foreground(muted),
 		LinkIndicator: lipgloss.NewStyle().
 			Foreground(muted),
 		Breadcrumb: lipgloss.NewStyle().

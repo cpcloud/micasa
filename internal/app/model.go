@@ -358,7 +358,7 @@ func (m *Model) handleDashboardKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 	case "h", "l", "left", "right":
 		// Block column movement on dashboard.
 		return nil, true
-	case "s", "S", "c", "C", "i", "/":
+	case "s", "S", "c", "C", "i", "/", "n", "N":
 		// Block table-specific keys on dashboard.
 		return nil, true
 	}
@@ -379,6 +379,14 @@ func (m *Model) handleCommonKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 		m.magMode = !m.magMode
 		if m.chat != nil && m.chat.Visible {
 			m.refreshChatViewport()
+		}
+		// Translate pin values between raw and magnitude representations
+		// so the filter stays meaningful after a mode switch.
+		if tab := m.effectiveTab(); tab != nil && hasPins(tab) {
+			translatePins(tab, m.magMode)
+			applyRowFilter(tab, m.magMode)
+			applySorts(tab)
+			m.updateTabViewport(tab)
 		}
 		return nil, true
 	case "h", "left":
@@ -417,6 +425,10 @@ func (m *Model) handleNormalKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 		return nil, true
 	case "f":
 		if !m.inDetail() {
+			if tab := m.activeTab(); tab != nil && hasPins(tab) {
+				m.setStatusError("Clear pins (N) before switching tabs.")
+				return nil, true
+			}
 			if m.showDashboard {
 				m.showDashboard = false
 			}
@@ -425,11 +437,21 @@ func (m *Model) handleNormalKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 		return nil, true
 	case "b":
 		if !m.inDetail() {
+			if tab := m.activeTab(); tab != nil && hasPins(tab) {
+				m.setStatusError("Clear pins (N) before switching tabs.")
+				return nil, true
+			}
 			if m.showDashboard {
 				m.showDashboard = false
 			}
 			m.prevTab()
 		}
+		return nil, true
+	case "n":
+		m.togglePinAtCursor()
+		return nil, true
+	case "N":
+		m.toggleFilterActivation()
 		return nil, true
 	case "s":
 		if tab := m.effectiveTab(); tab != nil {
@@ -1204,9 +1226,12 @@ func (m *Model) reloadTab(tab *Tab) error {
 			tab.HideAbandoned,
 		)
 	}
-	tab.CellRows = cellRows
-	tab.Table.SetRows(rows)
-	tab.Rows = meta
+	// Store the full data set for pin-and-filter to operate on without
+	// re-querying the database.
+	tab.FullRows = rows
+	tab.FullMeta = meta
+	tab.FullCellRows = cellRows
+	applyRowFilter(tab, m.magMode)
 	tab.Stale = false
 	applySorts(tab)
 	m.updateTabViewport(tab)
@@ -1599,6 +1624,50 @@ func nextHideOrder(specs []columnSpec) int {
 	return max + 1
 }
 
+func (m *Model) togglePinAtCursor() {
+	tab := m.effectiveTab()
+	if tab == nil {
+		return
+	}
+	col := tab.ColCursor
+	if col < 0 || col >= len(tab.Specs) {
+		return
+	}
+	c, ok := m.selectedCell(col)
+	if !ok {
+		return
+	}
+	// Pin what the user sees: in mag mode, pin the magnitude value.
+	pinValue := c.Value
+	if m.magMode {
+		pinValue = magFormat(c, false)
+	}
+	pinned := togglePin(tab, col, pinValue)
+	applyRowFilter(tab, m.magMode)
+	applySorts(tab)
+	m.updateTabViewport(tab)
+	if pinned {
+		m.setStatusInfo("Pinned. N to filter, n to pin more.")
+	} else if !hasPins(tab) {
+		m.status = statusMsg{}
+	}
+}
+
+func (m *Model) toggleFilterActivation() {
+	tab := m.effectiveTab()
+	if tab == nil {
+		return
+	}
+	// Toggle between active filter and preview. Works even with no pins
+	// ("eager mode"): arm the filter first, then every n immediately filters.
+	tab.FilterActive = !tab.FilterActive
+	if hasPins(tab) {
+		applyRowFilter(tab, m.magMode)
+		applySorts(tab)
+		m.updateTabViewport(tab)
+	}
+}
+
 func (m *Model) hideCurrentColumn() {
 	tab := m.effectiveTab()
 	if tab == nil {
@@ -1616,6 +1685,11 @@ func (m *Model) hideCurrentColumn() {
 		return
 	}
 	tab.Specs[col].HideOrder = nextHideOrder(tab.Specs)
+	// Clear any pins on the hidden column.
+	clearPinsForColumn(tab, col)
+	if hasPins(tab) {
+		applyRowFilter(tab, m.magMode)
+	}
 	// Try forward first; if at the right edge fall back to backward.
 	next := nextVisibleCol(tab.Specs, col, true)
 	if next == col {

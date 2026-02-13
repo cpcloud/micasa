@@ -526,7 +526,7 @@ func TestNavBadgeLabel(t *testing.T) {
 
 func TestStatusViewProjectStatusSummaryOnlyOnProjectsTab(t *testing.T) {
 	m := newTestModel()
-	m.width = 160
+	m.width = 220
 	m.height = 40
 
 	status := m.statusView()
