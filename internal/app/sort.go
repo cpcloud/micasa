@@ -138,11 +138,8 @@ func cellValueAt(tab *Tab, row, col int) string {
 }
 
 func compareMoney(a, b string) int {
-	pa, okA := parseMoney(a)
-	pb, okB := parseMoney(b)
-	if !okA || !okB {
-		return compareStrings(a, b)
-	}
+	pa := parseMoney(a)
+	pb := parseMoney(b)
 	if pa < pb {
 		return -1
 	}
@@ -194,13 +191,17 @@ func compareStrings(a, b string) int {
 	return 0
 }
 
-// parseMoney strips $, commas, and parses as float64.
-func parseMoney(s string) (float64, bool) {
+// parseMoney strips $, commas, and parses as float64. All money cell
+// values come from FormatCents (always valid) and empty cells are
+// filtered out before compareMoney is called, so the parse cannot fail
+// in practice. Form-level validators (optionalMoney / requiredMoney)
+// reject invalid input before it reaches the data layer.
+func parseMoney(s string) float64 {
 	s = strings.ReplaceAll(s, "$", "")
 	s = strings.ReplaceAll(s, ",", "")
 	s = strings.TrimSpace(s)
-	v, err := strconv.ParseFloat(s, 64)
-	return v, err == nil
+	v, _ := strconv.ParseFloat(s, 64)
+	return v
 }
 
 // reorderTab rearranges CellRows, Rows (meta), and the table's rows

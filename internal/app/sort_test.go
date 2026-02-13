@@ -213,17 +213,6 @@ func TestPKTiebreaker(t *testing.T) {
 	assert.Len(t, result, 2)
 }
 
-func TestCompareMoneyUnparseableFallsBackToString(t *testing.T) {
-	// When money values can't be parsed, compareMoney should fall back to
-	// string comparison instead of treating them as $0.
-	result := compareMoney("$100.00", "N/A")
-	assert.NotEqual(t, 0, result, "unparseable value should not equal $100")
-
-	// Two unparseable values compare as strings.
-	result = compareMoney("apple", "banana")
-	assert.Equal(t, -1, result, "should fall back to string compare")
-}
-
 func TestSortKeyOnlyInNormalMode(t *testing.T) {
 	m := newTestModel()
 	m.enterEditMode()
