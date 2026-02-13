@@ -333,19 +333,20 @@ func TestNoSpinnerAfterCancellation(t *testing.T) {
 		"should show Interrupted notice")
 }
 
-// TestChatMagModeToggle verifies that ctrl+m toggles magnitude mode on/off.
+// TestChatMagModeToggle verifies that ctrl+m toggles the global mag mode
+// even when the chat overlay is active.
 func TestChatMagModeToggle(t *testing.T) {
 	m := newTestModel()
 	m.openChat()
 
 	// Initially off.
-	assert.False(t, m.chat.MagMode)
+	assert.False(t, m.magMode)
 
-	// Toggle on.
+	// Toggle on from within chat.
 	sendKey(m, "ctrl+m")
-	assert.True(t, m.chat.MagMode)
+	assert.True(t, m.magMode)
 
 	// Toggle off.
 	sendKey(m, "ctrl+m")
-	assert.False(t, m.chat.MagMode)
+	assert.False(t, m.magMode)
 }

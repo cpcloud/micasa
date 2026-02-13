@@ -375,7 +375,7 @@ func (m *Model) handleCommonKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 		m.showHouse = !m.showHouse
 		m.resizeTables()
 		return nil, true
-	case "m":
+	case "ctrl+m":
 		m.magMode = !m.magMode
 		return nil, true
 	case "h", "left":

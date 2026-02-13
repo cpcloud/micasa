@@ -152,9 +152,9 @@ func TestMagTransformCells(t *testing.T) {
 func TestMagModeToggle(t *testing.T) {
 	m := newTestModel()
 	assert.False(t, m.magMode)
-	sendKey(m, "m")
+	sendKey(m, "ctrl+m")
 	assert.True(t, m.magMode)
-	sendKey(m, "m")
+	sendKey(m, "ctrl+m")
 	assert.False(t, m.magMode)
 }
 
@@ -162,7 +162,7 @@ func TestMagModeWorksInEditMode(t *testing.T) {
 	m := newTestModel()
 	m.enterEditMode()
 	assert.False(t, m.magMode)
-	sendKey(m, "m")
+	sendKey(m, "ctrl+m")
 	assert.True(t, m.magMode)
 }
 
