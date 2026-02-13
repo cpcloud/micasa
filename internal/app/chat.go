@@ -19,9 +19,16 @@ import (
 	"github.com/cpcloud/micasa/internal/llm"
 )
 
+const (
+	roleAssistant = "assistant"
+	roleUser      = "user"
+	roleError     = "error"
+	roleNotice    = "notice"
+)
+
 // chatMessage is one turn in the conversation.
 type chatMessage struct {
-	Role    string // "user", "assistant", "error", or "notice"
+	Role    string // roleUser, roleAssistant, roleError, or roleNotice
 	Content string
 	SQL     string // For assistant messages: the SQL query used (if any)
 }
@@ -194,7 +201,7 @@ func (m *Model) openChat() {
 	// If no LLM client, show a hint instead of failing silently.
 	if m.llmClient == nil {
 		m.chat.Messages = append(m.chat.Messages, chatMessage{
-			Role: "notice",
+			Role: roleNotice,
 			Content: fmt.Sprintf(
 				"No LLM configured. Create %s with:\n\n[llm]\nbase_url = \"http://localhost:11434/v1\"\nmodel = \"qwen3\"",
 				m.configPath,
@@ -268,7 +275,7 @@ func (m *Model) submitChat() tea.Cmd {
 	}
 
 	m.chat.Messages = append(m.chat.Messages, chatMessage{
-		Role: "user", Content: query,
+		Role: roleUser, Content: query,
 	})
 	m.chat.Streaming = true
 	m.chat.StreamingSQL = true
@@ -277,7 +284,7 @@ func (m *Model) submitChat() tea.Cmd {
 	})
 	// Add an empty assistant message that we'll populate with SQL and later the answer.
 	m.chat.Messages = append(m.chat.Messages, chatMessage{
-		Role: "assistant", Content: "", SQL: "",
+		Role: roleAssistant, Content: "", SQL: "",
 	})
 	m.refreshChatViewport()
 
@@ -295,7 +302,7 @@ func (m *Model) startSQLStream(query string) tea.Cmd {
 		sqlPrompt := llm.BuildSQLPrompt(tables, time.Now(), extraContext)
 		messages := []llm.Message{
 			{Role: "system", Content: sqlPrompt},
-			{Role: "user", Content: query},
+			{Role: roleUser, Content: query},
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -336,7 +343,7 @@ func (m *Model) handleSlashCommand(input string) tea.Cmd {
 	case "/model":
 		if len(parts) < 2 {
 			m.chat.Messages = append(m.chat.Messages, chatMessage{
-				Role: "notice",
+				Role: roleNotice,
 				Content: "Active model: " + m.llmModelLabel() +
 					"\nUsage: /model <name>",
 			})
@@ -349,7 +356,7 @@ func (m *Model) handleSlashCommand(input string) tea.Cmd {
 		return nil
 	case "/help":
 		m.chat.Messages = append(m.chat.Messages, chatMessage{
-			Role: "notice",
+			Role: roleNotice,
 			Content: "/models          list available models\n" +
 				"/model <name>    switch model (pulls if needed)\n" +
 				"/sql             toggle SQL query display\n" +
@@ -359,7 +366,7 @@ func (m *Model) handleSlashCommand(input string) tea.Cmd {
 		return nil
 	default:
 		m.chat.Messages = append(m.chat.Messages, chatMessage{
-			Role: "error", Content: "unknown command: " + cmd + " (try /help)",
+			Role: roleError, Content: "unknown command: " + cmd + " (try /help)",
 		})
 		m.refreshChatViewport()
 		return nil
@@ -401,7 +408,7 @@ func (m *Model) handleModelsListMsg(msg modelsListMsg) {
 	// Otherwise this was a /models command -- render into chat.
 	if msg.Err != nil {
 		m.chat.Messages = append(m.chat.Messages, chatMessage{
-			Role: "error", Content: msg.Err.Error(),
+			Role: roleError, Content: msg.Err.Error(),
 		})
 		m.refreshChatViewport()
 		return
@@ -635,7 +642,7 @@ func (m *Model) handlePullProgress(msg pullProgressMsg) tea.Cmd {
 			errMsg = fmt.Sprintf("pull failed for '%s': %s", msg.Model, msg.Err.Error())
 		}
 		m.chat.Messages = append(m.chat.Messages, chatMessage{
-			Role: "error", Content: errMsg,
+			Role: roleError, Content: errMsg,
 		})
 		m.refreshChatViewport()
 		return nil
@@ -652,7 +659,7 @@ func (m *Model) handlePullProgress(msg pullProgressMsg) tea.Cmd {
 			_ = m.store.PutLastModel(msg.Model)
 		}
 		m.chat.Messages = append(m.chat.Messages, chatMessage{
-			Role: "notice", Content: msg.Status,
+			Role: roleNotice, Content: msg.Status,
 		})
 		m.refreshChatViewport()
 		return nil
@@ -729,7 +736,7 @@ func (m *Model) handleSQLResult(msg sqlResultMsg) tea.Cmd {
 	if msg.Err != nil {
 		// Fall back to single-stage: dump all data and ask directly.
 		m.chat.Messages = append(m.chat.Messages, chatMessage{
-			Role: "notice", Content: "falling back to direct query\u2026",
+			Role: roleNotice, Content: "falling back to direct query\u2026",
 		})
 		m.refreshChatViewport()
 		return m.startFallbackStream(msg.Question)
@@ -749,7 +756,7 @@ func (m *Model) handleSQLResult(msg sqlResultMsg) tea.Cmd {
 
 	messages := []llm.Message{
 		{Role: "system", Content: summaryPrompt},
-		{Role: "user", Content: "Summarize these results."},
+		{Role: roleUser, Content: "Summarize these results."},
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -883,7 +890,7 @@ func (m *Model) magHintItem() string {
 // removeLastNotice removes the most recent notice message from the chat.
 func (m *Model) removeLastNotice() {
 	for i := len(m.chat.Messages) - 1; i >= 0; i-- {
-		if m.chat.Messages[i].Role == "notice" {
+		if m.chat.Messages[i].Role == roleNotice {
 			m.chat.Messages = append(m.chat.Messages[:i], m.chat.Messages[i+1:]...)
 			return
 		}
@@ -897,11 +904,12 @@ func (m *Model) handleSQLStreamStarted(msg sqlStreamStartedMsg) tea.Cmd {
 		m.chat.StreamingSQL = false
 		m.removeLastNotice() // Remove "generating query"
 		// Remove empty assistant message we added.
-		if len(m.chat.Messages) > 0 && m.chat.Messages[len(m.chat.Messages)-1].Role == "assistant" {
+		if len(m.chat.Messages) > 0 &&
+			m.chat.Messages[len(m.chat.Messages)-1].Role == roleAssistant {
 			m.chat.Messages = m.chat.Messages[:len(m.chat.Messages)-1]
 		}
 		m.chat.Messages = append(m.chat.Messages, chatMessage{
-			Role: "error", Content: msg.Err.Error(),
+			Role: roleError, Content: msg.Err.Error(),
 		})
 		m.refreshChatViewport()
 		return nil
@@ -931,16 +939,24 @@ func waitForSQLChunk(ch <-chan llm.StreamChunk) tea.Cmd {
 
 // handleSQLChunk processes a single SQL token from the stream.
 func (m *Model) handleSQLChunk(msg sqlChunkMsg) tea.Cmd {
+	// If we're no longer streaming SQL, this chunk arrived after cancellation.
+	// Ignore it silently.
+	if !m.chat.StreamingSQL {
+		return nil
+	}
+
 	if msg.Err != nil {
 		m.chat.Streaming = false
 		m.chat.StreamingSQL = false
+		m.chat.CancelFn = nil
 		m.removeLastNotice()
 		// Remove incomplete assistant message.
-		if len(m.chat.Messages) > 0 && m.chat.Messages[len(m.chat.Messages)-1].Role == "assistant" {
+		if len(m.chat.Messages) > 0 &&
+			m.chat.Messages[len(m.chat.Messages)-1].Role == roleAssistant {
 			m.chat.Messages = m.chat.Messages[:len(m.chat.Messages)-1]
 		}
 		m.chat.Messages = append(m.chat.Messages, chatMessage{
-			Role: "error", Content: msg.Err.Error(),
+			Role: roleError, Content: msg.Err.Error(),
 		})
 		m.refreshChatViewport()
 		return nil
@@ -949,7 +965,7 @@ func (m *Model) handleSQLChunk(msg sqlChunkMsg) tea.Cmd {
 	// Append to the SQL field of the assistant message (last message should be the assistant one).
 	if len(m.chat.Messages) > 0 {
 		lastIdx := len(m.chat.Messages) - 1
-		if m.chat.Messages[lastIdx].Role == "assistant" {
+		if m.chat.Messages[lastIdx].Role == roleAssistant {
 			m.chat.Messages[lastIdx].SQL += msg.Content
 			m.refreshChatViewport()
 		}
@@ -960,7 +976,8 @@ func (m *Model) handleSQLChunk(msg sqlChunkMsg) tea.Cmd {
 		m.chat.StreamingSQL = false
 		m.chat.SQLStreamCh = nil
 		sql := ""
-		if len(m.chat.Messages) > 0 && m.chat.Messages[len(m.chat.Messages)-1].Role == "assistant" {
+		if len(m.chat.Messages) > 0 &&
+			m.chat.Messages[len(m.chat.Messages)-1].Role == roleAssistant {
 			sql = llm.ExtractSQL(m.chat.Messages[len(m.chat.Messages)-1].SQL)
 		}
 		m.removeLastNotice() // Remove "generating query"
@@ -969,18 +986,19 @@ func (m *Model) handleSQLChunk(msg sqlChunkMsg) tea.Cmd {
 			m.chat.Streaming = false
 			// Remove incomplete assistant message.
 			if len(m.chat.Messages) > 0 &&
-				m.chat.Messages[len(m.chat.Messages)-1].Role == "assistant" {
+				m.chat.Messages[len(m.chat.Messages)-1].Role == roleAssistant {
 				m.chat.Messages = m.chat.Messages[:len(m.chat.Messages)-1]
 			}
 			m.chat.Messages = append(m.chat.Messages, chatMessage{
-				Role: "error", Content: "LLM returned empty SQL",
+				Role: roleError, Content: "LLM returned empty SQL",
 			})
 			m.refreshChatViewport()
 			return nil
 		}
 
 		// Store the cleaned SQL back into the message.
-		if len(m.chat.Messages) > 0 && m.chat.Messages[len(m.chat.Messages)-1].Role == "assistant" {
+		if len(m.chat.Messages) > 0 &&
+			m.chat.Messages[len(m.chat.Messages)-1].Role == roleAssistant {
 			m.chat.Messages[len(m.chat.Messages)-1].SQL = sql
 		}
 
@@ -1017,10 +1035,17 @@ func (m *Model) handleChatChunk(msg chatChunkMsg) tea.Cmd {
 		return nil
 	}
 
+	// If we're no longer streaming, this chunk arrived after cancellation.
+	// Ignore it silently.
+	if !m.chat.Streaming {
+		return nil
+	}
+
 	if msg.Err != nil {
 		m.chat.Streaming = false
+		m.chat.CancelFn = nil
 		m.chat.Messages = append(m.chat.Messages, chatMessage{
-			Role: "error", Content: msg.Err.Error(),
+			Role: roleError, Content: msg.Err.Error(),
 		})
 		m.refreshChatViewport()
 		return nil
@@ -1028,7 +1053,7 @@ func (m *Model) handleChatChunk(msg chatChunkMsg) tea.Cmd {
 
 	if len(m.chat.Messages) > 0 && msg.Content != "" {
 		last := &m.chat.Messages[len(m.chat.Messages)-1]
-		if last.Role == "assistant" {
+		if last.Role == roleAssistant {
 			last.Content += msg.Content
 		}
 	}
@@ -1036,6 +1061,7 @@ func (m *Model) handleChatChunk(msg chatChunkMsg) tea.Cmd {
 
 	if msg.Done {
 		m.chat.Streaming = false
+		m.chat.CancelFn = nil
 		return nil
 	}
 
@@ -1060,7 +1086,7 @@ func (m *Model) buildFallbackMessages(question string) []llm.Message {
 
 	return []llm.Message{
 		{Role: "system", Content: systemPrompt},
-		{Role: "user", Content: question},
+		{Role: roleUser, Content: question},
 	}
 }
 
@@ -1131,13 +1157,13 @@ func (m *Model) renderChatMessages() string {
 	for i, msg := range m.chat.Messages {
 		var rendered string
 		switch msg.Role {
-		case "user":
+		case roleUser:
 			label := m.styles.ChatUser.Render(" you ")
 			// Inline compact: label then content on same line.
 			textW := innerW - lipgloss.Width(label) - 2
 			text := wordWrap(msg.Content, textW)
 			rendered = label + "  " + text
-		case "assistant":
+		case roleAssistant:
 			label := m.styles.ChatAssistant.Render(" " + m.llmModelLabel() + " ")
 			text := msg.Content
 			sql := msg.SQL
@@ -1192,9 +1218,9 @@ func (m *Model) renderChatMessages() string {
 				sep := strings.Repeat("─", innerW)
 				rendered += "\n" + lipgloss.NewStyle().Foreground(textDim).Render(sep)
 			}
-		case "error":
+		case roleError:
 			rendered = m.styles.Error.Render("error: " + wordWrap(msg.Content, innerW-9))
-		case "notice":
+		case roleNotice:
 			// Skip "generating query" notice - status is shown inline with model label.
 			if msg.Content == "generating query" {
 				continue
@@ -1284,20 +1310,24 @@ func (m *Model) handleChatKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c":
 		// Cancel stream or pull if active.
 		if m.chat.Streaming && m.chat.CancelFn != nil {
-			m.chat.CancelFn()
+			// Set flags first to prevent processing the cancellation chunk.
+			cancelFn := m.chat.CancelFn
 			m.chat.Streaming = false
 			m.chat.StreamingSQL = false
 			m.chat.SQLStreamCh = nil
+			m.chat.CancelFn = nil
+			// Now cancel - any chunks that arrive will be ignored.
+			cancelFn()
 			// Remove "generating query" notice and add cancellation message.
 			m.removeLastNotice()
 			// If we have an incomplete assistant message, remove it.
 			if len(m.chat.Messages) > 0 &&
-				m.chat.Messages[len(m.chat.Messages)-1].Role == "assistant" &&
+				m.chat.Messages[len(m.chat.Messages)-1].Role == roleAssistant &&
 				m.chat.Messages[len(m.chat.Messages)-1].Content == "" {
 				m.chat.Messages = m.chat.Messages[:len(m.chat.Messages)-1]
 			}
 			m.chat.Messages = append(m.chat.Messages, chatMessage{
-				Role: "notice", Content: "Cancelled",
+				Role: roleNotice, Content: "Cancelled",
 			})
 			m.refreshChatViewport()
 			return m, nil
@@ -1309,7 +1339,7 @@ func (m *Model) handleChatKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.chat.PullDisplay = ""
 			m.chat.PullPeak = 0
 			m.chat.Messages = append(m.chat.Messages, chatMessage{
-				Role: "notice", Content: "Pull cancelled",
+				Role: roleNotice, Content: "Pull cancelled",
 			})
 			m.refreshChatViewport()
 			return m, nil
