@@ -304,6 +304,24 @@ These have been repeatedly requested. Violating them wastes the user's time.
 - **No `=` in CI go commands**: PowerShell (Windows runner) misparses `=`
   in command-line flags. Use space-separated form: `-bench .` not
   `-bench=.`, `-run '^$'` not `-run='^$'`.
+- **NEVER EVER EVER use `git commit --no-verify`**: This is ABSOLUTELY
+  FORBIDDEN under ALL circumstances. ZERO EXCEPTIONS. If pre-commit hooks
+  fail, you MUST FIX EVERY SINGLE ISSUE before committing. There is NO
+  scenario where bypassing pre-commit is acceptable. Not for "pre-existing
+  issues", not for "unrelated changes", not for time pressure, not for
+  ANYTHING. Using --no-verify is a SEVERE violation that has REPEATEDLY
+  caused user-visible bugs. If pre-commit fails, STOP, FIX THE CODE, and
+  do not proceed until every hook passes cleanly.
+- **Linter/compiler warnings are CRITICAL BUGS that BREAK THE APPLICATION**:
+  Every single warning from `golangci-lint`, `staticcheck`, `golines`, or
+  any compiler is a REAL BUG that WILL cause runtime failures, not a style
+  suggestion. Example: staticcheck SA4006 "this value of X is never used"
+  means you wrote dead code that was supposed to do something but doesn't,
+  causing features to silently fail. EVERY warning indicates broken
+  functionality. Treat each one as P0 critical. If you think a warning is
+  a false positive, you are wrong—the code is unclear and must be
+  refactored until the tool is satisfied. NO exceptions, NO shortcuts, NO
+  dismissing warnings. Fix them ALL before committing.
 - **PR test plans: manual steps only**: Don't list test plan items that CI
   already covers (vet, tests pass, lint, pre-commit). Only include steps
   that require manual verification or aren't automated.
