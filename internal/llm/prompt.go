@@ -255,9 +255,9 @@ RULES:
 
 const sqlSchemaNotes = `
 Notes:
-- Maintenance scheduling: next_due = date(last_serviced, '+' || interval_months || ' months')
+- Maintenance scheduling: next_due = date(last_serviced_at, '+' || interval_months || ' months')
 - Project statuses: ideating, planned, quoted, underway, delayed, completed, abandoned
-- Warranty expiry is in the warranty_exp column (date string)
+- Warranty expiry is in the warranty_expiry column (date string)
 - For case-insensitive text search, use UPPER() or LOWER() on both sides: WHERE LOWER(title) LIKE LOWER('%hvac%')`
 
 const sqlFewShot = `## Examples
@@ -266,31 +266,31 @@ User: How many projects are underway?
 SQL: SELECT COUNT(*) AS count FROM projects WHERE status = 'underway' AND deleted_at IS NULL
 
 User: What's my most expensive project?
-SQL: SELECT name, budget_ct / 100.0 AS budget_dollars FROM projects WHERE deleted_at IS NULL ORDER BY budget_ct DESC LIMIT 1
+SQL: SELECT name, budget_cents / 100.0 AS budget_dollars FROM projects WHERE deleted_at IS NULL ORDER BY budget_cents DESC LIMIT 1
 
 User: When is the HVAC filter due?
-SQL: SELECT m.name, m.last_serviced, m.interval_months, date(m.last_serviced, '+' || m.interval_months || ' months') AS next_due FROM maintenance_items m WHERE m.name LIKE '%HVAC%' AND m.deleted_at IS NULL
+SQL: SELECT m.name, m.last_serviced_at, m.interval_months, date(m.last_serviced_at, '+' || m.interval_months || ' months') AS next_due FROM maintenance_items m WHERE m.name LIKE '%HVAC%' AND m.deleted_at IS NULL
 
 User: Which appliances have expiring warranties in the next 90 days?
-SQL: SELECT name, warranty_exp FROM appliances WHERE warranty_exp IS NOT NULL AND warranty_exp BETWEEN date('now') AND date('now', '+90 days') AND deleted_at IS NULL
+SQL: SELECT name, warranty_expiry FROM appliances WHERE warranty_expiry IS NOT NULL AND warranty_expiry BETWEEN date('now') AND date('now', '+90 days') AND deleted_at IS NULL
 
 User: How much have I spent on plumbing?
-SQL: SELECT SUM(q.amount_ct) / 100.0 AS total_dollars FROM quotes q JOIN projects p ON q.project_id = p.id WHERE p.project_type = 'plumbing' AND p.deleted_at IS NULL AND q.deleted_at IS NULL
+SQL: SELECT SUM(q.total_cents) / 100.0 AS total_dollars FROM quotes q JOIN projects p ON q.project_id = p.id JOIN project_types pt ON p.project_type_id = pt.id WHERE pt.name = 'plumbing' AND p.deleted_at IS NULL AND q.deleted_at IS NULL
 
 User: Show me all maintenance items and when they're next due
-SQL: SELECT name, last_serviced, interval_months, date(last_serviced, '+' || interval_months || ' months') AS next_due FROM maintenance_items WHERE deleted_at IS NULL ORDER BY next_due
+SQL: SELECT name, last_serviced_at, interval_months, date(last_serviced_at, '+' || interval_months || ' months') AS next_due FROM maintenance_items WHERE deleted_at IS NULL ORDER BY next_due
 
 User: Which projects involve HVAC work?
 SQL: SELECT title, status, description FROM projects WHERE (LOWER(title) LIKE LOWER('%hvac%') OR LOWER(description) LIKE LOWER('%hvac%')) AND deleted_at IS NULL
 
 User: Show me total spending by project status
-SQL: SELECT status, SUM(actual_ct) / 100.0 AS total_dollars FROM projects WHERE deleted_at IS NULL GROUP BY status ORDER BY total_dollars DESC
+SQL: SELECT status, SUM(actual_cents) / 100.0 AS total_dollars FROM projects WHERE deleted_at IS NULL GROUP BY status ORDER BY total_dollars DESC
 
 User: Which vendors have given me the most quotes?
 SQL: SELECT v.name, COUNT(q.id) AS quote_count FROM vendors v JOIN quotes q ON v.id = q.vendor_id WHERE v.deleted_at IS NULL AND q.deleted_at IS NULL GROUP BY v.id, v.name ORDER BY quote_count DESC
 
 User: What's the average quote amount for each project type?
-SQL: SELECT pt.name AS project_type, AVG(q.total_ct) / 100.0 AS avg_quote_dollars FROM project_types pt JOIN projects p ON pt.id = p.project_type_id JOIN quotes q ON p.id = q.project_id WHERE p.deleted_at IS NULL AND q.deleted_at IS NULL GROUP BY pt.id, pt.name ORDER BY avg_quote_dollars DESC
+SQL: SELECT pt.name AS project_type, AVG(q.total_cents) / 100.0 AS avg_quote_dollars FROM project_types pt JOIN projects p ON pt.id = p.project_type_id JOIN quotes q ON p.id = q.project_id WHERE p.deleted_at IS NULL AND q.deleted_at IS NULL GROUP BY pt.id, pt.name ORDER BY avg_quote_dollars DESC
 
 Now generate SQL for the user's question.`
 
