@@ -963,6 +963,11 @@ func waitForSQLChunk(ch <-chan llm.StreamChunk) tea.Cmd {
 
 // handleSQLChunk processes a single SQL token from the stream.
 func (m *Model) handleSQLChunk(msg sqlChunkMsg) tea.Cmd {
+	// Drop chunks that arrive after cancellation has already cleaned up.
+	if !m.chat.Streaming {
+		return nil
+	}
+
 	if msg.Err != nil {
 		m.chat.Streaming = false
 		m.chat.StreamingSQL = false
@@ -1049,7 +1054,7 @@ func (m *Model) executeSQLQuery(sql string) tea.Cmd {
 }
 
 func (m *Model) handleChatChunk(msg chatChunkMsg) tea.Cmd {
-	if m.chat == nil {
+	if m.chat == nil || !m.chat.Streaming {
 		return nil
 	}
 

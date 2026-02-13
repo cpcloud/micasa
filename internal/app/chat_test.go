@@ -333,6 +333,68 @@ func TestNoSpinnerAfterCancellation(t *testing.T) {
 		"should show Interrupted notice")
 }
 
+// TestLateSQLChunkAfterCancellationIsDropped verifies that a Done chunk
+// arriving after ctrl+c doesn't overwrite the "Interrupted" notice with
+// "LLM returned empty SQL". This reproduces the race where the channel
+// has a buffered Done chunk that gets delivered after cancelChatOperations.
+func TestLateSQLChunkAfterCancellationIsDropped(t *testing.T) {
+	m := newTestModel()
+	m.openChat()
+
+	_, cancel := context.WithCancel(context.Background())
+	m.chat.Streaming = true
+	m.chat.StreamingSQL = true
+	m.chat.CancelFn = cancel
+	m.chat.Messages = []chatMessage{
+		{Role: roleUser, Content: testQuestion},
+		{Role: roleNotice, Content: "generating query"},
+		{Role: roleAssistant, Content: "", SQL: "SELECT"},
+	}
+
+	// Cancel first (this is what ctrl+c does).
+	m.cancelChatOperations()
+
+	rendered := m.renderChatMessages()
+	assert.Contains(t, rendered, "Interrupted")
+
+	// Now simulate a late Done chunk arriving from the buffered channel.
+	cmd := m.handleSQLChunk(sqlChunkMsg{Done: true})
+	assert.Nil(t, cmd, "late chunk should be dropped")
+
+	// The rendered output must still show "Interrupted", not the error.
+	rendered = m.renderChatMessages()
+	assert.Contains(t, rendered, "Interrupted",
+		"Interrupted notice must survive a late Done chunk")
+	assert.NotContains(t, rendered, "LLM returned empty SQL",
+		"late Done chunk must not produce an error after cancellation")
+}
+
+// TestLateChatChunkAfterCancellationIsDropped is the stage-2 equivalent:
+// a streamed answer chunk arriving after cancellation should be ignored.
+func TestLateChatChunkAfterCancellationIsDropped(t *testing.T) {
+	m := newTestModel()
+	m.openChat()
+
+	_, cancel := context.WithCancel(context.Background())
+	m.chat.Streaming = true
+	m.chat.CancelFn = cancel
+	m.chat.Messages = []chatMessage{
+		{Role: roleUser, Content: testQuestion},
+		{Role: roleAssistant, Content: "partial", SQL: "SELECT 1"},
+	}
+
+	m.cancelChatOperations()
+
+	// Late chunk from the answer stream.
+	cmd := m.handleChatChunk(chatChunkMsg{Content: " more", Done: false})
+	assert.Nil(t, cmd, "late chunk should be dropped")
+
+	rendered := m.renderChatMessages()
+	assert.Contains(t, rendered, "Interrupted")
+	assert.NotContains(t, rendered, "partial",
+		"partial content should have been removed by cancellation")
+}
+
 // TestChatMagModeToggle verifies that ctrl+m toggles the global mag mode
 // even when the chat overlay is active.
 func TestChatMagModeToggle(t *testing.T) {
