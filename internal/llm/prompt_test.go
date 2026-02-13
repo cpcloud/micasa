@@ -34,7 +34,7 @@ var testNow = time.Date(2026, 2, 13, 10, 0, 0, 0, time.UTC)
 // --- BuildSystemPrompt (fallback) ---
 
 func TestBuildSystemPromptIncludesSchema(t *testing.T) {
-	prompt := BuildSystemPrompt(testTables, "", testNow, "")
+	prompt := BuildSystemPrompt(testTables, "", testNow, "", false)
 	assert.Contains(t, prompt, "projects")
 	assert.Contains(t, prompt, "id integer PK")
 	assert.Contains(t, prompt, "title text NOT NULL")
@@ -48,25 +48,37 @@ func TestBuildSystemPromptIncludesData(t *testing.T) {
 		"### projects (3 rows)\n\n- id: 1, title: Fix roof\n",
 		testNow,
 		"",
+		false,
 	)
 	assert.Contains(t, prompt, "Fix roof")
 	assert.Contains(t, prompt, "Current Data")
 }
 
 func TestBuildSystemPromptOmitsDataWhenEmpty(t *testing.T) {
-	prompt := BuildSystemPrompt(nil, "", testNow, "")
+	prompt := BuildSystemPrompt(nil, "", testNow, "", false)
 	assert.NotContains(t, prompt, "Current Data")
 }
 
 func TestBuildSystemPromptIncludesCurrentDate(t *testing.T) {
-	prompt := BuildSystemPrompt(nil, "", testNow, "")
+	prompt := BuildSystemPrompt(nil, "", testNow, "", false)
 	assert.Contains(t, prompt, "Friday, February 13, 2026")
 }
 
 func TestBuildSystemPromptIncludesExtraContext(t *testing.T) {
-	prompt := BuildSystemPrompt(nil, "", testNow, "House is a 1920s craftsman.")
+	prompt := BuildSystemPrompt(nil, "", testNow, "House is a 1920s craftsman.", false)
 	assert.Contains(t, prompt, "Additional context")
 	assert.Contains(t, prompt, "1920s craftsman")
+}
+
+func TestBuildSystemPromptIncludesMagGuideline(t *testing.T) {
+	prompt := BuildSystemPrompt(nil, "", testNow, "", true)
+	assert.Contains(t, prompt, "MAGNITUDE MODE")
+	assert.Contains(t, prompt, "\U0001F821") // 🠡
+}
+
+func TestBuildSystemPromptOmitsMagGuidelineWhenOff(t *testing.T) {
+	prompt := BuildSystemPrompt(nil, "", testNow, "", false)
+	assert.NotContains(t, prompt, "MAGNITUDE MODE")
 }
 
 // --- BuildSQLPrompt ---
@@ -113,6 +125,7 @@ func TestBuildSummaryPromptIncludesAllParts(t *testing.T) {
 		"count\n3\n",
 		testNow,
 		"",
+		false,
 	)
 	assert.Contains(t, prompt, "How many projects?")
 	assert.Contains(t, prompt, "SELECT COUNT(*)")
@@ -121,14 +134,25 @@ func TestBuildSummaryPromptIncludesAllParts(t *testing.T) {
 }
 
 func TestBuildSummaryPromptIncludesCurrentDate(t *testing.T) {
-	prompt := BuildSummaryPrompt("test", "SELECT 1", "1\n", testNow, "")
+	prompt := BuildSummaryPrompt("test", "SELECT 1", "1\n", testNow, "", false)
 	assert.Contains(t, prompt, "Friday, February 13, 2026")
 }
 
 func TestBuildSummaryPromptIncludesExtraContext(t *testing.T) {
-	prompt := BuildSummaryPrompt("test", "SELECT 1", "1\n", testNow, "Currency is CAD.")
+	prompt := BuildSummaryPrompt("test", "SELECT 1", "1\n", testNow, "Currency is CAD.", false)
 	assert.Contains(t, prompt, "Additional context")
 	assert.Contains(t, prompt, "Currency is CAD")
+}
+
+func TestBuildSummaryPromptIncludesMagGuideline(t *testing.T) {
+	prompt := BuildSummaryPrompt("test", "SELECT 1", "1\n", testNow, "", true)
+	assert.Contains(t, prompt, "MAGNITUDE MODE")
+	assert.Contains(t, prompt, "\U0001F821") // 🠡
+}
+
+func TestBuildSummaryPromptOmitsMagGuidelineWhenOff(t *testing.T) {
+	prompt := BuildSummaryPrompt("test", "SELECT 1", "1\n", testNow, "", false)
+	assert.NotContains(t, prompt, "MAGNITUDE MODE")
 }
 
 // --- FormatResultsTable ---
@@ -190,7 +214,7 @@ func TestBuildSQLPromptIncludesEntityRelationships(t *testing.T) {
 }
 
 func TestBuildSystemPromptIncludesEntityRelationships(t *testing.T) {
-	prompt := BuildSystemPrompt(testTables, "", testNow, "")
+	prompt := BuildSystemPrompt(testTables, "", testNow, "", false)
 	assert.Contains(t, prompt, "## Entity Relationships")
 	assert.Contains(t, prompt, "Foreign key relationships")
 	assert.Contains(t, prompt, "projects.project_type_id")

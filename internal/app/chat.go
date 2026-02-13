@@ -45,6 +45,7 @@ type chatState struct {
 	PullCancel   context.CancelFunc
 	Completer    *modelCompleter // non-nil when the model picker is showing
 	ShowSQL      bool            // when true, show generated SQL as a notice
+	MagMode      bool            // when true, LLM outputs numbers in magnitude notation
 	History      []string        // past user inputs, newest last
 	HistoryCur   int             // index into History for up/down browsing (-1 = live input)
 	HistoryBuf   string          // stashed live input while browsing history
@@ -743,6 +744,7 @@ func (m *Model) handleSQLResult(msg sqlResultMsg) tea.Cmd {
 		resultsTable,
 		time.Now(),
 		m.llmExtraContext,
+		m.chat.MagMode,
 	)
 
 	messages := []llm.Message{
@@ -844,6 +846,14 @@ func (m *Model) toggleSQL() {
 	m.refreshChatViewport()
 }
 
+func (m *Model) toggleChatMag() {
+	if m.chat == nil {
+		return
+	}
+	m.chat.MagMode = !m.chat.MagMode
+	m.refreshChatViewport()
+}
+
 // sqlHintItem renders the ctrl+s hint with color indicating whether SQL
 // display is active: accent when on, dim when off.
 func (m *Model) sqlHintItem() string {
@@ -855,6 +865,18 @@ func (m *Model) sqlHintItem() string {
 	} else {
 		style = m.styles.HeaderHint
 	}
+	return strings.TrimSpace(keycaps + " " + style.Render(label))
+}
+
+// magHintItem renders the ctrl+m hint with color indicating whether mag mode
+// is active: accent when on, dim when off. Only visible when active.
+func (m *Model) magHintItem() string {
+	if m.chat == nil || !m.chat.MagMode {
+		return ""
+	}
+	keycaps := m.renderKeys("ctrl+m")
+	label := magArrow
+	style := lipgloss.NewStyle().Foreground(accent).Bold(true)
 	return strings.TrimSpace(keycaps + " " + style.Render(label))
 }
 
@@ -1028,7 +1050,13 @@ func (m *Model) buildFallbackMessages(question string) []llm.Message {
 	if m.store != nil {
 		dataDump = m.store.DataDump()
 	}
-	systemPrompt := llm.BuildSystemPrompt(tables, dataDump, time.Now(), m.llmExtraContext)
+	systemPrompt := llm.BuildSystemPrompt(
+		tables,
+		dataDump,
+		time.Now(),
+		m.llmExtraContext,
+		m.chat.MagMode,
+	)
 
 	return []llm.Message{
 		{Role: "system", Content: systemPrompt},
@@ -1138,7 +1166,9 @@ func (m *Model) renderChatMessages() string {
 			var labelLine string
 			if m.chat.StreamingSQL && sql == "" {
 				// Stage 1: generating SQL query
-				labelLine = label + "  " + m.chat.Spinner.View() + " " + m.styles.HeaderHint.Render("generating query")
+				labelLine = label + "  " + m.chat.Spinner.View() + " " + m.styles.HeaderHint.Render(
+					"generating query",
+				)
 			} else if text == "" && m.chat.Streaming && !m.chat.StreamingSQL {
 				// Stage 2: thinking about response (may have SQL already)
 				labelLine = label + "  " + m.chat.Spinner.View() + " " + m.styles.HeaderHint.Render("thinking")
@@ -1247,6 +1277,9 @@ func (m *Model) handleChatKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.submitChat()
 	case "ctrl+s":
 		m.toggleSQL()
+		return m, nil
+	case "ctrl+m":
+		m.toggleChatMag()
 		return m, nil
 	case "ctrl+c":
 		// Cancel stream or pull if active.
@@ -1369,6 +1402,7 @@ func (m *Model) buildChatOverlay() string {
 		hintParts = append(hintParts,
 			m.helpItem("enter", "send"),
 			m.sqlHintItem(),
+			m.magHintItem(),
 			m.helpItem("\u2191/\u2193", "history"),
 			m.helpItem("esc", "hide"),
 		)
