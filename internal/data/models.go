@@ -142,11 +142,11 @@ type Project struct {
 }
 
 type Quote struct {
-	ID             uint `gorm:"primaryKey"`
-	ProjectID      uint
+	ID             uint    `gorm:"primaryKey"`
+	ProjectID      uint    `gorm:"index"`
 	Project        Project `gorm:"constraint:OnDelete:RESTRICT;"`
-	VendorID       uint
-	Vendor         Vendor `gorm:"constraint:OnDelete:RESTRICT;"`
+	VendorID       uint    `gorm:"index"`
+	Vendor         Vendor  `gorm:"constraint:OnDelete:RESTRICT;"`
 	TotalCents     int64
 	LaborCents     *int64
 	MaterialsCents *int64
@@ -172,7 +172,7 @@ type Appliance struct {
 	ModelNumber    string
 	SerialNumber   string
 	PurchaseDate   *time.Time
-	WarrantyExpiry *time.Time
+	WarrantyExpiry *time.Time `gorm:"index"`
 	Location       string
 	CostCents      *int64
 	Notes          string
@@ -184,10 +184,10 @@ type Appliance struct {
 type MaintenanceItem struct {
 	ID             uint `gorm:"primaryKey"`
 	Name           string
-	CategoryID     uint
+	CategoryID     uint                `gorm:"index"`
 	Category       MaintenanceCategory `gorm:"constraint:OnDelete:RESTRICT;"`
-	ApplianceID    *uint
-	Appliance      Appliance `gorm:"constraint:OnDelete:SET NULL;"`
+	ApplianceID    *uint               `gorm:"index"`
+	Appliance      Appliance           `gorm:"constraint:OnDelete:SET NULL;"`
 	LastServicedAt *time.Time
 	IntervalMonths int
 	ManualURL      string
@@ -204,7 +204,7 @@ type ServiceLogEntry struct {
 	MaintenanceItemID uint            `gorm:"index"`
 	MaintenanceItem   MaintenanceItem `gorm:"constraint:OnDelete:CASCADE;"`
 	ServicedAt        time.Time
-	VendorID          *uint
+	VendorID          *uint  `gorm:"index"`
 	Vendor            Vendor `gorm:"constraint:OnDelete:SET NULL;"`
 	CostCents         *int64
 	Notes             string
