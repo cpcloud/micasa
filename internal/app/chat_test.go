@@ -87,14 +87,14 @@ func TestSQLStreamStartedStoresCurrentQuery(t *testing.T) {
 	m := newTestModel()
 	m.openChat()
 
-	testQuestion := "how much did I spend on projects?"
+	question := "how much did I spend on projects?"
 
 	// Create a mock stream channel.
 	ch := make(chan llm.StreamChunk, 1)
 	close(ch) // Close immediately since we're not actually streaming.
 
 	msg := sqlStreamStartedMsg{
-		Question: testQuestion,
+		Question: question,
 		Channel:  ch,
 		CancelFn: func() {},
 		Err:      nil,
@@ -104,7 +104,7 @@ func TestSQLStreamStartedStoresCurrentQuery(t *testing.T) {
 
 	assert.Equal(
 		t,
-		testQuestion,
+		question,
 		m.chat.CurrentQuery,
 		"CurrentQuery should be set from sqlStreamStartedMsg",
 	)
