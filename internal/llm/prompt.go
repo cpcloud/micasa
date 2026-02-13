@@ -258,7 +258,7 @@ RULES:
 const sqlSchemaNotes = `
 Notes:
 - Maintenance scheduling: next_due = date(` + data.ColLastServicedAt + `, '+' || ` + data.ColIntervalMonths + ` || ' months')
-- Project statuses: ideating, planned, quoted, underway, delayed, completed, abandoned
+- Project statuses stored in the database: ideating, planned, quoted, underway, delayed, completed, abandoned. The UI shows abbreviated labels: idea, plan, bid, wip, hold, done, drop. When the user refers to a status by EITHER the full name or the short label, map it to the stored value. Examples: "plan" or "planned" → WHERE status = 'planned'; "wip" or "underway" → WHERE status = 'underway'.
 - Warranty expiry is in the ` + data.ColWarrantyExpiry + ` column (date string)
 - ALWAYS use case-insensitive matching for user-facing text (names, titles, descriptions, categories, vendor names). Use LOWER() on both sides for = and LIKE: WHERE LOWER(name) = LOWER('flooring'), WHERE LOWER(title) LIKE LOWER('%hvac%'). The only exception is enum columns with known exact values (status, interval unit).`
 
@@ -328,7 +328,7 @@ const fallbackSchemaNotes = `
 Schema notes:
 - Soft-deleted rows have a non-NULL deleted_at and should be treated as removed.
 - Maintenance scheduling: next_due = last_serviced + interval_months.
-- Project statuses: ideating, planned, quoted, underway, delayed, completed, abandoned.`
+- Project statuses stored in the database: ideating, planned, quoted, underway, delayed, completed, abandoned. The UI shows abbreviated labels (idea, plan, bid, wip, hold, done, drop), so the user may use either form.`
 
 const fallbackGuidelines = `## How to answer
 Look at the data above, find the relevant rows, and answer the question directly.
