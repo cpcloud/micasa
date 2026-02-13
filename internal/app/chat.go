@@ -193,9 +193,19 @@ func (m *Model) openChat() {
 }
 
 // hideChat hides the chat overlay but preserves the session so the user
-// can return to it with @. In-flight streams are cancelled since the user
-// won't be watching them.
+// can return to it with @. In-flight streams and pulls are cancelled since
+// the user won't be watching them.
 func (m *Model) hideChat() {
+	if m.chat == nil {
+		return
+	}
+	m.cancelChatOperations()
+	m.chat.Input.Blur()
+	m.chat.Visible = false
+}
+
+// cancelChatOperations cancels any in-flight LLM streams or model pulls.
+func (m *Model) cancelChatOperations() {
 	if m.chat == nil {
 		return
 	}
@@ -203,8 +213,13 @@ func (m *Model) hideChat() {
 		m.chat.CancelFn()
 		m.chat.Streaming = false
 	}
-	m.chat.Input.Blur()
-	m.chat.Visible = false
+	if m.chat.Pulling && m.chat.PullCancel != nil {
+		m.chat.PullCancel()
+		m.chat.Pulling = false
+		m.chat.PullCancel = nil
+		m.chat.PullDisplay = ""
+		m.chat.PullPeak = 0
+	}
 }
 
 // submitChat processes the user's input. Slash commands are intercepted;
@@ -1064,11 +1079,26 @@ func (m *Model) handleChatKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.toggleSQL()
 		return m, nil
 	case "ctrl+c":
+		// Cancel stream or pull, otherwise quit.
 		if m.chat.Streaming && m.chat.CancelFn != nil {
 			m.chat.CancelFn()
 			m.chat.Streaming = false
 			return m, nil
 		}
+		if m.chat.Pulling && m.chat.PullCancel != nil {
+			m.chat.PullCancel()
+			m.chat.Pulling = false
+			m.chat.PullCancel = nil
+			m.chat.PullDisplay = ""
+			m.chat.PullPeak = 0
+			m.chat.Messages = append(m.chat.Messages, chatMessage{
+				Role: "notice", Content: "Pull cancelled",
+			})
+			m.refreshChatViewport()
+			return m, nil
+		}
+		// No active operations -- clean up and quit.
+		m.cancelChatOperations()
 		return m, tea.Interrupt
 	case "up", "ctrl+p":
 		if m.chat.Input.Focused() && !m.chat.Streaming {

@@ -39,7 +39,7 @@ type Model struct {
 	dbPath                string
 	configPath            string
 	llmClient             *llm.Client
-	llmExtraContext       string // user-provided context appended to prompts
+	llmExtraContext       string     // user-provided context appended to prompts
 	chat                  *chatState // non-nil when chat overlay is open
 	styles                Styles
 	tabs                  []Tab
@@ -107,11 +107,11 @@ func NewModel(store *data.Store, options Options) (*Model, error) {
 		configPath:      options.ConfigPath,
 		llmClient:       client,
 		llmExtraContext: extraContext,
-		styles:     styles,
-		tabs:       NewTabs(styles),
-		active:     0,
-		showHouse:  false,
-		mode:       modeNormal,
+		styles:          styles,
+		tabs:            NewTabs(styles),
+		active:          0,
+		showHouse:       false,
+		mode:            modeNormal,
 	}
 	if err := model.loadLookups(); err != nil {
 		return nil, err
@@ -144,6 +144,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.updateAllViewports()
 	case tea.KeyMsg:
 		if typed.String() == "ctrl+c" {
+			m.cancelChatOperations()
 			return m, tea.Interrupt
 		}
 	case chatChunkMsg:
