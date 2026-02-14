@@ -106,14 +106,12 @@ func (m *Model) buildBaseView() string {
 
 	// Right-align db path on the tab row when set.
 	if m.dbPath != "" {
-		dbLabel := m.styles.HeaderLabel.Render("db")
 		tabsW := lipgloss.Width(tabs)
-		labelW := lipgloss.Width(dbLabel) + 1 // "db "
-		minGap := 2                           // breathing room between tabs and path
-		available := m.effectiveWidth() - tabsW - labelW - minGap
+		minGap := 2 // breathing room between tabs and path
+		available := m.effectiveWidth() - tabsW - minGap
 		if available > 5 {
 			path := truncateLeft(m.dbPath, available)
-			label := dbLabel + " " + m.styles.HeaderHint.Render(path)
+			label := m.styles.HeaderHint.Render(path)
 			gap := m.effectiveWidth() - tabsW - lipgloss.Width(label)
 			if gap > 0 {
 				tabs += strings.Repeat(" ", gap) + label
@@ -192,17 +190,25 @@ func (m *Model) buildDashboardOverlay() string {
 
 func (m *Model) tabsView() string {
 	pinned := m.mode == modeEdit
-	tabs := make([]string, 0, len(m.tabs))
+	parts := make([]string, 0, len(m.tabs)*2)
 	for i, tab := range m.tabs {
 		if i == m.active {
-			tabs = append(tabs, m.styles.TabActive.Render(tab.Name))
+			parts = append(parts, m.styles.TabActive.Render(tab.Name))
 		} else if pinned {
-			tabs = append(tabs, m.styles.TabLocked.Render(tab.Name))
+			parts = append(parts, m.styles.TabLocked.Render(tab.Name))
 		} else {
-			tabs = append(tabs, m.styles.TabInactive.Render(tab.Name))
+			parts = append(parts, m.styles.TabInactive.Render(tab.Name))
+		}
+		// One-char gap between tabs: mauve dot when the tab has an
+		// active filter, blank space otherwise. The dot is a subtle
+		// indicator that rows are being hidden on that tab.
+		if tab.FilterActive {
+			parts = append(parts, m.styles.FilterDot.Render(filterDot))
+		} else {
+			parts = append(parts, " ")
 		}
 	}
-	return lipgloss.JoinHorizontal(lipgloss.Left, tabs...)
+	return lipgloss.JoinHorizontal(lipgloss.Left, parts...)
 }
 
 func (m *Model) breadcrumbView() string {
@@ -377,7 +383,7 @@ func (m *Model) normalModeStatusHints(modeBadge string) []statusHint {
 		})
 	}
 
-	// Anchors: help and exit are always visible.
+	// Anchors: help is always visible; back only in detail view.
 	hints = append(hints, statusHint{
 		id:       "help",
 		full:     m.helpItem("?", "help"),
@@ -390,14 +396,6 @@ func (m *Model) normalModeStatusHints(modeBadge string) []statusHint {
 			id:       "exit",
 			full:     m.helpItem("esc", "back"),
 			compact:  m.renderKeys("esc"),
-			priority: 0,
-			required: true,
-		})
-	} else {
-		hints = append(hints, statusHint{
-			id:       "exit",
-			full:     m.helpItem("ctrl+q", "quit"),
-			compact:  m.renderKeys("ctrl+q"),
 			priority: 0,
 			required: true,
 		})
@@ -443,24 +441,20 @@ func (m *Model) pinFilterHints() []statusHint {
 
 	if pinned {
 		summary := m.styles.Pinned.Render(pinSummary(tab))
-		label := summary
-		if tab.FilterActive {
-			label = m.styles.Pinned.Render("FILTER") + " " + summary
-		}
 		clearHint := m.helpItem(keyCtrlN, "clear")
 		hints = append(hints, statusHint{
 			id:       "pin-summary",
-			full:     label + "  " + clearHint,
-			compact:  label,
+			full:     summary + "  " + clearHint,
+			compact:  summary,
 			priority: 1,
 		})
 	} else if tab.FilterActive {
-		clearHint := m.helpItem(keyCtrlN, "clear")
+		// Eager filter with no pins: the tab dot is the only visual
+		// cue; show just the clear hint in the status bar.
 		hints = append(hints, statusHint{
 			id:       "eager-filter",
-			full:     m.styles.Pinned.Render("FILTER") + "  " + clearHint,
-			compact:  m.styles.Pinned.Render("FILTER"),
-			priority: 1,
+			full:     m.helpItem(keyCtrlN, "clear filter"),
+			priority: 2,
 		})
 	}
 	return hints

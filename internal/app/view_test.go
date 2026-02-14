@@ -577,7 +577,7 @@ func TestStatusViewProjectStatusSummaryReflectsActiveFilters(t *testing.T) {
 func TestStatusViewUsesMoreLabelWhenHintsCollapse(t *testing.T) {
 	m := newTestModel()
 	// At very narrow width, the help hint compacts from "help" to "more".
-	m.width = 40
+	m.width = 30
 	m.height = 40
 	status := m.statusView()
 	assert.Contains(t, status, "more", "expected collapsed hint label to include more")
@@ -651,7 +651,9 @@ func TestNormalModeOmitsDiscoveryHints(t *testing.T) {
 	assert.Contains(t, status, "NAV")
 	assert.Contains(t, status, "edit")
 	assert.Contains(t, status, "help")
-	assert.Contains(t, status, "quit")
+
+	// ctrl+q quit is discoverable via help, not shown in the status bar.
+	assert.NotContains(t, status, "quit")
 }
 
 func TestEditModeOmitsUndoRedoProfile(t *testing.T) {
@@ -690,17 +692,32 @@ func TestPinSummaryShowsOnlyWhenActive(t *testing.T) {
 	tab := m.activeTab()
 	require.NotNil(t, tab)
 
-	// No pins: no pin-related hints at all.
+	// No pins: no pin-related hints in the status bar.
 	status := m.statusView()
-	assert.NotContains(t, status, "FILTER")
 	assert.NotContains(t, status, "clear")
 
-	// Add a pin and activate filter.
+	// Add a pin and activate filter: status bar shows pin summary + clear.
 	tab.Pins = []filterPin{{Col: 0, Values: map[string]bool{"test": true}}}
 	tab.FilterActive = true
 	status = m.statusView()
-	assert.Contains(t, status, "FILTER")
 	assert.Contains(t, status, "clear")
+}
+
+func TestFilterDotAppearsOnTabRow(t *testing.T) {
+	m := newTestModel()
+	m.width = 120
+	m.height = 40
+	tab := m.activeTab()
+	require.NotNil(t, tab)
+
+	// No filter: no dot in the tab row.
+	tabs := m.tabsView()
+	assert.NotContains(t, tabs, filterDot)
+
+	// Activate filter: dot appears.
+	tab.FilterActive = true
+	tabs = m.tabsView()
+	assert.Contains(t, tabs, filterDot)
 }
 
 func TestDeletedHintProminentWhenShowDeleted(t *testing.T) {
