@@ -38,7 +38,7 @@ type Styles struct {
 	LinkIndicator   lipgloss.Style
 	Breadcrumb      lipgloss.Style
 	BreadcrumbArrow lipgloss.Style
-	FilterDot       lipgloss.Style // dot between tabs when filter is active
+	FilterMark      lipgloss.Style // dot between tabs when filter is active
 	HiddenLeft      lipgloss.Style // hidden cols to the left of cursor
 	HiddenRight     lipgloss.Style // hidden cols to the right of cursor
 	DashSubtitle    lipgloss.Style // dashboard subtitle (house name, date)
@@ -198,7 +198,7 @@ func DefaultStyles() Styles {
 			Bold(true),
 		BreadcrumbArrow: lipgloss.NewStyle().
 			Foreground(accent),
-		FilterDot: lipgloss.NewStyle().
+		FilterMark: lipgloss.NewStyle().
 			Foreground(muted),
 		HiddenLeft: lipgloss.NewStyle().
 			Foreground(secondary).

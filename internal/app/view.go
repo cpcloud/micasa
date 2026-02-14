@@ -199,13 +199,13 @@ func (m *Model) tabsView() string {
 		} else {
 			parts = append(parts, m.styles.TabInactive.Render(tab.Name))
 		}
-		// Gap between tabs: space, then either a mauve dot (filter
-		// active) or another space to keep layout stable. The leading
-		// space prevents the dot from touching the tab background.
+		// Gap between tabs: when a filter is active on this tab, show
+		// a left-pointing triangle (pointing back at the tab it applies
+		// to) with a space on each side so it doesn't crowd either tab.
 		if tab.FilterActive {
-			parts = append(parts, " "+m.styles.FilterDot.Render(filterDot))
+			parts = append(parts, " "+m.styles.FilterMark.Render(filterMark)+" ")
 		} else {
-			parts = append(parts, "  ")
+			parts = append(parts, "   ")
 		}
 	}
 	return lipgloss.JoinHorizontal(lipgloss.Left, parts...)

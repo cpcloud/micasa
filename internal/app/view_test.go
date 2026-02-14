@@ -714,12 +714,12 @@ func TestFilterDotAppearsOnTabRow(t *testing.T) {
 
 	// No filter: no dot in the tab row.
 	tabs := m.tabsView()
-	assert.NotContains(t, tabs, filterDot)
+	assert.NotContains(t, tabs, filterMark)
 
 	// Activate filter: dot appears.
 	tab.FilterActive = true
 	tabs = m.tabsView()
-	assert.Contains(t, tabs, filterDot)
+	assert.Contains(t, tabs, filterMark)
 }
 
 func TestDeletedHintProminentWhenShowDeleted(t *testing.T) {
