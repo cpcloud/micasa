@@ -122,7 +122,7 @@ func TestEditKeyDispatchesInlineEditInEditMode(t *testing.T) {
 	tab.Table.SetCursor(0)
 
 	// Enter edit mode and position cursor on Name column.
-	m.enterEditMode()
+	sendKey(m, "i")
 	tab.ColCursor = 1 // Name column
 
 	// Press 'e' to trigger inline edit.

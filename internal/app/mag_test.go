@@ -221,7 +221,7 @@ func TestMagModeToggle(t *testing.T) {
 
 func TestMagModeWorksInEditMode(t *testing.T) {
 	m := newTestModel()
-	m.enterEditMode()
+	sendKey(m, "i")
 	assert.False(t, m.magMode)
 	sendKey(m, "ctrl+o")
 	assert.True(t, m.magMode)
