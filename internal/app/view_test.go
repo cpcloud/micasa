@@ -248,13 +248,14 @@ func TestVisibleProjectionHiddenSortOmitted(t *testing.T) {
 func TestHideCurrentColumnPreventsLastVisible(t *testing.T) {
 	m := newTestModel()
 	m.mode = modeNormal
+	m.showDashboard = false
 	tab := m.effectiveTab()
-	// Hide all but one
+	// Hide all but one.
 	for i := 1; i < len(tab.Specs); i++ {
 		tab.Specs[i].HideOrder = i
 	}
 	tab.ColCursor = 0
-	m.hideCurrentColumn()
+	sendKey(m, "c")
 	assert.Equal(t, 0, tab.Specs[0].HideOrder, "should not hide the last visible column")
 	assert.Equal(t, statusError, m.status.Kind)
 }
@@ -262,9 +263,10 @@ func TestHideCurrentColumnPreventsLastVisible(t *testing.T) {
 func TestHideCurrentColumnMovesToNext(t *testing.T) {
 	m := newTestModel()
 	m.mode = modeNormal
+	m.showDashboard = false
 	tab := m.effectiveTab()
 	tab.ColCursor = 0
-	m.hideCurrentColumn()
+	sendKey(m, "c")
 	assert.NotZero(t, tab.Specs[0].HideOrder, "expected column 0 to be hidden")
 	assert.Equal(
 		t,
@@ -276,10 +278,12 @@ func TestHideCurrentColumnMovesToNext(t *testing.T) {
 
 func TestShowAllColumns(t *testing.T) {
 	m := newTestModel()
+	m.mode = modeNormal
+	m.showDashboard = false
 	tab := m.effectiveTab()
 	tab.Specs[1].HideOrder = 1
 	tab.Specs[2].HideOrder = 2
-	m.showAllColumns()
+	sendKey(m, "C")
 	for i, s := range tab.Specs {
 		assert.Equalf(t, 0, s.HideOrder, "expected column %d to be visible", i)
 	}

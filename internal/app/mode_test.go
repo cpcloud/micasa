@@ -155,13 +155,14 @@ func TestDollarJumpsToLastColumn(t *testing.T) {
 
 func TestNextTabAdvances(t *testing.T) {
 	m := newTestModel()
-	// Directly call nextTab logic without store (would panic on reloadActiveTab).
-	// Instead verify enterEditMode / enterNormalMode don't reset active tab.
+	// Verify mode transitions via sendKey don't reset the active tab.
 	m.active = 0
-	m.enterEditMode()
+	sendKey(m, "i")
+	assert.Equal(t, modeEdit, m.mode)
 	assert.Equal(t, 0, m.active, "entering edit mode should not change active tab")
 	m.active = 2
-	m.enterNormalMode()
+	sendKey(m, "esc")
+	assert.Equal(t, modeNormal, m.mode)
 	assert.Equal(t, 2, m.active, "entering normal mode should not change active tab")
 }
 
@@ -374,9 +375,9 @@ func TestKeyDispatchEditModeOnly(t *testing.T) {
 	assert.False(t, handled, "'p' should not be handled in normal mode")
 
 	// 'esc' should be handled in edit mode (back to normal).
-	m.enterEditMode()
-	_, handled = m.handleEditKeys(tea.KeyMsg{Type: tea.KeyEscape})
-	assert.True(t, handled, "'esc' should be handled in edit mode")
+	sendKey(m, "i")
+	require.Equal(t, modeEdit, m.mode)
+	sendKey(m, "esc")
 	assert.Equal(t, modeNormal, m.mode)
 }
 
@@ -406,22 +407,23 @@ func TestModeAfterFormExit(t *testing.T) {
 func TestTabTogglesHouseInEditMode(t *testing.T) {
 	m := newTestModel()
 	m.hasHouse = true
-	m.enterEditMode()
-	// tab toggles house profile in both modes via handleCommonKeys.
+	sendKey(m, "i")
+	require.Equal(t, modeEdit, m.mode)
 	assert.False(t, m.showHouse)
-	_, handled := m.handleCommonKeys(tea.KeyMsg{Type: tea.KeyTab})
-	assert.True(t, handled, "tab should be handled by common keys")
+	sendKey(m, "tab")
 	assert.True(t, m.showHouse, "tab should toggle house in edit mode")
 }
 
 func TestTabSwitchKeysBlockedInEditMode(t *testing.T) {
 	m := newTestModel()
-	m.enterEditMode()
-	// b/f (tab-switch keys) should not be handled in edit mode.
-	_, handled := m.handleEditKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("b")})
-	assert.False(t, handled, "b should not be handled in edit mode")
-	_, handled = m.handleEditKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("f")})
-	assert.False(t, handled, "f should not be handled in edit mode")
+	sendKey(m, "i")
+	require.Equal(t, modeEdit, m.mode)
+	startTab := m.active
+	// b/f (tab-switch keys) should not switch tabs in edit mode.
+	sendKey(m, "b")
+	assert.Equal(t, startTab, m.active, "b should not switch tabs in edit mode")
+	sendKey(m, "f")
+	assert.Equal(t, startTab, m.active, "f should not switch tabs in edit mode")
 }
 
 func TestModeBadgeFixedWidth(t *testing.T) {

@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// newFilterTab creates a standalone Tab for pure unit tests of filter logic
+// (matchesAllPins, translatePins, etc.) that don't need a full Model.
 func newFilterTab() *Tab {
 	specs := []columnSpec{
 		{Title: "ID", Kind: cellReadonly},
@@ -50,23 +52,101 @@ func newFilterTab() *Tab {
 	}
 }
 
-func TestTogglePinAddsAndRemoves(t *testing.T) {
-	tab := newFilterTab()
+// newFilterModel creates a Model with a 4-row filter dataset so tests can
+// exercise pinning and filtering through sendKey. Cursor starts at row 0,
+// column 1 (Status). Data layout:
+//
+//	Row 0: ID=1, Status=Plan,   Vendor=Alice
+//	Row 1: ID=2, Status=Active, Vendor=Bob
+//	Row 2: ID=3, Status=Plan,   Vendor=Bob
+//	Row 3: ID=4, Status=Done,   Vendor=Alice
+func newFilterModel() (*Model, *Tab) {
+	m := newTestModel()
+	m.mode = modeNormal
+	m.showDashboard = false
 
-	pinned := togglePin(tab, 1, "Plan")
-	assert.True(t, pinned, "first toggle should pin")
-	assert.True(t, hasPins(tab))
+	specs := []columnSpec{
+		{Title: "ID", Kind: cellReadonly},
+		{Title: "Status", Kind: cellStatus},
+		{Title: "Vendor", Kind: cellText},
+	}
+	cellRows := [][]cell{
+		{
+			{Value: "1", Kind: cellReadonly},
+			{Value: "Plan", Kind: cellStatus},
+			{Value: "Alice", Kind: cellText},
+		},
+		{
+			{Value: "2", Kind: cellReadonly},
+			{Value: "Active", Kind: cellStatus},
+			{Value: "Bob", Kind: cellText},
+		},
+		{
+			{Value: "3", Kind: cellReadonly},
+			{Value: "Plan", Kind: cellStatus},
+			{Value: "Bob", Kind: cellText},
+		},
+		{
+			{Value: "4", Kind: cellReadonly},
+			{Value: "Done", Kind: cellStatus},
+			{Value: "Alice", Kind: cellText},
+		},
+	}
+	rows := make([]table.Row, len(cellRows))
+	meta := make([]rowMeta, len(cellRows))
+	for i, cr := range cellRows {
+		r := make(table.Row, len(cr))
+		for j, c := range cr {
+			r[j] = c.Value
+		}
+		rows[i] = r
+		meta[i] = rowMeta{ID: uint(i + 1)} //nolint:gosec // i bounded by slice length
+	}
+	cols := []table.Column{
+		{Title: "ID", Width: 4},
+		{Title: "Status", Width: 8},
+		{Title: "Vendor", Width: 8},
+	}
+
+	tab := &m.tabs[m.active]
+	tab.Specs = specs
+	tab.Table = table.New(table.WithColumns(cols), table.WithRows(rows))
+	tab.CellRows = cellRows
+	tab.Rows = meta
+	tab.FullRows = rows
+	tab.FullMeta = meta
+	tab.FullCellRows = cellRows
+	tab.ColCursor = 1 // Status column
+	tab.Table.SetCursor(0)
+	tab.Table.Focus()
+	return m, tab
+}
+
+// --- Model-level tests (user actions via sendKey) ---
+
+func TestTogglePinAddsAndRemoves(t *testing.T) {
+	m, tab := newFilterModel()
+
+	// Cursor at row 0, col 1 -> pin "Plan".
+	sendKey(m, "n")
+	assert.True(t, hasPins(tab), "n should pin")
 	assert.True(t, isPinned(tab, 1, "Plan"))
 
-	unpinned := togglePin(tab, 1, "Plan")
-	assert.False(t, unpinned, "second toggle should unpin")
-	assert.False(t, hasPins(tab), "pins should be empty after unpin")
+	// Same cell again -> unpin.
+	sendKey(m, "n")
+	assert.False(t, hasPins(tab), "second n should unpin")
 }
 
 func TestTogglePinMultipleValuesInColumn(t *testing.T) {
-	tab := newFilterTab()
-	togglePin(tab, 1, "Plan")
-	togglePin(tab, 1, "Active")
+	m, tab := newFilterModel()
+
+	// Pin "Plan" at row 0.
+	sendKey(m, "n")
+	require.True(t, isPinned(tab, 1, "Plan"))
+
+	// Move to row 1 (Status = "Active") and pin.
+	sendKey(m, "j")
+	sendKey(m, "n")
 
 	require.Len(t, tab.Pins, 1, "same column should have one pin entry")
 	assert.True(t, isPinned(tab, 1, "Plan"))
@@ -74,20 +154,206 @@ func TestTogglePinMultipleValuesInColumn(t *testing.T) {
 	assert.Len(t, tab.Pins[0].Values, 2)
 }
 
+func TestClearPins(t *testing.T) {
+	m, tab := newFilterModel()
+
+	sendKey(m, "n") // Pin "Plan"
+	sendKey(m, "N") // Activate filter
+	require.True(t, hasPins(tab))
+	require.True(t, tab.FilterActive)
+
+	sendKey(m, keyCtrlN)
+	assert.False(t, hasPins(tab))
+	assert.False(t, tab.FilterActive)
+}
+
+func TestApplyRowFilterNoPin(t *testing.T) {
+	_, tab := newFilterModel()
+
+	// No pins: all rows present and undimmed.
+	assert.Len(t, tab.CellRows, 4)
+	assert.Len(t, tab.Rows, 4)
+	for _, rm := range tab.Rows {
+		assert.False(t, rm.Dimmed)
+	}
+}
+
+func TestApplyRowFilterPreview(t *testing.T) {
+	m, tab := newFilterModel()
+
+	// Pin "Plan" -> triggers preview mode (all rows visible, non-matches dimmed).
+	sendKey(m, "n")
+
+	require.Len(t, tab.CellRows, 4, "preview keeps all rows")
+	assert.False(t, tab.Rows[0].Dimmed, "row 0 matches Plan")
+	assert.True(t, tab.Rows[1].Dimmed, "row 1 is Active, should be dimmed")
+	assert.False(t, tab.Rows[2].Dimmed, "row 2 matches Plan")
+	assert.True(t, tab.Rows[3].Dimmed, "row 3 is Done, should be dimmed")
+}
+
+func TestApplyRowFilterActive(t *testing.T) {
+	m, tab := newFilterModel()
+
+	sendKey(m, "n") // Pin "Plan"
+	sendKey(m, "N") // Activate filter
+
+	require.Len(t, tab.CellRows, 2, "active filter hides non-matching")
+	assert.Equal(t, "1", tab.CellRows[0][0].Value)
+	assert.Equal(t, "3", tab.CellRows[1][0].Value)
+}
+
+func TestApplyRowFilterActiveAcrossColumns(t *testing.T) {
+	m, tab := newFilterModel()
+
+	// Pin "Plan" (row 0, col 1).
+	sendKey(m, "n")
+
+	// Move to Vendor column and row 2 (Plan + Bob), pin "Bob".
+	sendKey(m, "l")
+	sendKey(m, "j")
+	sendKey(m, "j")
+	sendKey(m, "n")
+
+	// Activate filter.
+	sendKey(m, "N")
+
+	require.Len(t, tab.CellRows, 1, "only row 3 matches Plan AND Bob")
+	assert.Equal(t, "3", tab.CellRows[0][0].Value)
+}
+
+func TestEagerModeToggleWithNoPins(t *testing.T) {
+	m, tab := newFilterModel()
+
+	// Activate filter with no pins ("eager mode").
+	sendKey(m, "N")
+	assert.True(t, tab.FilterActive, "eager mode should be armed")
+
+	// Pin while eager mode is on -> should immediately filter.
+	sendKey(m, "n")
+	require.Len(t, tab.CellRows, 2, "eager mode + pin should immediately filter")
+	assert.Equal(t, "1", tab.CellRows[0][0].Value)
+	assert.Equal(t, "3", tab.CellRows[1][0].Value)
+}
+
+func TestEagerModeToggleOff(t *testing.T) {
+	m, tab := newFilterModel()
+
+	// Activate and pin.
+	sendKey(m, "N")
+	sendKey(m, "n")
+	require.Len(t, tab.CellRows, 2)
+
+	// Toggle off -> should restore all rows with preview dimming.
+	sendKey(m, "N")
+	require.Len(t, tab.CellRows, 4, "toggling off should restore all rows")
+	assert.True(t, tab.Rows[1].Dimmed, "non-matching rows should be dimmed in preview")
+}
+
+func TestPinsPersistAcrossTabSwitch(t *testing.T) {
+	m, tab := newFilterModel()
+	startTab := m.active
+
+	sendKey(m, "n") // Pin "Plan"
+	sendKey(m, "N") // Activate filter
+	require.True(t, hasPins(tab))
+	require.True(t, tab.FilterActive)
+
+	// Switch away and back.
+	sendKey(m, "f")
+	assert.NotEqual(t, startTab, m.active, "should switch tabs freely")
+	sendKey(m, "b")
+	assert.Equal(t, startTab, m.active)
+
+	// Pins and filter state should still be there.
+	tab = &m.tabs[startTab]
+	assert.True(t, hasPins(tab), "pins should persist across tab switch")
+	assert.True(t, tab.FilterActive, "filter mode should persist across tab switch")
+}
+
+func TestHideColumnClearsPinsOnThatColumn(t *testing.T) {
+	m, tab := newFilterModel()
+
+	// Pin "Plan" on col 1 (Status).
+	sendKey(m, "n")
+	require.True(t, hasPins(tab))
+
+	// Hide col 1 -> should clear its pins.
+	sendKey(m, "c")
+	assert.False(t, isPinned(tab, 1, "Plan"), "hiding the column should clear its pins")
+}
+
+// seedTabForPinning sets up CellRows and Full* fields on the active tab so
+// that sendKey("n") can pin the cell under the cursor.
+func seedTabForPinning(m *Model) *Tab {
+	m.showDashboard = false
+	tab := m.effectiveTab()
+	rows := tab.Table.Rows()
+	cellRows := make([][]cell, len(rows))
+	for i, r := range rows {
+		cr := make([]cell, len(r))
+		for j, v := range r {
+			kind := cellText
+			if j < len(tab.Specs) {
+				kind = tab.Specs[j].Kind
+			}
+			cr[j] = cell{Value: v, Kind: kind}
+		}
+		cellRows[i] = cr
+	}
+	tab.CellRows = cellRows
+	tab.FullRows = rows
+	tab.FullMeta = tab.Rows
+	tab.FullCellRows = cellRows
+	return tab
+}
+
+func TestCtrlNClearsAllPinsAndFilter(t *testing.T) {
+	m := newTestModel()
+	m.mode = modeNormal
+	tab := seedTabForPinning(m)
+
+	// Pin via key press, then activate filter.
+	sendKey(m, "n")
+	require.True(t, hasPins(tab), "n should pin the cell under cursor")
+	sendKey(m, "N")
+	require.True(t, tab.FilterActive)
+
+	// ctrl+n should clear everything.
+	sendKey(m, keyCtrlN)
+	assert.False(t, hasPins(tab), "ctrl+n should clear all pins")
+	assert.False(t, tab.FilterActive, "ctrl+n should deactivate filter")
+}
+
+func TestCtrlNNoopWithoutPins(t *testing.T) {
+	m := newTestModel()
+	m.mode = modeNormal
+	m.showDashboard = false
+
+	sendKey(m, keyCtrlN)
+	tab := m.effectiveTab()
+	assert.False(t, hasPins(tab), "ctrl+n with no pins should be a no-op")
+	assert.False(t, tab.FilterActive)
+}
+
+func TestPinOnDashboardBlocked(t *testing.T) {
+	m := newTestModel()
+	m.showDashboard = true
+	startPins := len(m.effectiveTab().Pins)
+
+	sendKey(m, "n")
+	assert.Len(t, m.effectiveTab().Pins, startPins, "n should be blocked on dashboard")
+
+	sendKey(m, "N")
+	assert.False(t, m.effectiveTab().FilterActive, "N should be blocked on dashboard")
+}
+
+// --- Pure unit tests of isolated filter logic ---
+
 func TestTogglePinCaseInsensitive(t *testing.T) {
 	tab := newFilterTab()
 	togglePin(tab, 1, "plan")
 	assert.True(t, isPinned(tab, 1, "Plan"))
 	assert.True(t, isPinned(tab, 1, "PLAN"))
-}
-
-func TestClearPins(t *testing.T) {
-	tab := newFilterTab()
-	togglePin(tab, 1, "Plan")
-	tab.FilterActive = true
-	clearPins(tab)
-	assert.False(t, hasPins(tab))
-	assert.False(t, tab.FilterActive)
 }
 
 func TestClearPinsForColumn(t *testing.T) {
@@ -132,50 +398,6 @@ func TestMatchesAllPinsCrossColumn(t *testing.T) {
 	assert.False(t, matchesAllPins(row1, pins, false))
 }
 
-func TestApplyRowFilterNoPin(t *testing.T) {
-	tab := newFilterTab()
-	applyRowFilter(tab, false)
-	assert.Len(t, tab.CellRows, 4)
-	assert.Len(t, tab.Rows, 4)
-	for _, m := range tab.Rows {
-		assert.False(t, m.Dimmed)
-	}
-}
-
-func TestApplyRowFilterPreview(t *testing.T) {
-	tab := newFilterTab()
-	togglePin(tab, 1, "Plan")
-	applyRowFilter(tab, false)
-
-	require.Len(t, tab.CellRows, 4, "preview keeps all rows")
-	assert.False(t, tab.Rows[0].Dimmed, "row 0 matches Plan")
-	assert.True(t, tab.Rows[1].Dimmed, "row 1 is Active, should be dimmed")
-	assert.False(t, tab.Rows[2].Dimmed, "row 2 matches Plan")
-	assert.True(t, tab.Rows[3].Dimmed, "row 3 is Done, should be dimmed")
-}
-
-func TestApplyRowFilterActive(t *testing.T) {
-	tab := newFilterTab()
-	togglePin(tab, 1, "Plan")
-	tab.FilterActive = true
-	applyRowFilter(tab, false)
-
-	require.Len(t, tab.CellRows, 2, "active filter hides non-matching")
-	assert.Equal(t, "1", tab.CellRows[0][0].Value)
-	assert.Equal(t, "3", tab.CellRows[1][0].Value)
-}
-
-func TestApplyRowFilterActiveAcrossColumns(t *testing.T) {
-	tab := newFilterTab()
-	togglePin(tab, 1, "Plan")
-	togglePin(tab, 2, "Bob")
-	tab.FilterActive = true
-	applyRowFilter(tab, false)
-
-	require.Len(t, tab.CellRows, 1, "only row 3 matches Plan AND Bob")
-	assert.Equal(t, "3", tab.CellRows[0][0].Value)
-}
-
 func TestPinSummary(t *testing.T) {
 	tab := newFilterTab()
 	togglePin(tab, 1, "Plan")
@@ -187,81 +409,6 @@ func TestPinSummary(t *testing.T) {
 func TestPinSummaryEmpty(t *testing.T) {
 	tab := newFilterTab()
 	assert.Equal(t, "", pinSummary(tab))
-}
-
-func TestEagerModeToggleWithNoPins(t *testing.T) {
-	tab := newFilterTab()
-	assert.False(t, tab.FilterActive)
-
-	// Toggle on with no pins.
-	tab.FilterActive = !tab.FilterActive
-	assert.True(t, tab.FilterActive, "eager mode should be armed")
-
-	// Now pin while eager mode is on -- filter should immediately hide rows.
-	togglePin(tab, 1, "Plan")
-	applyRowFilter(tab, false)
-	require.Len(t, tab.CellRows, 2, "eager mode + pin should immediately filter")
-	assert.Equal(t, "1", tab.CellRows[0][0].Value)
-	assert.Equal(t, "3", tab.CellRows[1][0].Value)
-}
-
-func TestEagerModeToggleOff(t *testing.T) {
-	tab := newFilterTab()
-	tab.FilterActive = true
-	togglePin(tab, 1, "Plan")
-	applyRowFilter(tab, false)
-	require.Len(t, tab.CellRows, 2)
-
-	// Toggle off -- should restore all rows with preview dimming.
-	tab.FilterActive = false
-	applyRowFilter(tab, false)
-	require.Len(t, tab.CellRows, 4, "toggling off should restore all rows")
-	assert.True(t, tab.Rows[1].Dimmed, "non-matching rows should be dimmed in preview")
-}
-
-func TestPinsPersistAcrossTabSwitch(t *testing.T) {
-	m := newTestModel()
-	m.mode = modeNormal
-	startTab := m.active
-	tab := &m.tabs[startTab]
-
-	// Set up Full* so applyRowFilter works.
-	tab.FullRows = tab.Table.Rows()
-	tab.FullMeta = tab.Rows
-	tab.FullCellRows = tab.CellRows
-
-	togglePin(tab, 0, "1")
-	tab.FilterActive = true
-	require.True(t, hasPins(tab))
-
-	// Switch away and back.
-	sendKey(m, "f")
-	assert.NotEqual(t, startTab, m.active, "should switch tabs freely")
-	sendKey(m, "b")
-	assert.Equal(t, startTab, m.active)
-
-	// Pins and filter state should still be there.
-	tab = &m.tabs[startTab]
-	assert.True(t, hasPins(tab), "pins should persist across tab switch")
-	assert.True(t, tab.FilterActive, "filter mode should persist across tab switch")
-}
-
-func TestHideColumnClearsPinsOnThatColumn(t *testing.T) {
-	m := newTestModel()
-	m.mode = modeNormal
-	tab := m.effectiveTab()
-	tab.ColCursor = 0
-
-	// Set up Full* fields so applyRowFilter doesn't panic.
-	tab.FullRows = tab.Table.Rows()
-	tab.FullMeta = tab.Rows
-	tab.FullCellRows = tab.CellRows
-
-	togglePin(tab, 0, "1")
-	require.True(t, hasPins(tab))
-
-	m.hideCurrentColumn()
-	assert.False(t, isPinned(tab, 0, "1"), "hiding the column should clear its pins")
 }
 
 func TestMatchesAllPinsMagMode(t *testing.T) {
@@ -344,69 +491,4 @@ func TestTranslatePinsRoundTrip(t *testing.T) {
 	assert.True(t, tab.Pins[0].Values["$1,000.00"])
 	assert.True(t, tab.Pins[0].Values["$2,000.00"])
 	assert.Len(t, tab.Pins[0].Values, 2)
-}
-
-// seedTabForPinning sets up CellRows and Full* fields on the active tab so
-// that sendKey("n") can pin the cell under the cursor.
-func seedTabForPinning(m *Model) *Tab {
-	m.showDashboard = false
-	tab := m.effectiveTab()
-	rows := tab.Table.Rows()
-	cellRows := make([][]cell, len(rows))
-	for i, r := range rows {
-		cr := make([]cell, len(r))
-		for j, v := range r {
-			kind := cellText
-			if j < len(tab.Specs) {
-				kind = tab.Specs[j].Kind
-			}
-			cr[j] = cell{Value: v, Kind: kind}
-		}
-		cellRows[i] = cr
-	}
-	tab.CellRows = cellRows
-	tab.FullRows = rows
-	tab.FullMeta = tab.Rows
-	tab.FullCellRows = cellRows
-	return tab
-}
-
-func TestCtrlNClearsAllPinsAndFilter(t *testing.T) {
-	m := newTestModel()
-	m.mode = modeNormal
-	tab := seedTabForPinning(m)
-
-	// Pin via key press, then activate filter.
-	sendKey(m, "n")
-	require.True(t, hasPins(tab), "n should pin the cell under cursor")
-	sendKey(m, "N")
-	require.True(t, tab.FilterActive)
-
-	// ctrl+n should clear everything.
-	sendKey(m, keyCtrlN)
-	assert.False(t, hasPins(tab), "ctrl+n should clear all pins")
-	assert.False(t, tab.FilterActive, "ctrl+n should deactivate filter")
-}
-
-func TestCtrlNNoopWithoutPins(t *testing.T) {
-	m := newTestModel()
-	m.mode = modeNormal
-	m.showDashboard = false
-
-	sendKey(m, keyCtrlN)
-	tab := m.effectiveTab()
-	assert.False(t, hasPins(tab), "ctrl+n with no pins should be a no-op")
-	assert.False(t, tab.FilterActive)
-}
-
-func TestPinOnDashboardBlocked(t *testing.T) {
-	m := newTestModel()
-	m.showDashboard = true
-	startPins := len(m.effectiveTab().Pins)
-
-	sendKey(m, "n")
-	assert.Len(t, m.effectiveTab().Pins, startPins, "n should be blocked on dashboard")
-
-	sendKey(m, "N")
-	assert.False(t, m.effectiveTab().FilterActive, "N should be blocked on dashboard")
 }

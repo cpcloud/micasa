@@ -6,7 +6,6 @@ package app
 import (
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -215,10 +214,14 @@ func TestPKTiebreaker(t *testing.T) {
 
 func TestSortKeyOnlyInNormalMode(t *testing.T) {
 	m := newTestModel()
-	m.enterEditMode()
-	key := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("s")}
-	_, handled := m.handleEditKeys(key)
-	assert.False(t, handled, "s should not be handled in Edit mode")
+	m.showDashboard = false
+	tab := m.effectiveTab()
+	sendKey(m, "i")
+	require.Equal(t, modeEdit, m.mode)
+
+	// Press 's' in edit mode -- should not add a sort entry.
+	sendKey(m, "s")
+	assert.Empty(t, tab.Sorts, "s should not trigger sort in edit mode")
 }
 
 // helpers
