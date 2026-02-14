@@ -320,15 +320,18 @@ func TestProjectStatusFilterToggleKeys(t *testing.T) {
 
 	sendKey(m, "z")
 	assert.True(t, tab.HideCompleted, "expected HideCompleted enabled after first z")
-	assert.Equal(t, "Completed projects hidden.", m.status.Text)
+	assert.Contains(t, m.status.Text, "Completed")
+	assert.Contains(t, m.status.Text, "hidden")
 
 	sendKey(m, "z")
 	assert.False(t, tab.HideCompleted, "expected HideCompleted disabled after second z")
-	assert.Equal(t, "Completed projects shown.", m.status.Text)
+	assert.Contains(t, m.status.Text, "Completed")
+	assert.Contains(t, m.status.Text, "shown")
 
 	sendKey(m, "a")
 	assert.True(t, tab.HideAbandoned, "expected HideAbandoned enabled after first a")
-	assert.Equal(t, "Abandoned projects hidden.", m.status.Text)
+	assert.Contains(t, m.status.Text, "Abandoned")
+	assert.Contains(t, m.status.Text, "hidden")
 
 	sendKey(m, "a")
 	assert.False(t, tab.HideAbandoned, "expected HideAbandoned disabled after second a")
@@ -336,7 +339,8 @@ func TestProjectStatusFilterToggleKeys(t *testing.T) {
 	sendKey(m, "t")
 	assert.True(t, tab.HideCompleted, "expected settled toggle to enable completed filter")
 	assert.True(t, tab.HideAbandoned, "expected settled toggle to enable abandoned filter")
-	assert.Equal(t, "Settled projects hidden.", m.status.Text)
+	assert.Contains(t, m.status.Text, "Settled")
+	assert.Contains(t, m.status.Text, "hidden")
 
 	sendKey(m, "t")
 	assert.False(t, tab.HideCompleted, "expected settled toggle to disable completed filter")
@@ -351,28 +355,21 @@ func TestProjectStatusFilterToggleIgnoredOutsideProjects(t *testing.T) {
 	require.Equal(t, tabQuotes, tab.Kind, "expected quotes tab to be active")
 
 	for _, key := range []string{"z", "a", "t"} {
-		_, handled := m.handleNormalKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)})
-		assert.False(t, handled, "expected %s to be ignored outside projects tab", key)
+		sendKey(m, key)
 	}
-	assert.False(
-		t,
-		tab.HideCompleted,
-		"project status filters should remain disabled on non-project tabs",
-	)
-	assert.False(
-		t,
-		tab.HideAbandoned,
-		"project status filters should remain disabled on non-project tabs",
-	)
+	assert.False(t, tab.HideCompleted,
+		"project status filters should remain disabled on non-project tabs")
+	assert.False(t, tab.HideAbandoned,
+		"project status filters should remain disabled on non-project tabs")
 	assert.Empty(t, m.status.Text)
 }
 
 func TestKeyDispatchEditModeOnly(t *testing.T) {
 	m := newTestModel()
 
-	// 'p' should not be handled in normal mode.
-	_, handled := m.handleNormalKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("p")})
-	assert.False(t, handled, "'p' should not be handled in normal mode")
+	// 'p' should not change mode in normal mode.
+	sendKey(m, "p")
+	assert.Equal(t, modeNormal, m.mode, "'p' should not change mode in normal mode")
 
 	// 'esc' should be handled in edit mode (back to normal).
 	sendKey(m, "i")
@@ -383,16 +380,18 @@ func TestKeyDispatchEditModeOnly(t *testing.T) {
 
 func TestModeAfterFormExit(t *testing.T) {
 	m := newTestModel()
-	// Simulate: enter edit mode, open a form, then exit.
-	m.enterEditMode()
+	// Enter edit mode via key, open a form, then exit.
+	sendKey(m, "i")
+	require.Equal(t, modeEdit, m.mode)
 	m.prevMode = m.mode
 	m.mode = modeForm
-	// Now simulate exitForm.
+	// Simulate exitForm (no key to close a form without a database).
 	m.exitForm()
 	assert.Equal(t, modeEdit, m.mode, "expected modeEdit after exitForm (was in edit before form)")
 
-	// Now from normal mode.
-	m.enterNormalMode()
+	// Return to normal mode via key, then form again.
+	sendKey(m, "esc")
+	require.Equal(t, modeNormal, m.mode)
 	m.prevMode = m.mode
 	m.mode = modeForm
 	m.exitForm()

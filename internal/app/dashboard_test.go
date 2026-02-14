@@ -129,20 +129,6 @@ func TestDashboardNavigation(t *testing.T) {
 	assert.Equal(t, 0, m.dashCursor)
 }
 
-func TestDashboardJump(t *testing.T) {
-	m := newTestModel()
-	m.showDashboard = true
-	m.dashNav = []dashNavEntry{
-		{Tab: tabMaintenance, ID: 1},
-		{Tab: tabProjects, ID: 42},
-	}
-	m.dashCursor = 1
-
-	m.dashJump()
-	assert.False(t, m.showDashboard)
-	assert.Equal(t, tabIndex(tabProjects), m.active)
-}
-
 func TestDashboardEnterKeyJumps(t *testing.T) {
 	m := newTestModel()
 	m.showDashboard = true

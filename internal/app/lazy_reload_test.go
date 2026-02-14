@@ -112,10 +112,10 @@ func TestDashJumpClearsStaleFlag(t *testing.T) {
 		m.tabs[i].Stale = true
 	}
 
-	// Jump to the first dashboard entry.
+	// Jump to the first dashboard entry via enter key.
 	m.dashCursor = 0
 	targetTab := m.dashNav[0].Tab
-	m.dashJump()
+	sendKey(m, "enter")
 
 	// The target tab should be fresh after the jump.
 	idx := tabIndex(targetTab)
