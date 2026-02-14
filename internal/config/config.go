@@ -7,15 +7,19 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/toml"
 	"github.com/adrg/xdg"
+
+	"github.com/cpcloud/micasa/internal/data"
 )
 
 // Config is the top-level application configuration, loaded from a TOML file.
 type Config struct {
-	LLM LLM `toml:"llm"`
+	LLM       LLM       `toml:"llm"`
+	Documents Documents `toml:"documents"`
 }
 
 // LLM holds settings for the local LLM inference backend.
@@ -35,6 +39,13 @@ type LLM struct {
 	ExtraContext string `toml:"extra_context"`
 }
 
+// Documents holds settings for document attachments.
+type Documents struct {
+	// MaxFileSize is the largest file (in bytes) that can be imported as a
+	// document attachment. Default: 50 MiB.
+	MaxFileSize int64 `toml:"max_file_size"`
+}
+
 const (
 	DefaultBaseURL = "http://localhost:11434/v1"
 	DefaultModel   = "qwen3"
@@ -47,6 +58,9 @@ func defaults() Config {
 		LLM: LLM{
 			BaseURL: DefaultBaseURL,
 			Model:   DefaultModel,
+		},
+		Documents: Documents{
+			MaxFileSize: data.MaxDocumentSize,
 		},
 	}
 }
@@ -80,6 +94,13 @@ func LoadFromPath(path string) (Config, error) {
 	// Normalize: strip trailing slash from base URL.
 	cfg.LLM.BaseURL = strings.TrimRight(cfg.LLM.BaseURL, "/")
 
+	if cfg.Documents.MaxFileSize <= 0 {
+		return cfg, fmt.Errorf(
+			"documents.max_file_size must be positive, got %d",
+			cfg.Documents.MaxFileSize,
+		)
+	}
+
 	return cfg, nil
 }
 
@@ -96,6 +117,11 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if model := os.Getenv("MICASA_LLM_MODEL"); model != "" {
 		cfg.LLM.Model = model
+	}
+	if maxSize := os.Getenv("MICASA_MAX_DOCUMENT_SIZE"); maxSize != "" {
+		if n, err := strconv.ParseInt(maxSize, 10, 64); err == nil {
+			cfg.Documents.MaxFileSize = n
+		}
 	}
 }
 
@@ -118,5 +144,9 @@ model = "` + DefaultModel + `"
 # Optional: custom context appended to all system prompts.
 # Use this to inject domain-specific details about your house, currency, etc.
 # extra_context = "My house is a 1920s craftsman in Portland, OR. All budgets are in CAD."
+
+[documents]
+# Maximum file size (in bytes) for document imports. Default: 50 MiB.
+# max_file_size = 52428800
 `
 }

@@ -1167,12 +1167,6 @@ func TestDocumentBLOBStorageAndExtract(t *testing.T) {
 	require.Len(t, docs, 1)
 	assert.Equal(t, int64(len(content)), docs[0].SizeBytes)
 
-	// GetDocumentContent loads the BLOB.
-	blob, fileName, err := store.GetDocumentContent(docs[0].ID)
-	require.NoError(t, err)
-	assert.Equal(t, content, blob)
-	assert.Equal(t, "report.pdf", fileName)
-
 	// ExtractDocument writes to cache and returns a path.
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	cachePath, err := store.ExtractDocument(docs[0].ID)
@@ -1192,6 +1186,18 @@ func TestCreateDocumentRequiresFile(t *testing.T) {
 	store := newTestStore(t)
 	err := store.CreateDocument(Document{Title: "No File"}, "")
 	require.ErrorContains(t, err, "document file is required")
+}
+
+func TestCreateDocumentRejectsOversizedFile(t *testing.T) {
+	store := newTestStore(t)
+	filePath := filepath.Join(t.TempDir(), "huge.bin")
+	// Create a sparse file that reports as larger than the limit without
+	// actually allocating disk space.
+	require.NoError(t, os.WriteFile(filePath, nil, 0o600))
+	require.NoError(t, os.Truncate(filePath, MaxDocumentSize+1))
+
+	err := store.CreateDocument(Document{Title: "Too Big"}, filePath)
+	require.ErrorContains(t, err, "file is too large")
 }
 
 func TestTitleFromFilename(t *testing.T) {

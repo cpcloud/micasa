@@ -63,6 +63,9 @@ func main() {
 	if err != nil {
 		fail("load config", err)
 	}
+	if err := store.SetMaxDocumentSize(cfg.Documents.MaxFileSize); err != nil {
+		fail("configure document size limit", err)
+	}
 
 	opts := app.Options{
 		DBPath:     dbPath,

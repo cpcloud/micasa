@@ -195,6 +195,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 		return m, nil
+	case openFileResultMsg:
+		if typed.Err != nil {
+			m.setStatusError(fmt.Sprintf("open: %s", typed.Err))
+		}
+		return m, nil
 	}
 
 	// Help overlay: delegate scrolling to the viewport, esc or ? dismisses.

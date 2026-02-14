@@ -28,7 +28,7 @@ func (s *Store) ExtractDocument(id uint) (string, error) {
 		return "", fmt.Errorf("resolve cache dir: %w", err)
 	}
 
-	name := doc.ChecksumSHA256 + "-" + doc.FileName
+	name := doc.ChecksumSHA256 + "-" + filepath.Base(doc.FileName)
 	cachePath := filepath.Join(cacheDir, name)
 
 	// Cache hit: file exists with correct size.

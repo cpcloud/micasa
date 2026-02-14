@@ -11,6 +11,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// openFileResultMsg carries the outcome of an OS-viewer launch back to the
+// Bubble Tea event loop so the status bar can surface errors.
+type openFileResultMsg struct{ Err error }
+
 // openSelectedDocument extracts the selected document to the cache and
 // launches the OS-appropriate viewer. Only operates on the Documents tab;
 // returns nil (no-op) on other tabs.
@@ -35,6 +39,8 @@ func (m *Model) openSelectedDocument() tea.Cmd {
 }
 
 // openFileCmd returns a tea.Cmd that opens the given path with the OS viewer.
+// The command runs to completion so exit-status errors (e.g. no handler for
+// the MIME type) are captured and returned as an openFileResultMsg.
 func openFileCmd(path string) tea.Cmd {
 	return func() tea.Msg {
 		var cmd *exec.Cmd
@@ -42,11 +48,10 @@ func openFileCmd(path string) tea.Cmd {
 		case "darwin":
 			cmd = exec.Command("open", path)
 		case "windows":
-			cmd = exec.Command("cmd", "/c", "start", "", path)
+			cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", path)
 		default:
 			cmd = exec.Command("xdg-open", path)
 		}
-		_ = cmd.Start()
-		return nil
+		return openFileResultMsg{Err: cmd.Run()}
 	}
 }

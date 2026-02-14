@@ -23,7 +23,8 @@ import (
 )
 
 type Store struct {
-	db *gorm.DB
+	db              *gorm.DB
+	maxDocumentSize int64
 }
 
 func Open(path string) (*Store, error) {
@@ -53,7 +54,17 @@ func Open(path string) (*Store, error) {
 			return nil, fmt.Errorf("%s: %w", p.desc, err)
 		}
 	}
-	return &Store{db: db}, nil
+	return &Store{db: db, maxDocumentSize: MaxDocumentSize}, nil
+}
+
+// SetMaxDocumentSize overrides the maximum allowed file size for document
+// imports. The value must be positive; invalid values are rejected.
+func (s *Store) SetMaxDocumentSize(n int64) error {
+	if n <= 0 {
+		return fmt.Errorf("max document size must be positive, got %d", n)
+	}
+	s.maxDocumentSize = n
+	return nil
 }
 
 // ValidateDBPath rejects paths that could be interpreted as URIs by the
@@ -828,22 +839,10 @@ func (s *Store) GetDocument(id uint) (Document, error) {
 	return doc, nil
 }
 
-// GetDocumentContent retrieves only the BLOB content and filename for a
-// document. Use this for the extract-on-demand cache -- it avoids loading
-// metadata that ListDocuments already provides.
-func (s *Store) GetDocumentContent(id uint) ([]byte, string, error) {
-	var doc Document
-	err := s.db.Select("content", "file_name", "sha256").First(&doc, id).Error
-	if err != nil {
-		return nil, "", err
-	}
-	return doc.Content, doc.FileName, nil
-}
-
 // CreateDocument imports a file from sourcePath into the database as a BLOB.
 func (s *Store) CreateDocument(doc Document, sourcePath string) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		if err := normalizeDocument(&doc, sourcePath); err != nil {
+		if err := normalizeDocument(&doc, sourcePath, s.maxDocumentSize); err != nil {
 			return err
 		}
 		if len(doc.Content) == 0 {
@@ -860,7 +859,7 @@ func (s *Store) CreateDocument(doc Document, sourcePath string) error {
 // sourcePath is non-empty.
 func (s *Store) UpdateDocument(doc Document, sourcePath string) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		if err := normalizeDocument(&doc, sourcePath); err != nil {
+		if err := normalizeDocument(&doc, sourcePath, s.maxDocumentSize); err != nil {
 			return err
 		}
 		if err := validateDocumentTarget(tx, doc); err != nil {
@@ -1244,7 +1243,7 @@ func titleFromFilename(name string) string {
 // metadata (filename, size, MIME type, checksum). When the title is blank and
 // a source file is supplied, the title is auto-filled from the filename. On
 // updates where no new file is supplied these fields are left untouched.
-func normalizeDocument(doc *Document, sourcePath string) error {
+func normalizeDocument(doc *Document, sourcePath string, maxSize int64) error {
 	doc.Title = strings.TrimSpace(doc.Title)
 	doc.EntityKind = strings.TrimSpace(doc.EntityKind)
 	doc.Notes = strings.TrimSpace(doc.Notes)
@@ -1274,6 +1273,13 @@ func normalizeDocument(doc *Document, sourcePath string) error {
 	}
 	if info.IsDir() {
 		return fmt.Errorf("document path must be a file")
+	}
+	if info.Size() > maxSize {
+		return fmt.Errorf(
+			"file is too large (%d bytes, max %d bytes)",
+			info.Size(),
+			maxSize,
+		)
 	}
 
 	// Auto-fill title from filename when the user left it blank.

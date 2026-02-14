@@ -62,6 +62,10 @@ const (
 	ColNotes             = "notes"
 )
 
+// MaxDocumentSize is the largest file that can be imported as a document
+// attachment. SQLite handles arbitrarily large BLOBs, but reading a huge
+// file into memory would be a bad experience.
+const MaxDocumentSize int64 = 50 << 20 // 50 MiB
 const (
 	DocumentEntityNone        = ""
 	DocumentEntityProject     = "project"
