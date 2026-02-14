@@ -728,12 +728,12 @@ func (m *Model) parseDocumentFormData() (data.Document, string, error) {
 			return data.Document{}, "", fmt.Errorf("linked record id is required")
 		}
 		parsed, err := data.ParseRequiredInt(entityIDText)
-		if err != nil {
+		if err != nil || parsed <= 0 {
 			return data.Document{}, "", fmt.Errorf(
 				"linked record id should be a positive whole number",
 			)
 		}
-		id := uint(parsed)
+		id := uint(parsed) //nolint:gosec // guarded by parsed > 0 above
 		entityID = &id
 	}
 

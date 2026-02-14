@@ -403,7 +403,10 @@ func documentRows(items []data.Document) ([]table.Row, []rowMeta, [][]cell) {
 				{Value: d.FileName, Kind: cellText},
 				{Value: displayDocumentKind(d.EntityKind), Kind: cellText},
 				{Value: ref, Kind: cellText},
-				{Value: humanize.IBytes(uint64(d.SizeBytes)), Kind: cellReadonly},
+				{
+					Value: humanize.IBytes(uint64(max(d.SizeBytes, 0))), //nolint:gosec // clamped
+					Kind:  cellReadonly,
+				},
 			},
 		}
 	})
