@@ -444,11 +444,13 @@ These have been repeatedly requested. Violating them wastes the user's time.
   just to work around argument-parsing issues. PowerShell is the native
   shell on Windows runners; fix commands to work under PowerShell instead
   (e.g. quote arguments, use `--flag value` instead of `--flag=value`).
-- **Branch discipline for tangential work**: If the user veers into work
-  unrelated to the current branch/issue/PR, create a new branch off `main`
-  (or the appropriate base), do the work there, then switch back to the
-  original branch so context isn't lost and unrelated changes don't pollute
-  the current PR.
+- **Worktree discipline**: ALL work unrelated to the current worktree MUST
+  go in a new worktree. Before starting: (1) `git fetch origin` to get the
+  latest remote state, (2) create a uniquely-named git worktree in
+  `~/src/agent-work/` (e.g.
+  `git worktree add ~/src/agent-work/<descriptive-name> -b <branch> origin/main`),
+  and (3) do ALL work in that worktree. Never start unrelated work directly
+  in the main checkout or the current worktree. Worktrees are cheap.
 - **CI commits use `ci:` scope**: Use `ci:` (not `fix:`) for CI workflow
   changes unless the user explicitly says otherwise.
 - **`fix:` is for user-facing bugs only**: Never use `fix:` (or `fix(test):`)
