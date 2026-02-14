@@ -193,3 +193,13 @@ The HVAC system is a heat pump (Mitsubishi hyper-heat) -- no gas furnace.
 
 This helps the model give more relevant answers without you repeating context
 in every question.
+
+## Persistent preferences
+
+Some preferences are stored in the SQLite database and persist across
+restarts. These are controlled through the UI rather than config files:
+
+| Preference | Default | How to change |
+|------------|---------|---------------|
+| Dashboard on startup | Shown | Press `D` to toggle; your choice is remembered |
+| LLM model | From config | Changed automatically when you switch models in the chat interface |

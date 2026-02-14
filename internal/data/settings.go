@@ -29,7 +29,8 @@ type ChatInput struct {
 }
 
 const (
-	settingLLMModel = "llm.model"
+	settingLLMModel      = "llm.model"
+	settingShowDashboard = "ui.show_dashboard"
 
 	// chatHistoryMax is the maximum number of chat inputs retained.
 	chatHistoryMax = 200
@@ -64,6 +65,28 @@ func (s *Store) GetLastModel() (string, error) {
 // PutLastModel persists the LLM model name.
 func (s *Store) PutLastModel(model string) error {
 	return s.PutSetting(settingLLMModel, model)
+}
+
+// GetShowDashboard returns whether the dashboard should be shown on
+// startup. Defaults to true when no preference has been saved.
+func (s *Store) GetShowDashboard() (bool, error) {
+	val, err := s.GetSetting(settingShowDashboard)
+	if err != nil {
+		return true, err
+	}
+	if val == "" {
+		return true, nil
+	}
+	return val == "true", nil
+}
+
+// PutShowDashboard persists the user's dashboard visibility preference.
+func (s *Store) PutShowDashboard(show bool) error {
+	val := "false"
+	if show {
+		val = "true"
+	}
+	return s.PutSetting(settingShowDashboard, val)
 }
 
 // AppendChatInput adds a prompt to the persistent history, deduplicating

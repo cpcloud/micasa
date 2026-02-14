@@ -99,3 +99,24 @@ func TestLoadChatHistoryEmpty(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, history)
 }
+
+func TestShowDashboardDefaultsToTrue(t *testing.T) {
+	store := newTestStore(t)
+	show, err := store.GetShowDashboard()
+	require.NoError(t, err)
+	assert.True(t, show, "should default to true when no preference saved")
+}
+
+func TestShowDashboardRoundTrip(t *testing.T) {
+	store := newTestStore(t)
+
+	require.NoError(t, store.PutShowDashboard(false))
+	show, err := store.GetShowDashboard()
+	require.NoError(t, err)
+	assert.False(t, show)
+
+	require.NoError(t, store.PutShowDashboard(true))
+	show, err = store.GetShowDashboard()
+	require.NoError(t, err)
+	assert.True(t, show)
+}
