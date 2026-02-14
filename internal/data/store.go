@@ -1199,15 +1199,21 @@ func findOrCreateVendor(tx *gorm.DB, vendor Vendor) (Vendor, error) {
 func titleFromFilename(name string) string {
 	name = strings.TrimSpace(name)
 
-	// Strip recognized MIME extensions iteratively to handle compound
-	// extensions like .tar.gz while preserving dots that are part of the
-	// stem (e.g. "report.v2.final.pdf" keeps "report.v2.final").
+	// Always strip the outermost extension (every file has one).
+	if ext := filepath.Ext(name); ext != "" && ext != name {
+		name = strings.TrimSuffix(name, ext)
+	}
+
+	// Continue stripping known compound-extension intermediaries
+	// (e.g. .tar in .tar.gz, .tar.bz2, .tar.xz). We avoid
+	// mime.TypeByExtension here because its results are OS-dependent.
 	for {
 		ext := filepath.Ext(name)
 		if ext == "" || ext == name {
 			break
 		}
-		if mime.TypeByExtension(ext) == "" {
+		lower := strings.ToLower(ext)
+		if lower != ".tar" {
 			break
 		}
 		name = strings.TrimSuffix(name, ext)
