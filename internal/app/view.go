@@ -285,18 +285,7 @@ func (m *Model) statusView() string {
 	if m.mode == modeNormal {
 		help = m.normalModeStatusHelp(modeBadge)
 	} else {
-		help = joinWithSeparator(
-			m.helpSeparator(),
-			modeBadge,
-			m.helpItem("a", "add"),
-			m.helpItem("e", m.editHint()),
-			m.helpItem("d", "del/restore"),
-			m.helpItem("u", "undo"),
-			m.helpItem("r", "redo"),
-			m.deletedHint(m.effectiveTab()),
-			m.helpItem("p", "profile"),
-			m.helpItem("esc", "nav"),
-		)
+		help = m.editModeStatusHelp(modeBadge)
 	}
 
 	return m.withStatusMessage(help)
@@ -327,17 +316,25 @@ func (m *Model) hiddenHint() string {
 		return ""
 	}
 	label := "hidden: " + strings.Join(names, ", ")
-	hint := m.keycap("C") + " " + m.styles.HeaderHint.Render("show all")
-	return m.styles.HeaderHint.Render(label) + "  " + hint
+	showAll := m.helpItem("C", "show all")
+	return m.styles.HeaderHint.Render(label) + "  " + showAll
 }
 
-func (m *Model) deletedHint(tab *Tab) string {
-	key := m.keycap("x")
-	label := m.styles.HeaderHint.Render("deleted")
+// deletedStatusHint returns a statusHint for the deleted-rows toggle.
+// Only visually prominent when ShowDeleted is active.
+func (m *Model) deletedStatusHint(tab *Tab) statusHint {
 	if tab != nil && tab.ShowDeleted {
-		label = m.styles.DeletedLabel.Render("deleted")
+		return statusHint{
+			id:       "deleted",
+			full:     m.keycap("x") + " " + m.styles.DeletedLabel.Render("deleted"),
+			priority: 1,
+		}
 	}
-	return strings.TrimSpace(fmt.Sprintf("%s %s", key, label))
+	return statusHint{
+		id:       "deleted",
+		full:     m.helpItem("x", "deleted"),
+		priority: 4,
+	}
 }
 
 type statusHint struct {
@@ -362,34 +359,26 @@ func (m *Model) normalModeStatusHints(modeBadge string) []statusHint {
 			required: true,
 		},
 	}
-	if !m.inDetail() {
+
+	// State indicators: only show when relevant state is active.
+	if hint, ok := m.projectStatusStateHint(); ok {
 		hints = append(hints, statusHint{
-			id:       "tab",
-			full:     m.helpItem("b/f", "switch"),
-			compact:  m.helpItem("b/f", "tabs"),
-			priority: 4,
+			id:       "project-state",
+			full:     hint.full,
+			compact:  hint.compact,
+			priority: 1,
 		})
 	}
-	hints = append(hints,
-		statusHint{id: "col", full: m.helpItem("h/l", "col"), priority: 1},
-		statusHint{id: "sort", full: m.helpItem("s", "sort"), priority: 2},
-	)
-	if hint, ok := m.projectStatusStateHint(); ok {
-		hints = append(hints,
-			statusHint{
-				id:       "project-state",
-				full:     hint.full,
-				compact:  hint.compact,
-				priority: 1,
-			},
-			statusHint{
-				id:       "project-filter-keys",
-				full:     m.helpItem("z/a/t", "filters"),
-				compact:  m.helpItem("t", "settled"),
-				priority: 4,
-			},
-		)
+	hints = append(hints, m.pinFilterHints()...)
+	if hint := m.hiddenHint(); hint != "" {
+		hints = append(hints, statusHint{
+			id:       "hidden",
+			full:     hint,
+			priority: 5,
+		})
 	}
+
+	// Context-dependent action: what enter does on the current column.
 	if hint := m.enterHint(); hint != "" {
 		hints = append(hints, statusHint{
 			id:       "enter",
@@ -398,39 +387,27 @@ func (m *Model) normalModeStatusHints(modeBadge string) []statusHint {
 			priority: 2,
 		})
 	}
+
+	// Primary actions.
 	hints = append(hints,
-		statusHint{
-			id:       "find",
-			full:     m.helpItem("/", "find col"),
-			compact:  m.helpItem("/", "find"),
-			priority: 4,
-		},
-		statusHint{
-			id:       "hide",
-			full:     m.helpItem("c", "hide col"),
-			compact:  m.helpItem("c", "hide"),
-			priority: 4,
-		},
+		statusHint{id: "edit", full: m.helpItem("i", "edit"), priority: 2},
 	)
-	if hint := m.hiddenHint(); hint != "" {
+	if m.llmClient != nil {
 		hints = append(hints, statusHint{
-			id:       "hidden",
-			full:     hint,
-			priority: 6,
+			id:       "ask",
+			full:     m.helpItem("@", "ask"),
+			priority: 3,
 		})
 	}
-	hints = append(hints, m.pinFilterHints()...)
-	hints = append(hints,
-		statusHint{id: "ask", full: m.helpItem("@", "ask"), priority: 3},
-		statusHint{id: "edit", full: m.helpItem("i", "edit"), priority: 2},
-		statusHint{
-			id:       "help",
-			full:     m.helpItem("?", "help"),
-			compact:  m.helpItem("?", "more"),
-			priority: 0,
-			required: true,
-		},
-	)
+
+	// Anchors: help and exit are always visible.
+	hints = append(hints, statusHint{
+		id:       "help",
+		full:     m.helpItem("?", "help"),
+		compact:  m.helpItem("?", "more"),
+		priority: 0,
+		required: true,
+	})
 	if m.inDetail() {
 		hints = append(hints, statusHint{
 			id:       "exit",
@@ -451,9 +428,34 @@ func (m *Model) normalModeStatusHints(modeBadge string) []statusHint {
 	return hints
 }
 
-// pinFilterHints returns status bar hints for pin/filter state. Always shows
-// at least the n/N key hints; adds a pin summary or eager-mode indicator when
-// relevant.
+// editModeStatusHelp renders the edit mode status bar with only primary
+// actions. Undo/redo and profile are discoverable via the help overlay.
+func (m *Model) editModeStatusHelp(modeBadge string) string {
+	hints := []statusHint{
+		{id: "mode", full: modeBadge, priority: 0, required: true},
+		{id: "add", full: m.helpItem("a", "add"), priority: 1},
+		{id: "edit", full: m.helpItem("e", m.editHint()), priority: 1},
+		{
+			id:       "del",
+			full:     m.helpItem("d", "del/restore"),
+			compact:  m.helpItem("d", "del"),
+			priority: 2,
+		},
+	}
+	hints = append(hints, m.deletedStatusHint(m.effectiveTab()))
+	hints = append(hints, statusHint{
+		id:       "exit",
+		full:     m.helpItem("esc", "nav"),
+		compact:  m.renderKeys("esc"),
+		priority: 0,
+		required: true,
+	})
+	return m.renderStatusHints(hints)
+}
+
+// pinFilterHints returns status bar hints for active pin/filter state.
+// Only shows indicators when pins or filter are active; keybinding
+// discovery is handled by the help overlay.
 func (m *Model) pinFilterHints() []statusHint {
 	tab := m.effectiveTab()
 	if tab == nil {
@@ -462,46 +464,26 @@ func (m *Model) pinFilterHints() []statusHint {
 	var hints []statusHint
 	pinned := hasPins(tab)
 
-	// Indicator: show pin summary or eager-mode badge.
 	if pinned {
 		summary := m.styles.Pinned.Render(pinSummary(tab))
 		label := summary
 		if tab.FilterActive {
 			label = m.styles.Pinned.Render("FILTER") + " " + summary
 		}
+		clearHint := m.helpItem(keyCtrlN, "clear")
 		hints = append(hints, statusHint{
 			id:       "pin-summary",
-			full:     label,
+			full:     label + "  " + clearHint,
+			compact:  label,
 			priority: 1,
 		})
 	} else if tab.FilterActive {
+		clearHint := m.helpItem(keyCtrlN, "clear")
 		hints = append(hints, statusHint{
 			id:       "eager-filter",
-			full:     m.styles.Pinned.Render("FILTER"),
+			full:     m.styles.Pinned.Render("FILTER") + "  " + clearHint,
+			compact:  m.styles.Pinned.Render("FILTER"),
 			priority: 1,
-		})
-	}
-
-	// Key hints: always visible so the feature is discoverable.
-	hints = append(hints, statusHint{
-		id:       "pin-key",
-		full:     m.helpItem("n", "pin"),
-		priority: 3,
-	})
-	filterLabel := "filter"
-	if tab.FilterActive {
-		filterLabel = "unfilter"
-	}
-	hints = append(hints, statusHint{
-		id:       "filter-key",
-		full:     m.helpItem("N", filterLabel),
-		priority: 3,
-	})
-	if pinned || tab.FilterActive {
-		hints = append(hints, statusHint{
-			id:       "clear-pins-key",
-			full:     m.helpItem(keyCtrlN, "clear"),
-			priority: 4,
 		})
 	}
 	return hints

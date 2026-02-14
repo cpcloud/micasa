@@ -576,16 +576,11 @@ func TestStatusViewProjectStatusSummaryReflectsActiveFilters(t *testing.T) {
 
 func TestStatusViewUsesMoreLabelWhenHintsCollapse(t *testing.T) {
 	m := newTestModel()
-	m.width = 70
+	// At very narrow width, the help hint compacts from "help" to "more".
+	m.width = 40
 	m.height = 40
 	status := m.statusView()
 	assert.Contains(t, status, "more", "expected collapsed hint label to include more")
-	assert.NotContains(
-		t,
-		status,
-		"find col",
-		"did not expect low-priority find hint after collapse",
-	)
 }
 
 func TestHelpContentIncludesProjectStatusFilterShortcuts(t *testing.T) {
@@ -637,4 +632,86 @@ func TestDimBackgroundNeutralizesCancelFaint(t *testing.T) {
 	assert.NotContains(t, dimmed, "\033[22m",
 		"dimBackground should neutralize cancel-faint markers from nested overlays")
 	assert.Contains(t, dimmed, "\033[2m", "dimBackground should apply faint")
+}
+
+func TestNormalModeOmitsDiscoveryHints(t *testing.T) {
+	m := newTestModel()
+	m.width = 200 // very wide so nothing gets dropped by priority
+	m.height = 40
+	status := m.statusView()
+
+	// These keybinding hints should be discoverable only via the help
+	// overlay, not cluttering the status bar.
+	for _, removed := range []string{"find col", "hide col", "sort", "pin"} {
+		assert.NotContains(t, status, removed,
+			"did not expect %q hint in redesigned normal-mode status bar", removed)
+	}
+
+	// Primary actions should still be visible.
+	assert.Contains(t, status, "NAV")
+	assert.Contains(t, status, "edit")
+	assert.Contains(t, status, "help")
+	assert.Contains(t, status, "quit")
+}
+
+func TestEditModeOmitsUndoRedoProfile(t *testing.T) {
+	m := newTestModel()
+	m.width = 200
+	m.height = 40
+	m.mode = modeEdit
+	status := m.statusView()
+
+	// Undo/redo/profile are discoverable via help, not shown in edit mode bar.
+	assert.NotContains(t, status, "undo")
+	assert.NotContains(t, status, "redo")
+	assert.NotContains(t, status, "profile")
+
+	// Primary edit actions should be present.
+	assert.Contains(t, status, "EDIT")
+	assert.Contains(t, status, "add")
+	assert.Contains(t, status, "del")
+	assert.Contains(t, status, "nav")
+}
+
+func TestAskHintHiddenWithoutLLM(t *testing.T) {
+	m := newTestModel()
+	m.width = 200
+	m.height = 40
+	m.llmClient = nil
+	status := m.statusView()
+	assert.NotContains(t, status, "ask",
+		"ask hint should be hidden when LLM client is nil")
+}
+
+func TestPinSummaryShowsOnlyWhenActive(t *testing.T) {
+	m := newTestModel()
+	m.width = 200
+	m.height = 40
+	tab := m.activeTab()
+	require.NotNil(t, tab)
+
+	// No pins: no pin-related hints at all.
+	status := m.statusView()
+	assert.NotContains(t, status, "FILTER")
+	assert.NotContains(t, status, "clear")
+
+	// Add a pin and activate filter.
+	tab.Pins = []filterPin{{Col: 0, Values: map[string]bool{"test": true}}}
+	tab.FilterActive = true
+	status = m.statusView()
+	assert.Contains(t, status, "FILTER")
+	assert.Contains(t, status, "clear")
+}
+
+func TestDeletedHintProminentWhenShowDeleted(t *testing.T) {
+	m := newTestModel()
+	m.width = 200
+	m.height = 40
+	m.mode = modeEdit
+	tab := m.effectiveTab()
+	require.NotNil(t, tab)
+
+	tab.ShowDeleted = true
+	status := m.statusView()
+	assert.Contains(t, status, "deleted")
 }
