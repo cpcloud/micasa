@@ -61,18 +61,6 @@ const (
 	ColNotes             = "notes"
 )
 
-func ProjectStatuses() []string {
-	return []string{
-		ProjectStatusIdeating,
-		ProjectStatusPlanned,
-		ProjectStatusQuoted,
-		ProjectStatusInProgress,
-		ProjectStatusDelayed,
-		ProjectStatusCompleted,
-		ProjectStatusAbandoned,
-	}
-}
-
 type HouseProfile struct {
 	ID               uint `gorm:"primaryKey"`
 	Nickname         string
