@@ -581,6 +581,36 @@ func TestOpenDetailForRow_ProjectQuotes(t *testing.T) {
 	assert.Equal(t, "Quotes", m.detail().Tab.Name)
 }
 
+func TestOpenDetailForRow_NestedApplianceMaintenanceLog(t *testing.T) {
+	m := newTestModelWithDemoData(t, 42)
+	m.active = tabIndex(tabAppliances)
+	tab := m.activeTab()
+	require.NotNil(t, tab)
+
+	appliances, err := m.store.ListAppliances(false)
+	require.NoError(t, err)
+	require.NotEmpty(t, appliances)
+
+	// Drill into maintenance items for the first appliance.
+	require.NoError(t, m.openDetailForRow(tab, appliances[0].ID, "Maint"))
+	require.True(t, m.inDetail())
+	assert.Equal(t, "Maintenance", m.detail().Tab.Name)
+
+	// The detail tab's Kind is tabAppliances (inherits from parent).
+	detailTab := &m.detail().Tab
+	require.Equal(t, tabAppliances, detailTab.Kind)
+
+	// Reload so rows are populated, then drill into the service log.
+	require.NoError(t, m.reloadDetailTab())
+	items, err := m.store.ListMaintenanceByAppliance(appliances[0].ID, false)
+	require.NoError(t, err)
+	require.NotEmpty(t, items, "appliance must have linked maintenance items")
+
+	require.NoError(t, m.openDetailForRow(detailTab, items[0].ID, "Log"))
+	assert.Equal(t, "Service Log", m.detail().Tab.Name)
+	assert.Len(t, m.detailStack, 2, "should be a doubly-nested drilldown")
+}
+
 // ---------------------------------------------------------------------------
 // Drilldown hint tests
 // ---------------------------------------------------------------------------

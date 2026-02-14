@@ -853,6 +853,7 @@ func (m *Model) tableView(tab *Tab) string {
 		vp.Sorts,
 		vp.HasLeft,
 		vp.HasRight,
+		vp.Cells,
 		m.styles,
 	)
 	divider := renderDivider(vp.Widths, vp.PlainSeps, normalDiv, m.styles.TableSeparator)
