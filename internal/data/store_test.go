@@ -4,6 +4,7 @@
 package data
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -1295,6 +1296,231 @@ func TestUpdateDocumentMetadataPreservesFile(t *testing.T) {
 	cached, err := os.ReadFile(cachePath) //nolint:gosec // test-only path
 	require.NoError(t, err)
 	assert.Equal(t, content, cached)
+}
+
+func TestUpdateDocumentReplacesFile(t *testing.T) {
+	store := newTestStore(t)
+
+	// User uploads an initial file.
+	oldContent := []byte("draft v1")
+	oldPath := filepath.Join(t.TempDir(), "draft.pdf")
+	require.NoError(t, os.WriteFile(oldPath, oldContent, 0o600))
+
+	require.NoError(t, store.CreateDocument(Document{Title: "Contract"}, oldPath))
+	docs, err := store.ListDocuments(false)
+	require.NoError(t, err)
+	require.Len(t, docs, 1)
+
+	original := docs[0]
+
+	// User realizes they uploaded the wrong version and picks a new file.
+	newContent := []byte("final signed version — much longer")
+	newPath := filepath.Join(t.TempDir(), "final_signed.pdf")
+	require.NoError(t, os.WriteFile(newPath, newContent, 0o600))
+
+	require.NoError(t, store.UpdateDocument(Document{
+		ID:    original.ID,
+		Title: "Contract (Signed)",
+	}, newPath))
+
+	updated, err := store.GetDocument(original.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "Contract (Signed)", updated.Title)
+	assert.Equal(t, "final_signed.pdf", updated.FileName)
+	assert.Equal(t, int64(len(newContent)), updated.SizeBytes)
+	assert.NotEqual(t, original.ChecksumSHA256, updated.ChecksumSHA256)
+
+	// User opens the document and sees the new content.
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	cachePath, err := store.ExtractDocument(original.ID)
+	require.NoError(t, err)
+	cached, err := os.ReadFile(cachePath) //nolint:gosec // test-only path
+	require.NoError(t, err)
+	assert.Equal(t, newContent, cached)
+}
+
+func TestReplaceFileThenViewServesNewContent(t *testing.T) {
+	store := newTestStore(t)
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+
+	// User uploads v1 and views it.
+	v1 := []byte("version 1 content")
+	v1Path := filepath.Join(t.TempDir(), "report.pdf")
+	require.NoError(t, os.WriteFile(v1Path, v1, 0o600))
+
+	require.NoError(t, store.CreateDocument(Document{Title: "Report"}, v1Path))
+	docs, err := store.ListDocuments(false)
+	require.NoError(t, err)
+	docID := docs[0].ID
+
+	path1, err := store.ExtractDocument(docID)
+	require.NoError(t, err)
+	got1, err := os.ReadFile(path1) //nolint:gosec // test-only path
+	require.NoError(t, err)
+	assert.Equal(t, v1, got1)
+
+	// User replaces with v2.
+	v2 := []byte("version 2 — updated numbers")
+	v2Path := filepath.Join(t.TempDir(), "report_v2.pdf")
+	require.NoError(t, os.WriteFile(v2Path, v2, 0o600))
+	require.NoError(t, store.UpdateDocument(Document{
+		ID: docID, Title: "Report",
+	}, v2Path))
+
+	// User views again — must get v2, not stale cache.
+	path2, err := store.ExtractDocument(docID)
+	require.NoError(t, err)
+	assert.NotEqual(t, path1, path2, "cache path should differ after file replacement")
+	got2, err := os.ReadFile(path2) //nolint:gosec // test-only path
+	require.NoError(t, err)
+	assert.Equal(t, v2, got2)
+}
+
+func TestDeleteRestoreDocumentContentSurvives(t *testing.T) {
+	store := newTestStore(t)
+
+	content := []byte("warranty certificate scan")
+	filePath := filepath.Join(t.TempDir(), "warranty.pdf")
+	require.NoError(t, os.WriteFile(filePath, content, 0o600))
+
+	require.NoError(t, store.CreateDocument(Document{Title: "Warranty"}, filePath))
+	docs, err := store.ListDocuments(false)
+	require.NoError(t, err)
+	docID := docs[0].ID
+	originalChecksum := docs[0].ChecksumSHA256
+
+	// User deletes the document.
+	require.NoError(t, store.DeleteDocument(docID))
+
+	// Document is gone from the normal list.
+	docs, err = store.ListDocuments(false)
+	require.NoError(t, err)
+	assert.Empty(t, docs)
+
+	// But it still shows up when including deleted items.
+	docs, err = store.ListDocuments(true)
+	require.NoError(t, err)
+	require.Len(t, docs, 1)
+	assert.Equal(t, "Warranty", docs[0].Title)
+
+	// User changes their mind and restores it.
+	require.NoError(t, store.RestoreDocument(docID))
+
+	// Document is back in the normal list with metadata intact.
+	docs, err = store.ListDocuments(false)
+	require.NoError(t, err)
+	require.Len(t, docs, 1)
+	assert.Equal(t, originalChecksum, docs[0].ChecksumSHA256)
+
+	// User opens it — file content is still there.
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	cachePath, err := store.ExtractDocument(docID)
+	require.NoError(t, err)
+	cached, err := os.ReadFile(cachePath) //nolint:gosec // test-only path
+	require.NoError(t, err)
+	assert.Equal(t, content, cached)
+}
+
+func TestUnlinkedDocumentFullLifecycle(t *testing.T) {
+	store := newTestStore(t)
+
+	// User uploads a standalone document (not linked to any entity).
+	content := []byte("household inventory spreadsheet")
+	filePath := filepath.Join(t.TempDir(), "inventory.csv")
+	require.NoError(t, os.WriteFile(filePath, content, 0o600))
+
+	require.NoError(t, store.CreateDocument(Document{
+		Title: "Home Inventory",
+		Notes: "room-by-room list",
+	}, filePath))
+
+	docs, err := store.ListDocuments(false)
+	require.NoError(t, err)
+	require.Len(t, docs, 1)
+	doc := docs[0]
+	assert.Empty(t, doc.EntityKind)
+	assert.Nil(t, doc.EntityID)
+
+	// User edits the notes.
+	require.NoError(t, store.UpdateDocument(Document{
+		ID:    doc.ID,
+		Title: "Home Inventory",
+		Notes: "updated with garage items",
+	}, ""))
+
+	updated, err := store.GetDocument(doc.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "updated with garage items", updated.Notes)
+	assert.Equal(t, doc.FileName, updated.FileName)
+
+	// User deletes and restores — no entity link to block restore.
+	require.NoError(t, store.DeleteDocument(doc.ID))
+	require.NoError(t, store.RestoreDocument(doc.ID))
+
+	restored, err := store.GetDocument(doc.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "Home Inventory", restored.Title)
+}
+
+func TestMultipleDocumentsListOrder(t *testing.T) {
+	store := newTestStore(t)
+	dir := t.TempDir()
+
+	// User uploads three documents in sequence.
+	for i, name := range []string{"alpha.pdf", "beta.txt", "gamma.csv"} {
+		path := filepath.Join(dir, name)
+		require.NoError(t, os.WriteFile(path, []byte(fmt.Sprintf("content-%d", i)), 0o600))
+		require.NoError(t, store.CreateDocument(Document{}, path))
+	}
+
+	docs, err := store.ListDocuments(false)
+	require.NoError(t, err)
+	require.Len(t, docs, 3)
+
+	// Listed by updated_at DESC, so the last-created doc is first.
+	assert.Equal(t, "gamma.csv", docs[0].FileName)
+	assert.Equal(t, "beta.txt", docs[1].FileName)
+	assert.Equal(t, "alpha.pdf", docs[2].FileName)
+
+	// User edits the oldest document — it should move to the top.
+	require.NoError(t, store.UpdateDocument(Document{
+		ID:    docs[2].ID,
+		Title: "Alpha Updated",
+	}, ""))
+
+	docs, err = store.ListDocuments(false)
+	require.NoError(t, err)
+	assert.Equal(t, "Alpha Updated", docs[0].Title)
+}
+
+func TestUpdateDocumentClearNotes(t *testing.T) {
+	store := newTestStore(t)
+
+	filePath := filepath.Join(t.TempDir(), "receipt.pdf")
+	require.NoError(t, os.WriteFile(filePath, []byte("receipt data"), 0o600))
+
+	require.NoError(t, store.CreateDocument(Document{
+		Title: "Receipt",
+		Notes: "plumber visit 2026-01",
+	}, filePath))
+
+	docs, err := store.ListDocuments(false)
+	require.NoError(t, err)
+	doc := docs[0]
+
+	// User decides the notes were wrong and clears them.
+	require.NoError(t, store.UpdateDocument(Document{
+		ID:    doc.ID,
+		Title: "Receipt",
+		Notes: "",
+	}, ""))
+
+	updated, err := store.GetDocument(doc.ID)
+	require.NoError(t, err)
+	assert.Empty(t, updated.Notes)
+	// File metadata still intact.
+	assert.Equal(t, doc.FileName, updated.FileName)
+	assert.Equal(t, doc.SizeBytes, updated.SizeBytes)
 }
 
 func TestDocumentTitleRequiredOnEditWithoutFile(t *testing.T) {

@@ -352,12 +352,16 @@ These have been repeatedly requested. Violating them wastes the user's time.
   genuinely manual-only verification steps (e.g. visual UI/UX checks that
   cannot be automated). Instead of listing test plan items, write actual
   unit or integration tests that ship with the PR.
-- **Tests simulate user behavior, not implementation**: Write tests that
-  exercise the public API the way a real user would -- call exported
-  functions, pass realistic inputs, assert on observable outputs and side
-  effects. Do not reach into unexported fields, mock internal helpers, or
-  assert on internal state. If a test can only be written by poking into
-  implementation details, the API surface needs refactoring, not the test.
+- **Tests simulate user behavior, not implementation**: Before writing a
+  test, ask: "What would a real user do in the TUI?" Then encode that
+  workflow as a test. A user creates a document, edits just the title,
+  saves -- does the file survive? A user deletes something then restores
+  it -- is everything intact? Think in terms of complete user journeys,
+  not isolated function calls. Exercise the public API with realistic
+  inputs and assert on observable outputs and side effects. Do not reach
+  into unexported fields, mock internal helpers, or assert on internal
+  state. If a test can only be written by poking into implementation
+  details, the API surface needs refactoring, not the test.
 - **Prefer tools over shell commands**: Use the dedicated Read, Write,
   StrReplace, Grep, and Glob tools instead of shell equivalents (`cat`,
   `sed`, `grep`, `find`, `echo >`, etc.). Only use Shell for commands that
