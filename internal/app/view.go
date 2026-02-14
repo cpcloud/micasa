@@ -497,6 +497,13 @@ func (m *Model) pinFilterHints() []statusHint {
 		full:     m.helpItem("N", filterLabel),
 		priority: 3,
 	})
+	if pinned || tab.FilterActive {
+		hints = append(hints, statusHint{
+			id:       "clear-pins-key",
+			full:     m.helpItem(keyCtrlN, "clear"),
+			priority: 4,
+		})
+	}
 	return hints
 }
 
@@ -841,6 +848,7 @@ func (m *Model) helpContent() string {
 				{"c/C", "Hide / show columns"},
 				{"n", "Pin / unpin cell value"},
 				{"N", "Toggle filter on/off"},
+				{keyCtrlN, "Clear all pins and filter"},
 				{"enter", drilldownArrow + " drilldown / " + linkArrow + " follow link / preview"},
 				{"tab", "House profile"},
 				{"D", "Summary"},

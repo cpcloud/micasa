@@ -217,7 +217,7 @@ func (m *Model) handleColumnFinderKey(key tea.KeyMsg) tea.Cmd {
 			cf.Cursor--
 		}
 		return nil
-	case "down", "ctrl+n":
+	case "down", keyCtrlN:
 		if cf.Cursor < len(cf.Matches)-1 {
 			cf.Cursor++
 		}

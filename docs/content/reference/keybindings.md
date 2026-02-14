@@ -60,6 +60,7 @@ Complete reference of every keybinding in micasa, organized by mode.
 |-----|--------|
 | `n` | Toggle pin on current cell value (preview: dim non-matching rows) |
 | `N` | Toggle filter activation (hide/show non-matching rows) |
+| `ctrl+n` | Clear all pins and deactivate filter |
 
 ### Actions
 

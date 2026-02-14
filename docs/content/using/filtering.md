@@ -16,8 +16,7 @@ mechanism is two-step: **pin** values to preview which rows match, then
 2. Press `n` to pin it -- matching rows stay bright, others dim
 3. Press `N` to activate -- non-matching rows disappear
 4. Press `N` again to deactivate (rows return, dimming resumes)
-5. Press `n` on each pinned cell to unpin, or hide the column (`c`) to clear
-   its pins
+5. Press `ctrl+n` to clear all pins and deactivate the filter at once
 
 ## Pin logic
 
@@ -72,6 +71,7 @@ re-pinning.
 |-----|--------|
 | `n` | Toggle pin on current cell value |
 | `N` | Toggle filter activation (preview <-> active) |
+| `ctrl+n` | Clear all pins and deactivate filter |
 
 ## Edge cases
 

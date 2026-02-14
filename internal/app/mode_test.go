@@ -44,6 +44,8 @@ func sendKey(m *Model, key string) {
 		msg = tea.KeyMsg{Type: tea.KeyShiftTab}
 	case "ctrl+c":
 		msg = tea.KeyMsg{Type: tea.KeyCtrlC}
+	case keyCtrlN:
+		msg = tea.KeyMsg{Type: tea.KeyCtrlN}
 	case "ctrl+o":
 		msg = tea.KeyMsg{Type: tea.KeyCtrlO}
 	}

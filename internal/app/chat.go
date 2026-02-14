@@ -1352,7 +1352,7 @@ func (m *Model) handleChatKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 				mc.Cursor--
 			}
 			return m, nil
-		case "down", "ctrl+n":
+		case "down", keyCtrlN:
 			if mc.Cursor < len(mc.Matches)-1 {
 				mc.Cursor++
 			}
@@ -1395,7 +1395,7 @@ func (m *Model) handleChatKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.historyBack()
 			return m, nil
 		}
-	case "down", "ctrl+n":
+	case "down", keyCtrlN:
 		if m.chat.Input.Focused() && !m.chat.Streaming {
 			m.historyForward()
 			return m, nil

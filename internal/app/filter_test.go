@@ -346,6 +346,59 @@ func TestTranslatePinsRoundTrip(t *testing.T) {
 	assert.Len(t, tab.Pins[0].Values, 2)
 }
 
+// seedTabForPinning sets up CellRows and Full* fields on the active tab so
+// that sendKey("n") can pin the cell under the cursor.
+func seedTabForPinning(m *Model) *Tab {
+	m.showDashboard = false
+	tab := m.effectiveTab()
+	rows := tab.Table.Rows()
+	cellRows := make([][]cell, len(rows))
+	for i, r := range rows {
+		cr := make([]cell, len(r))
+		for j, v := range r {
+			kind := cellText
+			if j < len(tab.Specs) {
+				kind = tab.Specs[j].Kind
+			}
+			cr[j] = cell{Value: v, Kind: kind}
+		}
+		cellRows[i] = cr
+	}
+	tab.CellRows = cellRows
+	tab.FullRows = rows
+	tab.FullMeta = tab.Rows
+	tab.FullCellRows = cellRows
+	return tab
+}
+
+func TestCtrlNClearsAllPinsAndFilter(t *testing.T) {
+	m := newTestModel()
+	m.mode = modeNormal
+	tab := seedTabForPinning(m)
+
+	// Pin via key press, then activate filter.
+	sendKey(m, "n")
+	require.True(t, hasPins(tab), "n should pin the cell under cursor")
+	sendKey(m, "N")
+	require.True(t, tab.FilterActive)
+
+	// ctrl+n should clear everything.
+	sendKey(m, keyCtrlN)
+	assert.False(t, hasPins(tab), "ctrl+n should clear all pins")
+	assert.False(t, tab.FilterActive, "ctrl+n should deactivate filter")
+}
+
+func TestCtrlNNoopWithoutPins(t *testing.T) {
+	m := newTestModel()
+	m.mode = modeNormal
+	m.showDashboard = false
+
+	sendKey(m, keyCtrlN)
+	tab := m.effectiveTab()
+	assert.False(t, hasPins(tab), "ctrl+n with no pins should be a no-op")
+	assert.False(t, tab.FilterActive)
+}
+
 func TestPinOnDashboardBlocked(t *testing.T) {
 	m := newTestModel()
 	m.showDashboard = true

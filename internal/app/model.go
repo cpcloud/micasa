@@ -26,6 +26,7 @@ const (
 	keyEsc   = "esc"
 	keyEnter = "enter"
 	keyDown  = "down"
+	keyCtrlN = "ctrl+n"
 )
 
 // Key bindings for help viewport (g/G for top/bottom are not in the
@@ -444,6 +445,9 @@ func (m *Model) handleNormalKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 		return nil, true
 	case "N":
 		m.toggleFilterActivation()
+		return nil, true
+	case keyCtrlN:
+		m.clearAllPins()
 		return nil, true
 	case "s":
 		if tab := m.effectiveTab(); tab != nil {
@@ -1658,6 +1662,17 @@ func (m *Model) toggleFilterActivation() {
 		applySorts(tab)
 		m.updateTabViewport(tab)
 	}
+}
+
+func (m *Model) clearAllPins() {
+	tab := m.effectiveTab()
+	if tab == nil || !hasPins(tab) && !tab.FilterActive {
+		return
+	}
+	clearPins(tab)
+	applyRowFilter(tab, m.magMode)
+	applySorts(tab)
+	m.updateTabViewport(tab)
 }
 
 func (m *Model) hideCurrentColumn() {
