@@ -301,10 +301,6 @@
               jobs=$(( ntapes < nprocs ? ntapes : nprocs ))
               fd -e tape --exclude demo.tape --exclude 'using-*.tape' -0 . "$TAPES" \
                 | parallel -0 -j"$jobs" --bar capture-one {}
-
-              echo ""
-              echo "Done! Screenshots in docs/static/images/"
-              ls -la docs/static/images/*.webp
             '';
           };
           # Records all animated demo tapes (using-*) in parallel
@@ -318,18 +314,15 @@
             text = ''
               TAPES="docs/tapes"
               ntapes=$(fd -g 'using-*.tape' . "$TAPES" | wc -l)
+              ntapes=$(fd -g 'using-*.tape' . "$TAPES" | wc -l)
               if [[ "$ntapes" -eq 0 ]]; then
-                echo "No using-*.tape files found in $TAPES"
-                exit 0
+                echo "no using-*.tape files found in $TAPES" >&2
+                exit 1
               fi
               nprocs=$(nproc)
               jobs=$(( ntapes < nprocs ? ntapes : nprocs ))
               fd -g 'using-*.tape' -0 . "$TAPES" \
                 | parallel -0 -j"$jobs" --bar record-tape {}
-
-              echo ""
-              echo "Done! Animated demos in docs/static/images/"
-              ls -la docs/static/images/using-*.webp
             '';
           };
           run-deadcode = pkgs.writeShellApplication {
