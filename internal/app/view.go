@@ -304,22 +304,6 @@ func (m *Model) inlineInputStatusView() string {
 	return m.withStatusMessage(prompt)
 }
 
-// hiddenHint returns a status bar label listing hidden column names when any
-// are hidden, or "" when all are visible.
-func (m *Model) hiddenHint() string {
-	tab := m.effectiveTab()
-	if tab == nil {
-		return ""
-	}
-	names := hiddenColumnNames(tab.Specs)
-	if len(names) == 0 {
-		return ""
-	}
-	label := "hidden: " + strings.Join(names, ", ")
-	showAll := m.helpItem("C", "show all")
-	return m.styles.HeaderHint.Render(label) + "  " + showAll
-}
-
 // deletedStatusHint returns a statusHint for the deleted-rows toggle.
 // Only visually prominent when ShowDeleted is active.
 func (m *Model) deletedStatusHint(tab *Tab) statusHint {
@@ -370,13 +354,6 @@ func (m *Model) normalModeStatusHints(modeBadge string) []statusHint {
 		})
 	}
 	hints = append(hints, m.pinFilterHints()...)
-	if hint := m.hiddenHint(); hint != "" {
-		hints = append(hints, statusHint{
-			id:       "hidden",
-			full:     hint,
-			priority: 5,
-		})
-	}
 
 	// Context-dependent action: what enter does on the current column.
 	if hint := m.enterHint(); hint != "" {
