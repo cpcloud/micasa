@@ -729,3 +729,35 @@ func TestDeletedHintProminentWhenShowDeleted(t *testing.T) {
 	status := m.statusView()
 	assert.Contains(t, status, "deleted")
 }
+
+func TestEmptyHintPerTab(t *testing.T) {
+	tests := []struct {
+		kind TabKind
+		want string
+	}{
+		{tabProjects, "No projects yet"},
+		{tabQuotes, "No quotes yet"},
+		{tabMaintenance, "No maintenance items yet"},
+		{tabAppliances, "No appliances yet"},
+		{tabVendors, "No vendors yet"},
+	}
+	for _, tt := range tests {
+		hint := emptyHint(tt.kind)
+		assert.Contains(t, hint, tt.want)
+		assert.Contains(t, hint, "i then a", "should contain add instruction")
+	}
+}
+
+func TestSetStatusSavedWithUndo(t *testing.T) {
+	m := newTestModel()
+	m.undoStack = append(m.undoStack, undoEntry{Description: "test"})
+	m.setStatusSaved(true)
+	assert.Contains(t, m.status.Text, "u to undo")
+}
+
+func TestSetStatusSavedNoUndo(t *testing.T) {
+	m := newTestModel()
+	m.setStatusSaved(false)
+	assert.Equal(t, "Saved.", m.status.Text)
+	assert.NotContains(t, m.status.Text, "undo")
+}

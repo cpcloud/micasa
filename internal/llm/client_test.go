@@ -36,6 +36,7 @@ func TestPingModelNotFound(t *testing.T) {
 	err := client.Ping(context.Background())
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
+	assert.Contains(t, err.Error(), "ollama pull", "should include actionable remediation")
 }
 
 func TestPingServerDown(t *testing.T) {
@@ -43,6 +44,7 @@ func TestPingServerDown(t *testing.T) {
 	err := client.Ping(context.Background())
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot reach")
+	assert.Contains(t, err.Error(), "ollama serve", "should include actionable remediation")
 }
 
 func TestChatStreamSuccess(t *testing.T) {

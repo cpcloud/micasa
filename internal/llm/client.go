@@ -112,7 +112,7 @@ func (c *Client) ListModels(ctx context.Context) ([]string, error) {
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"cannot reach %s -- is the inference server running?",
+			"cannot reach %s -- start it with `ollama serve`",
 			c.baseURL,
 		)
 	}
@@ -197,7 +197,7 @@ func (c *Client) PullModel(ctx context.Context, model string) (*PullScanner, err
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"cannot reach %s -- is the inference server running?",
+			"cannot reach %s -- start it with `ollama serve`",
 			ollamaBase,
 		)
 	}
@@ -229,7 +229,7 @@ func (c *Client) Ping(ctx context.Context) error {
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return fmt.Errorf(
-			"cannot reach %s -- is the inference server running?",
+			"cannot reach %s -- start it with `ollama serve`",
 			c.baseURL,
 		)
 	}
@@ -252,8 +252,8 @@ func (c *Client) Ping(ctx context.Context) error {
 		}
 	}
 	return fmt.Errorf(
-		"model %q not found at %s -- is it pulled/loaded?",
-		c.model, c.baseURL,
+		"model %q not found -- pull it with `ollama pull %s`",
+		c.model, c.model,
 	)
 }
 
@@ -288,7 +288,7 @@ func (c *Client) ChatComplete(
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return "", fmt.Errorf(
-			"cannot reach %s -- is the inference server running?",
+			"cannot reach %s -- start it with `ollama serve`",
 			c.baseURL,
 		)
 	}
@@ -340,7 +340,7 @@ func (c *Client) ChatStream(
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"cannot reach %s -- is the inference server running?",
+			"cannot reach %s -- start it with `ollama serve`",
 			c.baseURL,
 		)
 	}

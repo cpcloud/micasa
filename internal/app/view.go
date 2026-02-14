@@ -900,7 +900,7 @@ func (m *Model) tableView(tab *Tab) string {
 		if tab.FilterActive && hasPins(tab) {
 			bodyParts = append(bodyParts, m.styles.Empty.Render("No matches."))
 		} else {
-			bodyParts = append(bodyParts, m.styles.Empty.Render("No entries yet."))
+			bodyParts = append(bodyParts, m.styles.Empty.Render(emptyHint(tab.Kind)))
 		}
 	} else {
 		bodyParts = append(bodyParts, strings.Join(rows, "\n"))
@@ -1072,6 +1072,24 @@ func truncateLeft(s string, maxW int) string {
 		return s
 	}
 	return ansi.TruncateLeft(s, sw-maxW+1, "…")
+}
+
+// emptyHint returns a context-aware empty state message for the given tab.
+func emptyHint(kind TabKind) string {
+	switch kind {
+	case tabProjects:
+		return "No projects yet. Press i then a to add one."
+	case tabQuotes:
+		return "No quotes yet. Add a project first, then press i then a."
+	case tabMaintenance:
+		return "No maintenance items yet. Press i then a to add one."
+	case tabAppliances:
+		return "No appliances yet. Press i then a to add one."
+	case tabVendors:
+		return "No vendors yet. Press i then a to add one."
+	default:
+		return "No entries yet."
+	}
 }
 
 // wordWrap breaks text into lines of at most maxW visible columns, splitting
