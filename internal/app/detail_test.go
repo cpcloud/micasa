@@ -591,8 +591,21 @@ func TestOpenDetailForRow_NestedApplianceMaintenanceLog(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, appliances)
 
-	// Drill into maintenance items for the first appliance.
-	require.NoError(t, m.openDetailForRow(tab, appliances[0].ID, "Maint"))
+	// Find an appliance that has linked maintenance items.
+	var applianceID uint
+	var items []data.MaintenanceItem
+	for _, a := range appliances {
+		items, err = m.store.ListMaintenanceByAppliance(a.ID, false)
+		require.NoError(t, err)
+		if len(items) > 0 {
+			applianceID = a.ID
+			break
+		}
+	}
+	require.NotEmpty(t, items, "demo data must have at least one appliance with maintenance")
+
+	// Drill into maintenance items for the chosen appliance.
+	require.NoError(t, m.openDetailForRow(tab, applianceID, "Maint"))
 	require.True(t, m.inDetail())
 	assert.Equal(t, "Maintenance", m.detail().Tab.Name)
 
@@ -600,11 +613,8 @@ func TestOpenDetailForRow_NestedApplianceMaintenanceLog(t *testing.T) {
 	detailTab := &m.detail().Tab
 	require.Equal(t, tabAppliances, detailTab.Kind)
 
-	// Reload so rows are populated, then drill into the service log.
+	// Reload so rows are populated.
 	require.NoError(t, m.reloadDetailTab())
-	items, err := m.store.ListMaintenanceByAppliance(appliances[0].ID, false)
-	require.NoError(t, err)
-	require.NotEmpty(t, items, "appliance must have linked maintenance items")
 
 	require.NoError(t, m.openDetailForRow(detailTab, items[0].ID, "Log"))
 	assert.Equal(t, "Service Log", m.detail().Tab.Name)
