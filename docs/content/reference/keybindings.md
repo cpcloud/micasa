@@ -39,7 +39,7 @@ Complete reference of every keybinding in micasa, organized by mode.
 | `tab`           | Next tab (dismisses dashboard if open) |
 | `shift+tab`     | Previous tab |
 | `H`             | Toggle house profile display |
-| `D`             | Toggle dashboard overlay |
+| `D`             | Toggle dashboard overlay (preference persists across restarts) |
 
 ### Table operations
 

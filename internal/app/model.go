@@ -127,8 +127,11 @@ func NewModel(store *data.Store, options Options) (*Model, error) {
 	if !model.hasHouse {
 		model.startHouseForm()
 	} else {
-		model.showDashboard = true
-		_ = model.loadDashboard()
+		show, _ := store.GetShowDashboard()
+		model.showDashboard = show
+		if show {
+			_ = model.loadDashboard()
+		}
 	}
 	return model, nil
 }
@@ -946,6 +949,9 @@ func (m *Model) toggleDashboard() {
 		_ = m.loadDashboard()
 		// Close all drilldown levels when returning to dashboard.
 		m.closeAllDetails()
+	}
+	if m.store != nil {
+		_ = m.store.PutShowDashboard(m.showDashboard)
 	}
 }
 
