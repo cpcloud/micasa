@@ -295,16 +295,41 @@
                 exit
               fi
 
-              # All tapes in parallel (skip demo -- it has its own command)
-              ntapes=$(fd -e tape --exclude demo.tape . "$TAPES" | wc -l)
+              # All tapes in parallel (skip demo and using-* animated tapes)
+              ntapes=$(fd -e tape --exclude demo.tape --exclude 'using-*.tape' . "$TAPES" | wc -l)
               nprocs=$(nproc)
               jobs=$(( ntapes < nprocs ? ntapes : nprocs ))
-              fd -e tape --exclude demo.tape -0 . "$TAPES" \
+              fd -e tape --exclude demo.tape --exclude 'using-*.tape' -0 . "$TAPES" \
                 | parallel -0 -j"$jobs" --bar capture-one {}
 
               echo ""
               echo "Done! Screenshots in docs/static/images/"
               ls -la docs/static/images/*.webp
+            '';
+          };
+          # Records all animated demo tapes (using-*) in parallel
+          record-animated = pkgs.writeShellApplication {
+            name = "record-animated";
+            runtimeInputs = [
+              self.packages.${system}.record-tape
+              pkgs.fd
+              pkgs.parallel
+            ];
+            text = ''
+              TAPES="docs/tapes"
+              ntapes=$(fd -g 'using-*.tape' . "$TAPES" | wc -l)
+              if [[ "$ntapes" -eq 0 ]]; then
+                echo "No using-*.tape files found in $TAPES"
+                exit 0
+              fi
+              nprocs=$(nproc)
+              jobs=$(( ntapes < nprocs ? ntapes : nprocs ))
+              fd -g 'using-*.tape' -0 . "$TAPES" \
+                | parallel -0 -j"$jobs" --bar record-tape {}
+
+              echo ""
+              echo "Done! Animated demos in docs/static/images/"
+              ls -la docs/static/images/using-*.webp
             '';
           };
           run-deadcode = pkgs.writeShellApplication {
@@ -364,6 +389,7 @@
           build-docs = flake-utils.lib.mkApp { drv = self.packages.${system}.build-docs; };
           capture-one = flake-utils.lib.mkApp { drv = self.packages.${system}.capture-one; };
           capture-screenshots = flake-utils.lib.mkApp { drv = self.packages.${system}.capture-screenshots; };
+          record-animated = flake-utils.lib.mkApp { drv = self.packages.${system}.record-animated; };
           deadcode = flake-utils.lib.mkApp { drv = self.packages.${system}.run-deadcode; };
           osv-scanner = flake-utils.lib.mkApp { drv = self.packages.${system}.run-osv-scanner; };
           pre-commit = flake-utils.lib.mkApp { drv = self.packages.${system}.run-pre-commit; };
