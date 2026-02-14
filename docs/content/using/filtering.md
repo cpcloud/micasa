@@ -9,6 +9,8 @@ micasa lets you filter table rows by pinning specific cell values. The
 mechanism is two-step: **pin** values to preview which rows match, then
 **activate** to hide the rest.
 
+![Filtering demo showing pin, preview, activate, and clear](/docs/images/using-filtering.webp)
+
 ## Quick start
 
 1. Navigate to a cell whose value you want to filter by (e.g., "Plan" in the
