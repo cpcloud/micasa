@@ -1300,6 +1300,8 @@ func (m *Model) statusLines() int {
 }
 
 func (m *Model) saveForm() tea.Cmd {
+	wasEdit := m.editID != nil
+	isFirstHouse := m.formKind == formHouse && !m.hasHouse
 	m.snapshotForUndo()
 	kind := m.formKind
 	err := m.handleFormSubmit()
@@ -1308,7 +1310,11 @@ func (m *Model) saveForm() tea.Cmd {
 		return nil
 	}
 	m.exitForm()
-	m.setStatusInfo("Saved.")
+	if isFirstHouse {
+		m.setStatusInfo("House set up. b/f to switch tabs, i to edit, ? for help")
+	} else {
+		m.setStatusSaved(wasEdit)
+	}
 	m.reloadAfterFormSave(kind)
 	return nil
 }
@@ -1408,7 +1414,7 @@ func (m *Model) submitInlineInput() {
 		return
 	}
 	m.closeInlineInput()
-	m.setStatusInfo("Saved.")
+	m.setStatusSaved(true) // inline edits are always edits
 	m.reloadAfterFormSave(kind)
 }
 
@@ -1437,6 +1443,16 @@ func (m *Model) exitForm() {
 
 func (m *Model) setStatusInfo(text string) {
 	m.status = statusMsg{Text: text, Kind: statusInfo}
+}
+
+// setStatusSaved sets a "Saved." status message, appending an undo hint
+// when the save was an edit (not a create).
+func (m *Model) setStatusSaved(wasEdit bool) {
+	if wasEdit && len(m.undoStack) > 0 {
+		m.setStatusInfo("Saved. u to undo")
+	} else {
+		m.setStatusInfo("Saved.")
+	}
 }
 
 func (m *Model) setStatusError(text string) {
