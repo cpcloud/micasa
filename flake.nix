@@ -136,6 +136,20 @@
           export FONTCONFIG_FILE="$FC_CONF"
         '';
 
+        deadcode = pkgs.buildGoModule {
+          pname = "deadcode";
+          version = "0.42.0";
+          src = pkgs.fetchFromGitHub {
+            owner = "golang";
+            repo = "tools";
+            rev = "v0.42.0";
+            hash = "sha256-0RiinnIocPaj8Z5jtYGkbFiRf1BXyap4Z8e/sw2FBgg=";
+          };
+          subPackages = [ "cmd/deadcode" ];
+          vendorHash = "sha256-oYmM+5lNmlP2i78NsG3v4WRhAUbiwS+EFkiicI6MKXA=";
+          doCheck = false;
+        };
+
         root = pkgs.buildEnv {
           name = "micasa-root";
           paths = [ micasa ];
@@ -293,6 +307,16 @@
               ls -la docs/static/images/*.webp
             '';
           };
+          run-deadcode = pkgs.writeShellApplication {
+            name = "run-deadcode";
+            runtimeInputs = [ deadcode pkgs.go ];
+            runtimeEnv.CGO_ENABLED = "0";
+            text = ''
+              export GOCACHE="''${GOCACHE:-$(mktemp -d)}"
+              export GOMODCACHE="''${GOMODCACHE:-$(mktemp -d)}"
+              deadcode -test ./...
+            '';
+          };
           run-osv-scanner = pkgs.writeShellApplication {
             name = "run-osv-scanner";
             runtimeInputs = [ pkgs.osv-scanner ];
@@ -340,6 +364,7 @@
           build-docs = flake-utils.lib.mkApp { drv = self.packages.${system}.build-docs; };
           capture-one = flake-utils.lib.mkApp { drv = self.packages.${system}.capture-one; };
           capture-screenshots = flake-utils.lib.mkApp { drv = self.packages.${system}.capture-screenshots; };
+          deadcode = flake-utils.lib.mkApp { drv = self.packages.${system}.run-deadcode; };
           osv-scanner = flake-utils.lib.mkApp { drv = self.packages.${system}.run-osv-scanner; };
           pre-commit = flake-utils.lib.mkApp { drv = self.packages.${system}.run-pre-commit; };
         };
