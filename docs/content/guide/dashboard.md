@@ -14,7 +14,7 @@ It appears as a centered overlay on top of the normal table view.
 
 - On launch (if you have a house profile), the dashboard opens automatically
 - Press `D` in Normal mode to toggle it on/off
-- Press `tab` to dismiss it and switch to the next tab
+- Press `f` to dismiss it and switch to the next tab
 
 ## Sections
 
@@ -64,7 +64,7 @@ The dashboard supports keyboard navigation:
 | `g`/`G` | Jump to first/last item |
 | `enter` | Jump to the highlighted item's tab and row |
 | `D`     | Close dashboard |
-| `tab`   | Dismiss dashboard, switch to next tab |
+| `b`/`f` | Dismiss dashboard, switch tab |
 | `?`     | Open help overlay (stacks on top of dashboard) |
 
 When you press `enter`, the dashboard closes and navigates to the

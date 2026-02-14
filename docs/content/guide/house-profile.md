@@ -18,7 +18,7 @@ optional. Fill in what you know now and come back later for the rest.
 
 ## Viewing the profile
 
-Press `H` (capital H) to toggle the house profile display above the table.
+Press `tab` to toggle the house profile display above the table.
 The collapsed view shows a single line with key stats:
 
 ```

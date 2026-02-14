@@ -29,10 +29,10 @@ Only the `Name` is required.
 | `Serial` | text | Serial number | |
 | `Location` | text | Where in the house | E.g., "Kitchen", "Basement" |
 | `Purchased` | date | Purchase date | YYYY-MM-DD |
-| `Age` | computed | Time since purchase | Read-only. E.g., "3y 2m", "8 mo", "<1 mo" |
-| `Warranty` | date | Warranty expiry | Shows on dashboard when expiring |
+| `Age` | computed | Time since purchase | Read-only. E.g., "3y 2m", "8m", "<1m" |
+| `Warranty` | warranty | Warranty expiry | Green when active, red when expired. Shows on dashboard when expiring |
 | `Cost` | money | Purchase price | Dollar amount |
-| `Maint` | drilldown | Maintenance count | Press `enter` to view linked maintenance |
+| `Maint` | drill | Maintenance count | Press `enter` to view linked maintenance |
 
 ## Warranty tracking
 
@@ -40,7 +40,7 @@ Enter the warranty expiry date when you add an appliance. The
 [Dashboard]({{< ref "/guide/dashboard" >}}) shows appliances with warranties expiring within
 90 days (or recently expired within 30 days) in the "Expiring Soon" section.
 
-## Maintenance drilldown
+## Maintenance drill
 
 The `Maint` column shows how many maintenance items are linked to this
 appliance. In Normal mode, navigate to the `Maint` column and press `enter` to

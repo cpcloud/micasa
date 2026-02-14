@@ -966,18 +966,21 @@ func (m *Model) nextTab() {
 	if len(m.tabs) == 0 {
 		return
 	}
-	m.switchToTab((m.active + 1) % len(m.tabs))
+	next := m.active + 1
+	if next >= len(m.tabs) {
+		return
+	}
+	m.switchToTab(next)
 }
 
 func (m *Model) prevTab() {
 	if len(m.tabs) == 0 {
 		return
 	}
-	idx := m.active - 1
-	if idx < 0 {
-		idx = len(m.tabs) - 1
+	if m.active <= 0 {
+		return
 	}
-	m.switchToTab(idx)
+	m.switchToTab(m.active - 1)
 }
 
 func (m *Model) startAddForm() {

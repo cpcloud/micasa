@@ -1447,22 +1447,22 @@ func projectOptions(projects []data.Project) []huh.Option[uint] {
 
 func statusOptions() []huh.Option[string] {
 	type entry struct {
-		label string
 		value string
 		color lipgloss.AdaptiveColor
 	}
 	statuses := []entry{
-		{"ideating", data.ProjectStatusIdeating, muted},
-		{"planned", data.ProjectStatusPlanned, accent},
-		{"quoted", data.ProjectStatusQuoted, secondary},
-		{"underway", data.ProjectStatusInProgress, success},
-		{"delayed", data.ProjectStatusDelayed, warning},
-		{"completed", data.ProjectStatusCompleted, textDim},
-		{"abandoned", data.ProjectStatusAbandoned, danger},
+		{data.ProjectStatusIdeating, muted},
+		{data.ProjectStatusPlanned, accent},
+		{data.ProjectStatusQuoted, secondary},
+		{data.ProjectStatusInProgress, success},
+		{data.ProjectStatusDelayed, warning},
+		{data.ProjectStatusCompleted, textDim},
+		{data.ProjectStatusAbandoned, danger},
 	}
 	opts := make([]huh.Option[string], len(statuses))
 	for i, s := range statuses {
-		colored := lipgloss.NewStyle().Foreground(s.color).Render(s.label)
+		label := statusLabel(s.value)
+		colored := lipgloss.NewStyle().Foreground(s.color).Render(label)
 		opts[i] = huh.NewOption(colored, s.value)
 	}
 	return withOrdinals(opts)

@@ -20,8 +20,8 @@ quotes from.
 | `Email` | text | Email address | Optional |
 | `Phone` | text | Phone number | Optional |
 | `Website` | text | URL | Optional |
-| `Quotes` | count | Number of linked quotes | Read-only |
-| `Jobs` | count | Number of linked service log entries | Read-only |
+| `Quotes` | drill | Number of linked quotes | Press `enter` to view linked quotes |
+| `Jobs` | drill | Number of linked service log entries | Press `enter` to view linked jobs |
 
 ## How vendors are created
 
@@ -43,10 +43,11 @@ The `Vendor` column on the Quotes tab is a live link (shown with `→` in the he
 a vendor name in the Quotes table to jump to that vendor's row in the Vendors
 tab.
 
-## Counts
+## Drill columns
 
 The `Quotes` and `Jobs` columns show how many quotes and service log entries
-reference each vendor. These are read-only aggregate counts.
+reference each vendor. In Normal mode, press `enter` to drill into a detail
+view showing those records.
 
 ## Notes
 
@@ -54,7 +55,8 @@ The edit form includes a `Notes` textarea for free-text annotations about the
 vendor. Notes are stored on the vendor record but don't appear as a table
 column.
 
-## No deletion
+## Deletion
 
-Vendors cannot be deleted because they are referenced by quotes and service
-log entries. If you need to retire a vendor, add a note to their record.
+Vendors with active quotes or service log entries cannot be deleted -- remove
+the referencing records first. Once a vendor has no active references, it can
+be soft-deleted like any other entity.

@@ -39,18 +39,18 @@ everything else is optional. You can always edit the profile later with `p` in
 Edit mode.
 
 Once the house profile is saved, you land on the **dashboard**, which shows an
-at-a-glance overview of your home (it'll be empty to start). Press `tab` to
+at-a-glance overview of your home (it'll be empty to start). Press `f` to
 dismiss the dashboard and start adding data.
 
 ## First steps
 
 A typical workflow to get started:
 
-1. **Add a project**: press `tab` to switch to the Projects tab, `i` to enter
+1. **Add a project**: press `f` to switch to the Projects tab, `i` to enter
    Edit mode, then `a` to add. Fill in a title, pick a type and status.
-2. **Add a maintenance item**: `tab` to the Maintenance tab, `a` to add. Name
+2. **Add a maintenance item**: `f` to the Maintenance tab, `a` to add. Name
    it, set a category, optionally link an appliance, and set an interval.
-3. **Add an appliance**: `tab` to Appliances, `a` to add. Name, brand, model
+3. **Add an appliance**: `f` to Appliances, `a` to add. Name, brand, model
    number, warranty expiry.
 4. **Check the dashboard**: press `D` to see what needs attention.
 

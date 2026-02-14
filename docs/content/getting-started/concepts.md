@@ -91,8 +91,8 @@ piece of equipment), but when present it enables **bidirectional navigation**:
 - See the `Maint` count on the Appliances tab, showing all tasks tied to it
 - Drill down from an appliance to its linked maintenance items
 
-The `Log` column is a **drilldown** (marked `↘` in the header) -- press `enter` to open the full service
-history for that item.
+The `Log` column is a **drill column** (marked `↘` in the header) -- press
+`enter` to open the full service history for that item.
 
 ## Service Log
 
@@ -174,7 +174,7 @@ These connections show up in the UI in a few ways:
 - **Linked columns** (marked `→` in the header when links exist) let you
   press `enter` to jump directly to the related record -- from a quote to
   its project, from a maintenance item to its appliance, etc.
-- **Drilldown columns** (`Log` on Maintenance, `Maint` on Appliances) open a
+- **Drill columns** (`Log` on Maintenance, `Maint` on Appliances) open a
   sub-table showing all child records for that row.
 - **Required links** prevent orphan data: you can't create a quote without a
   project, or a service log entry without a maintenance item.

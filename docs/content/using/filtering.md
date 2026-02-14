@@ -9,6 +9,8 @@ micasa lets you filter table rows by pinning specific cell values. The
 mechanism is two-step: **pin** values to preview which rows match, then
 **activate** to hide the rest.
 
+![Filtering demo showing pin, preview, activate, and clear](/docs/images/using-filtering.webp)
+
 ## Quick start
 
 1. Navigate to a cell whose value you want to filter by (e.g., "Plan" in the
@@ -41,9 +43,10 @@ the filter before committing.
 
 ## Eager filter mode
 
-You can press `N` to arm the filter *before* pinning anything. The status bar
-shows a **FILTER** badge. Subsequent `n` presses immediately filter (no
-preview step) because the filter is already active.
+You can press `N` to arm the filter *before* pinning anything. A `◀` triangle
+appears to the right of the active tab to indicate filtering is on. Subsequent
+`n` presses immediately filter (no preview step) because the filter is already
+active.
 
 ## Per-tab persistence
 
@@ -51,19 +54,15 @@ Pins and filter state are stored per tab. Switching tabs preserves your filter
 exactly as you left it -- switch away to check another tab and come back
 without losing your selection.
 
-## Magnitude mode interaction
+## Mag mode interaction
 
-When magnitude mode (`m`) is active, pins operate on the magnitude value
-(e.g., the rounded `log10` representation) rather than the underlying number.
-Toggling magnitude mode translates existing pins between representations:
-
-- **Enabling mag mode**: a pin on "$1,250" becomes a pin on the corresponding
-  magnitude (e.g., "3")
-- **Disabling mag mode**: a magnitude pin expands to all raw values that share
-  that magnitude band
-
-This means your filter stays meaningful across display modes without manual
-re-pinning.
+When [mag mode](https://magworld.pw) (`ctrl+o`) is active, pins operate on the
+mag value rather than the underlying number. Because mag compresses dollar
+amounts to their order of magnitude, values that look different normally
+(e.g. $1,200 and $1,800) collapse into the same bucket -- pin one and
+you effectively filter by price range. Toggling mag mode translates
+existing pins between representations, so your filter stays meaningful
+across display modes without manual re-pinning.
 
 ## Keybindings
 
@@ -79,6 +78,6 @@ re-pinning.
   that column
 - **Hidden columns**: hiding a column with `c` clears any pins on that column
 - **Sorting**: sorts apply to whatever rows are visible (filtered or full)
-- **Project status toggles** (`z`/`a`/`t`): these filters apply first at the
-  data level; pins then filter within that subset
+- **Settled project toggle** (`t`): on the Projects tab, `t` hides completed
+  and abandoned projects using the pin/filter mechanism internally
 - **All rows filtered**: shows "No matches." instead of the table

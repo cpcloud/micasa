@@ -27,11 +27,11 @@ enable auto-computed due dates.
 | `ID` | auto | Auto-assigned | Read-only |
 | `Item` | text | Task name | Required. E.g., "HVAC filter replacement" |
 | `Category` | select | Task type | Pre-seeded categories (HVAC, Plumbing, etc.) |
-| `Appliance` | select | Linked appliance | Optional. Links to Appliances tab |
+| `Appliance` | link | Linked appliance | Optional. Press `enter` to jump to appliance |
 | `Last` | date | Last serviced date | YYYY-MM-DD |
-| `Next` | date | Next due date | Auto-computed: `Last` + `Every`. Read-only |
-| `Every` | number | Interval | Shown as "N mo" (e.g., "6 mo") |
-| `Log` | drilldown | Service log count | Press `enter` to open |
+| `Next` | urgency | Next due date | Auto-computed: `Last` + `Every`. Color-coded by proximity |
+| `Every` | number | Interval | Compact format (e.g., "6m", "1y", "2y 6m") |
+| `Log` | drill | Service log count | Press `enter` to open |
 
 ## Next due date
 
@@ -50,15 +50,15 @@ actually performed. The `Log` column shows the entry count.
 To view the service log, navigate to the `Log` column in Normal mode and press
 `enter`. This opens a detail view with its own table:
 
-![Service log drilldown](/docs/images/service-log.webp)
+![Service log drill](/docs/images/service-log.webp)
 
 | Column | Type | Description |
 |-------:|------|-------------|
 | `ID` | auto | Auto-assigned |
 | `Date` | date | When the work was done (required) |
-| `Performed By` | select | "Self" or a vendor name |
+| `Performed By` | link | "Self" or a vendor name. Press `enter` to jump to vendor |
 | `Cost` | money | Dollar amount |
-| `Notes` | text | Free text |
+| `Notes` | notes | Free text. Press `enter` to preview |
 
 The detail view supports all the same operations as a regular tab: add, edit,
 delete, sort, undo. Press `esc` to close the detail view and return to the

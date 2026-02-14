@@ -7,6 +7,8 @@ linkTitle = "Undo & Redo"
 
 micasa supports multi-level undo and redo for data edits.
 
+![Undo and redo demo showing edit, undo, and redo](/docs/images/using-undo-redo.webp)
+
 ## How it works
 
 Every time you save a form (add, edit, or inline edit), micasa snapshots the

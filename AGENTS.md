@@ -490,11 +490,6 @@ These have been repeatedly requested. Violating them wastes the user's time.
 - **AGENTS.md changes go on the working branch**: When updating AGENTS.md,
   only edit it in the worktree/branch where the related work lives. Never
   make AGENTS.md changes as uncommitted edits in the main checkout.
-- **Update test file inventory when adding tests**: When creating new
-  `*_test.go` files, update the test file table in
-  `docs/content/development/testing.md` to include the new file and a
-  brief description of what it covers.
-
 - **Two-strike rule for bug fixes**: If your second attempt at fixing a bug
   doesn't work, STOP adding flags, special cases, or band-aids. Re-read the
   code path end-to-end, identify the *root cause*, and fix that instead.

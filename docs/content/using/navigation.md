@@ -8,7 +8,7 @@ linkTitle = "Navigation"
 micasa uses vim-style modal keybindings. There are three modes: **Normal**,
 **Edit**, and **Form**.
 
-![Help overlay showing keybindings](/docs/images/help.webp)
+![Navigation demo showing cursor movement, tab switching, and mode changes](/docs/images/using-navigation.webp)
 
 ## Normal mode
 
@@ -18,22 +18,22 @@ have full table navigation:
 | Key         | Action               |
 |-------------|----------------------|
 | `j` / `k`   | Move row down / up   |
-| `h` / `l`   | Move column left / right (clamps at edges) |
+| `h` / `l`   | Move column left / right (skips hidden columns) |
 | `^` / `$`   | Jump to first / last column |
 | `g` / `G`   | Jump to first / last row |
 | `d` / `u`   | Half-page down / up  |
-| `tab` / `shift+tab` | Next / previous tab |
-| `enter`     | Drilldown or follow link |
+| `b` / `f`   | Previous / next tab  |
+| `enter`     | Drill into detail, follow link, or preview |
 | `s` / `S`   | Sort column / clear sorts |
 | `/`         | Jump to column (fuzzy find) |
 | `c` / `C`   | Hide column / show all |
 | `n` / `N`   | Pin cell value / toggle filter |
 | `ctrl+n`    | Clear all pins and filter |
-| `H`         | Toggle house profile |
-| `D`         | Toggle dashboard     |
+| `tab`       | Toggle house profile |
+| `D`         | Toggle summary overlay |
 | `i`         | Enter Edit mode      |
+| `@`         | Open LLM chat        |
 | `?`         | Help overlay         |
-| `q`         | Quit                 |
 
 ## Edit mode
 
@@ -73,12 +73,12 @@ Edit).
 ## Tabs
 
 The main data lives in five tabs: **Projects**, **Quotes**, **Maintenance**,
-**Appliances**, and **Vendors**. Use `tab` / `shift+tab` to cycle between
-them. The active tab is highlighted in the tab bar.
+**Appliances**, and **Vendors**. Use `b` / `f` to cycle between them. The
+active tab is highlighted in the tab bar.
 
 ## Detail views
 
-Some columns are drilldowns (marked `↘` in the header) -- pressing `enter` on them opens a sub-table.
+Some columns are drill columns (marked `↘` in the header) -- pressing `enter` on them opens a sub-table.
 For example:
 
 - `Log` column on the Maintenance tab opens the service log for that item

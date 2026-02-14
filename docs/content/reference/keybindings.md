@@ -12,8 +12,8 @@ Complete reference of every keybinding in micasa, organized by mode.
 | Key       | Action |
 |-----------|--------|
 | `ctrl+q`  | Quit (exit code 0) |
-| `ctrl+c`  | Cancel in-flight operation, or force quit if nothing is running |
-| `ctrl+o`  | Toggle magnitude notation for numeric values |
+| `ctrl+c`  | Cancel in-flight LLM operation |
+| `ctrl+o`  | Toggle [mag mode](https://magworld.pw) for numeric values |
 
 ## Normal mode
 
@@ -25,21 +25,20 @@ Complete reference of every keybinding in micasa, organized by mode.
 | `k` / `up`      | Move row up |
 | `h` / `left`    | Move column left (skips hidden columns) |
 | `l` / `right`   | Move column right (skips hidden columns) |
+| `^`             | Jump to first column |
+| `$`             | Jump to last column |
 | `g`             | Jump to first row |
 | `G`             | Jump to last row |
 | `d` / `ctrl+d`  | Half-page down |
 | `u` / `ctrl+u`  | Half-page up |
-| `space`         | Page down |
-| `b`             | Page up |
 
 ### Tabs and views
 
 | Key             | Action |
 |-----------------|--------|
-| `tab`           | Next tab (dismisses dashboard if open) |
-| `shift+tab`     | Previous tab |
-| `H`             | Toggle house profile display |
-| `D`             | Toggle dashboard overlay (preference persists across restarts) |
+| `b` / `f`       | Previous / next tab |
+| `tab`           | Toggle house profile |
+| `D`             | Toggle summary overlay |
 
 ### Table operations
 
@@ -47,8 +46,6 @@ Complete reference of every keybinding in micasa, organized by mode.
 |-----|--------|
 | `s` | Cycle sort on current column (none -> asc -> desc -> none) |
 | `S` | Clear all sorts |
-| `z` | Projects tab: toggle hiding completed projects |
-| `a` | Projects tab: toggle hiding abandoned projects |
 | `t` | Projects tab: toggle hiding settled projects (`completed` + `abandoned`) |
 | `/` | Jump to column (fuzzy find) |
 | `c` | Hide current column |
@@ -66,7 +63,7 @@ Complete reference of every keybinding in micasa, organized by mode.
 
 | Key     | Action |
 |---------|--------|
-| `enter` | Drilldown into detail view, follow FK link, or preview notes |
+| `enter` | Drill into detail view, follow FK link, or preview notes |
 | `i`     | Enter Edit mode |
 | `@`     | Open LLM chat overlay |
 | `?`     | Open help overlay |
@@ -113,7 +110,7 @@ captures all keyboard input until dismissed. See the
 | `esc`            | Hide chat overlay (session is preserved) |
 | `ctrl+c`         | Cancel in-flight LLM request |
 | `ctrl+s`         | Toggle SQL query display |
-| `ctrl+o`         | Toggle magnitude notation |
+| `ctrl+o`         | Toggle mag mode |
 | `ctrl+q`         | Quit |
 
 ### Model picker
@@ -147,7 +144,7 @@ When the dashboard overlay is open:
 | `g`/`G`   | Jump to first/last item |
 | `enter`   | Jump to highlighted item in its tab |
 | `D`       | Close dashboard |
-| `tab`     | Dismiss dashboard and switch tab |
+| `b`/`f`   | Dismiss dashboard and switch tab |
 | `?`       | Open help overlay (stacks on dashboard) |
 
 ## Date picker

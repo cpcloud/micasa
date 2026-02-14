@@ -307,9 +307,9 @@ func (s *Store) SeedDemoDataFrom(h *fake.HomeFaker) error {
 		}
 	}
 
-	// Service log entries: 1-3 entries for ~60% of maintenance items.
+	// Service log entries: first 3 always get entries, rest ~60% chance.
 	for i := range maintItems {
-		if h.IntN(10) >= 6 {
+		if i >= 3 && h.IntN(10) >= 6 {
 			continue
 		}
 		nEntries := 1 + h.IntN(3)

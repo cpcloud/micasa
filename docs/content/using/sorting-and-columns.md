@@ -5,7 +5,7 @@ description = "Multi-column sorting, column hiding, and horizontal scrolling."
 linkTitle = "Sorting & Columns"
 +++
 
-![Sorting with indicators](/docs/images/sorting.webp)
+![Sorting demo showing multi-column sort, fuzzy finder, and column hiding](/docs/images/using-sorting.webp)
 
 ## Multi-column sorting
 
@@ -74,5 +74,5 @@ When the table has more columns than fit on screen, micasa scrolls
 horizontally. The viewport follows your column cursor -- as you move right
 past the visible edge, the view scrolls to keep the cursor on screen.
 
-Scroll indicators (`◀ more` / `more ▶`) appear below the table when there are
+Scroll indicators (`◀` / `▶`) appear in the edge column headers when there are
 columns off-screen.

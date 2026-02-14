@@ -12,7 +12,7 @@ repairs to major renovations.
 
 ## Adding a project
 
-1. Switch to the Projects tab (`tab` until it's active)
+1. Switch to the Projects tab (`f` to cycle forward)
 2. Enter Edit mode (`i`)
 3. Press `a` to open the add form
 4. Fill in the fields and save (`ctrl+s`)
@@ -31,6 +31,7 @@ The `Title` field is required. Everything else is optional or has a default.
 | `Actual` | money | Real cost | Over-budget is highlighted on the dashboard |
 | `Start` | date | Start date | YYYY-MM-DD |
 | `End` | date | End date | YYYY-MM-DD |
+| `Quotes` | drill | Number of linked quotes | Press `enter` to view linked quotes |
 
 ## Status lifecycle
 
@@ -44,13 +45,11 @@ Projects move through these statuses. Each has a distinct color in the table:
 - <span class="status-completed">**completed**</span> -- done
 - <span class="status-abandoned">**abandoned**</span> -- decided not to do it
 
-## Status filters
+## Settled filter
 
-In Normal mode on the Projects tab:
-
-- Press `z` to toggle hiding projects with status `completed`
-- Press `a` to toggle hiding projects with status `abandoned`
-- Press `t` to toggle hiding **settled projects** (`completed` + `abandoned`)
+In Normal mode on the Projects tab, press `t` to toggle hiding **settled
+projects** (`completed` + `abandoned`). A `◀` triangle appears to the right of
+the tab when the filter is active.
 
 ## Description
 
@@ -66,6 +65,8 @@ form, which includes the description field.
 
 ## Linked quotes
 
-Quotes reference projects. On the Quotes tab, the `Project` column shows
-which project a quote belongs to. The column header shows `→` indicating it's
-a navigable link.
+The `Quotes` column shows how many quotes are linked to this project. In
+Normal mode, press `enter` to drill into a detail view of those quotes.
+
+On the Quotes tab, the `Project` column links back -- press `enter` to jump
+to the project.

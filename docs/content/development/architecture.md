@@ -60,15 +60,19 @@ micasa uses three modes: Normal, Edit, and Form. The key dispatch chain in
 `Update()` is:
 
 1. Window resize handling
-2. `ctrl+c` always quits
-3. Help overlay intercepts `esc`/`?` when open
-4. Note preview overlay: any key dismisses
-5. Calendar date picker: absorbs all keys when open
-6. Column finder overlay: absorbs all keys when open
-7. Form mode delegates to `huh` form library
-8. Dashboard intercepts nav keys when visible
-9. Common keys (shared by Normal and Edit)
-10. Mode-specific keys
+2. `ctrl+q` always quits
+3. `ctrl+c` cancels in-flight LLM operations
+4. Chat chunk messages (streaming responses)
+5. Help overlay intercepts `esc`/`?` when open
+6. Chat overlay: absorbs all keys when open
+7. Note preview overlay: any key dismisses
+8. Calendar date picker: absorbs all keys when open
+9. Column finder overlay: absorbs all keys when open
+10. Inline input: absorbs keys when editing a cell
+11. Form mode delegates to `huh` form library
+12. Dashboard intercepts nav keys when visible
+13. Common keys (shared by Normal and Edit)
+14. Mode-specific keys
 
 The `bubbles/table` widget has its own vim keybindings. In Edit mode, `d` and
 `u` are stripped from the table's KeyMap so they can be used for delete/undo
@@ -83,8 +87,8 @@ detail views work identically to top-level tabs.
 ### Cell-based rendering
 
 Table cells carry type information (`cellKind`): text, money, date, status,
-readonly, drilldown. The renderer uses this to apply per-kind styling (green
-for money, colored for status, accent for drilldown). Sort comparators are
+readonly, drill. The renderer uses this to apply per-kind styling (green
+for money, colored for status, accent for drill). Sort comparators are
 also kind-aware.
 
 ### Colorblind-safe palette
@@ -101,14 +105,15 @@ User keystroke
   -> Model.Update()
   -> key dispatch (mode-aware)
   -> data mutation (Store CRUD)
-  -> reloadAll() (refreshes tabs, detail, dashboard)
+  -> reloadAfterMutation() (refreshes effective tab, marks others stale)
   -> Model.View()
   -> rendered string to terminal
 ```
 
 All data mutations go through the Store, which uses GORM for SQLite access.
-After any mutation, `reloadAll()` refreshes lookups, house profile, all tabs,
-the detail tab (if open), and the dashboard (if visible).
+After any mutation, `reloadAfterMutation()` refreshes the effective tab and
+marks all other tabs as stale. Stale tabs are lazily reloaded when navigated
+to. The dashboard is refreshed when it becomes visible.
 
 ## Overlays
 

@@ -122,24 +122,11 @@ select.
 If you pick a model that isn't downloaded yet, micasa pulls it automatically.
 A progress bar shows download progress. Press `ctrl+c` to cancel a pull.
 
-## Magnitude notation
+## Mag mode
 
-Press `ctrl+o` to toggle magnitude notation across the entire UI. When active,
-numeric values are replaced with their order of magnitude:
-
-| Original | Magnitude |
-|----------|-----------|
-| $1,250.00 | $ 🠡3 |
-| $47,500 | $ 🠡5 |
-| $850 | $ 🠡3 |
-| 42 | 🠡2 |
-
-This applies everywhere: dashboard values, table cells, and LLM responses.
-It's useful for quickly scanning relative scale without getting lost in exact
-figures.
-
-Magnitude notation is a live toggle -- switching it on or off immediately
-updates all visible values, including previously rendered LLM responses.
+Press `ctrl+o` to toggle [mag mode](https://magworld.pw) -- an easter egg that
+replaces numeric values with their order of magnitude (`$1,250` becomes `$ 🠡3`).
+Applies everywhere including LLM responses. Live toggle, instant update.
 
 ## Output quality
 
