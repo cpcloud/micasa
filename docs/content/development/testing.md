@@ -27,11 +27,11 @@ Tests live alongside the code they test:
 | `internal/app/filter_test.go` | Pin/unpin, preview dimming, active filtering, cross-column AND, clear |
 | `internal/app/handlers_test.go` | TabHandler implementations |
 | `internal/app/handler_crud_test.go` | Handler CRUD operations |
-| `internal/app/detail_test.go` | Drilldown stack push/pop, nested drilldowns, breadcrumbs, vendor/project drilldowns |
+| `internal/app/detail_test.go` | Drilldown stack push/pop, nested drilldowns (including appliance→maintenance→log), breadcrumbs, vendor/project drilldowns |
 | `internal/app/dashboard_test.go` | Dashboard navigation and view content |
 | `internal/app/dashboard_load_test.go` | Dashboard data loading |
 | `internal/app/dashboard_rows_test.go` | Dashboard row building |
-| `internal/app/view_test.go` | View rendering, line clamping, viewport |
+| `internal/app/view_test.go` | View rendering, line clamping, viewport, dynamic link arrows |
 | `internal/app/undo_test.go` | Undo/redo stack, cross-stack snapshotting |
 | `internal/app/form_select_test.go` | Select field ordinal jumping |
 | `internal/app/form_validators_test.go` | Form validation helpers |

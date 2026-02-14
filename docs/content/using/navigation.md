@@ -99,10 +99,12 @@ right.
 
 ## Foreign key links
 
-Some columns reference entities in other tabs. These are indicated by a
-`→` arrow in the column header. When the cursor is on a linked cell, the
-status bar shows `follow →`. Press `enter` to jump to the referenced row in
-the target tab.
+Some columns reference entities in other tabs. When at least one row in the
+column has a link, a `→` arrow appears in the column header. When the cursor
+is on a linked cell, the status bar shows `follow →`. Press `enter` to jump
+to the referenced row in the target tab. If the cell has no link (e.g.
+"Self" in the `Performed By` column), the status bar shows a brief message
+instead.
 
 Examples:
 - Quotes `Project` column links to the Projects tab

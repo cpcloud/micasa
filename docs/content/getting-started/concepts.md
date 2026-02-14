@@ -116,8 +116,9 @@ drilling down from the `Log` column), so they **always have context** -- you
 never see a floating service record without knowing what it was for. The
 optional vendor link means you can track whether you did the work yourself or
 hired someone, and if hired, which vendor -- their contact info carries over
-automatically. The `Performed By` column is a **live link** (marked `→`);
-press `enter` to jump to that vendor in the Vendors tab.
+automatically. The `Performed By` column is a **live link** -- when at
+least one entry was performed by a vendor the header shows `→`; press
+`enter` to jump to that vendor in the Vendors tab.
 
 ## Appliances
 
@@ -170,9 +171,9 @@ erDiagram
 
 These connections show up in the UI in a few ways:
 
-- **Linked columns** (marked `→` in the header) let you press `enter` to
-  jump directly to the related record -- from a quote to its project, from a
-  maintenance item to its appliance, etc.
+- **Linked columns** (marked `→` in the header when links exist) let you
+  press `enter` to jump directly to the related record -- from a quote to
+  its project, from a maintenance item to its appliance, etc.
 - **Drilldown columns** (`Log` on Maintenance, `Maint` on Appliances) open a
   sub-table showing all child records for that row.
 - **Required links** prevent orphan data: you can't create a quote without a

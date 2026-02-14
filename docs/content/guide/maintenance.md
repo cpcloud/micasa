@@ -71,9 +71,11 @@ The "Performed By" field is a select. The first option is always "Self
 vendor, create one via the Quotes form or Vendors tab first -- vendors are
 shared across quotes and service logs.
 
-The `Performed By` column is also a foreign key link (shown with `→` in the
-header). In Normal mode, press `enter` on a vendor name to jump to that
-vendor's row in the Vendors tab.
+The `Performed By` column is a foreign key link. When at least one log
+entry was performed by a vendor, the header shows `→`. In Normal mode,
+press `enter` on a vendor name to jump to that vendor's row in the
+Vendors tab. Pressing `enter` on "Self" shows a brief status message
+since there is nothing to follow.
 
 ## Additional form fields
 
