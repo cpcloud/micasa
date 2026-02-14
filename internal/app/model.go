@@ -808,6 +808,38 @@ func (m *Model) openProjectQuoteDetail(projectID uint, projectTitle string) erro
 	})
 }
 
+func (m *Model) openProjectDocumentDetail(projectID uint, projectTitle string) error {
+	specs := entityDocumentColumnSpecs()
+	return m.openDetailWith(detailContext{
+		ParentTabIndex: m.active,
+		ParentRowID:    projectID,
+		Breadcrumb:     "Projects" + breadcrumbSep + projectTitle + breadcrumbSep + tabDocuments.String(),
+		Tab: Tab{
+			Kind:    tabProjects,
+			Name:    tabDocuments.String(),
+			Handler: projectDocumentHandler{projectID: projectID},
+			Specs:   specs,
+			Table:   newTable(specsToColumns(specs), m.styles),
+		},
+	})
+}
+
+func (m *Model) openApplianceDocumentDetail(applianceID uint, applianceName string) error {
+	specs := entityDocumentColumnSpecs()
+	return m.openDetailWith(detailContext{
+		ParentTabIndex: m.active,
+		ParentRowID:    applianceID,
+		Breadcrumb:     "Appliances" + breadcrumbSep + applianceName + breadcrumbSep + tabDocuments.String(),
+		Tab: Tab{
+			Kind:    tabAppliances,
+			Name:    tabDocuments.String(),
+			Handler: applianceDocumentHandler{applianceID: applianceID},
+			Specs:   specs,
+			Table:   newTable(specsToColumns(specs), m.styles),
+		},
+	})
+}
+
 // openDetailForRow dispatches a drilldown based on the current tab kind and the
 // column that was activated. Supports nested drilldowns (e.g. Appliance →
 // Maintenance → Service Log).
@@ -847,6 +879,20 @@ func (m *Model) openDetailForRow(tab *Tab, rowID uint, colTitle string) error {
 			return fmt.Errorf("load project: %w", err)
 		}
 		return m.openProjectQuoteDetail(rowID, project.Title)
+
+	case tab.Kind == tabProjects && colTitle == tabDocuments.String():
+		project, err := m.store.GetProject(rowID)
+		if err != nil {
+			return fmt.Errorf("load project: %w", err)
+		}
+		return m.openProjectDocumentDetail(rowID, project.Title)
+
+	case tab.Kind == tabAppliances && colTitle == tabDocuments.String():
+		appliance, err := m.store.GetAppliance(rowID)
+		if err != nil {
+			return fmt.Errorf("load appliance: %w", err)
+		}
+		return m.openApplianceDocumentDetail(rowID, appliance.Name)
 	}
 	return nil
 }

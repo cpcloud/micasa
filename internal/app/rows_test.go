@@ -40,7 +40,7 @@ func TestProjectRows(t *testing.T) {
 			StartDate:     &start,
 		},
 	}
-	rows, meta, cells := projectRows(projects, nil)
+	rows, meta, cells := projectRows(projects, nil, nil)
 	require.Len(t, rows, 1)
 	assert.Equal(t, uint(1), meta[0].ID)
 	assert.False(t, meta[0].Deleted)
@@ -58,7 +58,7 @@ func TestProjectRowsDeleted(t *testing.T) {
 			DeletedAt: gorm.DeletedAt{Time: time.Now(), Valid: true},
 		},
 	}
-	_, meta, _ := projectRows(projects, nil)
+	_, meta, _ := projectRows(projects, nil, nil)
 	assert.True(t, meta[0].Deleted)
 }
 
@@ -146,7 +146,7 @@ func TestApplianceRows(t *testing.T) {
 		},
 	}
 	maintCounts := map[uint]int{1: 2}
-	rows, meta, cells := applianceRows(items, maintCounts, now)
+	rows, meta, cells := applianceRows(items, maintCounts, nil, now)
 	require.Len(t, rows, 1)
 	assert.Equal(t, uint(1), meta[0].ID)
 	assert.Equal(t, "Fridge", cells[0][1].Value)
@@ -162,7 +162,7 @@ func TestApplianceRowsNoOptionalFields(t *testing.T) {
 	items := []data.Appliance{
 		{ID: 1, Name: "Lamp"},
 	}
-	_, _, cells := applianceRows(items, nil, now)
+	_, _, cells := applianceRows(items, nil, nil, now)
 	assert.Empty(t, cells[0][6].Value, "expected empty purchase date")
 	assert.Empty(t, cells[0][7].Value, "expected empty age")
 	assert.Empty(t, cells[0][9].Value, "expected empty cost")
@@ -170,7 +170,7 @@ func TestApplianceRowsNoOptionalFields(t *testing.T) {
 }
 
 func TestBuildRowsEmpty(t *testing.T) {
-	rows, meta, cells := projectRows(nil, nil)
+	rows, meta, cells := projectRows(nil, nil, nil)
 	assert.Empty(t, rows)
 	assert.Empty(t, meta)
 	assert.Empty(t, cells)

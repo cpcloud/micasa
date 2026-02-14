@@ -822,6 +822,56 @@ func (s *Store) ListDocuments(includeDeleted bool) ([]Document, error) {
 	return docs, nil
 }
 
+// ListDocumentsByEntity returns documents scoped to a specific entity,
+// excluding the BLOB data.
+func (s *Store) ListDocumentsByEntity(
+	entityKind string,
+	entityID uint,
+	includeDeleted bool,
+) ([]Document, error) {
+	var docs []Document
+	db := s.db.Select(listDocumentColumns).
+		Where(ColEntityKind+" = ? AND "+ColEntityID+" = ?", entityKind, entityID).
+		Order(ColUpdatedAt + " desc")
+	if includeDeleted {
+		db = db.Unscoped()
+	}
+	if err := db.Find(&docs).Error; err != nil {
+		return nil, err
+	}
+	return docs, nil
+}
+
+// CountDocumentsByEntity counts non-deleted documents grouped by entity_id
+// where entity_kind matches. Uses a custom query because documents use
+// two-column polymorphic keys that countByFK can't handle.
+func (s *Store) CountDocumentsByEntity(
+	entityKind string,
+	entityIDs []uint,
+) (map[uint]int, error) {
+	if len(entityIDs) == 0 {
+		return map[uint]int{}, nil
+	}
+	type row struct {
+		FK    uint `gorm:"column:fk"`
+		Count int  `gorm:"column:cnt"`
+	}
+	var results []row
+	err := s.db.Model(&Document{}).
+		Select(ColEntityID+" as fk, count(*) as cnt").
+		Where(ColEntityKind+" = ? AND "+ColEntityID+" IN ?", entityKind, entityIDs).
+		Group(ColEntityID).
+		Find(&results).Error
+	if err != nil {
+		return nil, err
+	}
+	counts := make(map[uint]int, len(results))
+	for _, r := range results {
+		counts[r.FK] = r.Count
+	}
+	return counts, nil
+}
+
 func (s *Store) GetDocument(id uint) (Document, error) {
 	var doc Document
 	if err := s.db.First(&doc, id).Error; err != nil {
@@ -881,6 +931,16 @@ func (s *Store) validateDocumentParent(doc Document) error {
 	return nil
 }
 
+// countDocumentDependents counts non-deleted documents linked to the given
+// entity. Uses a polymorphic WHERE clause unlike countDependents.
+func (s *Store) countDocumentDependents(entityKind string, entityID uint) (int64, error) {
+	var count int64
+	err := s.db.Model(&Document{}).
+		Where(ColEntityKind+" = ? AND "+ColEntityID+" = ?", entityKind, entityID).
+		Count(&count).Error
+	return count, err
+}
+
 func (s *Store) DeleteVendor(id uint) error {
 	n, err := s.countDependents(&Quote{}, ColVendorID, id)
 	if err != nil {
@@ -904,6 +964,13 @@ func (s *Store) DeleteProject(id uint) error {
 	if n > 0 {
 		return fmt.Errorf("project has %d active quote(s) -- delete them first", n)
 	}
+	dn, err := s.countDocumentDependents(DocumentEntityProject, id)
+	if err != nil {
+		return err
+	}
+	if dn > 0 {
+		return fmt.Errorf("project has %d active document(s) -- delete them first", dn)
+	}
 	return s.softDelete(&Project{}, DeletionEntityProject, id)
 }
 
@@ -923,6 +990,13 @@ func (s *Store) DeleteMaintenance(id uint) error {
 }
 
 func (s *Store) DeleteAppliance(id uint) error {
+	dn, err := s.countDocumentDependents(DocumentEntityAppliance, id)
+	if err != nil {
+		return err
+	}
+	if dn > 0 {
+		return fmt.Errorf("appliance has %d active document(s) -- delete them first", dn)
+	}
 	return s.softDelete(&Appliance{}, DeletionEntityAppliance, id)
 }
 

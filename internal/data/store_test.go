@@ -1638,6 +1638,159 @@ func TestDocumentCRUD(t *testing.T) {
 	assert.Equal(t, "Updated Invoice", fetched.Title)
 }
 
+func TestCountDocumentsByEntity(t *testing.T) {
+	store := newTestStore(t)
+
+	require.NoError(t, store.CreateDocument(Document{
+		Title: "Doc1", EntityKind: DocumentEntityProject, EntityID: 10,
+	}))
+	require.NoError(t, store.CreateDocument(Document{
+		Title: "Doc2", EntityKind: DocumentEntityProject, EntityID: 10,
+	}))
+	require.NoError(t, store.CreateDocument(Document{
+		Title: "Doc3", EntityKind: DocumentEntityAppliance, EntityID: 10,
+	}))
+
+	counts, err := store.CountDocumentsByEntity(DocumentEntityProject, []uint{10, 99})
+	require.NoError(t, err)
+	assert.Equal(t, 2, counts[10])
+	assert.Zero(t, counts[99])
+
+	counts, err = store.CountDocumentsByEntity(DocumentEntityAppliance, []uint{10})
+	require.NoError(t, err)
+	assert.Equal(t, 1, counts[10])
+
+	empty, err := store.CountDocumentsByEntity(DocumentEntityProject, nil)
+	require.NoError(t, err)
+	assert.Empty(t, empty)
+}
+
+func TestListDocumentsByEntity(t *testing.T) {
+	store := newTestStore(t)
+
+	require.NoError(t, store.CreateDocument(Document{
+		Title: "ProjDoc", EntityKind: DocumentEntityProject, EntityID: 5,
+	}))
+	require.NoError(t, store.CreateDocument(Document{
+		Title: "AppDoc", EntityKind: DocumentEntityAppliance, EntityID: 5,
+	}))
+
+	docs, err := store.ListDocumentsByEntity(DocumentEntityProject, 5, false)
+	require.NoError(t, err)
+	require.Len(t, docs, 1)
+	assert.Equal(t, "ProjDoc", docs[0].Title)
+	assert.Empty(t, docs[0].Data, "should not load BLOB data")
+}
+
+func TestListDocumentsByEntityIncludeDeleted(t *testing.T) {
+	store := newTestStore(t)
+
+	require.NoError(t, store.CreateDocument(Document{
+		Title: "Active", EntityKind: DocumentEntityProject, EntityID: 1,
+	}))
+	require.NoError(t, store.CreateDocument(Document{
+		Title: "ToDelete", EntityKind: DocumentEntityProject, EntityID: 1,
+	}))
+
+	docs, _ := store.ListDocumentsByEntity(DocumentEntityProject, 1, false)
+	require.Len(t, docs, 2)
+
+	require.NoError(t, store.DeleteDocument(docs[0].ID))
+
+	active, err := store.ListDocumentsByEntity(DocumentEntityProject, 1, false)
+	require.NoError(t, err)
+	assert.Len(t, active, 1)
+
+	all, err := store.ListDocumentsByEntity(DocumentEntityProject, 1, true)
+	require.NoError(t, err)
+	assert.Len(t, all, 2)
+}
+
+func TestDeleteProjectBlockedByDocuments(t *testing.T) {
+	store := newTestStore(t)
+	types, _ := store.ProjectTypes()
+
+	require.NoError(t, store.CreateProject(Project{
+		Title: "Doc Project", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}))
+	projects, _ := store.ListProjects(false)
+	projID := projects[0].ID
+
+	require.NoError(t, store.CreateDocument(Document{
+		Title: "ProjDoc", EntityKind: DocumentEntityProject, EntityID: projID,
+	}))
+
+	require.ErrorContains(t, store.DeleteProject(projID), "active document")
+
+	docs, _ := store.ListDocumentsByEntity(DocumentEntityProject, projID, false)
+	require.NoError(t, store.DeleteDocument(docs[0].ID))
+	require.NoError(t, store.DeleteProject(projID))
+}
+
+func TestDeleteApplianceBlockedByDocuments(t *testing.T) {
+	store := newTestStore(t)
+	require.NoError(t, store.CreateAppliance(Appliance{Name: "Doc Fridge"}))
+	appliances, _ := store.ListAppliances(false)
+	appID := appliances[0].ID
+
+	require.NoError(t, store.CreateDocument(Document{
+		Title: "Manual", EntityKind: DocumentEntityAppliance, EntityID: appID,
+	}))
+
+	require.ErrorContains(t, store.DeleteAppliance(appID), "active document")
+
+	docs, _ := store.ListDocumentsByEntity(DocumentEntityAppliance, appID, false)
+	require.NoError(t, store.DeleteDocument(docs[0].ID))
+	require.NoError(t, store.DeleteAppliance(appID))
+}
+
+func TestRestoreDocumentBlockedByDeletedProject(t *testing.T) {
+	store := newTestStore(t)
+	types, _ := store.ProjectTypes()
+
+	require.NoError(t, store.CreateProject(Project{
+		Title: "Doomed", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}))
+	projects, _ := store.ListProjects(false)
+	projID := projects[0].ID
+
+	require.NoError(t, store.CreateDocument(Document{
+		Title: "Orphan", EntityKind: DocumentEntityProject, EntityID: projID,
+	}))
+	docs, _ := store.ListDocuments(false)
+	docID := docs[0].ID
+
+	require.NoError(t, store.DeleteDocument(docID))
+	require.NoError(t, store.DeleteProject(projID))
+
+	require.ErrorContains(t, store.RestoreDocument(docID), "project is deleted")
+
+	require.NoError(t, store.RestoreProject(projID))
+	require.NoError(t, store.RestoreDocument(docID))
+}
+
+func TestRestoreDocumentBlockedByDeletedAppliance(t *testing.T) {
+	store := newTestStore(t)
+
+	require.NoError(t, store.CreateAppliance(Appliance{Name: "Doomed Washer"}))
+	appliances, _ := store.ListAppliances(false)
+	appID := appliances[0].ID
+
+	require.NoError(t, store.CreateDocument(Document{
+		Title: "Warranty", EntityKind: DocumentEntityAppliance, EntityID: appID,
+	}))
+	docs, _ := store.ListDocuments(false)
+	docID := docs[0].ID
+
+	require.NoError(t, store.DeleteDocument(docID))
+	require.NoError(t, store.DeleteAppliance(appID))
+
+	require.ErrorContains(t, store.RestoreDocument(docID), "appliance is deleted")
+
+	require.NoError(t, store.RestoreAppliance(appID))
+	require.NoError(t, store.RestoreDocument(docID))
+}
+
 func TestSoftDeleteRestoreDocument(t *testing.T) {
 	store := newTestStore(t)
 

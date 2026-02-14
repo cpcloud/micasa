@@ -54,7 +54,7 @@ func NewTabs(styles Styles) []Tab {
 	maintenanceSpecs := maintenanceColumnSpecs()
 	applianceSpecs := applianceColumnSpecs()
 	vendorSpecs := vendorColumnSpecs()
-	docSpecs := documentColumnSpecs()
+	documentSpecs := documentColumnSpecs()
 	return []Tab{
 		{
 			Kind:    tabProjects,
@@ -95,8 +95,8 @@ func NewTabs(styles Styles) []Tab {
 			Kind:    tabDocuments,
 			Name:    tabDocuments.String(),
 			Handler: documentHandler{},
-			Specs:   docSpecs,
-			Table:   newTable(specsToColumns(docSpecs), styles),
+			Specs:   documentSpecs,
+			Table:   newTable(specsToColumns(documentSpecs), styles),
 		},
 	}
 }
@@ -112,6 +112,7 @@ func projectColumnSpecs() []columnSpec {
 		{Title: "Start", Min: 10, Max: 12, Kind: cellDate},
 		{Title: "End", Min: 10, Max: 12, Kind: cellDate},
 		{Title: tabQuotes.String(), Min: 6, Max: 8, Align: alignRight, Kind: cellDrilldown},
+		{Title: tabDocuments.String(), Min: 5, Max: 6, Align: alignRight, Kind: cellDrilldown},
 	}
 }
 
@@ -172,6 +173,7 @@ func applianceColumnSpecs() []columnSpec {
 		{Title: "Warranty", Min: 10, Max: 12, Kind: cellWarranty},
 		{Title: "Cost", Min: 8, Max: 12, Align: alignRight, Kind: cellMoney},
 		{Title: "Maint", Min: 5, Max: 6, Align: alignRight, Kind: cellDrilldown},
+		{Title: tabDocuments.String(), Min: 5, Max: 6, Align: alignRight, Kind: cellDrilldown},
 	}
 }
 
@@ -259,12 +261,17 @@ func serviceLogRows(
 func applianceRows(
 	items []data.Appliance,
 	maintCounts map[uint]int,
+	docCounts map[uint]int,
 	now time.Time,
 ) ([]table.Row, []rowMeta, [][]cell) {
 	return buildRows(items, func(a data.Appliance) rowSpec {
 		maintCount := ""
 		if n := maintCounts[a.ID]; n > 0 {
 			maintCount = fmt.Sprintf("%d", n)
+		}
+		docCount := ""
+		if n := docCounts[a.ID]; n > 0 {
+			docCount = fmt.Sprintf("%d", n)
 		}
 		return rowSpec{
 			ID:      a.ID,
@@ -281,6 +288,7 @@ func applianceRows(
 				{Value: dateValue(a.WarrantyExpiry), Kind: cellWarranty},
 				{Value: centsValue(a.CostCents), Kind: cellMoney},
 				{Value: maintCount, Kind: cellDrilldown},
+				{Value: docCount, Kind: cellDrilldown},
 			},
 		}
 	})
@@ -403,11 +411,16 @@ func newTable(columns []table.Column, styles Styles) table.Model {
 func projectRows(
 	projects []data.Project,
 	quoteCounts map[uint]int,
+	docCounts map[uint]int,
 ) ([]table.Row, []rowMeta, [][]cell) {
 	return buildRows(projects, func(p data.Project) rowSpec {
 		quoteCount := ""
 		if n := quoteCounts[p.ID]; n > 0 {
 			quoteCount = fmt.Sprintf("%d", n)
+		}
+		docCount := ""
+		if n := docCounts[p.ID]; n > 0 {
+			docCount = fmt.Sprintf("%d", n)
 		}
 		return rowSpec{
 			ID:      p.ID,
@@ -422,6 +435,7 @@ func projectRows(
 				{Value: dateValue(p.StartDate), Kind: cellDate},
 				{Value: dateValue(p.EndDate), Kind: cellDate},
 				{Value: quoteCount, Kind: cellDrilldown},
+				{Value: docCount, Kind: cellDrilldown},
 			},
 		}
 	})

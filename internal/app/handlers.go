@@ -89,7 +89,11 @@ func (projectHandler) Load(
 	if err != nil {
 		quoteCounts = map[uint]int{}
 	}
-	rows, meta, cellRows := projectRows(projects, quoteCounts)
+	docCounts, err := store.CountDocumentsByEntity(data.DocumentEntityProject, ids)
+	if err != nil {
+		docCounts = map[uint]int{}
+	}
+	rows, meta, cellRows := projectRows(projects, quoteCounts, docCounts)
 	return rows, meta, cellRows, nil
 }
 
@@ -304,7 +308,11 @@ func (applianceHandler) Load(
 	if err != nil {
 		maintCounts = map[uint]int{}
 	}
-	rows, meta, cellRows := applianceRows(items, maintCounts, time.Now())
+	docCounts, err := store.CountDocumentsByEntity(data.DocumentEntityAppliance, ids)
+	if err != nil {
+		docCounts = map[uint]int{}
+	}
+	rows, meta, cellRows := applianceRows(items, maintCounts, docCounts, time.Now())
 	return rows, meta, cellRows, nil
 }
 
@@ -803,3 +811,121 @@ func (documentHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
 }
 
 func (documentHandler) SyncFixedValues(_ *Model, _ []columnSpec) {}
+
+// ---------------------------------------------------------------------------
+// projectDocumentHandler -- detail-view handler for documents scoped to a
+// single project.
+// ---------------------------------------------------------------------------
+
+type projectDocumentHandler struct {
+	projectID uint
+}
+
+func (projectDocumentHandler) FormKind() FormKind { return formDocument }
+
+func (h projectDocumentHandler) Load(
+	store *data.Store,
+	showDeleted bool,
+) ([]table.Row, []rowMeta, [][]cell, error) {
+	docs, err := store.ListDocumentsByEntity(data.DocumentEntityProject, h.projectID, showDeleted)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	rows, meta, cellRows := entityDocumentRows(docs)
+	return rows, meta, cellRows, nil
+}
+
+func (projectDocumentHandler) Delete(store *data.Store, id uint) error {
+	return store.DeleteDocument(id)
+}
+
+func (projectDocumentHandler) Restore(store *data.Store, id uint) error {
+	return store.RestoreDocument(id)
+}
+
+func (h projectDocumentHandler) StartAddForm(m *Model) error {
+	return m.startDocumentForm(data.DocumentEntityProject)
+}
+
+func (projectDocumentHandler) StartEditForm(m *Model, id uint) error {
+	return m.startEditDocumentForm(id)
+}
+
+func (projectDocumentHandler) InlineEdit(m *Model, id uint, col int) error {
+	// Entity doc columns: 0=ID, 1=Title, 2=Type, 3=Size, 4=Notes, 5=Updated.
+	// Map to full document columns: skip col 2=Entity.
+	fullCol := col
+	if col >= 2 {
+		fullCol = col + 1
+	}
+	return m.inlineEditDocument(id, fullCol)
+}
+
+func (h projectDocumentHandler) SubmitForm(m *Model) error {
+	return m.submitScopedDocumentForm(data.DocumentEntityProject, h.projectID)
+}
+
+func (projectDocumentHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
+	return documentHandler{}.Snapshot(store, id)
+}
+
+func (projectDocumentHandler) SyncFixedValues(_ *Model, _ []columnSpec) {}
+
+// ---------------------------------------------------------------------------
+// applianceDocumentHandler -- detail-view handler for documents scoped to a
+// single appliance.
+// ---------------------------------------------------------------------------
+
+type applianceDocumentHandler struct {
+	applianceID uint
+}
+
+func (applianceDocumentHandler) FormKind() FormKind { return formDocument }
+
+func (h applianceDocumentHandler) Load(
+	store *data.Store,
+	showDeleted bool,
+) ([]table.Row, []rowMeta, [][]cell, error) {
+	docs, err := store.ListDocumentsByEntity(
+		data.DocumentEntityAppliance, h.applianceID, showDeleted,
+	)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	rows, meta, cellRows := entityDocumentRows(docs)
+	return rows, meta, cellRows, nil
+}
+
+func (applianceDocumentHandler) Delete(store *data.Store, id uint) error {
+	return store.DeleteDocument(id)
+}
+
+func (applianceDocumentHandler) Restore(store *data.Store, id uint) error {
+	return store.RestoreDocument(id)
+}
+
+func (h applianceDocumentHandler) StartAddForm(m *Model) error {
+	return m.startDocumentForm(data.DocumentEntityAppliance)
+}
+
+func (applianceDocumentHandler) StartEditForm(m *Model, id uint) error {
+	return m.startEditDocumentForm(id)
+}
+
+func (applianceDocumentHandler) InlineEdit(m *Model, id uint, col int) error {
+	fullCol := col
+	if col >= 2 {
+		fullCol = col + 1
+	}
+	return m.inlineEditDocument(id, fullCol)
+}
+
+func (h applianceDocumentHandler) SubmitForm(m *Model) error {
+	return m.submitScopedDocumentForm(data.DocumentEntityAppliance, h.applianceID)
+}
+
+func (applianceDocumentHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
+	return documentHandler{}.Snapshot(store, id)
+}
+
+func (applianceDocumentHandler) SyncFixedValues(_ *Model, _ []columnSpec) {}

@@ -145,10 +145,13 @@ func TestMaintenanceColumnsIncludeLog(t *testing.T) {
 	assert.Equal(t, cellDrilldown, last.Kind)
 }
 
-func TestApplianceColumnsIncludeMaint(t *testing.T) {
+func TestApplianceColumnsIncludeMaintAndDocs(t *testing.T) {
 	specs := applianceColumnSpecs()
+	secondLast := specs[len(specs)-2]
+	assert.Equal(t, "Maint", secondLast.Title)
+	assert.Equal(t, cellDrilldown, secondLast.Kind)
 	last := specs[len(specs)-1]
-	assert.Equal(t, "Maint", last.Title)
+	assert.Equal(t, tabDocuments.String(), last.Title)
 	assert.Equal(t, cellDrilldown, last.Kind)
 }
 
@@ -495,10 +498,13 @@ func TestProjectQuoteHandlerFormKind(t *testing.T) {
 	assert.Equal(t, formQuote, h.FormKind())
 }
 
-func TestProjectColumnSpecsIncludeQuotes(t *testing.T) {
+func TestProjectColumnSpecsIncludeQuotesAndDocs(t *testing.T) {
 	specs := projectColumnSpecs()
+	secondLast := specs[len(specs)-2]
+	assert.Equal(t, "Quotes", secondLast.Title)
+	assert.Equal(t, cellDrilldown, secondLast.Kind)
 	last := specs[len(specs)-1]
-	assert.Equal(t, "Quotes", last.Title)
+	assert.Equal(t, tabDocuments.String(), last.Title)
 	assert.Equal(t, cellDrilldown, last.Kind)
 }
 
@@ -654,8 +660,49 @@ func TestNavigateToLinkClosesDetailStack(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Document handler tests
+// Document drilldown tests
 // ---------------------------------------------------------------------------
+
+func TestProjectDocumentDrilldown(t *testing.T) {
+	m := newTestModel()
+	m.active = tabIndex(tabProjects)
+
+	require.NoError(t, m.openProjectDocumentDetail(7, "Kitchen Remodel"))
+	require.True(t, m.inDetail())
+	assert.Equal(t, tabDocuments.String(), m.detail().Tab.Name)
+	assert.Contains(t, m.detail().Breadcrumb, "Projects")
+	assert.Contains(t, m.detail().Breadcrumb, "Kitchen Remodel")
+	assert.Contains(t, m.detail().Breadcrumb, tabDocuments.String())
+
+	// Verify uses entity document column specs (no Entity column).
+	specs := m.effectiveTab().Specs
+	for _, s := range specs {
+		assert.NotEqual(t, "Entity", s.Title,
+			"project document detail should not include Entity column")
+	}
+}
+
+func TestApplianceDocumentDrilldown(t *testing.T) {
+	m := newTestModel()
+	m.active = tabIndex(tabAppliances)
+
+	require.NoError(t, m.openApplianceDocumentDetail(5, "Dishwasher"))
+	require.True(t, m.inDetail())
+	assert.Equal(t, tabDocuments.String(), m.detail().Tab.Name)
+	assert.Contains(t, m.detail().Breadcrumb, "Appliances")
+	assert.Contains(t, m.detail().Breadcrumb, "Dishwasher")
+	assert.Contains(t, m.detail().Breadcrumb, tabDocuments.String())
+}
+
+func TestProjectDocumentHandlerFormKind(t *testing.T) {
+	h := projectDocumentHandler{projectID: 1}
+	assert.Equal(t, formDocument, h.FormKind())
+}
+
+func TestApplianceDocumentHandlerFormKind(t *testing.T) {
+	h := applianceDocumentHandler{applianceID: 1}
+	assert.Equal(t, formDocument, h.FormKind())
+}
 
 func TestDocumentHandlerFormKind(t *testing.T) {
 	h := documentHandler{}
@@ -680,4 +727,34 @@ func TestDocumentColumnSpecsIncludeEntity(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "top-level document specs should include Entity column")
+}
+
+func TestOpenDetailForRow_ProjectDocuments(t *testing.T) {
+	m := newTestModelWithDemoData(t, 42)
+	m.active = tabIndex(tabProjects)
+	tab := m.activeTab()
+	require.NotNil(t, tab)
+
+	projects, err := m.store.ListProjects(false)
+	require.NoError(t, err)
+	require.NotEmpty(t, projects)
+
+	require.NoError(t, m.openDetailForRow(tab, projects[0].ID, tabDocuments.String()))
+	require.True(t, m.inDetail())
+	assert.Equal(t, tabDocuments.String(), m.detail().Tab.Name)
+}
+
+func TestOpenDetailForRow_ApplianceDocuments(t *testing.T) {
+	m := newTestModelWithDemoData(t, 42)
+	m.active = tabIndex(tabAppliances)
+	tab := m.activeTab()
+	require.NotNil(t, tab)
+
+	appliances, err := m.store.ListAppliances(false)
+	require.NoError(t, err)
+	require.NotEmpty(t, appliances)
+
+	require.NoError(t, m.openDetailForRow(tab, appliances[0].ID, tabDocuments.String()))
+	require.True(t, m.inDetail())
+	assert.Equal(t, tabDocuments.String(), m.detail().Tab.Name)
 }

@@ -689,7 +689,7 @@ func (m *Model) inlineEditProject(id uint, col int) error {
 		return fmt.Errorf("load project: %w", err)
 	}
 	values := projectFormValues(project)
-	// Column mapping: 0=ID, 1=Type, 2=Title, 3=Status, 4=Budget, 5=Actual, 6=Start, 7=End
+	// Column mapping: 0=ID, 1=Type, 2=Title, 3=Status, 4=Budget, 5=Actual, 6=Start, 7=End, 8=Quotes(ro), 9=Docs(ro)
 	switch col {
 	case 1:
 		options := projectTypeOptions(m.projectTypes)
@@ -877,7 +877,7 @@ func (m *Model) inlineEditAppliance(id uint, col int) error {
 		return fmt.Errorf("load appliance: %w", err)
 	}
 	values := applianceFormValues(item)
-	// Column mapping: 0=ID, 1=Name, 2=Brand, 3=Model, 4=Serial, 5=Location, 6=Purchased, 7=Age(readonly), 8=Warranty, 9=Cost, 10=Maint(readonly)
+	// Column mapping: 0=ID, 1=Name, 2=Brand, 3=Model, 4=Serial, 5=Location, 6=Purchased, 7=Age(ro), 8=Warranty, 9=Cost, 10=Maint(ro), 11=Docs(ro)
 	switch col {
 	case 1:
 		m.openInlineInput(id, formAppliance, "Name", "", &values.Name, requiredText("name"), values)
@@ -1724,6 +1724,21 @@ func (m *Model) submitDocumentForm() error {
 		doc.ID = *m.editID
 		return m.store.UpdateDocument(doc)
 	}
+	return m.store.CreateDocument(doc)
+}
+
+// submitScopedDocumentForm creates a document with the given entity scope.
+func (m *Model) submitScopedDocumentForm(entityKind string, entityID uint) error {
+	doc, err := m.parseDocumentFormData()
+	if err != nil {
+		return err
+	}
+	if m.editID != nil {
+		doc.ID = *m.editID
+		return m.store.UpdateDocument(doc)
+	}
+	doc.EntityKind = entityKind
+	doc.EntityID = entityID
 	return m.store.CreateDocument(doc)
 }
 
