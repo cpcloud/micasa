@@ -587,9 +587,9 @@ func TestHelpContentIncludesProjectStatusFilterShortcuts(t *testing.T) {
 	m := newTestModel()
 	help := m.helpContent()
 	for _, snippet := range []string{
-		"Hide/show completed projects",
-		"Hide/show abandoned projects",
-		"Hide/show settled projects",
+		"Toggle completed projects",
+		"Toggle abandoned projects",
+		"Toggle settled projects",
 	} {
 		assert.Contains(t, help, snippet)
 	}
