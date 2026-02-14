@@ -278,6 +278,11 @@ These have been repeatedly requested. Violating them wastes the user's time.
   are caught and fixed before the commit attempt, not during it. Never
   skip it or use a different invocation. If running it is not possible,
   stop and ask the user why it cannot be run before proceeding.
+- **Run `nix run '.#deadcode'` before committing**: Run the dead code
+  checker alongside pre-commit, tests, `go vet`, and `osv-scanner` as
+  part of the pre-commit verification bag. It performs whole-program
+  reachability analysis and catches exported-but-unreachable functions
+  that per-package linters miss. Fix any findings before committing.
 - **Fallback to `nix develop` for missing dev commands**: If a development
   command is unavailable in PATH (for example `go`, `golangci-lint`, or other
   toolchain binaries), retry it with `nix develop -c <command>` before

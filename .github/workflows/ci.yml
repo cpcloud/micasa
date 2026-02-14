@@ -57,6 +57,20 @@ jobs:
       - name: Coverage summary
         run: go tool cover -func coverage.txt
 
+  deadcode:
+    name: Dead Code
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ci-deadcode-${{ github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - uses: cachix/install-nix-action@4e002c8ec80594ecd40e759629461e26c8abed15 # v31
+
+      - name: Check for dead code
+        run: nix run '.#deadcode'
+
   pre-commit:
     name: Pre-commit
     runs-on: ubuntu-latest
@@ -143,7 +157,7 @@ jobs:
 
   semantic-release:
     name: Semantic Release
-    needs: [test, pre-commit, nix-build, docs, secrets]
+    needs: [test, deadcode, pre-commit, nix-build, docs, secrets]
     runs-on: ubuntu-latest
     concurrency:
       group: semantic-release-${{ github.ref }}
