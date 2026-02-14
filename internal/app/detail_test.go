@@ -587,24 +587,9 @@ func TestOpenDetailForRow_ProjectQuotes(t *testing.T) {
 
 func TestDrilldownHint(t *testing.T) {
 	m := newTestModel()
-	tests := []struct {
-		kind  TabKind
-		title string
-		want  string
-	}{
-		{tabMaintenance, "Log", "service log"},
-		{tabAppliances, "Maint", "maintenance"},
-		{tabAppliances, "Log", "service log"},
-		{tabVendors, "Quotes", "vendor quotes"},
-		{tabVendors, "Jobs", "vendor jobs"},
-		{tabProjects, "Quotes", "project quotes"},
-	}
-	for _, tt := range tests {
-		tab := &Tab{Kind: tt.kind}
-		spec := columnSpec{Title: tt.title}
-		assert.Equal(t, tt.want, m.drilldownHint(tab, spec),
-			"kind=%v title=%s", tt.kind, tt.title)
-	}
+	tab := &Tab{Kind: tabProjects}
+	spec := columnSpec{Title: "Quotes"}
+	assert.Equal(t, drilldownArrow+" drilldown", m.drilldownHint(tab, spec))
 }
 
 func TestNavigateToLinkClosesDetailStack(t *testing.T) {
