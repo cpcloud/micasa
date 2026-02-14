@@ -60,6 +60,11 @@ const (
 	ColPhone             = "phone"
 	ColWebsite           = "website"
 	ColNotes             = "notes"
+	ColFileName          = "file_name"
+	ColMIMEType          = "mime_type"
+	ColSizeBytes         = "size_bytes"
+	ColChecksum          = "sha256"
+	ColContent           = "content"
 )
 
 // MaxDocumentSize is the largest file that can be imported as a document
@@ -75,18 +80,6 @@ const (
 	DocumentEntityServiceLog  = "service_log"
 	DocumentEntityVendor      = "vendor"
 )
-
-func DocumentEntityKinds() []string {
-	return []string{
-		DocumentEntityNone,
-		DocumentEntityProject,
-		DocumentEntityQuote,
-		DocumentEntityMaintenance,
-		DocumentEntityAppliance,
-		DocumentEntityServiceLog,
-		DocumentEntityVendor,
-	}
-}
 
 type HouseProfile struct {
 	ID               uint `gorm:"primaryKey"`

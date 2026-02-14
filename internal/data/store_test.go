@@ -1254,6 +1254,49 @@ func TestDocumentExplicitTitleNotOverwritten(t *testing.T) {
 	assert.Equal(t, "My Custom Title", docs[0].Title)
 }
 
+func TestUpdateDocumentMetadataPreservesFile(t *testing.T) {
+	store := newTestStore(t)
+
+	content := []byte("important contract text")
+	filePath := filepath.Join(t.TempDir(), "contract.pdf")
+	require.NoError(t, os.WriteFile(filePath, content, 0o600))
+
+	require.NoError(t, store.CreateDocument(Document{Title: "Contract"}, filePath))
+	docs, err := store.ListDocuments(false)
+	require.NoError(t, err)
+	require.Len(t, docs, 1)
+
+	original := docs[0]
+	require.Equal(t, "contract.pdf", original.FileName)
+	require.NotEmpty(t, original.ChecksumSHA256)
+	require.Equal(t, int64(len(content)), original.SizeBytes)
+
+	// Update only metadata -- no new file.
+	require.NoError(t, store.UpdateDocument(Document{
+		ID:    original.ID,
+		Title: "Updated Contract",
+		Notes: "added notes",
+	}, ""))
+
+	updated, err := store.GetDocument(original.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "Updated Contract", updated.Title)
+	assert.Equal(t, "added notes", updated.Notes)
+	// File metadata must be preserved.
+	assert.Equal(t, original.FileName, updated.FileName)
+	assert.Equal(t, original.MIMEType, updated.MIMEType)
+	assert.Equal(t, original.SizeBytes, updated.SizeBytes)
+	assert.Equal(t, original.ChecksumSHA256, updated.ChecksumSHA256)
+
+	// Verify BLOB content is still intact.
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	cachePath, err := store.ExtractDocument(original.ID)
+	require.NoError(t, err)
+	cached, err := os.ReadFile(cachePath) //nolint:gosec // test-only path
+	require.NoError(t, err)
+	assert.Equal(t, content, cached)
+}
+
 func TestDocumentTitleRequiredOnEditWithoutFile(t *testing.T) {
 	store := newTestStore(t)
 

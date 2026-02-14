@@ -856,7 +856,8 @@ func (s *Store) CreateDocument(doc Document, sourcePath string) error {
 }
 
 // UpdateDocument updates metadata and optionally replaces content if
-// sourcePath is non-empty.
+// sourcePath is non-empty. When no new file is supplied the existing
+// BLOB and file metadata columns are preserved.
 func (s *Store) UpdateDocument(doc Document, sourcePath string) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		if err := normalizeDocument(&doc, sourcePath, s.maxDocumentSize); err != nil {
@@ -865,7 +866,20 @@ func (s *Store) UpdateDocument(doc Document, sourcePath string) error {
 		if err := validateDocumentTarget(tx, doc); err != nil {
 			return err
 		}
-		return updateByIDWith(tx, &Document{}, doc.ID, doc)
+
+		omit := []string{ColID, ColCreatedAt, ColDeletedAt}
+		if strings.TrimSpace(sourcePath) == "" {
+			// No new file -- preserve existing BLOB and file metadata.
+			omit = append(omit,
+				ColFileName, ColMIMEType, ColSizeBytes,
+				ColChecksum, ColContent,
+			)
+		}
+
+		return tx.Model(&Document{}).Where(ColID+" = ?", doc.ID).
+			Select("*").
+			Omit(omit...).
+			Updates(doc).Error
 	})
 }
 
