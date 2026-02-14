@@ -7,14 +7,9 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"mime"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 	"unicode"
-
-	"github.com/iancoleman/strcase"
 
 	"github.com/cpcloud/micasa/internal/fake"
 	"github.com/glebarez/sqlite"
@@ -145,6 +140,7 @@ func (s *Store) AutoMigrate() error {
 		&DeletionRecord{},
 		&Setting{},
 		&ChatInput{},
+		&Document{},
 	)
 }
 
@@ -349,53 +345,44 @@ func (s *Store) SeedDemoDataFrom(h *fake.HomeFaker) error {
 		}
 	}
 
-	// Documents: attach a few representative records so the Documents tab is
-	// populated in demo mode. Content is a short placeholder since demo
-	// documents don't need real file data.
-	demoContent := []byte("(demo placeholder)")
-	demoChecksum := fmt.Sprintf("%x", sha256.Sum256(demoContent))
-	var demoDocs []Document
-	if len(projects) > 0 {
-		projectID := projects[0].ID
-		demoDocs = append(demoDocs, Document{
-			Title:          "Kitchen proposal PDF",
-			FileName:       "kitchen-proposal.pdf",
-			MIMEType:       "application/pdf",
-			SizeBytes:      int64(len(demoContent)),
-			ChecksumSHA256: demoChecksum,
-			Content:        demoContent,
-			EntityKind:     DocumentEntityProject,
-			EntityID:       &projectID,
-			Notes:          "Initial concept and rough scope",
-		})
+	// Documents: attach a couple to projects and appliances.
+	type docSeed struct {
+		title, fileName, mime, kind string
+		entityID                    uint
 	}
-	if len(appliances) > 0 {
-		applianceID := appliances[0].ID
-		demoDocs = append(demoDocs, Document{
-			Title:          "Appliance manual",
-			FileName:       "appliance-manual.pdf",
-			MIMEType:       "application/pdf",
-			SizeBytes:      int64(len(demoContent)),
-			ChecksumSHA256: demoChecksum,
-			Content:        demoContent,
-			EntityKind:     DocumentEntityAppliance,
-			EntityID:       &applianceID,
-			Notes:          "Manufacturer manual for quick lookup",
-		})
+	docSeeds := []docSeed{
+		{"Invoice", "invoice.pdf", "application/pdf", DocumentEntityProject, projects[0].ID},
+		{"Contract", "contract.pdf", "application/pdf", DocumentEntityProject, projects[1].ID},
+		{
+			"Warranty Card",
+			"warranty-card.jpg",
+			"image/jpeg",
+			DocumentEntityAppliance,
+			appliances[0].ID,
+		},
+		{
+			"User Manual",
+			"user-manual.pdf",
+			"application/pdf",
+			DocumentEntityAppliance,
+			appliances[1].ID,
+		},
 	}
-	demoDocs = append(demoDocs, Document{
-		Title:          "Warranty card photo",
-		FileName:       "warranty-card.jpg",
-		MIMEType:       "image/jpeg",
-		SizeBytes:      int64(len(demoContent)),
-		ChecksumSHA256: demoChecksum,
-		Content:        demoContent,
-		EntityKind:     DocumentEntityNone,
-		Notes:          "Loose file not yet linked",
-	})
-	for _, doc := range demoDocs {
+	for _, ds := range docSeeds {
+		// Small placeholder content -- demo only.
+		content := []byte(ds.title + " placeholder content")
+		doc := Document{
+			Title:          ds.title,
+			FileName:       ds.fileName,
+			EntityKind:     ds.kind,
+			EntityID:       ds.entityID,
+			MIMEType:       ds.mime,
+			SizeBytes:      int64(len(content)),
+			ChecksumSHA256: fmt.Sprintf("%x", sha256.Sum256(content)),
+			Data:           content,
+		}
 		if err := s.db.Create(&doc).Error; err != nil {
-			return fmt.Errorf("seed document %s: %w", doc.Title, err)
+			return fmt.Errorf("seed document %s: %w", ds.title, err)
 		}
 	}
 
@@ -811,16 +798,21 @@ func (s *Store) CountMaintenanceByAppliance(applianceIDs []uint) (map[uint]int, 
 	return s.countByFK(&MaintenanceItem{}, ColApplianceID, applianceIDs)
 }
 
-// listDocumentColumns enumerates every Document column except the BLOB
-// content, so list queries never load large payloads into memory.
+// ---------------------------------------------------------------------------
+// Document CRUD
+// ---------------------------------------------------------------------------
+
+// listDocumentColumns are the columns selected when listing documents to
+// avoid loading the potentially large Data BLOB.
 var listDocumentColumns = []string{
-	"id", "title", "file_name", "mime_type", "size_bytes", "sha256",
-	"entity_kind", "entity_id", "notes", "created_at", "updated_at", "deleted_at",
+	ColID, ColTitle, ColFileName, ColEntityKind, ColEntityID,
+	ColMIMEType, ColSizeBytes, ColChecksum, ColNotes,
+	ColCreatedAt, ColUpdatedAt, ColDeletedAt,
 }
 
 func (s *Store) ListDocuments(includeDeleted bool) ([]Document, error) {
 	var docs []Document
-	db := s.db.Select(listDocumentColumns).Order("updated_at desc")
+	db := s.db.Select(listDocumentColumns).Order(ColUpdatedAt + " desc")
 	if includeDeleted {
 		db = db.Unscoped()
 	}
@@ -830,57 +822,33 @@ func (s *Store) ListDocuments(includeDeleted bool) ([]Document, error) {
 	return docs, nil
 }
 
-// GetDocument retrieves a document's metadata (without content).
 func (s *Store) GetDocument(id uint) (Document, error) {
 	var doc Document
-	if err := s.db.Select(listDocumentColumns).First(&doc, id).Error; err != nil {
+	if err := s.db.First(&doc, id).Error; err != nil {
 		return Document{}, err
 	}
 	return doc, nil
 }
 
-// CreateDocument imports a file from sourcePath into the database as a BLOB.
-func (s *Store) CreateDocument(doc Document, sourcePath string) error {
-	return s.db.Transaction(func(tx *gorm.DB) error {
-		if err := normalizeDocument(&doc, sourcePath, s.maxDocumentSize); err != nil {
-			return err
-		}
-		if len(doc.Content) == 0 {
-			return fmt.Errorf("document file is required")
-		}
-		if err := validateDocumentTarget(tx, doc); err != nil {
-			return err
-		}
-		return tx.Create(&doc).Error
-	})
+func (s *Store) CreateDocument(doc Document) error {
+	return s.db.Create(&doc).Error
 }
 
-// UpdateDocument updates metadata and optionally replaces content if
-// sourcePath is non-empty. When no new file is supplied the existing
-// BLOB and file metadata columns are preserved.
-func (s *Store) UpdateDocument(doc Document, sourcePath string) error {
-	return s.db.Transaction(func(tx *gorm.DB) error {
-		if err := normalizeDocument(&doc, sourcePath, s.maxDocumentSize); err != nil {
-			return err
-		}
-		if err := validateDocumentTarget(tx, doc); err != nil {
-			return err
-		}
-
-		omit := []string{ColID, ColCreatedAt, ColDeletedAt}
-		if strings.TrimSpace(sourcePath) == "" {
-			// No new file -- preserve existing BLOB and file metadata.
-			omit = append(omit,
-				ColFileName, ColMIMEType, ColSizeBytes,
-				ColChecksum, ColContent,
-			)
-		}
-
-		return tx.Model(&Document{}).Where(ColID+" = ?", doc.ID).
-			Select("*").
-			Omit(omit...).
-			Updates(doc).Error
-	})
+// UpdateDocument persists changes to a document. When Data is empty the
+// existing BLOB and file metadata columns are preserved, so callers that
+// only modify Title/Notes/EntityKind don't accidentally erase the file.
+func (s *Store) UpdateDocument(doc Document) error {
+	omit := []string{ColID, ColCreatedAt, ColDeletedAt}
+	if len(doc.Data) == 0 {
+		omit = append(omit,
+			ColFileName, ColMIMEType, ColSizeBytes,
+			ColChecksum, ColData,
+		)
+	}
+	return s.db.Model(&Document{}).Where(ColID+" = ?", doc.ID).
+		Select("*").
+		Omit(omit...).
+		Updates(doc).Error
 }
 
 func (s *Store) DeleteDocument(id uint) error {
@@ -892,10 +860,25 @@ func (s *Store) RestoreDocument(id uint) error {
 	if err := s.db.Unscoped().First(&doc, id).Error; err != nil {
 		return err
 	}
-	if err := validateDocumentTarget(s.db, doc); err != nil {
+	if err := s.validateDocumentParent(doc); err != nil {
 		return err
 	}
 	return s.restoreEntity(&Document{}, DeletionEntityDocument, id)
+}
+
+// validateDocumentParent checks that the document's parent entity is alive.
+func (s *Store) validateDocumentParent(doc Document) error {
+	switch doc.EntityKind {
+	case DocumentEntityProject:
+		if err := s.requireParentAlive(&Project{}, doc.EntityID); err != nil {
+			return parentRestoreError("project", err)
+		}
+	case DocumentEntityAppliance:
+		if err := s.requireParentAlive(&Appliance{}, doc.EntityID); err != nil {
+			return parentRestoreError("appliance", err)
+		}
+	}
+	return nil
 }
 
 func (s *Store) DeleteVendor(id uint) error {
@@ -1203,142 +1186,4 @@ func findOrCreateVendor(tx *gorm.DB, vendor Vendor) (Vendor, error) {
 		return Vendor{}, err
 	}
 	return existing, nil
-}
-
-// titleFromFilename derives a human-friendly title from a filename by
-// stripping all extensions (including compound ones like .tar.gz),
-// splitting on camelCase / snake_case / kebab-case / dot boundaries via
-// strcase, and title-casing each word.
-func titleFromFilename(name string) string {
-	name = strings.TrimSpace(name)
-
-	// Always strip the outermost extension (every file has one).
-	if ext := filepath.Ext(name); ext != "" && ext != name {
-		name = strings.TrimSuffix(name, ext)
-	}
-
-	// Continue stripping known compound-extension intermediaries
-	// (e.g. .tar in .tar.gz, .tar.bz2, .tar.xz). We avoid
-	// mime.TypeByExtension here because its results are OS-dependent.
-	for {
-		ext := filepath.Ext(name)
-		if ext == "" || ext == name {
-			break
-		}
-		lower := strings.ToLower(ext)
-		if lower != ".tar" {
-			break
-		}
-		name = strings.TrimSuffix(name, ext)
-	}
-
-	// Split on word boundaries (camelCase, snake_case, kebab, dots).
-	name = strcase.ToDelimited(name, ' ')
-	name = strings.Join(strings.Fields(name), " ")
-
-	// Title-case each word.
-	runes := []rune(name)
-	wordStart := true
-	for i, r := range runes {
-		if unicode.IsSpace(r) {
-			wordStart = true
-			continue
-		}
-		if wordStart {
-			runes[i] = unicode.ToUpper(r)
-		}
-		wordStart = false
-	}
-	return string(runes)
-}
-
-// normalizeDocument validates required fields and, when a source file path is
-// provided, reads the content into the BLOB field and populates derived
-// metadata (filename, size, MIME type, checksum). When the title is blank and
-// a source file is supplied, the title is auto-filled from the filename. On
-// updates where no new file is supplied these fields are left untouched.
-func normalizeDocument(doc *Document, sourcePath string, maxSize int64) error {
-	doc.Title = strings.TrimSpace(doc.Title)
-	doc.EntityKind = strings.TrimSpace(doc.EntityKind)
-	doc.Notes = strings.TrimSpace(doc.Notes)
-	if doc.EntityKind == DocumentEntityNone {
-		doc.EntityKind = ""
-	}
-	if doc.EntityKind == "" {
-		doc.EntityID = nil
-	}
-
-	sourcePath = strings.TrimSpace(sourcePath)
-	if sourcePath == "" {
-		if doc.Title == "" {
-			return fmt.Errorf("document title is required")
-		}
-		// No new file -- keep existing BLOB content and metadata.
-		return nil
-	}
-
-	absPath, err := filepath.Abs(sourcePath)
-	if err != nil {
-		return fmt.Errorf("resolve document path: %w", err)
-	}
-	info, err := os.Stat(absPath)
-	if err != nil {
-		return fmt.Errorf("stat document: %w", err)
-	}
-	if info.IsDir() {
-		return fmt.Errorf("document path must be a file")
-	}
-	if info.Size() > maxSize {
-		return fmt.Errorf(
-			"file is too large (%d bytes, max %d bytes)",
-			info.Size(),
-			maxSize,
-		)
-	}
-
-	// Auto-fill title from filename when the user left it blank.
-	if doc.Title == "" {
-		doc.Title = titleFromFilename(info.Name())
-	}
-	if doc.Title == "" {
-		return fmt.Errorf("document title is required")
-	}
-
-	content, err := os.ReadFile(absPath) //nolint:gosec // user-selected local file via TUI picker
-	if err != nil {
-		return fmt.Errorf("read document: %w", err)
-	}
-	checksum := fmt.Sprintf("%x", sha256.Sum256(content))
-
-	doc.FileName = info.Name()
-	doc.SizeBytes = info.Size()
-	doc.MIMEType = mime.TypeByExtension(strings.ToLower(filepath.Ext(info.Name())))
-	doc.ChecksumSHA256 = checksum
-	doc.Content = content
-	return nil
-}
-
-func validateDocumentTarget(tx *gorm.DB, doc Document) error {
-	if doc.EntityKind == "" {
-		return nil
-	}
-	if doc.EntityID == nil {
-		return fmt.Errorf("entity id is required when entity kind is set")
-	}
-	switch doc.EntityKind {
-	case DocumentEntityProject:
-		return tx.First(&Project{}, *doc.EntityID).Error
-	case DocumentEntityQuote:
-		return tx.First(&Quote{}, *doc.EntityID).Error
-	case DocumentEntityMaintenance:
-		return tx.First(&MaintenanceItem{}, *doc.EntityID).Error
-	case DocumentEntityAppliance:
-		return tx.First(&Appliance{}, *doc.EntityID).Error
-	case DocumentEntityServiceLog:
-		return tx.First(&ServiceLogEntry{}, *doc.EntityID).Error
-	case DocumentEntityVendor:
-		return tx.First(&Vendor{}, *doc.EntityID).Error
-	default:
-		return fmt.Errorf("invalid document entity kind %q", doc.EntityKind)
-	}
 }

@@ -53,6 +53,8 @@ const (
 	ColProjectTypeID     = "project_type_id"
 	ColApplianceID       = "appliance_id"
 	ColMaintenanceItemID = "maintenance_item_id"
+	ColEntityKind        = "entity_kind"
+	ColEntityID          = "entity_id"
 	ColEntity            = "entity"
 	ColTargetID          = "target_id"
 	ColContactName       = "contact_name"
@@ -60,17 +62,20 @@ const (
 	ColPhone             = "phone"
 	ColWebsite           = "website"
 	ColNotes             = "notes"
+	ColTitle             = "title"
 	ColFileName          = "file_name"
 	ColMIMEType          = "mime_type"
 	ColSizeBytes         = "size_bytes"
 	ColChecksum          = "sha256"
-	ColContent           = "content"
+	ColData              = "data"
 )
 
 // MaxDocumentSize is the largest file that can be imported as a document
 // attachment. SQLite handles arbitrarily large BLOBs, but reading a huge
 // file into memory would be a bad experience.
 const MaxDocumentSize int64 = 50 << 20 // 50 MiB
+
+// Document entity kind values for polymorphic linking.
 const (
 	DocumentEntityNone        = ""
 	DocumentEntityProject     = "project"
@@ -229,12 +234,12 @@ type Document struct {
 	ID             uint `gorm:"primaryKey"`
 	Title          string
 	FileName       string `gorm:"column:file_name"`
-	MIMEType       string `gorm:"column:mime_type"`
-	SizeBytes      int64  `gorm:"column:size_bytes"`
+	EntityKind     string `gorm:"index:idx_doc_entity"`
+	EntityID       uint   `gorm:"index:idx_doc_entity"`
+	MIMEType       string
+	SizeBytes      int64
 	ChecksumSHA256 string `gorm:"column:sha256"`
-	Content        []byte `gorm:"column:content;type:BLOB"`
-	EntityKind     string `gorm:"column:entity_kind;index"`
-	EntityID       *uint  `gorm:"column:entity_id;index"`
+	Data           []byte
 	Notes          string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time

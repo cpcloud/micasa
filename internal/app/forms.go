@@ -6,6 +6,9 @@ package app
 import (
 	"errors"
 	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -102,6 +105,13 @@ type vendorFormData struct {
 	Notes       string
 }
 
+type documentFormData struct {
+	Title      string
+	FilePath   string // local file path; read on submit for new documents
+	EntityKind string // set by scoped handlers
+	Notes      string
+}
+
 type applianceFormData struct {
 	Name           string
 	Brand          string
@@ -112,12 +122,6 @@ type applianceFormData struct {
 	Location       string
 	Cost           string
 	Notes          string
-}
-
-type documentFormData struct {
-	Title      string
-	SourcePath string // filesystem path to import from (empty on metadata-only edits)
-	Notes      string
 }
 
 func (m *Model) startHouseForm() {
@@ -642,78 +646,6 @@ func (m *Model) parseVendorFormData() (data.Vendor, error) {
 		Website:     strings.TrimSpace(values.Website),
 		Notes:       strings.TrimSpace(values.Notes),
 	}, nil
-}
-
-func (m *Model) startDocumentForm() {
-	values := &documentFormData{}
-	m.openDocumentForm(values)
-}
-
-func (m *Model) startEditDocumentForm(id uint) error {
-	doc, err := m.store.GetDocument(id)
-	if err != nil {
-		return fmt.Errorf("load document: %w", err)
-	}
-	values := documentFormValues(doc)
-	m.editID = &id
-	m.openDocumentForm(values)
-	return nil
-}
-
-func (m *Model) openDocumentForm(values *documentFormData) {
-	filePickerValidation := requiredText("document file")
-	if m.editID != nil {
-		// Editing: file picker is optional (keep existing content if blank).
-		filePickerValidation = nil
-	}
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().
-				Title("Title").
-				Placeholder("auto-filled from filename if blank").
-				Value(&values.Title),
-			huh.NewFilePicker().
-				Title("Document file").
-				Description("Pick a file to import (leave blank to keep current)").
-				FileAllowed(true).
-				DirAllowed(false).
-				ShowHidden(false).
-				Value(&values.SourcePath).
-				Validate(filePickerValidation),
-			huh.NewText().Title("Notes").Value(&values.Notes),
-		).Title("File"),
-	)
-	m.activateForm(formDocument, form, values)
-}
-
-func (m *Model) submitDocumentForm() error {
-	doc, sourcePath, err := m.parseDocumentFormData()
-	if err != nil {
-		return err
-	}
-	if m.editID != nil {
-		doc.ID = *m.editID
-		return m.store.UpdateDocument(doc, sourcePath)
-	}
-	return m.store.CreateDocument(doc, sourcePath)
-}
-
-func (m *Model) parseDocumentFormData() (data.Document, string, error) {
-	values, ok := m.formData.(*documentFormData)
-	if !ok {
-		return data.Document{}, "", fmt.Errorf("unexpected document form data")
-	}
-	return data.Document{
-		Title: strings.TrimSpace(values.Title),
-		Notes: strings.TrimSpace(values.Notes),
-	}, strings.TrimSpace(values.SourcePath), nil
-}
-
-func documentFormValues(doc data.Document) *documentFormData {
-	return &documentFormData{
-		Title: doc.Title,
-		Notes: doc.Notes,
-	}
 }
 
 func (m *Model) inlineEditVendor(id uint, col int) error {
@@ -1731,4 +1663,163 @@ func intToString(value int) string {
 		return ""
 	}
 	return strconv.Itoa(value)
+}
+
+// ---------------------------------------------------------------------------
+// Document forms
+// ---------------------------------------------------------------------------
+
+// startDocumentForm opens a new-document form. entityKind is set by scoped
+// handlers (e.g. "project") or empty for the top-level Documents tab.
+func (m *Model) startDocumentForm(entityKind string) error {
+	values := &documentFormData{EntityKind: entityKind}
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Title").
+				Value(&values.Title).
+				Validate(requiredText("title")),
+			huh.NewInput().
+				Title("File path").
+				Description("Local path to the file to attach").
+				Value(&values.FilePath).
+				Validate(optionalFilePath()),
+			huh.NewText().Title("Notes").Value(&values.Notes),
+		),
+	)
+	m.activateForm(formDocument, form, values)
+	return nil
+}
+
+func (m *Model) startEditDocumentForm(id uint) error {
+	doc, err := m.store.GetDocument(id)
+	if err != nil {
+		return fmt.Errorf("load document: %w", err)
+	}
+	values := documentFormValues(doc)
+	m.editID = &id
+	m.openEditDocumentForm(values)
+	return nil
+}
+
+func (m *Model) openEditDocumentForm(values *documentFormData) {
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Title").
+				Value(&values.Title).
+				Validate(requiredText("title")),
+			huh.NewText().Title("Notes").Value(&values.Notes),
+		),
+	)
+	m.activateForm(formDocument, form, values)
+}
+
+func (m *Model) submitDocumentForm() error {
+	doc, err := m.parseDocumentFormData()
+	if err != nil {
+		return err
+	}
+	if m.editID != nil {
+		doc.ID = *m.editID
+		return m.store.UpdateDocument(doc)
+	}
+	return m.store.CreateDocument(doc)
+}
+
+func (m *Model) parseDocumentFormData() (data.Document, error) {
+	values, ok := m.formData.(*documentFormData)
+	if !ok {
+		return data.Document{}, fmt.Errorf("unexpected document form data")
+	}
+	doc := data.Document{
+		Title:      strings.TrimSpace(values.Title),
+		EntityKind: values.EntityKind,
+		Notes:      strings.TrimSpace(values.Notes),
+	}
+	// Read file from path if provided (new document creation).
+	path := filepath.Clean(strings.TrimSpace(values.FilePath))
+	if path != "" && path != "." {
+		fileData, err := os.ReadFile(path)
+		if err != nil {
+			return data.Document{}, fmt.Errorf("read file: %w", err)
+		}
+		doc.Data = fileData
+		doc.SizeBytes = int64(len(fileData))
+		doc.MIMEType = detectMIMEType(path, fileData)
+	}
+	return doc, nil
+}
+
+func (m *Model) inlineEditDocument(id uint, col int) error {
+	doc, err := m.store.GetDocument(id)
+	if err != nil {
+		return fmt.Errorf("load document: %w", err)
+	}
+	values := documentFormValues(doc)
+	// Column mapping: 0=ID, 1=Title, 2=Entity(ro), 3=Type(ro), 4=Size(ro), 5=Notes, 6=Updated(ro)
+	switch col {
+	case 1:
+		m.openInlineInput(
+			id,
+			formDocument,
+			"Title",
+			"",
+			&values.Title,
+			requiredText("title"),
+			values,
+		)
+	case 5:
+		m.openInlineInput(id, formDocument, "Notes", "", &values.Notes, nil, values)
+	default:
+		return m.startEditDocumentForm(id)
+	}
+	return nil
+}
+
+func documentFormValues(doc data.Document) *documentFormData {
+	return &documentFormData{
+		Title:      doc.Title,
+		EntityKind: doc.EntityKind,
+		Notes:      doc.Notes,
+	}
+}
+
+// detectMIMEType uses http.DetectContentType with a file extension fallback.
+func detectMIMEType(path string, fileData []byte) string {
+	mime := http.DetectContentType(fileData)
+	// DetectContentType returns application/octet-stream for unknown types;
+	// try extension-based detection as a fallback.
+	if mime == "application/octet-stream" {
+		switch strings.ToLower(filepath.Ext(path)) {
+		case ".pdf":
+			return "application/pdf"
+		case ".txt":
+			return "text/plain"
+		case ".csv":
+			return "text/csv"
+		case ".json":
+			return "application/json"
+		case ".md":
+			return "text/markdown"
+		}
+	}
+	return mime
+}
+
+func optionalFilePath() func(string) error {
+	return func(input string) error {
+		path := strings.TrimSpace(input)
+		if path == "" {
+			return nil
+		}
+		info, err := os.Stat(path)
+		if err != nil {
+			return fmt.Errorf("file not found: %s", path)
+		}
+		if info.IsDir() {
+			return fmt.Errorf("path is a directory, not a file")
+		}
+		return nil
+	}
 }

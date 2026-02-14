@@ -652,3 +652,32 @@ func TestNavigateToLinkClosesDetailStack(t *testing.T) {
 	assert.False(t, m.inDetail(), "detail stack should be closed after navigateToLink")
 	assert.Equal(t, tabIndex(tabProjects), m.active)
 }
+
+// ---------------------------------------------------------------------------
+// Document handler tests
+// ---------------------------------------------------------------------------
+
+func TestDocumentHandlerFormKind(t *testing.T) {
+	h := documentHandler{}
+	assert.Equal(t, formDocument, h.FormKind())
+}
+
+func TestEntityDocumentColumnSpecsNoEntity(t *testing.T) {
+	specs := entityDocumentColumnSpecs()
+	for _, s := range specs {
+		assert.NotEqual(t, "Entity", s.Title,
+			"entity document specs should not include Entity column")
+	}
+}
+
+func TestDocumentColumnSpecsIncludeEntity(t *testing.T) {
+	specs := documentColumnSpecs()
+	var found bool
+	for _, s := range specs {
+		if s.Title == "Entity" {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "top-level document specs should include Entity column")
+}

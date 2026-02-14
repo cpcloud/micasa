@@ -54,7 +54,7 @@ func (k TabKind) String() string {
 	case tabVendors:
 		return "Vendors"
 	case tabDocuments:
-		return "Documents"
+		return "Docs"
 	default:
 		return "Unknown"
 	}

@@ -9,7 +9,6 @@ import (
 
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/cpcloud/micasa/internal/data"
-	"github.com/dustin/go-humanize"
 )
 
 // baseTableKeyMap returns the default table KeyMap with b/f removed from
@@ -55,7 +54,7 @@ func NewTabs(styles Styles) []Tab {
 	maintenanceSpecs := maintenanceColumnSpecs()
 	applianceSpecs := applianceColumnSpecs()
 	vendorSpecs := vendorColumnSpecs()
-	documentSpecs := documentColumnSpecs()
+	docSpecs := documentColumnSpecs()
 	return []Tab{
 		{
 			Kind:    tabProjects,
@@ -94,10 +93,10 @@ func NewTabs(styles Styles) []Tab {
 		},
 		{
 			Kind:    tabDocuments,
-			Name:    "Documents",
+			Name:    tabDocuments.String(),
 			Handler: documentHandler{},
-			Specs:   documentSpecs,
-			Table:   newTable(specsToColumns(documentSpecs), styles),
+			Specs:   docSpecs,
+			Table:   newTable(specsToColumns(docSpecs), styles),
 		},
 	}
 }
@@ -346,15 +345,6 @@ func vendorColumnSpecs() []columnSpec {
 	}
 }
 
-func documentColumnSpecs() []columnSpec {
-	return []columnSpec{
-		{Title: "ID", Min: 4, Max: 6, Align: alignRight, Kind: cellReadonly},
-		{Title: "Title", Min: 14, Max: 24, Flex: true},
-		{Title: "File", Min: 12, Max: 24, Flex: true},
-		{Title: "Size", Min: 8, Max: 12, Align: alignRight, Kind: cellReadonly},
-	}
-}
-
 func vendorRows(
 	vendors []data.Vendor,
 	quoteCounts map[uint]int,
@@ -381,24 +371,6 @@ func vendorRows(
 				{Value: v.Website, Kind: cellText},
 				{Value: quoteCount, Kind: cellDrilldown},
 				{Value: jobCount, Kind: cellDrilldown},
-			},
-		}
-	})
-}
-
-func documentRows(items []data.Document) ([]table.Row, []rowMeta, [][]cell) {
-	return buildRows(items, func(d data.Document) rowSpec {
-		return rowSpec{
-			ID:      d.ID,
-			Deleted: d.DeletedAt.Valid,
-			Cells: []cell{
-				{Value: fmt.Sprintf("%d", d.ID), Kind: cellReadonly},
-				{Value: d.Title, Kind: cellText},
-				{Value: d.FileName, Kind: cellText},
-				{
-					Value: humanize.IBytes(uint64(max(d.SizeBytes, 0))), //nolint:gosec // clamped
-					Kind:  cellReadonly,
-				},
 			},
 		}
 	})
@@ -678,4 +650,95 @@ func dateValue(value *time.Time) string {
 		return ""
 	}
 	return value.Format(data.DateLayout)
+}
+
+// documentColumnSpecs defines columns for the top-level Documents tab.
+func documentColumnSpecs() []columnSpec {
+	return []columnSpec{
+		{Title: "ID", Min: 4, Max: 6, Align: alignRight, Kind: cellReadonly},
+		{Title: "Title", Min: 14, Max: 32, Flex: true},
+		{Title: "Entity", Min: 10, Max: 20, Flex: true, Kind: cellReadonly},
+		{Title: "Type", Min: 8, Max: 16},
+		{Title: "Size", Min: 6, Max: 10, Align: alignRight, Kind: cellReadonly},
+		{Title: "Notes", Min: 12, Max: 40, Flex: true, Kind: cellNotes},
+		{Title: "Updated", Min: 10, Max: 12, Kind: cellReadonly},
+	}
+}
+
+// entityDocumentColumnSpecs defines columns for documents scoped to a
+// specific entity (drill view). Omits the Entity column.
+func entityDocumentColumnSpecs() []columnSpec {
+	return []columnSpec{
+		{Title: "ID", Min: 4, Max: 6, Align: alignRight, Kind: cellReadonly},
+		{Title: "Title", Min: 14, Max: 32, Flex: true},
+		{Title: "Type", Min: 8, Max: 16},
+		{Title: "Size", Min: 6, Max: 10, Align: alignRight, Kind: cellReadonly},
+		{Title: "Notes", Min: 12, Max: 40, Flex: true, Kind: cellNotes},
+		{Title: "Updated", Min: 10, Max: 12, Kind: cellReadonly},
+	}
+}
+
+func documentRows(docs []data.Document) ([]table.Row, []rowMeta, [][]cell) {
+	return buildRows(docs, func(d data.Document) rowSpec {
+		return rowSpec{
+			ID:      d.ID,
+			Deleted: d.DeletedAt.Valid,
+			Cells: []cell{
+				{Value: fmt.Sprintf("%d", d.ID), Kind: cellReadonly},
+				{Value: d.Title, Kind: cellText},
+				{Value: documentEntityLabel(d.EntityKind, d.EntityID), Kind: cellReadonly},
+				{Value: d.MIMEType, Kind: cellText},
+				{Value: formatFileSize(d.SizeBytes), Kind: cellReadonly},
+				{Value: d.Notes, Kind: cellNotes},
+				{Value: d.UpdatedAt.Format(data.DateLayout), Kind: cellReadonly},
+			},
+		}
+	})
+}
+
+func entityDocumentRows(docs []data.Document) ([]table.Row, []rowMeta, [][]cell) {
+	return buildRows(docs, func(d data.Document) rowSpec {
+		return rowSpec{
+			ID:      d.ID,
+			Deleted: d.DeletedAt.Valid,
+			Cells: []cell{
+				{Value: fmt.Sprintf("%d", d.ID), Kind: cellReadonly},
+				{Value: d.Title, Kind: cellText},
+				{Value: d.MIMEType, Kind: cellText},
+				{Value: formatFileSize(d.SizeBytes), Kind: cellReadonly},
+				{Value: d.Notes, Kind: cellNotes},
+				{Value: d.UpdatedAt.Format(data.DateLayout), Kind: cellReadonly},
+			},
+		}
+	})
+}
+
+// documentEntityLabel returns a short label like "project #3".
+func documentEntityLabel(kind string, id uint) string {
+	if kind == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s #%d", kind, id)
+}
+
+// formatFileSize returns a human-readable file size string.
+func formatFileSize(bytes int64) string {
+	if bytes == 0 {
+		return ""
+	}
+	const (
+		kB = 1024
+		mB = kB * 1024
+		gB = mB * 1024
+	)
+	switch {
+	case bytes >= gB:
+		return fmt.Sprintf("%.1f GB", float64(bytes)/float64(gB))
+	case bytes >= mB:
+		return fmt.Sprintf("%.1f MB", float64(bytes)/float64(mB))
+	case bytes >= kB:
+		return fmt.Sprintf("%.1f KB", float64(bytes)/float64(kB))
+	default:
+		return fmt.Sprintf("%d B", bytes)
+	}
 }

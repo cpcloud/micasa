@@ -14,12 +14,12 @@ import (
 // already exists and has the expected size, the extraction is skipped.
 func (s *Store) ExtractDocument(id uint) (string, error) {
 	var doc Document
-	err := s.db.Select("content", "file_name", "sha256", "size_bytes").
+	err := s.db.Select("data", "file_name", "sha256", "size_bytes").
 		First(&doc, id).Error
 	if err != nil {
 		return "", fmt.Errorf("load document content: %w", err)
 	}
-	if len(doc.Content) == 0 {
+	if len(doc.Data) == 0 {
 		return "", fmt.Errorf("document has no content")
 	}
 
@@ -36,7 +36,7 @@ func (s *Store) ExtractDocument(id uint) (string, error) {
 		return cachePath, nil
 	}
 
-	if err := os.WriteFile(cachePath, doc.Content, 0o600); err != nil {
+	if err := os.WriteFile(cachePath, doc.Data, 0o600); err != nil {
 		return "", fmt.Errorf("write cached document: %w", err)
 	}
 	return cachePath, nil

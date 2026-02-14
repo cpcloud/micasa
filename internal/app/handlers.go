@@ -744,7 +744,7 @@ func (projectQuoteHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool
 func (projectQuoteHandler) SyncFixedValues(_ *Model, _ []columnSpec) {}
 
 // ---------------------------------------------------------------------------
-// documentHandler
+// documentHandler -- top-level handler for the Documents tab.
 // ---------------------------------------------------------------------------
 
 type documentHandler struct{}
@@ -772,16 +772,15 @@ func (documentHandler) Restore(store *data.Store, id uint) error {
 }
 
 func (documentHandler) StartAddForm(m *Model) error {
-	m.startDocumentForm()
-	return nil
+	return m.startDocumentForm("")
 }
 
 func (documentHandler) StartEditForm(m *Model, id uint) error {
 	return m.startEditDocumentForm(id)
 }
 
-func (documentHandler) InlineEdit(m *Model, id uint, _ int) error {
-	return m.startEditDocumentForm(id)
+func (documentHandler) InlineEdit(m *Model, id uint, col int) error {
+	return m.inlineEditDocument(id, col)
 }
 
 func (documentHandler) SubmitForm(m *Model) error {
@@ -798,8 +797,7 @@ func (documentHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
 		FormKind:    formDocument,
 		EntityID:    id,
 		Restore: func() error {
-			// Metadata-only restore: no new file to import.
-			return store.UpdateDocument(doc, "")
+			return store.UpdateDocument(doc)
 		},
 	}, true
 }

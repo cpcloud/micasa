@@ -176,6 +176,60 @@ func TestBuildRowsEmpty(t *testing.T) {
 	assert.Empty(t, cells)
 }
 
+func TestDocumentRows(t *testing.T) {
+	docs := []data.Document{
+		{
+			ID:         1,
+			Title:      "Invoice",
+			EntityKind: data.DocumentEntityProject,
+			EntityID:   42,
+			MIMEType:   "application/pdf",
+			SizeBytes:  2048,
+			UpdatedAt:  time.Date(2025, 7, 1, 0, 0, 0, 0, time.UTC),
+		},
+	}
+	rows, meta, cells := documentRows(docs)
+	require.Len(t, rows, 1)
+	assert.Equal(t, uint(1), meta[0].ID)
+	assert.Equal(t, "Invoice", cells[0][1].Value)
+	assert.Equal(t, "project #42", cells[0][2].Value)
+	assert.Equal(t, "application/pdf", cells[0][3].Value)
+	assert.Equal(t, "2.0 KB", cells[0][4].Value)
+}
+
+func TestEntityDocumentRows(t *testing.T) {
+	docs := []data.Document{
+		{
+			ID:        1,
+			Title:     "Manual",
+			MIMEType:  "application/pdf",
+			SizeBytes: 1048576, // 1 MB
+			UpdatedAt: time.Date(2025, 7, 1, 0, 0, 0, 0, time.UTC),
+		},
+	}
+	rows, meta, cells := entityDocumentRows(docs)
+	require.Len(t, rows, 1)
+	assert.Equal(t, uint(1), meta[0].ID)
+	assert.Equal(t, "Manual", cells[0][1].Value)
+	assert.Equal(t, "application/pdf", cells[0][2].Value)
+	assert.Equal(t, "1.0 MB", cells[0][3].Value)
+}
+
+func TestFormatFileSize(t *testing.T) {
+	assert.Empty(t, formatFileSize(0))
+	assert.Equal(t, "512 B", formatFileSize(512))
+	assert.Equal(t, "1.0 KB", formatFileSize(1024))
+	assert.Equal(t, "1.5 KB", formatFileSize(1536))
+	assert.Equal(t, "1.0 MB", formatFileSize(1024*1024))
+	assert.Equal(t, "1.0 GB", formatFileSize(1024*1024*1024))
+}
+
+func TestDocumentEntityLabel(t *testing.T) {
+	assert.Empty(t, documentEntityLabel("", 0))
+	assert.Equal(t, "project #5", documentEntityLabel("project", 5))
+	assert.Equal(t, "appliance #12", documentEntityLabel("appliance", 12))
+}
+
 func TestCellsToRow(t *testing.T) {
 	cells := []cell{
 		{Value: "1"},
