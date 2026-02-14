@@ -533,22 +533,18 @@ func TestStatusViewProjectStatusSummaryOnlyOnProjectsTab(t *testing.T) {
 	m.width = 220
 	m.height = 40
 
+	// Enable settled filter so the indicator appears.
+	tab := m.activeTab()
+	require.NotNil(t, tab)
+	tab.HideCompleted = true
+	tab.HideAbandoned = true
 	status := m.statusView()
-	for _, label := range []string{"status", "all"} {
-		assert.Contains(t, status, label, "expected %q summary on projects tab", label)
-	}
+	assert.Contains(t, status, "active only")
 
+	// Switch to quotes: indicator should not appear.
 	m.active = tabIndex(tabQuotes)
 	status = m.statusView()
-	for _, label := range []string{"status", "all", "filters"} {
-		assert.NotContains(
-			t,
-			status,
-			label,
-			"did not expect %q project status summary on non-project tab",
-			label,
-		)
-	}
+	assert.NotContains(t, status, "active only")
 }
 
 func TestStatusViewProjectStatusSummaryReflectsActiveFilters(t *testing.T) {
@@ -559,40 +555,40 @@ func TestStatusViewProjectStatusSummaryReflectsActiveFilters(t *testing.T) {
 	require.NotNil(t, tab)
 	require.Equal(t, tabProjects, tab.Kind, "expected projects tab to be active")
 
-	tab.HideCompleted = true
+	// No filter: no status indicator (silence is success).
 	status := m.statusView()
-	assert.Contains(
-		t,
-		status,
-		"no completed",
-		"expected no completed summary when completed is hidden",
-	)
-	assert.NotContains(t, status, "no abandoned")
+	assert.NotContains(t, status, "active only")
 
+	// Settled hidden: shows "active only".
+	tab.HideCompleted = true
 	tab.HideAbandoned = true
 	status = m.statusView()
-	assert.Contains(t, status, "settled", "expected settled summary when both filters are active")
+	assert.Contains(t, status, "active only")
 }
 
 func TestStatusViewUsesMoreLabelWhenHintsCollapse(t *testing.T) {
 	m := newTestModel()
-	// At very narrow width, the help hint compacts from "help" to "more".
-	m.width = 30
 	m.height = 40
+	// At very narrow width, the help hint compacts from "help" to "more".
+	// Add an enter hint to increase the hint count enough to trigger collapse.
+	m.width = 20
+	tab := m.activeTab()
+	require.NotNil(t, tab)
+	// Put cursor on a drilldown column to generate an enter hint.
+	for i, spec := range tab.Specs {
+		if spec.Kind == cellDrilldown {
+			tab.ColCursor = i
+			break
+		}
+	}
 	status := m.statusView()
 	assert.Contains(t, status, "more", "expected collapsed hint label to include more")
 }
 
-func TestHelpContentIncludesProjectStatusFilterShortcuts(t *testing.T) {
+func TestHelpContentIncludesProjectStatusFilterShortcut(t *testing.T) {
 	m := newTestModel()
 	help := m.helpContent()
-	for _, snippet := range []string{
-		"Toggle completed projects",
-		"Toggle abandoned projects",
-		"Toggle settled projects",
-	} {
-		assert.Contains(t, help, snippet)
-	}
+	assert.Contains(t, help, "Toggle settled projects")
 }
 
 func TestHeaderTitleWidth(t *testing.T) {

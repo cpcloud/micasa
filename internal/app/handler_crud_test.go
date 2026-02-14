@@ -230,51 +230,15 @@ func TestProjectStatusFilterToggleKeysReloadRows(t *testing.T) {
 	require.NoError(t, m.reloadActiveTab())
 	require.Len(t, m.activeTab().Rows, 3, "rows before toggles")
 
-	sendKey(m, "z")
-	assert.Len(t, m.activeTab().Rows, 2, "rows after hiding completed")
-	assert.True(
-		t,
-		m.activeTab().HideCompleted,
-		"HideCompleted should be enabled after first toggle",
-	)
-
-	sendKey(m, "a")
-	assert.Len(t, m.activeTab().Rows, 1, "rows after hiding abandoned too")
-	assert.True(t, m.activeTab().HideAbandoned, "HideAbandoned should be enabled after toggle")
-
 	sendKey(m, "t")
-	assert.Len(t, m.activeTab().Rows, 3, "rows after clearing settled filters")
-	assert.False(
-		t,
-		m.activeTab().HideCompleted,
-		"settled toggle should disable completed when both active",
-	)
-	assert.False(
-		t,
-		m.activeTab().HideAbandoned,
-		"settled toggle should disable abandoned when both active",
-	)
-
-	sendKey(m, "t")
-	assert.Len(t, m.activeTab().Rows, 1, "rows after settled-only filter")
+	assert.Len(t, m.activeTab().Rows, 1, "rows after hiding settled")
 	assert.True(t, m.activeTab().HideCompleted, "settled toggle should enable completed")
 	assert.True(t, m.activeTab().HideAbandoned, "settled toggle should enable abandoned")
 
-	sendKey(m, "z")
-	assert.False(
-		t,
-		m.activeTab().HideCompleted,
-		"HideCompleted should be disabled after toggling z",
-	)
-	assert.Len(t, m.activeTab().Rows, 2, "rows when only abandoned filter is active")
-
-	sendKey(m, "a")
-	assert.False(
-		t,
-		m.activeTab().HideAbandoned,
-		"HideAbandoned should be disabled after toggling a",
-	)
-	assert.Len(t, m.activeTab().Rows, 3, "rows after clearing individual filters")
+	sendKey(m, "t")
+	assert.Len(t, m.activeTab().Rows, 3, "rows after showing settled")
+	assert.False(t, m.activeTab().HideCompleted, "settled toggle should disable completed")
+	assert.False(t, m.activeTab().HideAbandoned, "settled toggle should disable abandoned")
 }
 
 // ---------------------------------------------------------------------------

@@ -457,24 +457,15 @@ func (m *Model) projectStatusStateHint() (statusHint, bool) {
 	if tab == nil || tab.Kind != tabProjects {
 		return statusHint{}, false
 	}
-	state := "all"
-	stateStyle := m.styles.HeaderHint
-	switch {
-	case tab.HideCompleted && tab.HideAbandoned:
-		state = "settled"
-		stateStyle = m.styles.HeaderValue
-	case tab.HideCompleted:
-		state = "no completed"
-		stateStyle = m.styles.HeaderValue
-	case tab.HideAbandoned:
-		state = "no abandoned"
-		stateStyle = m.styles.HeaderValue
+	// Only show the indicator when settled projects are hidden;
+	// showing all is the default and needs no label.
+	if !tab.HideCompleted && !tab.HideAbandoned {
+		return statusHint{}, false
 	}
+	label := m.styles.HeaderValue.Render("active only")
 	return statusHint{
-		full: strings.TrimSpace(
-			fmt.Sprintf("%s %s", m.styles.HeaderHint.Render("status"), stateStyle.Render(state)),
-		),
-		compact: stateStyle.Render(state),
+		full:    label,
+		compact: label,
 	}, true
 }
 
@@ -783,8 +774,6 @@ func (m *Model) helpContent() string {
 				{"d/u", "Half page down/up"},
 				{"b/f", "Switch tabs"},
 				{"s/S", "Sort / clear sorts"},
-				{"z", "Toggle completed projects"},
-				{"a", "Toggle abandoned projects"},
 				{"t", "Toggle settled projects"},
 				{"/", "Find column"},
 				{"c/C", "Toggle column visibility"},

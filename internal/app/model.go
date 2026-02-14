@@ -464,14 +464,6 @@ func (m *Model) handleNormalKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 			applySorts(tab)
 		}
 		return nil, true
-	case "z":
-		if m.toggleHideCompletedProjects() {
-			return nil, true
-		}
-	case "a":
-		if m.toggleHideAbandonedProjects() {
-			return nil, true
-		}
 	case "t":
 		if m.toggleHideSettledProjects() {
 			return nil, true
@@ -1119,36 +1111,6 @@ func (m *Model) toggleShowDeleted() {
 	}
 	tab.ShowDeleted = !tab.ShowDeleted
 	_ = m.reloadEffectiveTab()
-}
-
-func (m *Model) toggleHideCompletedProjects() bool {
-	tab := m.projectTabForStatusFilter()
-	if tab == nil {
-		return false
-	}
-	tab.HideCompleted = !tab.HideCompleted
-	if tab.HideCompleted {
-		m.setStatusInfo("Completed projects hidden.")
-	} else {
-		m.setStatusInfo("Completed projects shown.")
-	}
-	_ = m.reloadActiveTab()
-	return true
-}
-
-func (m *Model) toggleHideAbandonedProjects() bool {
-	tab := m.projectTabForStatusFilter()
-	if tab == nil {
-		return false
-	}
-	tab.HideAbandoned = !tab.HideAbandoned
-	if tab.HideAbandoned {
-		m.setStatusInfo("Abandoned projects hidden.")
-	} else {
-		m.setStatusInfo("Abandoned projects shown.")
-	}
-	_ = m.reloadActiveTab()
-	return true
 }
 
 func (m *Model) toggleHideSettledProjects() bool {

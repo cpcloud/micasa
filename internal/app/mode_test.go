@@ -318,33 +318,15 @@ func TestProjectStatusFilterToggleKeys(t *testing.T) {
 	assert.False(t, tab.HideCompleted, "project status filters should start disabled")
 	assert.False(t, tab.HideAbandoned, "project status filters should start disabled")
 
-	sendKey(m, "z")
-	assert.True(t, tab.HideCompleted, "expected HideCompleted enabled after first z")
-	assert.Contains(t, m.status.Text, "Completed")
-	assert.Contains(t, m.status.Text, "hidden")
-
-	sendKey(m, "z")
-	assert.False(t, tab.HideCompleted, "expected HideCompleted disabled after second z")
-	assert.Contains(t, m.status.Text, "Completed")
-	assert.Contains(t, m.status.Text, "shown")
-
-	sendKey(m, "a")
-	assert.True(t, tab.HideAbandoned, "expected HideAbandoned enabled after first a")
-	assert.Contains(t, m.status.Text, "Abandoned")
-	assert.Contains(t, m.status.Text, "hidden")
-
-	sendKey(m, "a")
-	assert.False(t, tab.HideAbandoned, "expected HideAbandoned disabled after second a")
-
 	sendKey(m, "t")
-	assert.True(t, tab.HideCompleted, "expected settled toggle to enable completed filter")
-	assert.True(t, tab.HideAbandoned, "expected settled toggle to enable abandoned filter")
+	assert.True(t, tab.HideCompleted, "expected settled toggle to hide completed")
+	assert.True(t, tab.HideAbandoned, "expected settled toggle to hide abandoned")
 	assert.Contains(t, m.status.Text, "Settled")
 	assert.Contains(t, m.status.Text, "hidden")
 
 	sendKey(m, "t")
-	assert.False(t, tab.HideCompleted, "expected settled toggle to disable completed filter")
-	assert.False(t, tab.HideAbandoned, "expected settled toggle to disable abandoned filter")
+	assert.False(t, tab.HideCompleted, "expected settled toggle to show completed")
+	assert.False(t, tab.HideAbandoned, "expected settled toggle to show abandoned")
 }
 
 func TestProjectStatusFilterToggleIgnoredOutsideProjects(t *testing.T) {
@@ -354,9 +336,7 @@ func TestProjectStatusFilterToggleIgnoredOutsideProjects(t *testing.T) {
 	require.NotNil(t, tab)
 	require.Equal(t, tabQuotes, tab.Kind, "expected quotes tab to be active")
 
-	for _, key := range []string{"z", "a", "t"} {
-		sendKey(m, key)
-	}
+	sendKey(m, "t")
 	assert.False(t, tab.HideCompleted,
 		"project status filters should remain disabled on non-project tabs")
 	assert.False(t, tab.HideAbandoned,
