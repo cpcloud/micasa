@@ -413,6 +413,11 @@ These have been repeatedly requested. Violating them wastes the user's time.
   references, sidecar directories). If a feature needs filesystem files
   (document BLOBs, exports), the DB is the source of truth and the
   filesystem is a disposable cache.
+- **LLM is opt-in, not a crutch**: The LLM chat feature is optional, slow,
+  and can be inaccurate. Never use "the LLM can handle that" as a reason to
+  skip building a feature or to justify missing core functionality. Every
+  feature must work fully without the LLM. The LLM enhances the experience;
+  it is not a substitute for good UI, filtering, or data organization.
 - **Unix aesthetic -- silence is success**: If everything is as expected,
   don't display anything that says "all good". Like Unix commands: no news
   is good news. Skip empty-state placeholders, "nothing to do" messages,
