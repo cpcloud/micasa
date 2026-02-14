@@ -324,9 +324,18 @@ These have been repeatedly requested. Violating them wastes the user's time.
   a false positive, you are wrong—the code is unclear and must be
   refactored until the tool is satisfied. NO exceptions, NO shortcuts, NO
   dismissing warnings. Fix them ALL before committing.
-- **PR test plans: manual steps only**: Don't list test plan items that CI
-  already covers (vet, tests pass, lint, pre-commit). Only include steps
-  that require manual verification or aren't automated.
+- **No PR test plans unless truly manual**: Do not write a "Test plan"
+  section in PR descriptions. CI covers tests, lint, vet, and build --
+  restating that is noise. Only include a test plan when there are
+  genuinely manual-only verification steps (e.g. visual UI/UX checks that
+  cannot be automated). Instead of listing test plan items, write actual
+  unit or integration tests that ship with the PR.
+- **Tests simulate user behavior, not implementation**: Write tests that
+  exercise the public API the way a real user would -- call exported
+  functions, pass realistic inputs, assert on observable outputs and side
+  effects. Do not reach into unexported fields, mock internal helpers, or
+  assert on internal state. If a test can only be written by poking into
+  implementation details, the API surface needs refactoring, not the test.
 - **Prefer tools over shell commands**: Use the dedicated Read, Write,
   StrReplace, Grep, and Glob tools instead of shell equivalents (`cat`,
   `sed`, `grep`, `find`, `echo >`, etc.). Only use Shell for commands that
@@ -404,10 +413,6 @@ These have been repeatedly requested. Violating them wastes the user's time.
   `lipgloss.AdaptiveColor{Light, Dark}`. See `styles.go` for the existing
   palette and roles. When adding or changing styles, always provide both Light
   and Dark variants.
-- **No test plan section in PRs**: CI covers tests, lint, vet, and build.
-  Don't add a "Test plan" section to PR descriptions unless there are
-  genuinely manual-only verification steps (e.g. visual UI/UX checks that
-  can't be automated). Restating what CI does is noise.
 - **No mass-history-cleanup logs**: Don't write detailed session log entries
   for git history rewrites (filter-branch, squash rebases, etc.) -- they
   reference commit hashes that no longer exist and add noise.
@@ -452,10 +457,6 @@ These have been repeatedly requested. Violating them wastes the user's time.
 - **AGENTS.md changes go on the working branch**: When updating AGENTS.md,
   only edit it in the worktree/branch where the related work lives. Never
   make AGENTS.md changes as uncommitted edits in the main checkout.
-- **PR test plans: omit when CI-only**: If the test plan consists only of
-  commands that CI already runs (e.g. `go test ./...`), leave the test
-  plan section off the PR description entirely. Only include a test plan
-  when there are manual verification steps.
 - **Update test file inventory when adding tests**: When creating new
   `*_test.go` files, update the test file table in
   `docs/content/development/testing.md` to include the new file and a
