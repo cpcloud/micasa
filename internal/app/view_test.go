@@ -692,15 +692,17 @@ func TestPinSummaryShowsOnlyWhenActive(t *testing.T) {
 	tab := m.activeTab()
 	require.NotNil(t, tab)
 
-	// No pins: no pin-related hints in the status bar.
+	// No pins: no pin summary in the status bar.
 	status := m.statusView()
-	assert.NotContains(t, status, "clear")
+	assert.NotContains(t, status, "ID:")
 
-	// Add a pin and activate filter: status bar shows pin summary + clear.
+	// Add a pin: status bar shows the pin summary.
 	tab.Pins = []filterPin{{Col: 0, Values: map[string]bool{"test": true}}}
-	tab.FilterActive = true
 	status = m.statusView()
-	assert.Contains(t, status, "clear")
+	assert.Contains(t, status, "ID: test")
+
+	// No clear hint -- the user already knows how they got here.
+	assert.NotContains(t, status, "clear")
 }
 
 func TestFilterDotAppearsOnTabRow(t *testing.T) {

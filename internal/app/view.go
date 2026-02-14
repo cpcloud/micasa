@@ -199,13 +199,13 @@ func (m *Model) tabsView() string {
 		} else {
 			parts = append(parts, m.styles.TabInactive.Render(tab.Name))
 		}
-		// One-char gap between tabs: mauve dot when the tab has an
-		// active filter, blank space otherwise. The dot is a subtle
-		// indicator that rows are being hidden on that tab.
+		// Gap between tabs: space, then either a mauve dot (filter
+		// active) or another space to keep layout stable. The leading
+		// space prevents the dot from touching the tab background.
 		if tab.FilterActive {
-			parts = append(parts, m.styles.FilterDot.Render(filterDot))
+			parts = append(parts, " "+m.styles.FilterDot.Render(filterDot))
 		} else {
-			parts = append(parts, " ")
+			parts = append(parts, "  ")
 		}
 	}
 	return lipgloss.JoinHorizontal(lipgloss.Left, parts...)
@@ -440,21 +440,10 @@ func (m *Model) pinFilterHints() []statusHint {
 	pinned := hasPins(tab)
 
 	if pinned {
-		summary := m.styles.Pinned.Render(pinSummary(tab))
-		clearHint := m.helpItem(keyCtrlN, "clear")
 		hints = append(hints, statusHint{
 			id:       "pin-summary",
-			full:     summary + "  " + clearHint,
-			compact:  summary,
+			full:     m.styles.Pinned.Render(pinSummary(tab)),
 			priority: 1,
-		})
-	} else if tab.FilterActive {
-		// Eager filter with no pins: the tab dot is the only visual
-		// cue; show just the clear hint in the status bar.
-		hints = append(hints, statusHint{
-			id:       "eager-filter",
-			full:     m.helpItem(keyCtrlN, "clear filter"),
-			priority: 2,
 		})
 	}
 	return hints
