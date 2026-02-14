@@ -351,8 +351,6 @@ func documentColumnSpecs() []columnSpec {
 		{Title: "ID", Min: 4, Max: 6, Align: alignRight, Kind: cellReadonly},
 		{Title: "Title", Min: 14, Max: 24, Flex: true},
 		{Title: "File", Min: 12, Max: 24, Flex: true},
-		{Title: "Type", Min: 10, Max: 14},
-		{Title: "Ref", Min: 8, Max: 16},
 		{Title: "Size", Min: 8, Max: 12, Align: alignRight, Kind: cellReadonly},
 	}
 }
@@ -390,10 +388,6 @@ func vendorRows(
 
 func documentRows(items []data.Document) ([]table.Row, []rowMeta, [][]cell) {
 	return buildRows(items, func(d data.Document) rowSpec {
-		ref := ""
-		if d.EntityID != nil {
-			ref = fmt.Sprintf("%s:%d", d.EntityKind, *d.EntityID)
-		}
 		return rowSpec{
 			ID:      d.ID,
 			Deleted: d.DeletedAt.Valid,
@@ -401,8 +395,6 @@ func documentRows(items []data.Document) ([]table.Row, []rowMeta, [][]cell) {
 				{Value: fmt.Sprintf("%d", d.ID), Kind: cellReadonly},
 				{Value: d.Title, Kind: cellText},
 				{Value: d.FileName, Kind: cellText},
-				{Value: displayDocumentKind(d.EntityKind), Kind: cellText},
-				{Value: ref, Kind: cellText},
 				{
 					Value: humanize.IBytes(uint64(max(d.SizeBytes, 0))), //nolint:gosec // clamped
 					Kind:  cellReadonly,
@@ -410,13 +402,6 @@ func documentRows(items []data.Document) ([]table.Row, []rowMeta, [][]cell) {
 			},
 		}
 	})
-}
-
-func displayDocumentKind(kind string) string {
-	if kind == "" {
-		return "none"
-	}
-	return kind
 }
 
 func specsToColumns(specs []columnSpec) []table.Column {

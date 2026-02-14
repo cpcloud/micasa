@@ -804,14 +804,4 @@ func (documentHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
 	}, true
 }
 
-func (documentHandler) SyncFixedValues(_ *Model, specs []columnSpec) {
-	kinds := make([]string, 0, len(data.DocumentEntityKinds()))
-	for _, kind := range data.DocumentEntityKinds() {
-		if kind == "" {
-			kinds = append(kinds, "none")
-			continue
-		}
-		kinds = append(kinds, kind)
-	}
-	setFixedValues(specs, "Type", kinds)
-}
+func (documentHandler) SyncFixedValues(_ *Model, _ []columnSpec) {}
