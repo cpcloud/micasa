@@ -102,6 +102,10 @@ a coding agent on a user's computer.
 - **Rebase-only merges**: Merge commits and squash merges are not allowed on
   this repository. Always use rebase merges (`gh pr merge --rebase`). This
   keeps the history linear and clean.
+- **NEVER force push to main**: Force pushing to main is ABSOLUTELY FORBIDDEN
+  under ALL circumstances. ZERO EXCEPTIONS. Force pushing rewrites shared
+  history and can destroy other contributors' work. If you made a mistake on
+  main, fix it with a new commit — never rewrite history.
 
 # Exploration and reading files
 
