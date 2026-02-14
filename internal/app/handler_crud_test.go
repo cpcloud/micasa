@@ -143,67 +143,35 @@ func TestProjectTabStatusFiltersRows(t *testing.T) {
 	require.NotNil(t, tab, "expected active projects tab")
 	require.Len(t, tab.Rows, 4, "rows before filtering")
 
-	tab.HideCompleted = true
-	require.NoError(t, m.reloadActiveTab(), "reloadActiveTab with HideCompleted")
-	assert.Len(t, tab.Rows, 3, "rows with completed hidden")
-	for i, cells := range tab.CellRows {
-		if len(cells) > 3 {
-			assert.NotEqual(
-				t,
-				data.ProjectStatusCompleted,
-				cells[3].Value,
-				"row %d still has completed status",
-				i,
-			)
-		}
-	}
+	col := statusColumnIndex(tab.Specs)
+	require.GreaterOrEqual(t, col, 0, "expected Status column")
 
-	tab.HideCompleted = false
-	tab.HideAbandoned = true
-	require.NoError(t, m.reloadActiveTab(), "reloadActiveTab with HideAbandoned")
-	assert.Len(t, tab.Rows, 3, "rows with abandoned hidden")
-	for i, cells := range tab.CellRows {
-		if len(cells) > 3 {
-			assert.NotEqual(
-				t,
-				data.ProjectStatusAbandoned,
-				cells[3].Value,
-				"row %d still has abandoned status",
-				i,
-			)
-		}
-	}
+	// Pin only "planned" → filter shows only planned rows.
+	togglePin(tab, col, data.ProjectStatusPlanned)
+	tab.FilterActive = true
+	applyRowFilter(tab, false)
+	assert.Len(t, tab.Rows, 1, "rows with only planned pinned")
 
-	tab.HideAbandoned = false
-	tab.HideCompleted = true
-	tab.HideAbandoned = true
-	require.NoError(t, m.reloadActiveTab(), "reloadActiveTab with settled filters")
+	// Clear and pin active statuses (what 't' does) → hides settled.
+	clearPinsForColumn(tab, col)
+	for _, s := range activeProjectStatuses {
+		togglePin(tab, col, s)
+	}
+	tab.FilterActive = true
+	applyRowFilter(tab, false)
 	assert.Len(t, tab.Rows, 2, "rows with settled hidden")
 	for i, cells := range tab.CellRows {
-		if len(cells) <= 3 {
-			continue
+		if len(cells) > col {
+			status := cells[col].Value
+			assert.NotEqual(t, data.ProjectStatusCompleted, status, "row %d", i)
+			assert.NotEqual(t, data.ProjectStatusAbandoned, status, "row %d", i)
 		}
-		status := cells[3].Value
-		assert.NotEqual(
-			t,
-			data.ProjectStatusCompleted,
-			status,
-			"row %d still has settled status",
-			i,
-		)
-		assert.NotEqual(
-			t,
-			data.ProjectStatusAbandoned,
-			status,
-			"row %d still has settled status",
-			i,
-		)
 	}
 
-	tab.HideCompleted = false
-	tab.HideAbandoned = false
-	require.NoError(t, m.reloadActiveTab(), "reloadActiveTab after clearing filters")
-	assert.Len(t, tab.Rows, 4, "rows after showing all projects")
+	// Clear all pins → shows everything.
+	clearPins(tab)
+	applyRowFilter(tab, false)
+	assert.Len(t, tab.Rows, 4, "rows after clearing all pins")
 }
 
 func TestProjectStatusFilterToggleKeysReloadRows(t *testing.T) {
@@ -232,13 +200,11 @@ func TestProjectStatusFilterToggleKeysReloadRows(t *testing.T) {
 
 	sendKey(m, "t")
 	assert.Len(t, m.activeTab().Rows, 1, "rows after hiding settled")
-	assert.True(t, m.activeTab().HideCompleted, "settled toggle should enable completed")
-	assert.True(t, m.activeTab().HideAbandoned, "settled toggle should enable abandoned")
+	assert.True(t, m.activeTab().FilterActive, "filter should be active after t")
 
 	sendKey(m, "t")
 	assert.Len(t, m.activeTab().Rows, 3, "rows after showing settled")
-	assert.False(t, m.activeTab().HideCompleted, "settled toggle should disable completed")
-	assert.False(t, m.activeTab().HideAbandoned, "settled toggle should disable abandoned")
+	assert.False(t, m.activeTab().FilterActive, "filter should be inactive after second t")
 }
 
 // ---------------------------------------------------------------------------

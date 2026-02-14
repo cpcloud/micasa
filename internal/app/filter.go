@@ -192,6 +192,27 @@ func translatePins(tab *Tab, nowMagMode bool) {
 	}
 }
 
+// statusColumnIndex returns the index of the "Status" column in the tab specs,
+// or -1 if not found.
+func statusColumnIndex(specs []columnSpec) int {
+	for i, s := range specs {
+		if s.Title == "Status" {
+			return i
+		}
+	}
+	return -1
+}
+
+// hasColumnPins reports whether the tab has any pins on the given column.
+func hasColumnPins(tab *Tab, col int) bool {
+	for _, pin := range tab.Pins {
+		if pin.Col == col {
+			return len(pin.Values) > 0
+		}
+	}
+	return false
+}
+
 // pinSummary returns a human-readable summary of active pins, e.g.
 // "Status: Plan, Active · Vendor: Bob's".
 func pinSummary(tab *Tab) string {

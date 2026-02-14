@@ -12,7 +12,6 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/spinner"
-	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -465,7 +464,7 @@ func (m *Model) handleNormalKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 		}
 		return nil, true
 	case "t":
-		if m.toggleHideSettledProjects() {
+		if m.toggleSettledFilter() {
 			return nil, true
 		}
 	case "c":
@@ -1110,35 +1109,55 @@ func (m *Model) toggleShowDeleted() {
 		return
 	}
 	tab.ShowDeleted = !tab.ShowDeleted
+	if tab.ShowDeleted {
+		m.setStatusInfo("Deleted shown.")
+	} else {
+		m.setStatusInfo("Deleted hidden.")
+	}
 	_ = m.reloadEffectiveTab()
 }
 
-func (m *Model) toggleHideSettledProjects() bool {
-	tab := m.projectTabForStatusFilter()
-	if tab == nil {
-		return false
-	}
-	settledHidden := !tab.HideCompleted || !tab.HideAbandoned
-	tab.HideCompleted = settledHidden
-	tab.HideAbandoned = settledHidden
-	if settledHidden {
-		m.setStatusInfo("Settled projects hidden.")
-	} else {
-		m.setStatusInfo("Settled projects shown.")
-	}
-	_ = m.reloadActiveTab()
-	return true
+// activeProjectStatuses are the non-settled statuses that remain visible when
+// the settled filter is toggled on via 't'.
+var activeProjectStatuses = []string{
+	data.ProjectStatusIdeating,
+	data.ProjectStatusPlanned,
+	data.ProjectStatusQuoted,
+	data.ProjectStatusInProgress,
+	data.ProjectStatusDelayed,
 }
 
-func (m *Model) projectTabForStatusFilter() *Tab {
+func (m *Model) toggleSettledFilter() bool {
 	if m.inDetail() {
-		return nil
+		return false
 	}
 	tab := m.activeTab()
 	if tab == nil || tab.Kind != tabProjects {
-		return nil
+		return false
 	}
-	return tab
+	col := statusColumnIndex(tab.Specs)
+	if col < 0 {
+		return false
+	}
+	if hasColumnPins(tab, col) {
+		// Turn off: clear status column pins.
+		clearPinsForColumn(tab, col)
+		applyRowFilter(tab, m.magMode)
+		applySorts(tab)
+		m.updateTabViewport(tab)
+		m.setStatusInfo("Settled shown.")
+	} else {
+		// Turn on: pin all active (non-settled) statuses, activate filter.
+		for _, status := range activeProjectStatuses {
+			togglePin(tab, col, status)
+		}
+		tab.FilterActive = true
+		applyRowFilter(tab, m.magMode)
+		applySorts(tab)
+		m.updateTabViewport(tab)
+		m.setStatusInfo("Settled hidden.")
+	}
+	return true
 }
 
 func (m *Model) selectedRowMeta() (rowMeta, bool) {
@@ -1181,15 +1200,6 @@ func (m *Model) reloadTab(tab *Tab) error {
 	if err != nil {
 		return err
 	}
-	if tab.Kind == tabProjects && (tab.HideCompleted || tab.HideAbandoned) {
-		rows, meta, cellRows = filterProjectRowsByStatusFlags(
-			rows,
-			meta,
-			cellRows,
-			tab.HideCompleted,
-			tab.HideAbandoned,
-		)
-	}
 	// Store the full data set for pin-and-filter to operate on without
 	// re-querying the database.
 	tab.FullRows = rows
@@ -1200,37 +1210,6 @@ func (m *Model) reloadTab(tab *Tab) error {
 	applySorts(tab)
 	m.updateTabViewport(tab)
 	return nil
-}
-
-func filterProjectRowsByStatusFlags(
-	rows []table.Row,
-	meta []rowMeta,
-	cellRows [][]cell,
-	hideCompleted bool,
-	hideAbandoned bool,
-) ([]table.Row, []rowMeta, [][]cell) {
-	const projectStatusCol = 3
-	if len(rows) != len(meta) || len(rows) != len(cellRows) {
-		return rows, meta, cellRows
-	}
-	filteredRows := rows[:0]
-	filteredMeta := meta[:0]
-	filteredCells := cellRows[:0]
-	for i := range rows {
-		if len(cellRows[i]) > projectStatusCol {
-			status := cellRows[i][projectStatusCol].Value
-			if hideCompleted && status == data.ProjectStatusCompleted {
-				continue
-			}
-			if hideAbandoned && status == data.ProjectStatusAbandoned {
-				continue
-			}
-		}
-		filteredRows = append(filteredRows, rows[i])
-		filteredMeta = append(filteredMeta, meta[i])
-		filteredCells = append(filteredCells, cellRows[i])
-	}
-	return filteredRows, filteredMeta, filteredCells
 }
 
 func (m *Model) loadHouse() error {
@@ -1611,9 +1590,9 @@ func (m *Model) togglePinAtCursor() {
 	applySorts(tab)
 	m.updateTabViewport(tab)
 	if pinned {
-		m.setStatusInfo("Pinned. N to filter, n to pin more.")
-	} else if !hasPins(tab) {
-		m.status = statusMsg{}
+		m.setStatusInfo("Pinned.")
+	} else {
+		m.setStatusInfo("Unpinned.")
 	}
 }
 
@@ -1625,6 +1604,11 @@ func (m *Model) toggleFilterActivation() {
 	// Toggle between active filter and preview. Works even with no pins
 	// ("eager mode"): arm the filter first, then every n immediately filters.
 	tab.FilterActive = !tab.FilterActive
+	if tab.FilterActive {
+		m.setStatusInfo("Filter on.")
+	} else {
+		m.setStatusInfo("Filter off.")
+	}
 	if hasPins(tab) {
 		applyRowFilter(tab, m.magMode)
 		applySorts(tab)
@@ -1641,6 +1625,7 @@ func (m *Model) clearAllPins() {
 	applyRowFilter(tab, m.magMode)
 	applySorts(tab)
 	m.updateTabViewport(tab)
+	m.setStatusInfo("Pins cleared.")
 }
 
 func (m *Model) hideCurrentColumn() {

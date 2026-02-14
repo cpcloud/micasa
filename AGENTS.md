@@ -494,6 +494,14 @@ These have been repeatedly requested. Violating them wastes the user's time.
   Iterating on symptoms produces commit chains of 10+ "fix" commits that
   each fail in a new way. See `POSTMORTEMS.md` for real examples from this
   repo.
+- **Concise UI language**: Prefer the shortest clear label for status bar
+  indicators, hints, and help text. "drill" not "drilldown", "del" not
+  "delete", "nav" not "navigate". Every character costs screen space.
+- **Toggle keybinding feedback**: Every keybinding that toggles state must
+  produce a status bar message describing what happened (e.g. "Settled
+  hidden.", "Filter on."). An optional "off" message describes the reverse.
+  This feedback is independent of any persistent UI indicator (like the
+  tab-row filter triangle) and uses `setStatusInfo`.
 
 If the user asks you to learn something, add it to this "Hard rules" section
 so it survives context resets. This file is always injected; external files

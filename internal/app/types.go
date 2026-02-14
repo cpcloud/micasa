@@ -82,21 +82,19 @@ type filterPin struct {
 }
 
 type Tab struct {
-	Kind          TabKind
-	Name          string
-	Handler       TabHandler
-	Table         table.Model
-	Rows          []rowMeta
-	Specs         []columnSpec
-	CellRows      [][]cell
-	ColCursor     int
-	ViewOffset    int // first visible column in horizontal scroll viewport
-	LastDeleted   *uint
-	ShowDeleted   bool
-	HideCompleted bool // Projects tab only: hide rows with completed status
-	HideAbandoned bool // Projects tab only: hide rows with abandoned status
-	Sorts         []sortEntry
-	Stale         bool // true when data may be outdated; cleared on reload
+	Kind        TabKind
+	Name        string
+	Handler     TabHandler
+	Table       table.Model
+	Rows        []rowMeta
+	Specs       []columnSpec
+	CellRows    [][]cell
+	ColCursor   int
+	ViewOffset  int // first visible column in horizontal scroll viewport
+	LastDeleted *uint
+	ShowDeleted bool
+	Sorts       []sortEntry
+	Stale       bool // true when data may be outdated; cleared on reload
 
 	// Pin-and-filter state.
 	Pins         []filterPin // active pins; AND across columns, OR within

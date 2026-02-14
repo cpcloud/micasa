@@ -315,18 +315,20 @@ func TestProjectStatusFilterToggleKeys(t *testing.T) {
 	tab := m.activeTab()
 	require.NotNil(t, tab)
 	require.Equal(t, tabProjects, tab.Kind, "expected projects tab to be active")
-	assert.False(t, tab.HideCompleted, "project status filters should start disabled")
-	assert.False(t, tab.HideAbandoned, "project status filters should start disabled")
+	col := statusColumnIndex(tab.Specs)
+	require.GreaterOrEqual(t, col, 0, "expected a Status column in project specs")
+	assert.False(t, hasColumnPins(tab, col), "should start with no status pins")
+	assert.False(t, tab.FilterActive, "filter should start inactive")
 
 	sendKey(m, "t")
-	assert.True(t, tab.HideCompleted, "expected settled toggle to hide completed")
-	assert.True(t, tab.HideAbandoned, "expected settled toggle to hide abandoned")
-	assert.Contains(t, m.status.Text, "Settled")
+	assert.True(t, hasColumnPins(tab, col), "expected status pins after t")
+	assert.True(t, tab.FilterActive, "expected filter active after t")
 	assert.Contains(t, m.status.Text, "hidden")
 
 	sendKey(m, "t")
-	assert.False(t, tab.HideCompleted, "expected settled toggle to show completed")
-	assert.False(t, tab.HideAbandoned, "expected settled toggle to show abandoned")
+	assert.False(t, hasColumnPins(tab, col), "expected no status pins after second t")
+	assert.False(t, tab.FilterActive, "expected filter inactive after second t")
+	assert.Contains(t, m.status.Text, "shown")
 }
 
 func TestProjectStatusFilterToggleIgnoredOutsideProjects(t *testing.T) {
@@ -337,10 +339,8 @@ func TestProjectStatusFilterToggleIgnoredOutsideProjects(t *testing.T) {
 	require.Equal(t, tabQuotes, tab.Kind, "expected quotes tab to be active")
 
 	sendKey(m, "t")
-	assert.False(t, tab.HideCompleted,
-		"project status filters should remain disabled on non-project tabs")
-	assert.False(t, tab.HideAbandoned,
-		"project status filters should remain disabled on non-project tabs")
+	assert.False(t, tab.FilterActive,
+		"filter should not activate on non-project tabs")
 	assert.Empty(t, m.status.Text)
 }
 

@@ -528,42 +528,24 @@ func TestNavBadgeLabel(t *testing.T) {
 	assert.NotContains(t, status, "NORMAL")
 }
 
-func TestStatusViewProjectStatusSummaryOnlyOnProjectsTab(t *testing.T) {
+func TestStatusBarStableWidthWithFilters(t *testing.T) {
 	m := newTestModel()
-	m.width = 220
+	m.width = 200
 	m.height = 40
 
-	// Enable settled filter so the indicator appears.
+	// Measure the hint line width before any filtering.
+	before := m.statusView()
+	beforeW := lipgloss.Width(before)
+
+	// Add pins and activate filter — hint bar width should not change.
 	tab := m.activeTab()
 	require.NotNil(t, tab)
-	tab.HideCompleted = true
-	tab.HideAbandoned = true
-	status := m.statusView()
-	assert.Contains(t, status, "active only")
+	tab.Pins = []filterPin{{Col: 0, Values: map[string]bool{"test": true}}}
+	tab.FilterActive = true
+	after := m.statusView()
+	afterW := lipgloss.Width(after)
 
-	// Switch to quotes: indicator should not appear.
-	m.active = tabIndex(tabQuotes)
-	status = m.statusView()
-	assert.NotContains(t, status, "active only")
-}
-
-func TestStatusViewProjectStatusSummaryReflectsActiveFilters(t *testing.T) {
-	m := newTestModel()
-	m.width = 160
-	m.height = 40
-	tab := m.activeTab()
-	require.NotNil(t, tab)
-	require.Equal(t, tabProjects, tab.Kind, "expected projects tab to be active")
-
-	// No filter: no status indicator (silence is success).
-	status := m.statusView()
-	assert.NotContains(t, status, "active only")
-
-	// Settled hidden: shows "active only".
-	tab.HideCompleted = true
-	tab.HideAbandoned = true
-	status = m.statusView()
-	assert.Contains(t, status, "active only")
+	assert.Equal(t, beforeW, afterW, "status bar width should not change with filtering")
 }
 
 func TestStatusViewUsesMoreLabelWhenHintsCollapse(t *testing.T) {
@@ -681,24 +663,19 @@ func TestAskHintHiddenWithoutLLM(t *testing.T) {
 		"ask hint should be hidden when LLM client is nil")
 }
 
-func TestPinSummaryShowsOnlyWhenActive(t *testing.T) {
+func TestPinSummaryNotInStatusHints(t *testing.T) {
 	m := newTestModel()
 	m.width = 200
 	m.height = 40
 	tab := m.activeTab()
 	require.NotNil(t, tab)
 
-	// No pins: no pin summary in the status bar.
-	status := m.statusView()
-	assert.NotContains(t, status, "ID:")
-
-	// Add a pin: status bar shows the pin summary.
+	// Pin summary should not appear in the hint bar (the tab-row triangle
+	// handles the visual indicator). This keeps the hint bar width stable.
 	tab.Pins = []filterPin{{Col: 0, Values: map[string]bool{"test": true}}}
-	status = m.statusView()
-	assert.Contains(t, status, "ID: test")
-
-	// No clear hint -- the user already knows how they got here.
-	assert.NotContains(t, status, "clear")
+	status := m.statusView()
+	assert.NotContains(t, status, "ID: test",
+		"pin summary should not appear in status hints")
 }
 
 func TestFilterDotAppearsOnTabRow(t *testing.T) {

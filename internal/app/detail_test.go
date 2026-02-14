@@ -589,7 +589,7 @@ func TestDrilldownHint(t *testing.T) {
 	m := newTestModel()
 	tab := &Tab{Kind: tabProjects}
 	spec := columnSpec{Title: "Quotes"}
-	assert.Equal(t, drilldownArrow+" drilldown", m.drilldownHint(tab, spec))
+	assert.Equal(t, drilldownArrow+" drill", m.drilldownHint(tab, spec))
 }
 
 func TestNavigateToLinkClosesDetailStack(t *testing.T) {

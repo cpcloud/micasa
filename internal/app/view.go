@@ -350,17 +350,6 @@ func (m *Model) normalModeStatusHints(modeBadge string) []statusHint {
 		},
 	}
 
-	// State indicators: only show when relevant state is active.
-	if hint, ok := m.projectStatusStateHint(); ok {
-		hints = append(hints, statusHint{
-			id:       "project-state",
-			full:     hint.full,
-			compact:  hint.compact,
-			priority: 1,
-		})
-	}
-	hints = append(hints, m.pinFilterHints()...)
-
 	// Context-dependent action: what enter does on the current column.
 	if hint := m.enterHint(); hint != "" {
 		hints = append(hints, statusHint{
@@ -426,47 +415,6 @@ func (m *Model) editModeStatusHelp(modeBadge string) string {
 		required: true,
 	})
 	return m.renderStatusHints(hints)
-}
-
-// pinFilterHints returns status bar hints for active pin/filter state.
-// Only shows indicators when pins or filter are active; keybinding
-// discovery is handled by the help overlay.
-func (m *Model) pinFilterHints() []statusHint {
-	tab := m.effectiveTab()
-	if tab == nil {
-		return nil
-	}
-	var hints []statusHint
-	pinned := hasPins(tab)
-
-	if pinned {
-		hints = append(hints, statusHint{
-			id:       "pin-summary",
-			full:     m.styles.Pinned.Render(pinSummary(tab)),
-			priority: 1,
-		})
-	}
-	return hints
-}
-
-func (m *Model) projectStatusStateHint() (statusHint, bool) {
-	if m.inDetail() {
-		return statusHint{}, false
-	}
-	tab := m.activeTab()
-	if tab == nil || tab.Kind != tabProjects {
-		return statusHint{}, false
-	}
-	// Only show the indicator when settled projects are hidden;
-	// showing all is the default and needs no label.
-	if !tab.HideCompleted && !tab.HideAbandoned {
-		return statusHint{}, false
-	}
-	label := m.styles.HeaderValue.Render("active only")
-	return statusHint{
-		full:    label,
-		compact: label,
-	}, true
 }
 
 func (m *Model) renderStatusHints(hints []statusHint) string {
@@ -647,7 +595,7 @@ func (m *Model) enterHint() string {
 // drilldownHint returns a short label for the drilldown target based on the
 // current tab and column. Used in status bar hints.
 func (m *Model) drilldownHint(_ *Tab, _ columnSpec) string {
-	return drilldownArrow + " drilldown"
+	return drilldownArrow + " drill"
 }
 
 func (m *Model) formFullScreen() string {
@@ -765,7 +713,7 @@ func (m *Model) helpContent() string {
 				{"N", "Toggle filter"},
 				{"n", "Pin/unpin"},
 				{keyCtrlN, "Clear pins and filter"},
-				{"enter", drilldownArrow + " drilldown / " + linkArrow + " follow link / preview"},
+				{"enter", drilldownArrow + " drill / " + linkArrow + " follow / preview"},
 				{"tab", "House profile"},
 				{"D", "Summary"},
 				{"@", "Ask LLM"},
