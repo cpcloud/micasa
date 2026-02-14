@@ -537,8 +537,11 @@ func (m *Model) handleNormalEnter() error {
 
 	// On a linked column with a target, follow the FK.
 	if spec.Link != nil {
-		if c, ok := m.selectedCell(col); ok && c.LinkID > 0 {
-			return m.navigateToLink(spec.Link, c.LinkID)
+		if c, ok := m.selectedCell(col); ok {
+			if c.LinkID > 0 {
+				return m.navigateToLink(spec.Link, c.LinkID)
+			}
+			m.setStatusInfo("nothing to follow")
 		}
 	}
 
@@ -784,7 +787,7 @@ func (m *Model) openProjectQuoteDetail(projectID uint, projectTitle string) erro
 // Maintenance → Service Log).
 func (m *Model) openDetailForRow(tab *Tab, rowID uint, colTitle string) error {
 	switch {
-	case tab.Kind == tabMaintenance && colTitle == "Log":
+	case (tab.Kind == tabMaintenance || tab.Kind == tabAppliances) && colTitle == "Log":
 		item, err := m.store.GetMaintenance(rowID)
 		if err != nil {
 			return fmt.Errorf("load maintenance item: %w", err)

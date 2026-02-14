@@ -598,6 +598,28 @@ func TestHeaderTitleWidth(t *testing.T) {
 	}
 }
 
+func TestColumnHasLinks(t *testing.T) {
+	rows := [][]cell{
+		{{Value: "Self", LinkID: 0}, {Value: "42"}},
+		{{Value: "Vendor A", LinkID: 5}, {Value: "43"}},
+	}
+	assert.True(t, columnHasLinks(rows, 0), "column 0 has a linked row")
+	assert.False(t, columnHasLinks(rows, 1), "column 1 has no linked rows")
+}
+
+func TestColumnHasLinks_AllZero(t *testing.T) {
+	rows := [][]cell{
+		{{Value: "Self", LinkID: 0}},
+		{{Value: "Self", LinkID: 0}},
+	}
+	assert.False(t, columnHasLinks(rows, 0))
+}
+
+func TestColumnHasLinks_Empty(t *testing.T) {
+	assert.False(t, columnHasLinks(nil, 0))
+	assert.False(t, columnHasLinks([][]cell{}, 0))
+}
+
 func TestDimBackgroundNeutralizesCancelFaint(t *testing.T) {
 	// Simulate a composited overlay: cancelFaint injects \033[22m (normal
 	// intensity) so the overlay content stays bright. A subsequent

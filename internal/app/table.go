@@ -71,6 +71,7 @@ func renderHeaderRow(
 	colCursor int,
 	sorts []sortEntry,
 	hasLeft, hasRight bool,
+	rows [][]cell,
 	styles Styles,
 ) string {
 	cells := make([]string, 0, len(specs))
@@ -79,7 +80,7 @@ func renderHeaderRow(
 	for i, spec := range specs {
 		width := safeWidth(widths, i)
 		title := spec.Title
-		if spec.Link != nil {
+		if spec.Link != nil && columnHasLinks(rows, i) {
 			title = title + " " + styles.LinkIndicator.Render(linkArrow)
 		} else if spec.Kind == cellDrilldown {
 			title = title + " " + styles.LinkIndicator.Render(drilldownArrow)
@@ -100,6 +101,17 @@ func renderHeaderRow(
 		}
 	}
 	return joinCells(cells, separators)
+}
+
+// columnHasLinks reports whether any row in the given column has a non-zero
+// LinkID. Used to decide whether to show the → arrow in the header.
+func columnHasLinks(rows [][]cell, col int) bool {
+	for _, row := range rows {
+		if col < len(row) && row[col].LinkID > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 type tableViewport struct {
