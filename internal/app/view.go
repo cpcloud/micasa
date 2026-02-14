@@ -646,23 +646,8 @@ func (m *Model) enterHint() string {
 
 // drilldownHint returns a short label for the drilldown target based on the
 // current tab and column. Used in status bar hints.
-func (m *Model) drilldownHint(tab *Tab, spec columnSpec) string {
-	switch {
-	case tab.Kind == tabMaintenance && spec.Title == "Log":
-		return "service log"
-	case tab.Kind == tabAppliances && spec.Title == "Maint":
-		return "maintenance"
-	case tab.Kind == tabAppliances && spec.Title == "Log":
-		return "service log"
-	case tab.Kind == tabVendors && spec.Title == tabQuotes.String():
-		return "vendor quotes"
-	case tab.Kind == tabVendors && spec.Title == "Jobs":
-		return "vendor jobs"
-	case tab.Kind == tabProjects && spec.Title == tabQuotes.String():
-		return "project quotes"
-	default:
-		return drilldownArrow + " drilldown"
-	}
+func (m *Model) drilldownHint(_ *Tab, _ columnSpec) string {
+	return drilldownArrow + " drilldown"
 }
 
 func (m *Model) formFullScreen() string {
