@@ -5,8 +5,7 @@ description = "Recurring upkeep tasks with schedules and service logs."
 linkTitle = "Maintenance"
 +++
 
-The Maintenance tab tracks recurring upkeep tasks -- things that need to happen
-on a schedule to keep your house running.
+Track recurring upkeep tasks and their service history.
 
 ![Maintenance table](/images/maintenance.webp)
 

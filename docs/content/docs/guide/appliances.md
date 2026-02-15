@@ -5,8 +5,7 @@ description = "Track physical equipment, warranties, and linked maintenance."
 linkTitle = "Appliances"
 +++
 
-The Appliances tab tracks physical equipment in your home -- everything from
-the water heater to the dishwasher.
+Track the physical equipment in your home.
 
 ![Appliances table](/images/appliances.webp)
 

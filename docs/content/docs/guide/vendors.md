@@ -5,8 +5,7 @@ description = "Browse and manage your vendors."
 linkTitle = "Vendors"
 +++
 
-The Vendors tab gives you a single view of everyone you've hired or gotten
-quotes from.
+Everyone you've hired or gotten quotes from, in one place.
 
 ![Vendors table](/images/vendors.webp)
 

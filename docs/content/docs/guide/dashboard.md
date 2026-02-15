@@ -5,8 +5,7 @@ description = "At-a-glance overview of what needs attention."
 linkTitle = "Dashboard"
 +++
 
-The dashboard is an at-a-glance overview of what needs attention in your home.
-It appears as a centered overlay on top of the normal table view.
+The dashboard shows what needs attention right now.
 
 ![Dashboard overlay](/images/dashboard.webp)
 

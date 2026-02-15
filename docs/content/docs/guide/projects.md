@@ -5,8 +5,7 @@ description = "Track home improvement projects from idea to completion."
 linkTitle = "Projects"
 +++
 
-The Projects tab tracks things you want to do to your house, from small
-repairs to major renovations.
+Track planned and in-progress work on your house.
 
 ![Projects table](/images/projects.webp)
 
