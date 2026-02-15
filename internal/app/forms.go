@@ -1167,6 +1167,15 @@ func (m *Model) openInlineInput(
 func applyFormDefaults(form *huh.Form) {
 	form.WithShowErrors(true)
 	form.WithKeyMap(formKeyMap())
+
+	// Match the error indicator to the required-field marker (colored ∗).
+	theme := huh.ThemeBase()
+	indicator := lipgloss.NewStyle().
+		SetString(" ∗").
+		Foreground(secondary)
+	theme.Focused.ErrorIndicator = indicator
+	theme.Blurred.ErrorIndicator = indicator
+	form.WithTheme(theme)
 }
 
 func formKeyMap() *huh.KeyMap {
