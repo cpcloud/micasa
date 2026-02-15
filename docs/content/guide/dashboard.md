@@ -1,6 +1,6 @@
 +++
 title = "Dashboard"
-weight = 7
+weight = 2
 description = "At-a-glance overview of what needs attention."
 linkTitle = "Dashboard"
 +++

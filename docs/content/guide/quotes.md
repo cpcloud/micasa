@@ -1,6 +1,6 @@
 +++
 title = "Quotes"
-weight = 3
+weight = 4
 description = "Compare vendor quotes for your projects."
 linkTitle = "Quotes"
 +++
