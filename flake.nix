@@ -118,22 +118,16 @@
           };
         };
 
-        # Shared fontconfig setup for VHS recordings (JetBrains Mono)
-        vhsFontSetup = ''
-          _vhs_tmp=$(mktemp -d)
-          trap 'rm -rf "$_vhs_tmp"' EXIT
+        # Fontconfig for VHS recordings using Hack Nerd Font.
+        # JetBrains Mono's variable font files cause xterm.js in Chromium to
+        # miscalculate cell width, producing visible letter-spacing gaps.
+        # Hack Nerd Font renders correctly and includes icon glyphs.
+        vhsFontsConf = pkgs.makeFontsConf {
+          fontDirectories = [ "${pkgs.nerd-fonts.hack}/share/fonts/truetype" ];
+        };
 
-          FC_CONF="$_vhs_tmp/fonts.conf"
-          cat > "$FC_CONF" <<FCXML
-          <?xml version="1.0"?>
-          <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
-          <fontconfig>
-            <include>/etc/fonts/fonts.conf</include>
-            <dir>${pkgs.jetbrains-mono}/share/fonts</dir>
-            <cachedir>$_vhs_tmp/fc-cache</cachedir>
-          </fontconfig>
-          FCXML
-          export FONTCONFIG_FILE="$FC_CONF"
+        vhsFontSetup = ''
+          export FONTCONFIG_FILE="${vhsFontsConf}"
         '';
 
         deadcode = pkgs.buildGoModule {
@@ -181,8 +175,8 @@
         packages = {
           inherit micasa;
           default = micasa;
-          build-docs = pkgs.writeShellApplication {
-            name = "micasa-build-docs";
+          docs = pkgs.writeShellApplication {
+            name = "micasa-docs";
             runtimeInputs = [ pkgs.hugo ];
             text = ''
               mkdir -p docs/static/images
@@ -211,7 +205,7 @@
             runtimeInputs = [
               micasa
               pkgs.vhs
-              pkgs.jetbrains-mono
+              pkgs.nerd-fonts.hack
               pkgs.libwebp
             ];
             text = ''
@@ -251,7 +245,7 @@
             runtimeInputs = [
               micasa
               pkgs.vhs
-              pkgs.jetbrains-mono
+              pkgs.nerd-fonts.hack
               pkgs.imagemagick
             ];
             text = ''
@@ -267,11 +261,14 @@
 
               ${vhsFontSetup}
 
+              tmpdir=$(mktemp -d)
+              trap 'rm -rf "$tmpdir"' EXIT
+
               vhs "$tape"
 
               # Extract last frame from GIF as lossless WebP
-              magick "$OUT/$name.gif" -coalesce "$_vhs_tmp/$name-frame-%04d.png"
-              last=$(printf '%s\n' "$_vhs_tmp/$name-frame"-*.png | sort -t- -k3 -n | tail -1)
+              magick "$OUT/$name.gif" -coalesce "$tmpdir/frame-%04d.png"
+              last=$(printf '%s\n' "$tmpdir/frame"-*.png | sort -t- -k2 -n | tail -1)
               magick "$last" -quality 100 -define webp:lossless=true "$OUT/$name.webp"
               rm -f "$OUT/$name.gif"
 
@@ -380,7 +377,7 @@
           website = flake-utils.lib.mkApp { drv = self.packages.${system}.website; };
           record-tape = flake-utils.lib.mkApp { drv = self.packages.${system}.record-tape; };
           record-demo = flake-utils.lib.mkApp { drv = self.packages.${system}.record-demo; };
-          build-docs = flake-utils.lib.mkApp { drv = self.packages.${system}.build-docs; };
+          docs = flake-utils.lib.mkApp { drv = self.packages.${system}.docs; };
           capture-one = flake-utils.lib.mkApp { drv = self.packages.${system}.capture-one; };
           capture-screenshots = flake-utils.lib.mkApp { drv = self.packages.${system}.capture-screenshots; };
           record-animated = flake-utils.lib.mkApp { drv = self.packages.${system}.record-animated; };

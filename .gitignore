@@ -42,6 +42,9 @@ docs/public/
 docs/resources/
 website/
 
+# Intermediate GIFs from VHS recordings (converted to WebP, then deleted)
+*.gif
+
 # Build-time copies of shared assets (source of truth: images/)
 docs/static/images/favicon.svg
 docs/static/images/demo.webp

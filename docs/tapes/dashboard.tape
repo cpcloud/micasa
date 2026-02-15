@@ -3,7 +3,7 @@ Require micasa
 Output docs/static/images/dashboard.gif
 
 Set Shell bash
-Set FontFamily "JetBrains Mono"
+Set FontFamily "Hack Nerd Font"
 Set FontSize 32
 Set Width 2400
 Set Height 1800

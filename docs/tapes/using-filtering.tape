@@ -3,7 +3,7 @@ Require micasa
 Output docs/static/images/using-filtering.gif
 
 Set Shell bash
-Set FontFamily "JetBrains Mono"
+Set FontFamily "Hack Nerd Font"
 Set FontSize 28
 Set Width 2400
 Set Height 1400

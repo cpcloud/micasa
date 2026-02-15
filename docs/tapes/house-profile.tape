@@ -3,7 +3,7 @@ Require micasa
 Output docs/static/images/house-profile.gif
 
 Set Shell bash
-Set FontFamily "JetBrains Mono"
+Set FontFamily "Hack Nerd Font"
 Set FontSize 32
 Set Width 2400
 Set Height 1800
@@ -22,7 +22,7 @@ Type "micasa --demo"
 Enter
 Sleep 4s
 Type "D"
-Sleep 0.5s
+Sleep 1s
 Tab
 Sleep 3s
 Show
