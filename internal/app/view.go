@@ -706,6 +706,7 @@ func (m *Model) helpContent() string {
 				{"g/G", "First/last row"},
 				{"d/u", "Half page down/up"},
 				{"b/f", "Switch tabs"},
+				{"B/F", "First/last tab"},
 				{"s/S", "Sort / clear sorts"},
 				{"t", "Toggle settled projects"},
 				{"/", "Find column"},

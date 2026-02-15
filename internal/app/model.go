@@ -442,6 +442,22 @@ func (m *Model) handleNormalKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 			m.prevTab()
 		}
 		return nil, true
+	case "F":
+		if !m.inDetail() {
+			if m.showDashboard {
+				m.showDashboard = false
+			}
+			m.switchToTab(len(m.tabs) - 1)
+		}
+		return nil, true
+	case "B":
+		if !m.inDetail() {
+			if m.showDashboard {
+				m.showDashboard = false
+			}
+			m.switchToTab(0)
+		}
+		return nil, true
 	case "n":
 		m.togglePinAtCursor()
 		return nil, true
