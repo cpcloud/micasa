@@ -7,9 +7,12 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/iancoleman/strcase"
 
 	"github.com/cpcloud/micasa/internal/fake"
 	"github.com/glebarez/sqlite"
@@ -929,6 +932,51 @@ func (s *Store) validateDocumentParent(doc Document) error {
 		}
 	}
 	return nil
+}
+
+// TitleFromFilename derives a human-friendly title from a filename by
+// stripping extensions (including compound ones like .tar.gz), splitting on
+// word boundaries via strcase, and title-casing each word.
+func TitleFromFilename(name string) string {
+	name = strings.TrimSpace(name)
+
+	// Always strip the outermost extension (every file has one).
+	if ext := filepath.Ext(name); ext != "" && ext != name {
+		name = strings.TrimSuffix(name, ext)
+	}
+
+	// Continue stripping known compound-extension intermediaries
+	// (e.g. .tar in .tar.gz, .tar.bz2, .tar.xz).
+	for {
+		ext := filepath.Ext(name)
+		if ext == "" || ext == name {
+			break
+		}
+		lower := strings.ToLower(ext)
+		if lower != ".tar" {
+			break
+		}
+		name = strings.TrimSuffix(name, ext)
+	}
+
+	// Split on word boundaries (camelCase, snake_case, kebab, dots).
+	name = strcase.ToDelimited(name, ' ')
+	name = strings.Join(strings.Fields(name), " ")
+
+	// Title-case each word.
+	runes := []rune(name)
+	wordStart := true
+	for i, r := range runes {
+		if unicode.IsSpace(r) {
+			wordStart = true
+			continue
+		}
+		if wordStart {
+			runes[i] = unicode.ToUpper(r)
+		}
+		wordStart = false
+	}
+	return string(runes)
 }
 
 // countDocumentDependents counts non-deleted documents linked to the given

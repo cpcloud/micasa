@@ -4,6 +4,7 @@
 package app
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"net/http"
@@ -1752,16 +1753,22 @@ func (m *Model) parseDocumentFormData() (data.Document, error) {
 		EntityKind: values.EntityKind,
 		Notes:      strings.TrimSpace(values.Notes),
 	}
-	// Read file from path if provided (new document creation).
+	// Read file from path if provided (new document or file replacement).
 	path := filepath.Clean(strings.TrimSpace(values.FilePath))
 	if path != "" && path != "." {
 		fileData, err := os.ReadFile(path)
 		if err != nil {
 			return data.Document{}, fmt.Errorf("read file: %w", err)
 		}
+		doc.FileName = filepath.Base(path)
 		doc.Data = fileData
 		doc.SizeBytes = int64(len(fileData))
 		doc.MIMEType = detectMIMEType(path, fileData)
+		doc.ChecksumSHA256 = fmt.Sprintf("%x", sha256.Sum256(fileData))
+		// Auto-fill title from filename when the user left it blank.
+		if doc.Title == "" {
+			doc.Title = data.TitleFromFilename(doc.FileName)
+		}
 	}
 	return doc, nil
 }
