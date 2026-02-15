@@ -180,6 +180,29 @@ body {
   font-weight: 400;
   line-height: 1.2;
   color: var(--charcoal);
+  position: relative;
+}
+
+.heading-anchor {
+  color: var(--warm-gray);
+  text-decoration: none;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.75em;
+  margin-right: 0.4em;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.docs-main h1:hover .heading-anchor,
+.docs-main h2:hover .heading-anchor,
+.docs-main h3:hover .heading-anchor,
+.docs-main h4:hover .heading-anchor,
+.heading-anchor:focus {
+  opacity: 1;
+}
+
+.heading-anchor:hover {
+  color: var(--terracotta);
 }
 
 .docs-main h1 {
