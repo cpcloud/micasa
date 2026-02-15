@@ -188,7 +188,7 @@ body {
   text-decoration: none;
   font-family: "JetBrains Mono", monospace;
   font-size: 0.75em;
-  margin-right: 0.4em;
+  margin-left: 0.4em;
   opacity: 0;
   transition: opacity 0.15s ease;
 }

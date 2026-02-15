@@ -33,7 +33,7 @@ ollama serve
 ```
 
 micasa connects to Ollama at `http://localhost:11434/v1` by default. See
-[Configuration]({{< ref "/reference/configuration" >}}) to change the server
+[Configuration]({{< ref "/docs/reference/configuration" >}}) to change the server
 URL, model, or backend.
 
 ## Opening the chat
@@ -171,6 +171,6 @@ The chat requires an `[llm]` section in your config file. If no LLM is
 configured, the chat overlay shows a helpful hint with the config path and
 a sample configuration.
 
-See [Configuration]({{< ref "/reference/configuration" >}}) for the full
+See [Configuration]({{< ref "/docs/reference/configuration" >}}) for the full
 reference, including how to set `extra_context` to give the model persistent
 knowledge about your house.

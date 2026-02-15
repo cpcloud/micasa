@@ -8,7 +8,7 @@ linkTitle = "Navigation"
 micasa uses vim-style modal keybindings. There are three modes: **Normal**,
 **Edit**, and **Form**.
 
-![Navigation demo showing cursor movement, tab switching, and mode changes](/docs/images/using-navigation.webp)
+![Navigation demo showing cursor movement, tab switching, and mode changes](/images/using-navigation.webp)
 
 ## Normal mode
 

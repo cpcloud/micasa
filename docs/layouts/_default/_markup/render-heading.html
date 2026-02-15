@@ -2,5 +2,5 @@
 {{- /* Licensed under the Apache License, Version 2.0 */ -}}
 
 <h{{ .Level }} id="{{ .Anchor }}">
-  <a class="heading-anchor" href="#{{ .Anchor }}">#</a>{{ .Text | safeHTML }}
+  {{- .Text | safeHTML }}<a class="heading-anchor" href="#{{ .Anchor }}">#</a>
 </h{{ .Level }}>

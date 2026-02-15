@@ -8,7 +8,7 @@ linkTitle = "Vendors"
 The Vendors tab gives you a single view of everyone you've hired or gotten
 quotes from.
 
-![Vendors table](/docs/images/vendors.webp)
+![Vendors table](/images/vendors.webp)
 
 ## Columns
 

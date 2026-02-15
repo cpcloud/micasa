@@ -8,7 +8,7 @@ linkTitle = "Dashboard"
 The dashboard is an at-a-glance overview of what needs attention in your home.
 It appears as a centered overlay on top of the normal table view.
 
-![Dashboard overlay](/docs/images/dashboard.webp)
+![Dashboard overlay](/images/dashboard.webp)
 
 ## Opening the dashboard
 

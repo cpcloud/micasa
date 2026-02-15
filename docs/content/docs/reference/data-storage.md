@@ -18,7 +18,7 @@ By default, the database lives in your platform's data directory:
 | macOS    | `~/Library/Application Support/micasa/micasa.db` |
 | Windows  | `%LOCALAPPDATA%\micasa\micasa.db` |
 
-See [Configuration]({{< ref "/reference/configuration" >}}) for how to customize the path.
+See [Configuration]({{< ref "/docs/reference/configuration" >}}) for how to customize the path.
 
 The database path is shown in the tab row (right-aligned) so you always know
 which file you're working with.

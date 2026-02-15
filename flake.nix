@@ -185,32 +185,24 @@
             name = "micasa-build-docs";
             runtimeInputs = [ pkgs.hugo ];
             text = ''
-              mkdir -p website/images docs/static/images
-              cp images/favicon.svg website/images/favicon.svg
-              cp images/demo.webp website/images/demo.webp
-              cp images/favicon.svg docs/static/images/favicon.svg
-              rm -rf website/docs
-              hugo --source docs --baseURL /docs/ --destination ../website/docs
-            '';
-          };
-          serve-docs = pkgs.writeShellApplication {
-            name = "micasa-serve-docs";
-            runtimeInputs = [ pkgs.hugo ];
-            text = ''
               mkdir -p docs/static/images
               cp images/favicon.svg docs/static/images/favicon.svg
-              hugo server --source docs --buildDrafts --port 0 --bind 0.0.0.0
+              cp images/demo.webp docs/static/images/demo.webp
+              rm -rf website
+              hugo --source docs --destination ../website
             '';
           };
           website = pkgs.writeShellApplication {
             name = "micasa-website";
-            runtimeInputs = [
-              self.packages.${system}.build-docs
-              pkgs.python3
-            ];
+            runtimeInputs = [ pkgs.hugo ];
             text = ''
-              micasa-build-docs >/dev/null 2>&1
-              python3 -m http.server 0 -d website
+              mkdir -p docs/static/images
+              cp images/favicon.svg docs/static/images/favicon.svg
+              cp images/demo.webp docs/static/images/demo.webp
+
+              _port=$((RANDOM % 10000 + 30000))
+              printf 'http://localhost:%s\n' "$_port"
+              exec hugo server --source docs --buildDrafts --port "$_port" --bind 0.0.0.0 &>/dev/null
             '';
           };
           # Records any VHS tape and converts the GIF output to WebP
@@ -386,7 +378,6 @@
         apps = {
           default = flake-utils.lib.mkApp { drv = micasa; };
           website = flake-utils.lib.mkApp { drv = self.packages.${system}.website; };
-          serve-docs = flake-utils.lib.mkApp { drv = self.packages.${system}.serve-docs; };
           record-tape = flake-utils.lib.mkApp { drv = self.packages.${system}.record-tape; };
           record-demo = flake-utils.lib.mkApp { drv = self.packages.${system}.record-demo; };
           build-docs = flake-utils.lib.mkApp { drv = self.packages.${system}.build-docs; };

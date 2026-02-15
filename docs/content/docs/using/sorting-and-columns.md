@@ -5,7 +5,10 @@ description = "Multi-column sorting, column hiding, and horizontal scrolling."
 linkTitle = "Sorting & Columns"
 +++
 
-![Sorting demo showing multi-column sort, fuzzy finder, and column hiding](/docs/images/using-sorting.webp)
+micasa supports multi-column sorting, a fuzzy column finder, column hiding,
+and horizontal scrolling.
+
+![Sorting demo showing multi-column sort, fuzzy finder, and column hiding](/images/using-sorting.webp)
 
 ## Multi-column sorting
 

@@ -1,8 +1,9 @@
 {{- /* Copyright 2026 Phillip Cloud */ -}}
 {{- /* Licensed under the Apache License, Version 2.0 */ -}}
 
+{{- $docs := site.GetPage "docs" -}}
 {{- $pages := slice }}
-{{- range site.Sections }}
+{{- range $docs.Sections.ByWeight }}
   {{- range .Pages.ByWeight }}
     {{- $pages = $pages | append . }}
   {{- end }}

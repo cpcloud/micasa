@@ -7,7 +7,7 @@ linkTitle = "Quotes"
 
 The Quotes tab helps you compare vendor quotes for your projects.
 
-![Quotes table](/docs/images/quotes.webp)
+![Quotes table](/images/quotes.webp)
 
 ## Prerequisites
 

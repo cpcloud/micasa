@@ -1,0 +1,27 @@
+{{- /* Copyright 2026 Phillip Cloud */ -}}
+{{- /* Licensed under the Apache License, Version 2.0 */ -}}
+
+{{ define "main" }}
+  <h1>{{ .Title }}</h1>
+  {{ .Content }}
+
+  {{- /* Top-level docs page: show sub-sections with their pages */ -}}
+  {{- if .IsSection }}
+    {{- if .Sections }}
+      {{ range .Sections.ByWeight }}
+        <h2>{{ .Title }}</h2>
+        <ul>
+          {{ range .Pages.ByWeight }}
+            <li><a href="{{ .RelPermalink }}">{{ .LinkTitle }}</a>{{ with .Params.description }} &mdash; {{ . }}{{ end }}</li>
+          {{ end }}
+        </ul>
+      {{ end }}
+    {{- else }}
+      {{- /* Leaf section (e.g. /docs/guide/): list its pages */ -}}
+      {{ range .Pages.ByWeight }}
+        <h3><a href="{{ .RelPermalink }}">{{ .LinkTitle }}</a></h3>
+        {{ with .Params.description }}<p>{{ . }}</p>{{ end }}
+      {{ end }}
+    {{- end }}
+  {{- end }}
+{{ end }}

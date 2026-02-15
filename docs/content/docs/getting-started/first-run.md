@@ -64,5 +64,5 @@ press `@` to open the chat overlay and ask questions about your data in plain
 English -- "How much have I spent on plumbing?" or "When is the HVAC filter
 due?"
 
-See [LLM Chat]({{< ref "/guide/llm-chat" >}}) for setup details and
-[Configuration]({{< ref "/reference/configuration" >}}) for backend options.
+See [LLM Chat]({{< ref "/docs/guide/llm-chat" >}}) for setup details and
+[Configuration]({{< ref "/docs/reference/configuration" >}}) for backend options.

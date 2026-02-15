@@ -5,11 +5,9 @@ description = "Pin cell values to filter rows interactively."
 linkTitle = "Row Filtering"
 +++
 
-micasa lets you filter table rows by pinning specific cell values. The
-mechanism is two-step: **pin** values to preview which rows match, then
-**activate** to hide the rest.
+micasa lets you filter table rows by pinning cell values, then activating to hide non-matching rows.
 
-![Filtering demo showing pin, preview, activate, and clear](/docs/images/using-filtering.webp)
+![Filtering demo showing pin, preview, activate, and clear](/images/using-filtering.webp)
 
 ## Quick start
 

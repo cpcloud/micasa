@@ -8,7 +8,7 @@ linkTitle = "Maintenance"
 The Maintenance tab tracks recurring upkeep tasks -- things that need to happen
 on a schedule to keep your house running.
 
-![Maintenance table](/docs/images/maintenance.webp)
+![Maintenance table](/images/maintenance.webp)
 
 ## Adding a maintenance item
 
@@ -40,7 +40,7 @@ The `Next` column is computed automatically from `Last` serviced +
 `Every` is empty, `Next` is blank.
 
 Items that are overdue or coming due soon appear on the
-[Dashboard]({{< ref "/guide/dashboard" >}}) with urgency indicators.
+[Dashboard]({{< ref "/docs/guide/dashboard" >}}) with urgency indicators.
 
 ## Service log
 
@@ -50,7 +50,7 @@ actually performed. The `Log` column shows the entry count.
 To view the service log, navigate to the `Log` column in Normal mode and press
 `enter`. This opens a detail view with its own table:
 
-![Service log drill](/docs/images/service-log.webp)
+![Service log drill](/images/service-log.webp)
 
 | Column | Type | Description |
 |-------:|------|-------------|

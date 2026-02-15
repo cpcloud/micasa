@@ -40,12 +40,11 @@ result-*
 # Hugo output
 docs/public/
 docs/resources/
-website/docs/
+website/
 
-# Build-time copies of shared assets
-website/images/favicon.svg
-website/images/demo.webp
+# Build-time copies of shared assets (source of truth: images/)
 docs/static/images/favicon.svg
+docs/static/images/demo.webp
 
 # Env / local
 .env

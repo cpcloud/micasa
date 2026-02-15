@@ -8,7 +8,7 @@ linkTitle = "Appliances"
 The Appliances tab tracks physical equipment in your home -- everything from
 the water heater to the dishwasher.
 
-![Appliances table](/docs/images/appliances.webp)
+![Appliances table](/images/appliances.webp)
 
 ## Adding an appliance
 
@@ -37,7 +37,7 @@ Only the `Name` is required.
 ## Warranty tracking
 
 Enter the warranty expiry date when you add an appliance. The
-[Dashboard]({{< ref "/guide/dashboard" >}}) shows appliances with warranties expiring within
+[Dashboard]({{< ref "/docs/guide/dashboard" >}}) shows appliances with warranties expiring within
 90 days (or recently expired within 30 days) in the "Expiring Soon" section.
 
 ## Maintenance drill

@@ -98,7 +98,7 @@ Same as Normal mode, except `d` and `u` are rebound:
 
 Press `@` from Normal or Edit mode to open the LLM chat. The overlay
 captures all keyboard input until dismissed. See the
-[LLM Chat guide]({{< ref "/guide/llm-chat" >}}) for full details.
+[LLM Chat guide]({{< ref "/docs/guide/llm-chat" >}}) for full details.
 
 ### Text input
 
