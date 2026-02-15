@@ -871,7 +871,13 @@ func (m *Model) tableView(tab *Tab) string {
 		badgeChrome = 1
 	}
 
-	effectiveHeight := tab.Table.Height() - badgeChrome
+	// Row count line accounts for 1 row when visible (hidden when empty).
+	rowCountChrome := 0
+	if len(tab.Rows) > 0 {
+		rowCountChrome = 1
+	}
+
+	effectiveHeight := tab.Table.Height() - badgeChrome - rowCountChrome
 	if effectiveHeight < 2 {
 		effectiveHeight = 2
 	}
@@ -918,6 +924,14 @@ func (m *Model) tableView(tab *Tab) string {
 		}
 		centered := lipgloss.PlaceHorizontal(tableWidth, lipgloss.Center, badges)
 		bodyParts = append(bodyParts, centered)
+	}
+	// Row count: flush-left, muted, hidden when empty (silence is success).
+	if n := len(tab.Rows); n > 0 {
+		label := fmt.Sprintf("%d rows", n)
+		if n == 1 {
+			label = "1 row"
+		}
+		bodyParts = append(bodyParts, m.styles.Empty.Render(label))
 	}
 	return joinVerticalNonEmpty(bodyParts...)
 }
