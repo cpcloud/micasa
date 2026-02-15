@@ -815,11 +815,11 @@ func (m *Model) helpView() string {
 		rule = ruleStyle.Render(strings.Repeat("─", contentW))
 	}
 
-	closeHintStr := joinWithSeparator(
-		m.helpSeparator(),
-		m.helpItem("j/k", "scroll"),
-		m.helpItem("esc", "close"),
-	)
+	hints := []string{m.helpItem("esc", "close")}
+	if vp.TotalLineCount() > vp.Height {
+		hints = append([]string{m.helpItem("j/k", "scroll")}, hints...)
+	}
+	closeHintStr := joinWithSeparator(m.helpSeparator(), hints...)
 
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
