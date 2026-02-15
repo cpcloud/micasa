@@ -4,6 +4,7 @@
 package app
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -745,6 +746,59 @@ func TestEmptyHintPerTab(t *testing.T) {
 		hint := emptyHint(tt.kind)
 		assert.Contains(t, hint, tt.want)
 		assert.Contains(t, hint, "i then a", "should contain add instruction")
+	}
+}
+
+func TestRowCountLabel(t *testing.T) {
+	m := newTestModelWithDemoData(t, testSeed)
+	tab := m.activeTab()
+	require.NotNil(t, tab)
+	require.Greater(t, len(tab.Rows), 1, "demo data should populate multiple rows")
+
+	t.Run("plural", func(t *testing.T) {
+		output := m.tableView(tab)
+		expected := fmt.Sprintf("%d rows", len(tab.Rows))
+		assert.Contains(t, output, expected)
+	})
+
+	t.Run("singular", func(t *testing.T) {
+		// Trim to exactly one row to verify singular form.
+		tab.Rows = tab.Rows[:1]
+		tab.CellRows = tab.CellRows[:1]
+		tab.Table.SetRows(tab.Table.Rows()[:1])
+
+		output := m.tableView(tab)
+		assert.Contains(t, output, "1 row")
+		assert.NotContains(t, output, "1 rows")
+	})
+}
+
+func TestRowCountHiddenWhenEmpty(t *testing.T) {
+	m := newTestModelWithStore(t)
+	tab := m.activeTab()
+	require.NotNil(t, tab)
+	require.Empty(t, tab.Rows, "store-only model should have no project rows")
+
+	output := m.tableView(tab)
+	assert.NotContains(t, output, "row")
+}
+
+func TestRowCountUpdatesAcrossTabs(t *testing.T) {
+	m := newTestModelWithDemoData(t, testSeed)
+
+	// Check that every populated tab shows its own row count.
+	for i := range m.tabs {
+		tab := &m.tabs[i]
+		if len(tab.Rows) == 0 {
+			continue
+		}
+		output := m.tableView(tab)
+		expected := fmt.Sprintf("%d rows", len(tab.Rows))
+		if len(tab.Rows) == 1 {
+			expected = "1 row"
+		}
+		assert.Contains(t, output, expected,
+			"tab %q should show row count", tab.Kind)
 	}
 }
 
