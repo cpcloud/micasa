@@ -32,11 +32,13 @@ nix develop
 
 This gives you:
 
-- Go compiler
-- gopls (language server)
-- golangci-lint
-- golines + gofumpt (formatting)
-- ripgrep, fd, tokei (search and stats)
+- `go` compiler
+- `golangci-lint` (static analysis)
+- `golines` + `gofumpt` (formatting)
+- `osv-scanner` (vulnerability scanning)
+- `hugo` (docs site)
+- `vhs` (terminal recording)
+- `git`
 - Pre-commit hooks (auto-installed on first shell entry)
 
 Everything is pinned to a consistent version. No system dependency surprises.
@@ -72,9 +74,16 @@ The flake exposes several convenience apps:
 | Command | Description |
 |---------|-------------|
 | `nix run` | Run micasa directly |
-| `nix run '.#website'` | Serve the website locally |
-| `nix run '.#build-docs'` | Build the Hugo docs into `website/docs/` |
-| `nix run '.#record-demo'` | Record the demo GIF |
+| `nix run '.#website'` | Serve the website locally with live reload |
+| `nix run '.#docs'` | Build the Hugo site into `website/` |
+| `nix run '.#record-demo'` | Record the main demo GIF |
+| `nix run '.#record-tape'` | Record a single VHS tape to WebP |
+| `nix run '.#record-animated'` | Record all `using-*.tape` animated demos in parallel |
+| `nix run '.#capture-one'` | Capture a single VHS tape as a WebP screenshot |
+| `nix run '.#capture-screenshots'` | Capture all screenshot tapes in parallel |
+| `nix run '.#pre-commit'` | Run pre-commit hooks on all files |
+| `nix run '.#deadcode'` | Run whole-program dead code analysis |
+| `nix run '.#osv-scanner'` | Scan dependencies for known vulnerabilities |
 
 ## Container image
 

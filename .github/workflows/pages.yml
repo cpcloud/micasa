@@ -33,7 +33,7 @@ jobs:
       - uses: cachix/install-nix-action@4e002c8ec80594ecd40e759629461e26c8abed15 # v31
 
       - name: Build docs
-        run: nix run '.#build-docs'
+        run: nix run '.#docs'
 
       - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         with:

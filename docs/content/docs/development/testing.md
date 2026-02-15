@@ -1,6 +1,6 @@
 +++
 title = "Testing"
-weight = 3
+weight = 4
 description = "How to run and write tests."
 linkTitle = "Testing"
 +++
@@ -13,12 +13,8 @@ Always run all tests from the repo root with shuffle enabled:
 go test -shuffle=on -v ./...
 ```
 
-The `-shuffle=on` flag randomizes test execution order to catch accidental
-order dependencies. Go picks and prints the seed automatically.
-
-## Test organization
-
-Tests live alongside the code they test in `*_test.go` files.
+`-shuffle=on` randomizes test execution order to catch accidental order
+dependencies. Go picks and prints the seed automatically.
 
 ## Test philosophy
 
@@ -41,5 +37,5 @@ When adding a new feature:
 ## CI
 
 Tests run in CI on every push to `main` and on pull requests, across Linux,
-macOS, and Windows. The CI matrix uses `-shuffle=on` to match local behavior.
-Pre-commit hooks catch formatting and lint issues before they reach CI.
+macOS, and Windows. CI uses `-shuffle=on` and `-race` to catch ordering dependencies and data
+races. Pre-commit hooks catch formatting and lint issues before they reach CI.

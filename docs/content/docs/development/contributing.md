@@ -1,6 +1,6 @@
 +++
 title = "Contributing"
-weight = 4
+weight = 5
 description = "How to contribute to micasa."
 linkTitle = "Contributing"
 +++

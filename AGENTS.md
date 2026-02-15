@@ -542,8 +542,9 @@ like `LEARNINGS.md` are not.
 - Every so often, take a breather and find opportunities to refactor code add
   more thorough tests (but still DO NOT poke into implementation details).
 - "Refactoring" includes **all** code in the repo: Go, JS/CSS in
-  `website/index.html`, Nix expressions, CI workflows, Hugo templates, etc.
-  Don't skip inline `<script>` blocks in HTML just because they're not `.go`.
+  `docs/layouts/index.html`, Nix expressions, CI workflows, Hugo templates,
+  etc. Don't skip inline `<script>` blocks in HTML just because they're not
+  `.go`.
 
 When you complete a task, pause and wait for the developer's input before
 continuing on. Be prepared for the user to veer off into other tasks. That's
