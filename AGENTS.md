@@ -504,6 +504,14 @@ These have been repeatedly requested. Violating them wastes the user's time.
   hidden.", "Filter on."). An optional "off" message describes the reverse.
   This feedback is independent of any persistent UI indicator (like the
   tab-row filter triangle) and uses `setStatusInfo`.
+- **Visual consistency across paired surfaces**: When changing the
+  appearance, wording, or styling of a UI element, audit every surface
+  where that concept appears -- including library-provided defaults,
+  error/validation states, status indicators, help text, and any other
+  context that echoes the same semantics. Example: changing the
+  required-field marker glyph on form titles also requires updating huh's
+  `ErrorIndicator` theme, because both communicate "this field is
+  required" and users see them together.
 
 If the user asks you to learn something, add it to this "Hard rules" section
 so it survives context resets. This file is always injected; external files
