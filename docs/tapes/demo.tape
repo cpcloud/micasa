@@ -4,9 +4,9 @@ Output images/demo.gif
 
 Set Shell bash
 Set FontFamily "Hack Nerd Font"
-Set FontSize 28
+Set FontSize 32
 Set Width 2400
-Set Height 1250
+Set Height 1800
 Set Padding 20
 Set Theme "Dracula"
 Set CursorBlink false
