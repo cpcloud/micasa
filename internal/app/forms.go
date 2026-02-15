@@ -122,7 +122,7 @@ func (m *Model) startHouseForm() {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
-				Title("Nickname *").
+				Title(requiredTitle("Nickname")).
 				Description("Ex: Primary Residence").
 				Value(&values.Nickname).
 				Validate(requiredText("nickname")),
@@ -210,7 +210,7 @@ func (m *Model) startProjectForm() {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
-				Title("Title *").
+				Title(requiredTitle("Title")).
 				Value(&values.Title).
 				Validate(requiredText("title")),
 			huh.NewSelect[uint]().
@@ -242,7 +242,7 @@ func (m *Model) openProjectForm(values *projectFormData, options []huh.Option[ui
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
-				Title("Title *").
+				Title(requiredTitle("Title")).
 				Value(&values.Title).
 				Validate(requiredText("title")),
 			huh.NewSelect[uint]().
@@ -299,11 +299,11 @@ func (m *Model) startQuoteForm() error {
 				Options(options...).
 				Value(&values.ProjectID),
 			huh.NewInput().
-				Title("Vendor name *").
+				Title(requiredTitle("Vendor name")).
 				Value(&values.VendorName).
 				Validate(requiredText("vendor name")),
 			huh.NewInput().
-				Title("Total *").
+				Title(requiredTitle("Total")).
 				Placeholder("3250.00").
 				Value(&values.Total).
 				Validate(requiredMoney("total")),
@@ -340,7 +340,7 @@ func (m *Model) openQuoteForm(values *quoteFormData, projectOpts []huh.Option[ui
 				Options(projectOpts...).
 				Value(&values.ProjectID),
 			huh.NewInput().
-				Title("Vendor name *").
+				Title(requiredTitle("Vendor name")).
 				Value(&values.VendorName).
 				Validate(requiredText("vendor name")),
 			huh.NewInput().Title("Contact name").Value(&values.ContactName),
@@ -350,7 +350,7 @@ func (m *Model) openQuoteForm(values *quoteFormData, projectOpts []huh.Option[ui
 		).Title("Vendor"),
 		huh.NewGroup(
 			huh.NewInput().
-				Title("Total *").
+				Title(requiredTitle("Total")).
 				Placeholder("3250.00").
 				Value(&values.Total).
 				Validate(requiredMoney("total")),
@@ -390,7 +390,7 @@ func (m *Model) startMaintenanceForm() {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
-				Title("Item *").
+				Title(requiredTitle("Item")).
 				Value(&values.Name).
 				Validate(requiredText("item")),
 			huh.NewSelect[uint]().
@@ -433,7 +433,7 @@ func (m *Model) openMaintenanceForm(
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
-				Title("Item *").
+				Title(requiredTitle("Item")).
 				Value(&values.Name).
 				Validate(requiredText("item")),
 			huh.NewSelect[uint]().
@@ -473,7 +473,7 @@ func (m *Model) startApplianceForm() {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
-				Title("Name *").
+				Title(requiredTitle("Name")).
 				Placeholder("Kitchen Refrigerator").
 				Value(&values.Name).
 				Validate(requiredText("name")),
@@ -497,7 +497,7 @@ func (m *Model) openApplianceForm(values *applianceFormData) {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
-				Title("Name *").
+				Title(requiredTitle("Name")).
 				Placeholder("Kitchen Refrigerator").
 				Value(&values.Name).
 				Validate(requiredText("name")),
@@ -573,7 +573,7 @@ func (m *Model) startVendorForm() {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
-				Title("Name *").
+				Title(requiredTitle("Name")).
 				Placeholder("Acme Plumbing").
 				Value(&values.Name).
 				Validate(requiredText("name")),
@@ -597,7 +597,7 @@ func (m *Model) openVendorForm(values *vendorFormData) {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
-				Title("Name *").
+				Title(requiredTitle("Name")).
 				Placeholder("Acme Plumbing").
 				Value(&values.Name).
 				Validate(requiredText("name")),
@@ -908,7 +908,7 @@ func (m *Model) startServiceLogForm(maintenanceItemID uint) error {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
-				Title("Date serviced * (YYYY-MM-DD)").
+				Title(requiredTitle("Date serviced")+" (YYYY-MM-DD)").
 				Value(&values.ServicedAt).
 				Validate(requiredDate("date serviced")),
 			huh.NewSelect[uint]().
@@ -940,7 +940,7 @@ func (m *Model) openServiceLogForm(
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
-				Title("Date serviced * (YYYY-MM-DD)").
+				Title(requiredTitle("Date serviced")+" (YYYY-MM-DD)").
 				Value(&values.ServicedAt).
 				Validate(requiredDate("date serviced")),
 			huh.NewSelect[uint]().
@@ -1631,6 +1631,12 @@ func houseFormValues(profile data.HouseProfile) *houseFormData {
 		HOAName:          profile.HOAName,
 		HOAFee:           data.FormatOptionalCents(profile.HOAFeeCents),
 	}
+}
+
+// requiredTitle appends a colored ∗ (U+2217) to a form field label.
+func requiredTitle(label string) string {
+	marker := lipgloss.NewStyle().Foreground(secondary).Render(" ∗")
+	return label + marker
 }
 
 func intToString(value int) string {
