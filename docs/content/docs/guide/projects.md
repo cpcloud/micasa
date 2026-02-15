@@ -31,6 +31,7 @@ The `Title` field is required. Everything else is optional or has a default.
 | `Start` | date | Start date | YYYY-MM-DD |
 | `End` | date | End date | YYYY-MM-DD |
 | `Quotes` | drill | Number of linked quotes | Press `enter` to view linked quotes |
+| `Docs` | drill | Number of linked documents | Press `enter` to view linked documents |
 
 ## Status lifecycle
 

@@ -23,6 +23,8 @@ erDiagram
     MaintenanceItem }o--o| Appliance : "linked to"
     MaintenanceItem ||--o{ ServiceLogEntry : has
     ServiceLogEntry }o--o| Vendor : "performed by"
+    Document }o--o| Project : "attached to"
+    Document }o--o| Appliance : "attached to"
 ```
 
 ## House Profile
@@ -92,6 +94,20 @@ Physical equipment in your home.
 - Appliances are referenced *by* maintenance items, not the other way around.
   The `Maint` drill column provides the reverse view: from any appliance,
   see everything you're doing to keep it running.
+
+## Documents
+
+File attachments stored as BLOBs inside the database.
+
+### Why this matters
+
+- Documents use a **polymorphic FK** (`EntityKind` + `EntityID`) to link to
+  any entity type -- projects, appliances, quotes, maintenance items, vendors,
+  or service log entries. This avoids a separate join table per entity.
+- File data lives inside SQLite, so `cp micasa.db backup.db` is a complete
+  backup with no sidecar files.
+- Drill columns on the Projects and Appliances tabs give direct access to
+  linked documents.
 
 ## Vendors
 

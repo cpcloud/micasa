@@ -14,7 +14,7 @@ micasa --demo
 ```
 
 This launches with sample data in an in-memory database -- projects,
-maintenance schedules, appliances, service log entries, quotes, and a
+maintenance items, appliances, service log entries, quotes, and a
 pre-filled house profile. Nothing is saved to disk. When you quit, the data
 is gone.
 

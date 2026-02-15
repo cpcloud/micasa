@@ -32,6 +32,7 @@ Only the `Name` is required.
 | `Warranty` | warranty | Warranty expiry | Green when active, red when expired. Shows on dashboard when expiring |
 | `Cost` | money | Purchase price | Dollar amount |
 | `Maint` | drill | Maintenance count | Press `enter` to view linked maintenance |
+| `Docs` | drill | Document count | Press `enter` to view linked documents |
 
 ## Warranty tracking
 

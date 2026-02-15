@@ -38,7 +38,7 @@ Complete reference of every keybinding in micasa, organized by mode.
 |-----------------|--------|
 | `b` / `f`       | Previous / next tab |
 | `tab`           | Toggle house profile |
-| `D`             | Toggle summary overlay |
+| `D`             | Toggle dashboard       |
 
 ### Table operations
 

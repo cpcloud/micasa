@@ -30,7 +30,7 @@ have full table navigation:
 | `n` / `N`   | Pin cell value / toggle filter |
 | `ctrl+n`    | Clear all pins and filter |
 | `tab`       | Toggle house profile |
-| `D`         | Toggle summary overlay |
+| `D`         | Toggle dashboard       |
 | `i`         | Enter Edit mode      |
 | `@`         | Open LLM chat        |
 | `?`         | Help overlay         |
@@ -72,9 +72,9 @@ Edit).
 
 ## Tabs
 
-The main data lives in five tabs: **Projects**, **Quotes**, **Maintenance**,
-**Appliances**, and **Vendors**. Use `b` / `f` to cycle between them. The
-active tab is highlighted in the tab bar.
+The main data lives in six tabs: **Projects**, **Quotes**, **Maintenance**,
+**Appliances**, **Vendors**, and **Docs**. Use `b` / `f` to cycle between
+them. The active tab is highlighted in the tab bar.
 
 ## Detail views
 
@@ -84,6 +84,7 @@ For example:
 - `Log` column on the Maintenance tab opens the service log for that item
 - `Maint` column on the Appliances tab opens maintenance items linked to
   that appliance
+- `Docs` column on the Projects or Appliances tab opens linked documents
 
 A breadcrumb bar replaces the tab bar while in a detail view (e.g.,
 `Maintenance > HVAC filter replacement`). Press `esc` to close the detail

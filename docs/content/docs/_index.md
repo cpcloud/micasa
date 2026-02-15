@@ -7,8 +7,9 @@ Your house is quietly plotting to break while you sleep -- and you're dreaming
 about redoing the kitchen. micasa tracks both from your terminal.
 
 micasa is a keyboard-driven terminal UI for managing everything about your home:
-maintenance schedules, projects, vendor quotes, appliances, warranties, and
-service history. It stores all data in a single SQLite file on your machine.
+maintenance schedules, projects, vendor quotes, appliances, warranties,
+service history, and file attachments. It stores all data in a single SQLite
+file on your machine.
 No cloud. No account. No subscriptions.
 
 ## What it does
@@ -24,8 +25,10 @@ No cloud. No account. No subscriptions.
   warranties, and YTD spending at a glance
 - **[Vim-style modal navigation]({{< ref "/docs/using/navigation" >}})** with Normal and Edit modes, multi-column
   sorting, column hiding, and cross-tab FK links
+- **[Document attachments]({{< ref "/docs/guide/documents" >}})** -- attach files (manuals, invoices,
+  photos) to any record, stored as BLOBs in the same SQLite file
 - **[LLM chat]({{< ref "/docs/guide/llm-chat" >}})** -- ask questions about your home data in plain English,
-  powered by a local LLM ([Ollama](https://ollama.com))
+  powered by a local LLM ([Ollama](https://ollama.com) or any OpenAI-compatible API)
 
 ## What it doesn't do
 

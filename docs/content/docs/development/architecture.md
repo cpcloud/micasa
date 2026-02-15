@@ -31,8 +31,9 @@ internal/
     calendar.go      Inline date picker overlay
     column_finder.go Fuzzy column jump overlay
   data/              Data access layer
-    models.go        GORM models (HouseProfile, Project, etc.)
+    models.go        GORM models (HouseProfile, Project, Document, etc.)
     store.go         Store struct, CRUD methods, queries
+    doccache.go      Document BLOB extraction + XDG cache
     dashboard.go     Dashboard-specific queries
     path.go          DB path resolution (XDG)
     validation.go    Parsing helpers (dates, money, ints)
@@ -44,8 +45,8 @@ internal/
 
 Entity-specific operations (load, delete, add form, edit form, inline edit,
 submit, snapshot, etc.) are encapsulated in the `TabHandler` interface.
-Each entity type (projects, quotes, maintenance, appliances, vendors)
-implements this interface as a stateless struct.
+Each entity type (projects, quotes, maintenance, appliances, vendors,
+documents) implements this interface as a stateless struct.
 
 This eliminates scattered `switch tab.Kind` dispatch. Adding a new entity type
 means implementing one interface -- no shotgun surgery across the codebase.
