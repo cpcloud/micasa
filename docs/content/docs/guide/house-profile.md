@@ -5,8 +5,7 @@ description = "Your home's physical and financial details."
 linkTitle = "House Profile"
 +++
 
-The house profile holds your home's physical and financial details. There's
-exactly one per database.
+Your home's physical and financial details -- one per database.
 
 ![House profile](/images/house-profile.webp)
 
