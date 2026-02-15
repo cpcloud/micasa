@@ -22,8 +22,9 @@ The column header shows sort indicators:
 - `▲1` = ascending, priority 1 (primary sort)
 - `▼2` = descending, priority 2 (secondary sort)
 
-Priority is determined by the order you add sorts. The first column you sort
-is priority 1, the second is priority 2, etc.
+There is no limit on the number of sort columns. Priority is determined by the
+order you add sorts: the first column you sort is priority 1, the second is
+priority 2, and so on.
 
 ### Sort behavior
 
