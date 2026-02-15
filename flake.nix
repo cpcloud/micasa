@@ -193,6 +193,15 @@
               hugo --source docs --baseURL /docs/ --destination ../website/docs
             '';
           };
+          serve-docs = pkgs.writeShellApplication {
+            name = "micasa-serve-docs";
+            runtimeInputs = [ pkgs.hugo ];
+            text = ''
+              mkdir -p docs/static/images
+              cp images/favicon.svg docs/static/images/favicon.svg
+              hugo server --source docs --buildDrafts --port 0 --bind 0.0.0.0
+            '';
+          };
           website = pkgs.writeShellApplication {
             name = "micasa-website";
             runtimeInputs = [
@@ -377,6 +386,7 @@
         apps = {
           default = flake-utils.lib.mkApp { drv = micasa; };
           website = flake-utils.lib.mkApp { drv = self.packages.${system}.website; };
+          serve-docs = flake-utils.lib.mkApp { drv = self.packages.${system}.serve-docs; };
           record-tape = flake-utils.lib.mkApp { drv = self.packages.${system}.record-tape; };
           record-demo = flake-utils.lib.mkApp { drv = self.packages.${system}.record-demo; };
           build-docs = flake-utils.lib.mkApp { drv = self.packages.${system}.build-docs; };
