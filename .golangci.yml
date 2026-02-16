@@ -22,6 +22,11 @@ linters:
     - fatcontext
     - copyloopvar
 
+    # Resource & network safety
+    - sqlclosecheck
+    - bodyclose
+    - nilerr
+
     # Code quality
     - goconst
     - dupword
