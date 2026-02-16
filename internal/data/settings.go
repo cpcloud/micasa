@@ -5,6 +5,7 @@ package data
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -106,14 +107,17 @@ func (s *Store) AppendChatInput(input string) error {
 
 	// Trim old entries.
 	var count int64
-	s.db.Model(&ChatInput{}).Count(&count)
+	if err := s.db.Model(&ChatInput{}).Count(&count).Error; err != nil {
+		return fmt.Errorf("count chat inputs: %w", err)
+	}
 	if count > chatHistoryMax {
 		excess := count - chatHistoryMax
-		// Delete the oldest N rows.
-		s.db.Exec(
+		if err := s.db.Exec(
 			"DELETE FROM chat_inputs WHERE id IN (SELECT id FROM chat_inputs ORDER BY id ASC LIMIT ?)",
 			excess,
-		)
+		).Error; err != nil {
+			return fmt.Errorf("trim chat inputs: %w", err)
+		}
 	}
 	return nil
 }
