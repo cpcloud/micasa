@@ -265,7 +265,7 @@ func (m *Model) loadDashboardAt(now time.Time) error {
 	if err != nil {
 		return fmt.Errorf("load service spend: %w", err)
 	}
-	d.ProjectSpendCents, err = m.store.YTDProjectSpendCents()
+	d.ProjectSpendCents, err = m.store.YTDProjectSpendCents(yearStart)
 	if err != nil {
 		return fmt.Errorf("load project spend: %w", err)
 	}

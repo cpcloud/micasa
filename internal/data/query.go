@@ -241,14 +241,14 @@ func isNoiseColumn(col string) bool {
 }
 
 // formatColumnValue renders a column/value pair for the LLM. Money columns
-// (suffix "_ct") are converted from cents to a $X.XX string; the suffix is
-// stripped from the display name for clarity.
+// (suffix "_cents") are converted from cents to a $X.XX string; the suffix
+// is stripped from the display name for clarity.
 func formatColumnValue(col, val string) string {
 	lower := strings.ToLower(col)
-	if strings.HasSuffix(lower, "_ct") {
+	if strings.HasSuffix(lower, "_cents") {
 		if cents, err := strconv.ParseInt(val, 10, 64); err == nil {
 			dollars := float64(cents) / 100
-			label := strings.TrimSuffix(col, "_ct")
+			label := strings.TrimSuffix(col, "_cents")
 			if label == "" {
 				label = col
 			}

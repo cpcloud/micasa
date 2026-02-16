@@ -138,7 +138,7 @@ func TestYTDSpending(t *testing.T) {
 		ActualCents: ptr(10000),
 	})
 
-	projSpend, err := store.YTDProjectSpendCents()
+	projSpend, err := store.YTDProjectSpendCents(yearStart)
 	require.NoError(t, err)
 	assert.Equal(t, int64(30000), projSpend)
 }
