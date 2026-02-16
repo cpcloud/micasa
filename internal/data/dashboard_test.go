@@ -126,7 +126,8 @@ func TestYTDSpending(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(5000), spend)
 
-	// Projects.
+	// Projects — TotalProjectSpendCents sums ALL non-deleted projects
+	// regardless of updated_at (the old YTD filter was incorrect).
 	var pt ProjectType
 	store.db.First(&pt)
 	store.db.Create(&Project{
@@ -137,7 +138,7 @@ func TestYTDSpending(t *testing.T) {
 		Title: "P2", ProjectTypeID: pt.ID, Status: ProjectStatusInProgress,
 		ActualCents: ptr(10000),
 	})
-	// Project updated last year -- should not count.
+	// Project updated last year — still included (no date filter).
 	oldProj := Project{
 		Title: "P3", ProjectTypeID: pt.ID, Status: ProjectStatusCompleted,
 		ActualCents: ptr(7777),
@@ -148,7 +149,40 @@ func TestYTDSpending(t *testing.T) {
 		time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC), "P3",
 	)
 
-	projSpend, err := store.YTDProjectSpendCents(yearStart)
+	projSpend, err := store.TotalProjectSpendCents()
 	require.NoError(t, err)
-	assert.Equal(t, int64(30000), projSpend)
+	assert.Equal(t, int64(37777), projSpend)
+}
+
+func TestTotalProjectSpendUnaffectedByEdits(t *testing.T) {
+	// User scenario: editing a project's description (or any field) should
+	// not change the spending total. The old updated_at filter caused edits
+	// to inflate/deflate the YTD figure.
+	store := newTestStore(t)
+	ptr := func(v int64) *int64 { return &v }
+
+	var pt ProjectType
+	store.db.First(&pt)
+	p := Project{
+		Title: "Kitchen Remodel", ProjectTypeID: pt.ID,
+		Status: ProjectStatusCompleted, ActualCents: ptr(50000),
+	}
+	store.db.Create(&p)
+
+	// Push updated_at into the past to simulate an old project.
+	store.db.Exec(
+		"UPDATE projects SET updated_at = ? WHERE id = ?",
+		time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC), p.ID,
+	)
+
+	spend1, err := store.TotalProjectSpendCents()
+	require.NoError(t, err)
+	assert.Equal(t, int64(50000), spend1)
+
+	// Simulate user editing the description — touches updated_at.
+	store.db.Model(&p).Update("notes", "added new countertops")
+
+	spend2, err := store.TotalProjectSpendCents()
+	require.NoError(t, err)
+	assert.Equal(t, spend1, spend2, "editing a project must not change the spending total")
 }

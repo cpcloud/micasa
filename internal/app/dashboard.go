@@ -265,7 +265,7 @@ func (m *Model) loadDashboardAt(now time.Time) error {
 	if err != nil {
 		return fmt.Errorf("load service spend: %w", err)
 	}
-	d.ProjectSpendCents, err = m.store.YTDProjectSpendCents(yearStart)
+	d.ProjectSpendCents, err = m.store.TotalProjectSpendCents()
 	if err != nil {
 		return fmt.Errorf("load project spend: %w", err)
 	}
@@ -454,7 +454,7 @@ func (m *Model) dashboardView(budget, maxWidth int) string {
 
 	if spendLine != "" {
 		rule := m.styles.DashRule.Render(strings.Repeat("─", maxWidth))
-		header := m.styles.DashSection.Render("Spending (YTD)")
+		header := m.styles.DashSection.Render("Spending")
 		allLines = append(allLines, rule+"\n"+header+"\n  "+spendLine)
 	}
 

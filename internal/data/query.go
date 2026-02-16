@@ -140,6 +140,16 @@ func (s *Store) DataDump() string {
 			_ = sqlRows.Close()
 			continue
 		}
+		// Find the deleted_at column so we can skip soft-deleted rows.
+		// Raw SQL bypasses GORM's automatic WHERE deleted_at IS NULL scope.
+		deletedAtIdx := -1
+		for i, c := range cols {
+			if strings.ToLower(c) == "deleted_at" {
+				deletedAtIdx = i
+				break
+			}
+		}
+
 		var rows [][]string
 		for sqlRows.Next() {
 			values := make([]any, len(cols))
@@ -148,6 +158,10 @@ func (s *Store) DataDump() string {
 				ptrs[i] = &values[i]
 			}
 			if err := sqlRows.Scan(ptrs...); err != nil {
+				continue
+			}
+			// Skip soft-deleted rows: deleted_at is non-null.
+			if deletedAtIdx >= 0 && values[deletedAtIdx] != nil {
 				continue
 			}
 			row := make([]string, len(cols))

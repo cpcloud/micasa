@@ -85,13 +85,15 @@ func (s *Store) YTDServiceSpendCents(yearStart time.Time) (int64, error) {
 	return *total, nil
 }
 
-// YTDProjectSpendCents returns the total actual spend across non-deleted
-// projects updated on or after the given start-of-year.
-func (s *Store) YTDProjectSpendCents(yearStart time.Time) (int64, error) {
+// TotalProjectSpendCents returns the total actual spend across all non-deleted
+// projects. Unlike service log entries (which have a serviced_at date),
+// projects have no per-transaction date, so YTD filtering is not meaningful.
+// The previous updated_at filter was incorrect: editing any project field
+// (e.g. description) would cause its spend to appear/disappear from the total.
+func (s *Store) TotalProjectSpendCents() (int64, error) {
 	var total *int64
 	err := s.db.Model(&Project{}).
-		Select("COALESCE(SUM("+ColActualCents+"), 0)").
-		Where(ColUpdatedAt+" >= ?", yearStart).
+		Select("COALESCE(SUM(" + ColActualCents + "), 0)").
 		Scan(&total).Error
 	if err != nil {
 		return 0, err

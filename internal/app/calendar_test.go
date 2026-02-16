@@ -256,6 +256,52 @@ func TestCalendarHintsOnLeft(t *testing.T) {
 	assert.True(t, foundDays, "expected day labels in calendar output")
 }
 
+func TestCalendarMoveMonthFromJan31ClampsFeb(t *testing.T) {
+	// User scenario: cursor is on Jan 31, user presses L (next month).
+	// Should land on Feb 28 (not March 3 from time.AddDate overflow).
+	cal := &calendarState{
+		Cursor: time.Date(2025, 1, 31, 0, 0, 0, 0, time.Local),
+	}
+	calendarMoveMonth(cal, 1)
+	assert.Equal(t, time.February, cal.Cursor.Month())
+	assert.Equal(t, 28, cal.Cursor.Day())
+}
+
+func TestCalendarMoveMonthFromJan31LeapYear(t *testing.T) {
+	cal := &calendarState{
+		Cursor: time.Date(2024, 1, 31, 0, 0, 0, 0, time.Local),
+	}
+	calendarMoveMonth(cal, 1)
+	assert.Equal(t, time.February, cal.Cursor.Month())
+	assert.Equal(t, 29, cal.Cursor.Day())
+}
+
+func TestCalendarMoveYearFromFeb29ClampsFeb28(t *testing.T) {
+	// User scenario: cursor is on Feb 29 in a leap year, user presses ]
+	// (next year). Should land on Feb 28, not March 1.
+	cal := &calendarState{
+		Cursor: time.Date(2024, 2, 29, 0, 0, 0, 0, time.Local),
+	}
+	calendarMoveYear(cal, 1)
+	assert.Equal(t, 2025, cal.Cursor.Year())
+	assert.Equal(t, time.February, cal.Cursor.Month())
+	assert.Equal(t, 28, cal.Cursor.Day())
+}
+
+func TestCalendarMoveMonthViaKeyboardClamps(t *testing.T) {
+	// End-to-end user flow: open calendar on Jan 31, press L (next month).
+	m := newTestModel()
+	dateVal := "2025-01-31"
+	m.openCalendar(&dateVal, nil)
+	require.NotNil(t, m.calendar)
+	assert.Equal(t, 31, m.calendar.Cursor.Day())
+
+	sendKey(m, "L") // next month
+	assert.Equal(t, time.February, m.calendar.Cursor.Month())
+	assert.Equal(t, 28, m.calendar.Cursor.Day(),
+		"navigating forward from Jan 31 should land on Feb 28, not overflow to March")
+}
+
 func TestOpenCalendarWithEmptyValue(t *testing.T) {
 	m := newTestModel()
 	dateVal := ""

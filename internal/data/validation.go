@@ -177,8 +177,23 @@ func ComputeNextDue(last *time.Time, intervalMonths int) *time.Time {
 	if last == nil || intervalMonths <= 0 {
 		return nil
 	}
-	next := last.AddDate(0, intervalMonths, 0)
+	next := AddMonths(*last, intervalMonths)
 	return &next
+}
+
+// AddMonths adds the given number of months to t, clamping the day to the
+// last day of the target month. This avoids the time.AddDate gotcha where
+// Jan 31 + 1 month = March 3 instead of Feb 28.
+func AddMonths(t time.Time, months int) time.Time {
+	y, m, d := t.Date()
+	targetMonth := m + time.Month(months)
+	// Day 0 of the NEXT month gives the last day of the target month.
+	lastDay := time.Date(y, targetMonth+1, 0, 0, 0, 0, 0, t.Location()).Day()
+	if d > lastDay {
+		d = lastDay
+	}
+	return time.Date(y, targetMonth, d,
+		t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), t.Location())
 }
 
 func parseCents(input string) (int64, error) {

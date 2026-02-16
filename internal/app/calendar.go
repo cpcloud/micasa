@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/cpcloud/micasa/internal/data"
 )
 
 // calendarState tracks the date picker overlay.
@@ -178,12 +179,16 @@ func calendarMove(cal *calendarState, days int) {
 	cal.Cursor = cal.Cursor.AddDate(0, 0, days)
 }
 
-// calendarMoveMonth adjusts the calendar cursor by the given number of months.
+// calendarMoveMonth adjusts the calendar cursor by the given number of months,
+// clamping the day to the last day of the target month to avoid the
+// time.AddDate overflow (e.g. Jan 31 + 1 month = March 3).
 func calendarMoveMonth(cal *calendarState, months int) {
-	cal.Cursor = cal.Cursor.AddDate(0, months, 0)
+	cal.Cursor = data.AddMonths(cal.Cursor, months)
 }
 
-// calendarMoveYear adjusts the calendar cursor by the given number of years.
+// calendarMoveYear adjusts the calendar cursor by the given number of years,
+// clamping the day to the last day of the target month (handles Feb 29 in
+// non-leap years).
 func calendarMoveYear(cal *calendarState, years int) {
-	cal.Cursor = cal.Cursor.AddDate(years, 0, 0)
+	cal.Cursor = data.AddMonths(cal.Cursor, years*12)
 }

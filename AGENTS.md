@@ -362,6 +362,15 @@ These have been repeatedly requested. Violating them wastes the user's time.
   into unexported fields, mock internal helpers, or assert on internal
   state. If a test can only be written by poking into implementation
   details, the API surface needs refactoring, not the test.
+- **User-flow tests are MANDATORY for all user-facing changes**: Every
+  bug fix or feature that affects user-visible behavior MUST have at
+  least one test written from the user's perspective (e.g. "user opens
+  dashboard, appliances without warranty don't appear"; "user edits a
+  form field, dirty detection fires"). Structural/belt-and-suspenders
+  tests (compile-time guards, invariant checks) are welcome as
+  ADDITIONS but never as REPLACEMENTS for user-flow tests. If you're
+  unsure whether a user-flow test is needed or would be overkill, STOP
+  and ask the developer before proceeding.
 - **Prefer tools over shell commands**: Use the dedicated Read, Write,
   StrReplace, Grep, and Glob tools instead of shell equivalents (`cat`,
   `sed`, `grep`, `find`, `echo >`, etc.). Only use Shell for commands that

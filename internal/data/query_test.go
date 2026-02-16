@@ -146,6 +146,24 @@ func TestDataDump(t *testing.T) {
 	assert.Contains(t, dump, "- ")
 }
 
+func TestDataDumpExcludesSoftDeletedRecords(t *testing.T) {
+	store := newTestStore(t)
+
+	// Create a vendor, then soft-delete it. The LLM dump should NOT mention it.
+	v := Vendor{Name: "DeletedVendorXYZ"}
+	store.db.Create(&v)
+	store.db.Delete(&v) // soft delete
+
+	// Create a non-deleted vendor to verify the dump still works.
+	store.db.Create(&Vendor{Name: "ActiveVendorABC"})
+
+	dump := store.DataDump()
+	assert.NotContains(t, dump, "DeletedVendorXYZ",
+		"soft-deleted vendor should not appear in DataDump")
+	assert.Contains(t, dump, "ActiveVendorABC",
+		"active vendor should appear in DataDump")
+}
+
 func TestColumnHints(t *testing.T) {
 	store := newTestStoreWithDemoData(t, testSeed)
 

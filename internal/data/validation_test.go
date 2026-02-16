@@ -314,3 +314,63 @@ func TestFormatCompactCentsMinInt64(t *testing.T) {
 	// Should not panic
 	assert.Contains(t, formatted, "-$")
 }
+
+func TestAddMonths(t *testing.T) {
+	tests := []struct {
+		name   string
+		start  time.Time
+		months int
+		want   string
+	}{
+		{
+			"Jan 31 + 1 month = Feb 28 (non-leap year)",
+			time.Date(2025, 1, 31, 0, 0, 0, 0, time.UTC), 1,
+			"2025-02-28",
+		},
+		{
+			"Jan 31 + 1 month = Feb 29 (leap year)",
+			time.Date(2024, 1, 31, 0, 0, 0, 0, time.UTC), 1,
+			"2024-02-29",
+		},
+		{
+			"Mar 31 + 1 month = Apr 30",
+			time.Date(2025, 3, 31, 0, 0, 0, 0, time.UTC), 1,
+			"2025-04-30",
+		},
+		{
+			"normal case: Jan 15 + 1 month = Feb 15",
+			time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC), 1,
+			"2025-02-15",
+		},
+		{
+			"multiple months: Jan 31 + 3 months = Apr 30",
+			time.Date(2025, 1, 31, 0, 0, 0, 0, time.UTC), 3,
+			"2025-04-30",
+		},
+		{
+			"year wrap: Nov 30 + 3 months = Feb 28",
+			time.Date(2024, 11, 30, 0, 0, 0, 0, time.UTC), 3,
+			"2025-02-28",
+		},
+		{
+			"Feb 29 (leap) + 12 months = Feb 28 (non-leap)",
+			time.Date(2024, 2, 29, 0, 0, 0, 0, time.UTC), 12,
+			"2025-02-28",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := AddMonths(tt.start, tt.months)
+			assert.Equal(t, tt.want, got.Format(DateLayout))
+		})
+	}
+}
+
+func TestComputeNextDueMonthEndClamping(t *testing.T) {
+	// User scenario: maintenance item serviced Jan 31, interval 1 month.
+	// Next due should be Feb 28, not March 3 (the time.AddDate gotcha).
+	last := time.Date(2025, 1, 31, 0, 0, 0, 0, time.UTC)
+	next := ComputeNextDue(&last, 1)
+	require.NotNil(t, next)
+	assert.Equal(t, "2025-02-28", next.Format(DateLayout))
+}
