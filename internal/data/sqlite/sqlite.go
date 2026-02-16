@@ -11,6 +11,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"strconv"
 
 	"gorm.io/gorm"
@@ -87,13 +88,13 @@ func (dialector Dialector) ClauseBuilders() map[string]clause.ClauseBuilder {
 		"INSERT": func(c clause.Clause, builder clause.Builder) {
 			if insert, ok := c.Expression.(clause.Insert); ok {
 				if stmt, ok := builder.(*gorm.Statement); ok {
-					stmt.WriteString("INSERT ")
+					_, _ = stmt.WriteString("INSERT ")
 					if insert.Modifier != "" {
-						stmt.WriteString(insert.Modifier)
-						stmt.WriteByte(' ')
+						_, _ = stmt.WriteString(insert.Modifier)
+						_ = stmt.WriteByte(' ')
 					}
 
-					stmt.WriteString("INTO ")
+					_, _ = stmt.WriteString("INTO ")
 					if insert.Table.Name == "" {
 						stmt.WriteQuoted(stmt.Table)
 					} else {
@@ -112,12 +113,12 @@ func (dialector Dialector) ClauseBuilders() map[string]clause.ClauseBuilder {
 					lmt = *limit.Limit
 				}
 				if lmt >= 0 || limit.Offset > 0 {
-					builder.WriteString("LIMIT ")
-					builder.WriteString(strconv.Itoa(lmt))
+					_, _ = builder.WriteString("LIMIT ")
+					_, _ = builder.WriteString(strconv.Itoa(lmt))
 				}
 				if limit.Offset > 0 {
-					builder.WriteString(" OFFSET ")
-					builder.WriteString(strconv.Itoa(limit.Offset))
+					_, _ = builder.WriteString(" OFFSET ")
+					_, _ = builder.WriteString(strconv.Itoa(limit.Offset))
 				}
 			}
 		},
@@ -150,7 +151,7 @@ func (dialector Dialector) Migrator(db *gorm.DB) gorm.Migrator {
 func (dialector Dialector) BindVarTo(
 	writer clause.Writer, _ *gorm.Statement, _ interface{},
 ) {
-	writer.WriteByte('?')
+	_ = writer.WriteByte('?')
 }
 
 func (dialector Dialector) QuoteTo(writer clause.Writer, str string) {
@@ -165,7 +166,7 @@ func (dialector Dialector) QuoteTo(writer clause.Writer, str string) {
 		case '`':
 			continuousBacktick++
 			if continuousBacktick == 2 {
-				writer.WriteString("``")
+				_, _ = writer.WriteString("``")
 				continuousBacktick = 0
 			}
 		case '.':
@@ -173,13 +174,13 @@ func (dialector Dialector) QuoteTo(writer clause.Writer, str string) {
 				shiftDelimiter = 0
 				underQuoted = false
 				continuousBacktick = 0
-				writer.WriteString("`")
+				_, _ = writer.WriteString("`")
 			}
-			writer.WriteByte(v)
+			_ = writer.WriteByte(v)
 			continue
 		default:
 			if shiftDelimiter-continuousBacktick <= 0 && !underQuoted {
-				writer.WriteString("`")
+				_, _ = writer.WriteString("`")
 				underQuoted = true
 				if selfQuoted = continuousBacktick > 0; selfQuoted {
 					continuousBacktick--
@@ -187,18 +188,18 @@ func (dialector Dialector) QuoteTo(writer clause.Writer, str string) {
 			}
 
 			for ; continuousBacktick > 0; continuousBacktick-- {
-				writer.WriteString("``")
+				_, _ = writer.WriteString("``")
 			}
 
-			writer.WriteByte(v)
+			_ = writer.WriteByte(v)
 		}
 		shiftDelimiter++
 	}
 
 	if continuousBacktick > 0 && !selfQuoted {
-		writer.WriteString("``")
+		_, _ = writer.WriteString("``")
 	}
-	writer.WriteString("`")
+	_, _ = writer.WriteString("`")
 }
 
 func (dialector Dialector) Explain(sql string, vars ...interface{}) string {
@@ -244,7 +245,8 @@ func (dialector Dialector) RollbackTo(tx *gorm.DB, name string) error {
 // Uses modernc.org/sqlite's Error type directly instead of
 // the unmaintained glebarez/go-sqlite wrapper.
 func (dialector Dialector) Translate(err error) error {
-	if terr, ok := err.(*sqlite.Error); ok {
+	var terr *sqlite.Error
+	if errors.As(err, &terr) {
 		switch terr.Code() {
 		case sqlite3.SQLITE_CONSTRAINT_UNIQUE,
 			sqlite3.SQLITE_CONSTRAINT_PRIMARYKEY:
