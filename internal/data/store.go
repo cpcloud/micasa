@@ -1147,21 +1147,38 @@ func (s *Store) countDependents(model any, fkColumn string, id uint) (int64, err
 }
 
 func (s *Store) softDelete(model any, entity string, id uint) error {
-	result := s.db.Delete(model, id)
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
-	}
-	return s.logDeletion(entity, id)
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		result := tx.Delete(model, id)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		record := DeletionRecord{
+			Entity:    entity,
+			TargetID:  id,
+			DeletedAt: time.Now(),
+		}
+		return tx.Create(&record).Error
+	})
 }
 
 func (s *Store) restoreEntity(model any, entity string, id uint) error {
-	if err := s.restoreByID(model, id); err != nil {
-		return err
-	}
-	return s.markDeletionRestored(entity, id)
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Unscoped().Model(model).
+			Where(ColID+" = ?", id).
+			Update(ColDeletedAt, nil).Error; err != nil {
+			return err
+		}
+		restoredAt := time.Now()
+		return tx.Model(&DeletionRecord{}).
+			Where(
+				ColEntity+" = ? AND "+ColTargetID+" = ? AND "+ColRestoredAt+" IS NULL",
+				entity, id,
+			).
+			Update(ColRestoredAt, restoredAt).Error
+	})
 }
 
 func (s *Store) LastDeletion(entity string) (DeletionRecord, error) {
@@ -1219,28 +1236,6 @@ func (s *Store) seedMaintenanceCategories() error {
 		}
 	}
 	return nil
-}
-
-func (s *Store) restoreByID(model any, id uint) error {
-	return s.db.Unscoped().Model(model).
-		Where(ColID+" = ?", id).
-		Update(ColDeletedAt, nil).Error
-}
-
-func (s *Store) logDeletion(entity string, id uint) error {
-	record := DeletionRecord{
-		Entity:    entity,
-		TargetID:  id,
-		DeletedAt: time.Now(),
-	}
-	return s.db.Create(&record).Error
-}
-
-func (s *Store) markDeletionRestored(entity string, id uint) error {
-	restoredAt := time.Now()
-	return s.db.Model(&DeletionRecord{}).
-		Where(ColEntity+" = ? AND "+ColTargetID+" = ? AND "+ColRestoredAt+" IS NULL", entity, id).
-		Update(ColRestoredAt, restoredAt).Error
 }
 
 // countByFK groups rows in model by fkColumn and returns a count per FK value.
