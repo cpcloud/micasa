@@ -4,6 +4,7 @@
 package app
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
@@ -213,4 +214,64 @@ func TestServiceLogFormValuesNoVendor(t *testing.T) {
 	got := serviceLogFormValues(entry)
 	assert.Zero(t, got.VendorID)
 	assert.Empty(t, got.Cost)
+}
+
+func TestFormDirtyDetectionUserFlow(t *testing.T) {
+	m := newTestModel()
+
+	// Simulate: user opens an appliance edit form with pre-filled values.
+	values := &applianceFormData{
+		Name:  "Fridge",
+		Brand: "Samsung",
+		Cost:  "$899.00",
+	}
+	m.formData = values
+	m.snapshotForm()
+
+	// User hasn't changed anything yet — form should not be dirty.
+	m.checkFormDirty()
+	assert.False(t, m.formDirty, "form should not be dirty before any edits")
+
+	// User edits the brand field.
+	values.Brand = "LG"
+	m.checkFormDirty()
+	assert.True(t, m.formDirty, "form should be dirty after editing a field")
+
+	// User reverts the edit back to the original value.
+	values.Brand = "Samsung"
+	m.checkFormDirty()
+	assert.False(t, m.formDirty, "form should not be dirty after reverting")
+}
+
+// TestFormDataStructsHaveNoReferenceFields ensures cloneFormData's shallow
+// copy is safe. If any form data struct gains a pointer, slice, or map
+// field, this test will catch it -- the snapshot would share that reference
+// and dirty-detection via reflect.DeepEqual would silently break.
+func TestFormDataStructsHaveNoReferenceFields(t *testing.T) {
+	structs := []any{
+		projectFormData{},
+		applianceFormData{},
+		maintenanceFormData{},
+		vendorFormData{},
+		quoteFormData{},
+		serviceLogFormData{},
+		documentFormData{},
+		houseFormData{},
+	}
+	for _, s := range structs {
+		rt := reflect.TypeOf(s)
+		t.Run(rt.Name(), func(t *testing.T) {
+			for i := range rt.NumField() {
+				f := rt.Field(i)
+				switch f.Type.Kind() { //nolint:exhaustive // only reference kinds matter here
+				case reflect.Ptr, reflect.Slice, reflect.Map,
+					reflect.Chan, reflect.Func, reflect.Interface:
+					t.Errorf(
+						"field %s.%s is %s -- cloneFormData requires value-only fields",
+						rt.Name(), f.Name, f.Type.Kind(),
+					)
+				}
+			}
+		})
+	}
 }

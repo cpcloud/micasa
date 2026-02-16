@@ -193,3 +193,23 @@ func TestLoadDashboardAtBuildsNav(t *testing.T) {
 	assert.NotEmpty(t, m.dashNav)
 	assert.Equal(t, tabMaintenance, m.dashNav[0].Tab)
 }
+
+func TestLoadDashboardExcludesAppliancesWithoutWarranty(t *testing.T) {
+	m := newTestModelWithStore(t)
+
+	// One appliance with warranty in range, one without any warranty.
+	expiry := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
+	require.NoError(t, m.store.CreateAppliance(data.Appliance{
+		Name:           "Fridge",
+		WarrantyExpiry: &expiry,
+	}))
+	require.NoError(t, m.store.CreateAppliance(data.Appliance{
+		Name: "Toaster",
+	}))
+
+	now := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
+	require.NoError(t, m.loadDashboardAt(now))
+
+	require.Len(t, m.dashboard.ExpiringWarranties, 1)
+	assert.Equal(t, "Fridge", m.dashboard.ExpiringWarranties[0].Appliance.Name)
+}

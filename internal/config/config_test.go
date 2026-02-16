@@ -137,3 +137,37 @@ func TestMaxDocumentSizeRejectsInvalid(t *testing.T) {
 		})
 	}
 }
+
+func TestDefaultCacheTTLDays(t *testing.T) {
+	cfg, err := LoadFromPath(filepath.Join(t.TempDir(), "nope.toml"))
+	require.NoError(t, err)
+	assert.Equal(t, DefaultCacheTTLDays, cfg.Documents.CacheTTLDays)
+}
+
+func TestCacheTTLDaysFromFile(t *testing.T) {
+	path := writeConfig(t, "[documents]\ncache_ttl_days = 7\n")
+	cfg, err := LoadFromPath(path)
+	require.NoError(t, err)
+	assert.Equal(t, 7, cfg.Documents.CacheTTLDays)
+}
+
+func TestCacheTTLDaysZeroDisables(t *testing.T) {
+	path := writeConfig(t, "[documents]\ncache_ttl_days = 0\n")
+	cfg, err := LoadFromPath(path)
+	require.NoError(t, err)
+	assert.Equal(t, 0, cfg.Documents.CacheTTLDays)
+}
+
+func TestCacheTTLDaysEnvOverride(t *testing.T) {
+	t.Setenv("MICASA_CACHE_TTL_DAYS", "14")
+	cfg, err := LoadFromPath(filepath.Join(t.TempDir(), "nope.toml"))
+	require.NoError(t, err)
+	assert.Equal(t, 14, cfg.Documents.CacheTTLDays)
+}
+
+func TestCacheTTLDaysRejectsNegative(t *testing.T) {
+	path := writeConfig(t, "[documents]\ncache_ttl_days = -1\n")
+	_, err := LoadFromPath(path)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must be non-negative")
+}

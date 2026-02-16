@@ -44,12 +44,18 @@ type Documents struct {
 	// MaxFileSize is the largest file (in bytes) that can be imported as a
 	// document attachment. Default: 50 MiB.
 	MaxFileSize int64 `toml:"max_file_size"`
+
+	// CacheTTLDays is the number of days an extracted document cache entry
+	// is kept before being evicted on the next startup. Set to 0 to disable
+	// eviction. Default: 30.
+	CacheTTLDays int `toml:"cache_ttl_days"`
 }
 
 const (
-	DefaultBaseURL = "http://localhost:11434/v1"
-	DefaultModel   = "qwen3"
-	configRelPath  = "micasa/config.toml"
+	DefaultBaseURL      = "http://localhost:11434/v1"
+	DefaultModel        = "qwen3"
+	DefaultCacheTTLDays = 30
+	configRelPath       = "micasa/config.toml"
 )
 
 // defaults returns a Config with all default values populated.
@@ -60,7 +66,8 @@ func defaults() Config {
 			Model:   DefaultModel,
 		},
 		Documents: Documents{
-			MaxFileSize: data.MaxDocumentSize,
+			MaxFileSize:  data.MaxDocumentSize,
+			CacheTTLDays: DefaultCacheTTLDays,
 		},
 	}
 }
@@ -101,6 +108,13 @@ func LoadFromPath(path string) (Config, error) {
 		)
 	}
 
+	if cfg.Documents.CacheTTLDays < 0 {
+		return cfg, fmt.Errorf(
+			"documents.cache_ttl_days must be non-negative, got %d",
+			cfg.Documents.CacheTTLDays,
+		)
+	}
+
 	return cfg, nil
 }
 
@@ -121,6 +135,11 @@ func applyEnvOverrides(cfg *Config) {
 	if maxSize := os.Getenv("MICASA_MAX_DOCUMENT_SIZE"); maxSize != "" {
 		if n, err := strconv.ParseInt(maxSize, 10, 64); err == nil {
 			cfg.Documents.MaxFileSize = n
+		}
+	}
+	if ttl := os.Getenv("MICASA_CACHE_TTL_DAYS"); ttl != "" {
+		if n, err := strconv.Atoi(ttl); err == nil {
+			cfg.Documents.CacheTTLDays = n
 		}
 	}
 }
@@ -148,5 +167,9 @@ model = "` + DefaultModel + `"
 [documents]
 # Maximum file size (in bytes) for document imports. Default: 50 MiB.
 # max_file_size = 52428800
+
+# Days to keep extracted document cache entries before evicting on startup.
+# Set to 0 to disable eviction. Default: 30.
+# cache_ttl_days = 30
 `
 }

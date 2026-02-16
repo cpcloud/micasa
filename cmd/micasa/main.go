@@ -66,6 +66,13 @@ func main() {
 	if err := store.SetMaxDocumentSize(cfg.Documents.MaxFileSize); err != nil {
 		fail("configure document size limit", err)
 	}
+	cacheDir, err := data.DocumentCacheDir()
+	if err != nil {
+		fail("resolve document cache directory", err)
+	}
+	if _, err := data.EvictStaleCache(cacheDir, cfg.Documents.CacheTTLDays); err != nil {
+		fail("evict stale cache", err)
+	}
 
 	opts := app.Options{
 		DBPath:     dbPath,

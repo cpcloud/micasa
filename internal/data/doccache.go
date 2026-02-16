@@ -4,9 +4,11 @@
 package data
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 // ExtractDocument writes the document's BLOB content to the XDG cache
@@ -31,8 +33,15 @@ func (s *Store) ExtractDocument(id uint) (string, error) {
 	name := doc.ChecksumSHA256 + "-" + filepath.Base(doc.FileName)
 	cachePath := filepath.Join(cacheDir, name)
 
-	// Cache hit: file exists with correct size.
+	// Cache hit: file exists with correct size. Touch the ModTime so the
+	// TTL-based eviction in EvictStaleCache treats it as recently used.
 	if info, statErr := os.Stat(cachePath); statErr == nil && info.Size() == doc.SizeBytes {
+		now := time.Now()
+		_ = os.Chtimes(
+			cachePath,
+			now,
+			now,
+		) // best-effort; stale ModTime just means earlier re-extraction
 		return cachePath, nil
 	}
 
@@ -40,4 +49,40 @@ func (s *Store) ExtractDocument(id uint) (string, error) {
 		return "", fmt.Errorf("write cached document: %w", err)
 	}
 	return cachePath, nil
+}
+
+// EvictStaleCache removes cached document files from dir that haven't been
+// modified in the given number of days. A ttlDays of 0 disables eviction.
+// Returns the number of files removed and any error encountered while listing
+// the directory (individual file removal errors are skipped).
+func EvictStaleCache(dir string, ttlDays int) (int, error) {
+	if ttlDays <= 0 || dir == "" {
+		return 0, nil
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return 0, nil // cache dir doesn't exist yet; nothing to evict
+		}
+		return 0, fmt.Errorf("list cache dir: %w", err)
+	}
+
+	cutoff := time.Now().AddDate(0, 0, -ttlDays)
+	removed := 0
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		if info.ModTime().Before(cutoff) {
+			if os.Remove(filepath.Join(dir, entry.Name())) == nil {
+				removed++
+			}
+		}
+	}
+	return removed, nil
 }

@@ -2032,3 +2032,88 @@ func TestSoftDeleteRestoreDocument(t *testing.T) {
 	// parent entity doesn't exist (ErrParentNotFound from requireParentAlive).
 	// In real usage the parent always exists before the document is created.
 }
+
+func TestEvictStaleCacheRemovesOldFiles(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create a "fresh" file (now) and a "stale" file (40 days old).
+	fresh := filepath.Join(dir, "fresh.txt")
+	stale := filepath.Join(dir, "stale.txt")
+	require.NoError(t, os.WriteFile(fresh, []byte("new"), 0o600))
+	require.NoError(t, os.WriteFile(stale, []byte("old"), 0o600))
+
+	old := time.Now().AddDate(0, 0, -40)
+	require.NoError(t, os.Chtimes(stale, old, old))
+
+	removed, err := EvictStaleCache(dir, 30)
+	require.NoError(t, err)
+	assert.Equal(t, 1, removed)
+
+	assert.FileExists(t, fresh)
+	assert.NoFileExists(t, stale)
+}
+
+func TestEvictStaleCacheEmptyDir(t *testing.T) {
+	dir := t.TempDir()
+	removed, err := EvictStaleCache(dir, 30)
+	require.NoError(t, err)
+	assert.Equal(t, 0, removed)
+}
+
+func TestEvictStaleCacheSkipsSubdirectories(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create a subdirectory with an old timestamp — should not be removed.
+	subdir := filepath.Join(dir, "subdir")
+	require.NoError(t, os.Mkdir(subdir, 0o700))
+	old := time.Now().AddDate(0, 0, -40)
+	require.NoError(t, os.Chtimes(subdir, old, old))
+
+	removed, err := EvictStaleCache(dir, 30)
+	require.NoError(t, err)
+	assert.Equal(t, 0, removed)
+	assert.DirExists(t, subdir)
+}
+
+func TestEvictStaleCacheRecentFileKept(t *testing.T) {
+	dir := t.TempDir()
+
+	// File modified 29 days ago (within the 30-day TTL) should be kept.
+	f := filepath.Join(dir, "recent.txt")
+	require.NoError(t, os.WriteFile(f, []byte("keep"), 0o600))
+	recent := time.Now().AddDate(0, 0, -29)
+	require.NoError(t, os.Chtimes(f, recent, recent))
+
+	removed, err := EvictStaleCache(dir, 30)
+	require.NoError(t, err)
+	assert.Equal(t, 0, removed)
+	assert.FileExists(t, f)
+}
+
+func TestEvictStaleCacheZeroTTLDisabled(t *testing.T) {
+	dir := t.TempDir()
+
+	f := filepath.Join(dir, "ancient.txt")
+	require.NoError(t, os.WriteFile(f, []byte("data"), 0o600))
+	old := time.Now().AddDate(-1, 0, 0)
+	require.NoError(t, os.Chtimes(f, old, old))
+
+	removed, err := EvictStaleCache(dir, 0)
+	require.NoError(t, err)
+	assert.Equal(t, 0, removed)
+	assert.FileExists(t, f)
+}
+
+func TestEvictStaleCacheEmptyDirPath(t *testing.T) {
+	// Empty dir path should be a no-op, not read CWD.
+	removed, err := EvictStaleCache("", 30)
+	require.NoError(t, err)
+	assert.Equal(t, 0, removed)
+}
+
+func TestEvictStaleCacheNonexistentDir(t *testing.T) {
+	// Missing cache dir should be a no-op, not a fatal error.
+	removed, err := EvictStaleCache(filepath.Join(t.TempDir(), "nope"), 30)
+	require.NoError(t, err)
+	assert.Equal(t, 0, removed)
+}

@@ -671,10 +671,10 @@ func (m *Model) dashProjectRows() []dashRow {
 func (m *Model) dashExpiringRows() []dashRow {
 	d := m.dashboard
 	var rows []dashRow
+	// WarrantyExpiry is guaranteed non-nil here: ListExpiringWarranties uses
+	// WHERE warranty_expiry IS NOT NULL, and loadDashboardAt skips nil entries
+	// before populating ExpiringWarranties.
 	for _, w := range d.ExpiringWarranties {
-		if w.Appliance.WarrantyExpiry == nil {
-			continue
-		}
 		overdue := w.DaysFromNow < 0
 		nameStyle := m.styles.DashUpcoming
 		if overdue {

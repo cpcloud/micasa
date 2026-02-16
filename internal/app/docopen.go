@@ -41,6 +41,9 @@ func (m *Model) openSelectedDocument() tea.Cmd {
 // openFileCmd returns a tea.Cmd that opens the given path with the OS viewer.
 // The command runs to completion so exit-status errors (e.g. no handler for
 // the MIME type) are captured and returned as an openFileResultMsg.
+//
+// Only called from openSelectedDocument with a path returned by
+// Store.ExtractDocument (always under the XDG cache directory).
 func openFileCmd(path string) tea.Cmd {
 	return func() tea.Msg {
 		var cmd *exec.Cmd

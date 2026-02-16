@@ -82,7 +82,13 @@ func buildTestBinary(t *testing.T) string {
 		ext = ".exe"
 	}
 	bin := filepath.Join(t.TempDir(), "micasa"+ext)
-	cmd := exec.Command("go", "build", "-o", bin, ".")
+	cmd := exec.Command( //nolint:gosec // test helper with constant args
+		"go",
+		"build",
+		"-o",
+		bin,
+		".",
+	)
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 	out, err := cmd.CombinedOutput()
 	require.NoError(t, err, "build failed:\n%s", out)
@@ -96,7 +102,8 @@ func TestVersion_DevShowsCommitHash(t *testing.T) {
 		t.Skip("no .git directory; VCS info unavailable (e.g. Nix sandbox)")
 	}
 	bin := buildTestBinary(t)
-	out, err := exec.Command(bin, "--version").Output()
+	verCmd := exec.Command(bin, "--version") //nolint:gosec // test binary path from buildTestBinary
+	out, err := verCmd.Output()
 	require.NoError(t, err, "--version failed")
 	got := strings.TrimSpace(string(out))
 	// Built inside a git repo: expect a hex hash, possibly with -dirty.
@@ -110,13 +117,14 @@ func TestVersion_Injected(t *testing.T) {
 		ext = ".exe"
 	}
 	bin := filepath.Join(t.TempDir(), "micasa"+ext)
-	cmd := exec.Command("go", "build",
+	cmd := exec.Command("go", "build", //nolint:gosec // test with constant args
 		"-ldflags", "-X main.version=1.2.3",
 		"-o", bin, ".")
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 	out, err := cmd.CombinedOutput()
 	require.NoError(t, err, "build failed:\n%s", out)
-	verOut, err := exec.Command(bin, "--version").Output()
+	verCmd := exec.Command(bin, "--version") //nolint:gosec // test binary path from above
+	verOut, err := verCmd.Output()
 	require.NoError(t, err, "--version failed")
 	assert.Equal(t, "1.2.3", strings.TrimSpace(string(verOut)))
 }
