@@ -46,11 +46,15 @@ func openFileCmd(path string) tea.Cmd {
 		var cmd *exec.Cmd
 		switch runtime.GOOS {
 		case "darwin":
-			cmd = exec.Command("open", path)
+			cmd = exec.Command("open", path) //nolint:gosec // path from trusted cache directory
 		case "windows":
-			cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", path)
+			cmd = exec.Command(
+				"rundll32",
+				"url.dll,FileProtocolHandler",
+				path,
+			) //nolint:gosec // path from trusted cache directory
 		default:
-			cmd = exec.Command("xdg-open", path)
+			cmd = exec.Command("xdg-open", path) //nolint:gosec // path from trusted cache directory
 		}
 		return openFileResultMsg{Err: cmd.Run()}
 	}

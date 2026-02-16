@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -66,7 +67,7 @@ type Model struct {
 	formKind              FormKind
 	form                  *huh.Form
 	formData              any
-	formSnapshot          string
+	formSnapshot          any
 	formDirty             bool
 	editID                *uint
 	inlineInput           *inlineInputState
@@ -919,7 +920,7 @@ func (m *Model) closeDetail() {
 	// restore the cursor to the row that opened the now-closed child.
 	if parent := m.detail(); parent != nil {
 		if m.store != nil {
-			_ = m.reloadTab(&parent.Tab)
+			m.surfaceError(m.reloadTab(&parent.Tab))
 		}
 		selectRowByID(&parent.Tab, top.ParentRowID)
 	} else {
@@ -928,9 +929,9 @@ func (m *Model) closeDetail() {
 		if m.store != nil {
 			tab := m.activeTab()
 			if tab != nil && tab.Stale {
-				_ = m.reloadIfStale(tab)
+				m.surfaceError(m.reloadIfStale(tab))
 			} else {
-				_ = m.reloadActiveTab()
+				m.surfaceError(m.reloadActiveTab())
 			}
 		}
 		if tab := m.activeTab(); tab != nil {
@@ -963,14 +964,14 @@ func (m *Model) reloadAll() {
 	if m.store == nil {
 		return
 	}
-	_ = m.loadLookups()
-	_ = m.loadHouse()
-	_ = m.reloadAllTabs()
+	m.surfaceError(m.loadLookups())
+	m.surfaceError(m.loadHouse())
+	m.surfaceError(m.reloadAllTabs())
 	if m.inDetail() {
-		_ = m.reloadDetailTab()
+		m.surfaceError(m.reloadDetailTab())
 	}
 	if m.showDashboard {
-		_ = m.loadDashboard()
+		m.surfaceError(m.loadDashboard())
 	}
 }
 
@@ -982,10 +983,10 @@ func (m *Model) reloadAfterMutation() {
 	if m.store == nil {
 		return
 	}
-	_ = m.reloadEffectiveTab()
+	m.surfaceError(m.reloadEffectiveTab())
 	m.markNonEffectiveStale()
 	if m.showDashboard {
-		_ = m.loadDashboard()
+		m.surfaceError(m.loadDashboard())
 	}
 }
 
@@ -1012,12 +1013,12 @@ func (m *Model) reloadIfStale(tab *Tab) error {
 func (m *Model) toggleDashboard() {
 	m.showDashboard = !m.showDashboard
 	if m.showDashboard {
-		_ = m.loadDashboard()
+		m.surfaceError(m.loadDashboard())
 		// Close all drilldown levels when returning to dashboard.
 		m.closeAllDetails()
 	}
 	if m.store != nil {
-		_ = m.store.PutShowDashboard(m.showDashboard)
+		m.surfaceError(m.store.PutShowDashboard(m.showDashboard))
 	}
 }
 
@@ -1028,9 +1029,9 @@ func (m *Model) switchToTab(idx int) {
 	m.status = statusMsg{}
 	tab := m.activeTab()
 	if tab != nil && tab.Stale {
-		_ = m.reloadIfStale(tab)
+		m.surfaceError(m.reloadIfStale(tab))
 	} else {
-		_ = m.reloadActiveTab()
+		m.surfaceError(m.reloadActiveTab())
 	}
 }
 
@@ -1169,7 +1170,7 @@ func (m *Model) toggleDeleteSelected() {
 			tab.LastDeleted = nil
 		}
 		m.setStatusInfo("Restored.")
-		_ = m.reloadEffectiveTab()
+		m.surfaceError(m.reloadEffectiveTab())
 		return
 	}
 	if err := tab.Handler.Delete(m.store, meta.ID); err != nil {
@@ -1178,7 +1179,7 @@ func (m *Model) toggleDeleteSelected() {
 	}
 	tab.LastDeleted = &meta.ID
 	m.setStatusInfo("Deleted. Press d to restore.")
-	_ = m.reloadEffectiveTab()
+	m.surfaceError(m.reloadEffectiveTab())
 }
 
 func (m *Model) toggleShowDeleted() {
@@ -1192,7 +1193,7 @@ func (m *Model) toggleShowDeleted() {
 	} else {
 		m.setStatusInfo("Deleted hidden.")
 	}
-	_ = m.reloadEffectiveTab()
+	m.surfaceError(m.reloadEffectiveTab())
 }
 
 // activeProjectStatuses are the non-settled statuses that remain visible when
@@ -1400,10 +1401,10 @@ func (m *Model) reloadAfterFormSave(kind FormKind) {
 	}
 	switch kind {
 	case formHouse:
-		_ = m.loadHouse()
+		m.surfaceError(m.loadHouse())
 		m.reloadAfterMutation()
 	case formVendor:
-		_ = m.loadLookups()
+		m.surfaceError(m.loadLookups())
 		m.reloadAfterMutation()
 	default:
 		m.reloadAfterMutation()
@@ -1411,12 +1412,28 @@ func (m *Model) reloadAfterFormSave(kind FormKind) {
 }
 
 func (m *Model) snapshotForm() {
-	m.formSnapshot = fmt.Sprintf("%v", m.formData)
+	m.formSnapshot = cloneFormData(m.formData)
 	m.formDirty = false
 }
 
 func (m *Model) checkFormDirty() {
-	m.formDirty = fmt.Sprintf("%v", m.formData) != m.formSnapshot
+	m.formDirty = !reflect.DeepEqual(m.formData, m.formSnapshot)
+}
+
+// cloneFormData makes a shallow copy of the struct behind a form-data
+// pointer so the snapshot is independent of later mutations. All form
+// data types are pointer-to-struct with only value-type fields.
+func cloneFormData(data any) any {
+	if data == nil {
+		return nil
+	}
+	v := reflect.ValueOf(data)
+	if v.Kind() == reflect.Ptr && !v.IsNil() {
+		cp := reflect.New(v.Elem().Type())
+		cp.Elem().Set(v.Elem())
+		return cp.Interface()
+	}
+	return data
 }
 
 // openHelp creates a viewport sized to fit the terminal and populated with
@@ -1508,7 +1525,7 @@ func (m *Model) exitForm() {
 	m.formKind = formNone
 	m.form = nil
 	m.formData = nil
-	m.formSnapshot = ""
+	m.formSnapshot = nil
 	m.formDirty = false
 	m.editID = nil
 }
@@ -1529,6 +1546,14 @@ func (m *Model) setStatusSaved(wasEdit bool) {
 
 func (m *Model) setStatusError(text string) {
 	m.status = statusMsg{Text: text, Kind: statusError}
+}
+
+// surfaceError shows a reload failure in the status bar. Used in
+// fire-and-forget reload paths where the caller cannot return an error.
+func (m *Model) surfaceError(err error) {
+	if err != nil {
+		m.setStatusError(err.Error())
+	}
 }
 
 func (m *Model) formInitCmd() tea.Cmd {
@@ -1761,14 +1786,14 @@ func (m *Model) showAllColumns() {
 	if tab == nil {
 		return
 	}
-	any := false
+	changed := false
 	for i := range tab.Specs {
 		if tab.Specs[i].HideOrder > 0 {
 			tab.Specs[i].HideOrder = 0
-			any = true
+			changed = true
 		}
 	}
-	if any {
+	if changed {
 		m.updateTabViewport(tab)
 		m.setStatusInfo("All columns visible.")
 	}

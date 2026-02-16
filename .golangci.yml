@@ -45,10 +45,6 @@ linters:
         - singleCaseSwitch
         - ifElseChain
 
-    gosec:
-      excludes:
-        - G204  # subprocess with variable -- only fires in tests
-
   exclusions:
     rules:
       # staticcheck nil-after-Fatal false positives in tests

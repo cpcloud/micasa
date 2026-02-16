@@ -672,6 +672,9 @@ func (m *Model) dashExpiringRows() []dashRow {
 	d := m.dashboard
 	var rows []dashRow
 	for _, w := range d.ExpiringWarranties {
+		if w.Appliance.WarrantyExpiry == nil {
+			continue
+		}
 		overdue := w.DaysFromNow < 0
 		nameStyle := m.styles.DashUpcoming
 		if overdue {
