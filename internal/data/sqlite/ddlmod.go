@@ -38,16 +38,20 @@ var (
 			sqliteSeparator,
 		),
 	)
-	separatorRegexp = regexp.MustCompile(fmt.Sprintf("[%v]", sqliteSeparator))
-	columnsRegexp   = regexp.MustCompile(
+	columnsRegexp = regexp.MustCompile(
 		fmt.Sprintf(`[(,][%v]?(\w+)[%v]?`, sqliteSeparator, sqliteSeparator),
 	)
 	columnRegexp = regexp.MustCompile(
 		fmt.Sprintf(`^[%v]?([\w\d]+)[%v]?\s+([\w\(\)\d]+)(.*)$`, sqliteSeparator, sqliteSeparator),
 	)
+	getColumnsRegexp   = regexp.MustCompile("^[\"`']?([\\w\\d]+)[\"`']?")
 	defaultValueRegexp = regexp.MustCompile(`(?i) DEFAULT \(?(.+)?\)?( |COLLATE|GENERATED|$)`)
 	regRealDataType    = regexp.MustCompile(`[^\d](\d+)[^\d]?`)
 )
+
+func isSeparator(c rune) bool {
+	return c == '`' || c == '"' || c == '\'' || c == '\t'
+}
 
 func getAllColumns(s string) []string {
 	allMatches := columnsRegexp.FindAllStringSubmatch(s, -1)
@@ -75,7 +79,7 @@ func parseDDL(strs ...string) (*ddl, error) {
 				ddlBodyRunes = []rune(ddlBody)
 				bracketLevel int
 				quote        rune
-				buf          string
+				buf          strings.Builder
 			)
 			ddlBodyRunesLen := len(ddlBodyRunes)
 
@@ -90,10 +94,11 @@ func parseDDL(strs ...string) (*ddl, error) {
 					next = ddlBodyRunes[idx+1]
 				}
 
-				if sc := string(c); separatorRegexp.MatchString(sc) {
+				if isSeparator(c) {
 					if c == next {
-						buf += sc // Skip escaped quote
+						buf.WriteRune(c) // escaped quote: keep one copy
 						idx++
+						continue
 					} else if quote > 0 {
 						quote = 0
 					} else {
@@ -106,8 +111,11 @@ func parseDDL(strs ...string) (*ddl, error) {
 						bracketLevel--
 					} else if bracketLevel == 0 {
 						if c == ',' {
-							result.fields = append(result.fields, strings.TrimSpace(buf))
-							buf = ""
+							result.fields = append(
+								result.fields,
+								strings.TrimSpace(buf.String()),
+							)
+							buf.Reset()
 							continue
 						}
 					}
@@ -117,15 +125,17 @@ func parseDDL(strs ...string) (*ddl, error) {
 					return nil, errors.New("invalid DDL, unbalanced brackets")
 				}
 
-				buf += string(c)
+				buf.WriteRune(c)
 			}
 
 			if bracketLevel != 0 {
 				return nil, errors.New("invalid DDL, unbalanced brackets")
 			}
 
-			if buf != "" {
-				result.fields = append(result.fields, strings.TrimSpace(buf))
+			if buf.Len() > 0 {
+				result.fields = append(
+					result.fields, strings.TrimSpace(buf.String()),
+				)
 			}
 
 			for _, f := range result.fields {
@@ -139,7 +149,9 @@ func parseDDL(strs ...string) (*ddl, error) {
 						if columns := getAllColumns(matches[1]); len(columns) == 1 {
 							for idx, column := range result.columns {
 								if column.NameValue.String == columns[0] {
-									column.UniqueValue = sql.NullBool{Bool: true, Valid: true}
+									column.UniqueValue = sql.NullBool{
+										Bool: true, Valid: true,
+									}
 									result.columns[idx] = column
 									break
 								}
@@ -152,7 +164,9 @@ func parseDDL(strs ...string) (*ddl, error) {
 					for _, name := range getAllColumns(f) {
 						for idx, column := range result.columns {
 							if column.NameValue.String == name {
-								column.PrimaryKeyValue = sql.NullBool{Bool: true, Valid: true}
+								column.PrimaryKeyValue = sql.NullBool{
+									Bool: true, Valid: true,
+								}
 								result.columns[idx] = column
 								break
 							}
@@ -160,9 +174,15 @@ func parseDDL(strs ...string) (*ddl, error) {
 					}
 				} else if matches := columnRegexp.FindStringSubmatch(f); len(matches) > 0 {
 					columnType := migrator.ColumnType{
-						NameValue:         sql.NullString{String: matches[1], Valid: true},
-						DataTypeValue:     sql.NullString{String: matches[2], Valid: true},
-						ColumnTypeValue:   sql.NullString{String: matches[2], Valid: true},
+						NameValue: sql.NullString{
+							String: matches[1], Valid: true,
+						},
+						DataTypeValue: sql.NullString{
+							String: matches[2], Valid: true,
+						},
+						ColumnTypeValue: sql.NullString{
+							String: matches[2], Valid: true,
+						},
 						PrimaryKeyValue:   sql.NullBool{Valid: true},
 						UniqueValue:       sql.NullBool{Valid: true},
 						NullableValue:     sql.NullBool{Bool: true, Valid: true},
@@ -171,17 +191,27 @@ func parseDDL(strs ...string) (*ddl, error) {
 
 					matchUpper := strings.ToUpper(matches[3])
 					if strings.Contains(matchUpper, " NOT NULL") {
-						columnType.NullableValue = sql.NullBool{Bool: false, Valid: true}
+						columnType.NullableValue = sql.NullBool{
+							Bool: false, Valid: true,
+						}
 					} else if strings.Contains(matchUpper, " NULL") {
-						columnType.NullableValue = sql.NullBool{Bool: true, Valid: true}
+						columnType.NullableValue = sql.NullBool{
+							Bool: true, Valid: true,
+						}
 					}
 					if strings.Contains(matchUpper, " UNIQUE") {
-						columnType.UniqueValue = sql.NullBool{Bool: true, Valid: true}
+						columnType.UniqueValue = sql.NullBool{
+							Bool: true, Valid: true,
+						}
 					}
 					if strings.Contains(matchUpper, " PRIMARY") {
-						columnType.PrimaryKeyValue = sql.NullBool{Bool: true, Valid: true}
+						columnType.PrimaryKeyValue = sql.NullBool{
+							Bool: true, Valid: true,
+						}
 					}
-					if defaultMatches := defaultValueRegexp.FindStringSubmatch(matches[3]); len(defaultMatches) > 1 {
+					if defaultMatches := defaultValueRegexp.FindStringSubmatch(
+						matches[3],
+					); len(defaultMatches) > 1 {
 						if strings.ToLower(defaultMatches[1]) != "null" {
 							columnType.DefaultValueValue = sql.NullString{
 								String: strings.Trim(defaultMatches[1], `"`),
@@ -196,7 +226,9 @@ func parseDDL(strs ...string) (*ddl, error) {
 					)
 					if len(matches) == 1 && len(matches[0]) == 2 {
 						size, _ := strconv.Atoi(matches[0][1])
-						columnType.LengthValue = sql.NullInt64{Valid: true, Int64: int64(size)}
+						columnType.LengthValue = sql.NullInt64{
+							Valid: true, Int64: int64(size),
+						}
 						columnType.DataTypeValue.String = strings.TrimSuffix(
 							columnType.DataTypeValue.String, matches[0][0],
 						)
@@ -295,9 +327,7 @@ func (d *ddl) getColumns() []string {
 			continue
 		}
 
-		reg := regexp.MustCompile("^[\"`']?([\\w\\d]+)[\"`']?")
-		match := reg.FindStringSubmatch(f)
-
+		match := getColumnsRegexp.FindStringSubmatch(f)
 		if match != nil {
 			res = append(res, "`"+match[1]+"`")
 		}
@@ -306,8 +336,10 @@ func (d *ddl) getColumns() []string {
 }
 
 func (d *ddl) removeColumn(name string) bool {
+	// Match column names that are quoted (backtick, single, double) or
+	// unquoted, followed by whitespace and the column type definition.
 	reg := regexp.MustCompile(
-		"^(`|'|\"| )" + regexp.QuoteMeta(name) + "(`|'|\"| ) .*?$",
+		"^[`'\" ]?" + regexp.QuoteMeta(name) + "[`'\" ]\\s",
 	)
 
 	for i := 0; i < len(d.fields); i++ {

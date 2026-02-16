@@ -10,6 +10,7 @@ package sqlite
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -157,7 +158,9 @@ func (m Migrator) ColumnTypes(value interface{}) ([]gorm.ColumnType, error) {
 			return err
 		}
 		defer func() {
-			err = rows.Close()
+			if closeErr := rows.Close(); closeErr != nil {
+				err = errors.Join(err, closeErr)
+			}
 		}()
 
 		var rawColumnTypes []*sql.ColumnType
@@ -387,7 +390,7 @@ func (m Migrator) GetIndexes(value interface{}) ([]gorm.Index, error) {
 	indexes := make([]gorm.Index, 0)
 	err := m.RunWithValue(value, func(stmt *gorm.Statement) error {
 		rst := make([]*Index, 0)
-		if err := m.DB.Debug().Raw(
+		if err := m.DB.Raw(
 			"SELECT * FROM PRAGMA_index_list(?)", stmt.Table,
 		).Scan(&rst).Error; err != nil {
 			return err

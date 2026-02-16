@@ -232,13 +232,11 @@ func (dialector Dialector) DataTypeOf(field *schema.Field) string {
 }
 
 func (dialector Dialector) SavePoint(tx *gorm.DB, name string) error {
-	tx.Exec("SAVEPOINT " + name)
-	return nil
+	return tx.Exec("SAVEPOINT `" + name + "`").Error
 }
 
 func (dialector Dialector) RollbackTo(tx *gorm.DB, name string) error {
-	tx.Exec("ROLLBACK TO SAVEPOINT " + name)
-	return nil
+	return tx.Exec("ROLLBACK TO SAVEPOINT `" + name + "`").Error
 }
 
 // Translate maps SQLite error codes to GORM sentinel errors.
