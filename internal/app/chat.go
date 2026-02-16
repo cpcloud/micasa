@@ -331,6 +331,10 @@ func (m *Model) startSQLStream(query string) tea.Cmd {
 	client := m.llmClient
 	store := m.store
 	extraContext := m.llmExtraContext
+	// Capture conversation history on the main goroutine before the closure
+	// runs in a background goroutine -- m.chat.Messages is mutated by the
+	// Bubble Tea event loop and is not safe to read concurrently.
+	history := m.buildConversationHistory()
 
 	return func() tea.Msg {
 		// Build schema info and column hints inside the goroutine to avoid
@@ -346,7 +350,7 @@ func (m *Model) startSQLStream(query string) tea.Cmd {
 		messages := []llm.Message{
 			{Role: "system", Content: sqlPrompt},
 		}
-		messages = append(messages, m.buildConversationHistory()...)
+		messages = append(messages, history...)
 		messages = append(messages, llm.Message{Role: roleUser, Content: query})
 
 		ctx, cancel := context.WithCancel(context.Background())
