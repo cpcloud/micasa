@@ -14,8 +14,8 @@ import (
 
 	"github.com/iancoleman/strcase"
 
+	"github.com/cpcloud/micasa/internal/data/sqlite"
 	"github.com/cpcloud/micasa/internal/fake"
-	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
