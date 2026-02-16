@@ -1756,6 +1756,17 @@ func (m *Model) parseDocumentFormData() (data.Document, error) {
 	// Read file from path if provided (new document or file replacement).
 	path := filepath.Clean(strings.TrimSpace(values.FilePath))
 	if path != "" && path != "." {
+		info, err := os.Stat(path)
+		if err != nil {
+			return data.Document{}, fmt.Errorf("stat file: %w", err)
+		}
+		maxSize := m.store.MaxDocumentSize()
+		if info.Size() > maxSize {
+			return data.Document{}, fmt.Errorf(
+				"file is too large (%d bytes) -- maximum allowed is %d bytes",
+				info.Size(), maxSize,
+			)
+		}
 		fileData, err := os.ReadFile(path)
 		if err != nil {
 			return data.Document{}, fmt.Errorf("read file: %w", err)

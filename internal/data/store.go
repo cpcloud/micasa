@@ -55,6 +55,11 @@ func Open(path string) (*Store, error) {
 	return &Store{db: db, maxDocumentSize: MaxDocumentSize}, nil
 }
 
+// MaxDocumentSize returns the configured maximum file size for document imports.
+func (s *Store) MaxDocumentSize() int64 {
+	return s.maxDocumentSize
+}
+
 // SetMaxDocumentSize overrides the maximum allowed file size for document
 // imports. The value must be positive; invalid values are rejected.
 func (s *Store) SetMaxDocumentSize(n int64) error {
@@ -884,6 +889,12 @@ func (s *Store) GetDocument(id uint) (Document, error) {
 }
 
 func (s *Store) CreateDocument(doc Document) error {
+	if doc.SizeBytes > s.maxDocumentSize {
+		return fmt.Errorf(
+			"file is too large (%d bytes) -- maximum allowed is %d bytes",
+			doc.SizeBytes, s.maxDocumentSize,
+		)
+	}
 	return s.db.Create(&doc).Error
 }
 
