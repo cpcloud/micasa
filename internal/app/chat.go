@@ -428,7 +428,9 @@ func (m *Model) cmdListModels() tea.Cmd {
 	}
 	client := m.llmClient
 	return func() tea.Msg {
-		models, err := client.ListModels(context.Background())
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		models, err := client.ListModels(ctx)
 		return modelsListMsg{Models: models, Err: err}
 	}
 }
@@ -506,7 +508,9 @@ func (m *Model) activateCompleter() tea.Cmd {
 	}
 	client := m.llmClient
 	return func() tea.Msg {
-		models, err := client.ListModels(context.Background())
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		models, err := client.ListModels(ctx)
 		return modelsListMsg{Models: models, Err: err}
 	}
 }
@@ -607,7 +611,9 @@ func (m *Model) cmdSwitchModel(name string) tea.Cmd {
 
 	client := m.llmClient
 	return func() tea.Msg {
-		models, _ := client.ListModels(context.Background())
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		models, _ := client.ListModels(ctx)
 		for _, model := range models {
 			if model == name || strings.HasPrefix(model, name+":") {
 				return pullProgressMsg{
