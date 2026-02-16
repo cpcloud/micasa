@@ -775,6 +775,13 @@ func (s *Store) UpdateServiceLog(entry ServiceLogEntry, vendor Vendor) error {
 }
 
 func (s *Store) DeleteServiceLog(id uint) error {
+	dn, err := s.countDocumentDependents(DocumentEntityServiceLog, id)
+	if err != nil {
+		return err
+	}
+	if dn > 0 {
+		return fmt.Errorf("service log has %d active document(s) -- delete them first", dn)
+	}
 	return s.softDelete(&ServiceLogEntry{}, DeletionEntityServiceLog, id)
 }
 
@@ -941,6 +948,22 @@ func (s *Store) validateDocumentParent(doc Document) error {
 		if err := s.requireParentAlive(&Appliance{}, doc.EntityID); err != nil {
 			return parentRestoreError("appliance", err)
 		}
+	case DocumentEntityVendor:
+		if err := s.requireParentAlive(&Vendor{}, doc.EntityID); err != nil {
+			return parentRestoreError("vendor", err)
+		}
+	case DocumentEntityQuote:
+		if err := s.requireParentAlive(&Quote{}, doc.EntityID); err != nil {
+			return parentRestoreError("quote", err)
+		}
+	case DocumentEntityMaintenance:
+		if err := s.requireParentAlive(&MaintenanceItem{}, doc.EntityID); err != nil {
+			return parentRestoreError("maintenance item", err)
+		}
+	case DocumentEntityServiceLog:
+		if err := s.requireParentAlive(&ServiceLogEntry{}, doc.EntityID); err != nil {
+			return parentRestoreError("service log", err)
+		}
 	}
 	return nil
 }
@@ -1008,6 +1031,13 @@ func (s *Store) DeleteVendor(id uint) error {
 	if n > 0 {
 		return fmt.Errorf("vendor has %d active quote(s) -- delete them first", n)
 	}
+	dn, err := s.countDocumentDependents(DocumentEntityVendor, id)
+	if err != nil {
+		return err
+	}
+	if dn > 0 {
+		return fmt.Errorf("vendor has %d active document(s) -- delete them first", dn)
+	}
 	return s.softDelete(&Vendor{}, DeletionEntityVendor, id)
 }
 
@@ -1034,6 +1064,13 @@ func (s *Store) DeleteProject(id uint) error {
 }
 
 func (s *Store) DeleteQuote(id uint) error {
+	dn, err := s.countDocumentDependents(DocumentEntityQuote, id)
+	if err != nil {
+		return err
+	}
+	if dn > 0 {
+		return fmt.Errorf("quote has %d active document(s) -- delete them first", dn)
+	}
 	return s.softDelete(&Quote{}, DeletionEntityQuote, id)
 }
 
@@ -1044,6 +1081,16 @@ func (s *Store) DeleteMaintenance(id uint) error {
 	}
 	if n > 0 {
 		return fmt.Errorf("maintenance item has %d service log(s) -- delete them first", n)
+	}
+	dn, err := s.countDocumentDependents(DocumentEntityMaintenance, id)
+	if err != nil {
+		return err
+	}
+	if dn > 0 {
+		return fmt.Errorf(
+			"maintenance item has %d active document(s) -- delete them first",
+			dn,
+		)
 	}
 	return s.softDelete(&MaintenanceItem{}, DeletionEntityMaintenance, id)
 }
