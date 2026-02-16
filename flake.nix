@@ -340,17 +340,25 @@
               osv-scanner scan --config osv-scanner.toml --recursive .
             '';
           };
-          run-pre-commit =
-            let
-              runtimePath = pkgs.lib.makeBinPath (
-                [ pkgs.go pkgs.git ] ++ preCommit.enabledPackages
-              );
-            in
-            pkgs.writeShellScriptBin "run-pre-commit" ''
-              export PATH="${runtimePath}:$PATH"
+          run-pre-commit = pkgs.writeShellApplication {
+            name = "run-pre-commit";
+            runtimeInputs = [ pkgs.go pkgs.git ] ++ preCommit.enabledPackages;
+            excludeShellChecks = [
+              # shellHook from git-hooks.lib contains patterns that
+              # trigger these warnings; the code is upstream-generated.
+              "SC2006"
+              "SC2043"
+              "SC2086"
+              "SC2157"
+              "SC2221"
+              "SC2222"
+              "SC2295"
+            ];
+            text = ''
               ${preCommit.shellHook}
               pre-commit run --all-files
             '';
+          };
           micasa-container = pkgs.dockerTools.buildImage {
             name = "micasa";
             tag = "latest";
