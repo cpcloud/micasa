@@ -509,6 +509,131 @@ func TestRemoveConstraint(t *testing.T) {
 	}
 }
 
+func TestRemoveColumn(t *testing.T) {
+	tests := []struct {
+		name    string
+		fields  []string
+		column  string
+		success bool
+		expect  []string
+	}{
+		{
+			name:    "backtick_quoted",
+			fields:  []string{"`id` integer NOT NULL", "`name` text"},
+			column:  "name",
+			success: true,
+			expect:  []string{"`id` integer NOT NULL"},
+		},
+		{
+			name:    "double_quoted",
+			fields:  []string{`"id" integer NOT NULL`, `"name" text`},
+			column:  "name",
+			success: true,
+			expect:  []string{`"id" integer NOT NULL`},
+		},
+		{
+			name:    "single_quoted",
+			fields:  []string{"'id' integer NOT NULL", "'name' text"},
+			column:  "name",
+			success: true,
+			expect:  []string{"'id' integer NOT NULL"},
+		},
+		{
+			name:    "unquoted",
+			fields:  []string{"id integer NOT NULL", "name text"},
+			column:  "name",
+			success: true,
+			expect:  []string{"id integer NOT NULL"},
+		},
+		{
+			name:    "not_found",
+			fields:  []string{"`id` integer NOT NULL", "`name` text"},
+			column:  "missing",
+			success: false,
+			expect:  []string{"`id` integer NOT NULL", "`name` text"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := ddl{fields: tt.fields}
+			ok := d.removeColumn(tt.column)
+			assert.Equal(t, tt.success, ok)
+			assert.Equal(t, tt.expect, d.fields)
+		})
+	}
+}
+
+func TestClone(t *testing.T) {
+	original := &ddl{
+		head:   "CREATE TABLE `test`",
+		fields: []string{"`id` integer NOT NULL", "`name` text"},
+		columns: []migrator.ColumnType{
+			{NameValue: sql.NullString{String: "id", Valid: true}},
+		},
+	}
+
+	cloned := original.clone()
+
+	// Values should be equal
+	assert.Equal(t, original.head, cloned.head)
+	assert.Equal(t, original.fields, cloned.fields)
+	assert.Equal(t, original.columns, cloned.columns)
+
+	// Mutating the clone should not affect the original
+	cloned.fields[0] = "changed"
+	assert.NotEqual(t, original.fields[0], cloned.fields[0])
+}
+
+func TestRenameTable(t *testing.T) {
+	tests := []struct {
+		name    string
+		head    string
+		src     string
+		dst     string
+		wantErr bool
+	}{
+		{
+			name: "backtick_quoted",
+			head: "CREATE TABLE `users`",
+			src:  "users",
+			dst:  "users__temp",
+		},
+		{
+			name: "double_quoted",
+			head: `CREATE TABLE "users"`,
+			src:  "users",
+			dst:  "users__temp",
+		},
+		{
+			name: "unquoted",
+			head: "CREATE TABLE users",
+			src:  "users",
+			dst:  "users__temp",
+		},
+		{
+			name:    "not_found",
+			head:    "CREATE TABLE `something`",
+			src:     "other",
+			dst:     "other__temp",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := &ddl{head: tt.head}
+			err := d.renameTable(tt.dst, tt.src)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Contains(t, d.head, tt.dst)
+			}
+		})
+	}
+}
+
 func TestGetColumns(t *testing.T) {
 	params := []struct {
 		name    string

@@ -48,13 +48,13 @@ jobs:
         run: echo "MICASA_TEST_SEED=${{ github.run_id }}"
 
       - name: Test
-        run: go test -race -shuffle on -v -coverprofile coverage.txt ./...
+        run: go test -race -shuffle on -timeout 5m -v -coverprofile coverage.txt ./...
         env:
           CGO_ENABLED: "1"
           MICASA_TEST_SEED: ${{ github.run_id }}
 
       - name: Benchmarks (smoke)
-        run: go test -bench . -benchtime 1x -run '^$' ./...
+        run: go test -bench . -benchtime 1x -timeout 5m -run '^$' ./...
 
       - name: Coverage summary
         run: go tool cover -func coverage.txt
