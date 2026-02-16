@@ -1791,6 +1791,224 @@ func TestRestoreDocumentBlockedByDeletedAppliance(t *testing.T) {
 	require.NoError(t, store.RestoreDocument(docID))
 }
 
+func TestCreateDocumentRejectsOversized(t *testing.T) {
+	store := newTestStore(t)
+
+	require.NoError(t, store.SetMaxDocumentSize(100))
+
+	err := store.CreateDocument(Document{
+		Title:     "Big File",
+		SizeBytes: 200,
+		Data:      make([]byte, 200),
+	})
+	require.ErrorContains(t, err, "too large")
+
+	// Exactly at the limit should succeed.
+	require.NoError(t, store.CreateDocument(Document{
+		Title:     "Just Right",
+		SizeBytes: 100,
+		Data:      make([]byte, 100),
+	}))
+}
+
+func TestDeleteVendorBlockedByDocuments(t *testing.T) {
+	store := newTestStore(t)
+	require.NoError(t, store.CreateVendor(Vendor{Name: "Doc Vendor"}))
+	vendors, _ := store.ListVendors(false)
+	vendorID := vendors[0].ID
+
+	require.NoError(t, store.CreateDocument(Document{
+		Title: "Invoice", EntityKind: DocumentEntityVendor, EntityID: vendorID,
+	}))
+
+	require.ErrorContains(t, store.DeleteVendor(vendorID), "active document")
+
+	docs, _ := store.ListDocumentsByEntity(DocumentEntityVendor, vendorID, false)
+	require.NoError(t, store.DeleteDocument(docs[0].ID))
+	require.NoError(t, store.DeleteVendor(vendorID))
+}
+
+func TestDeleteQuoteBlockedByDocuments(t *testing.T) {
+	store := newTestStore(t)
+	types, _ := store.ProjectTypes()
+	require.NoError(t, store.CreateProject(Project{
+		Title: "QP", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}))
+	projects, _ := store.ListProjects(false)
+	projID := projects[0].ID
+
+	require.NoError(t, store.CreateQuote(
+		Quote{ProjectID: projID, TotalCents: 500},
+		Vendor{Name: "QV"},
+	))
+	quotes, _ := store.ListQuotes(false)
+	quoteID := quotes[0].ID
+
+	require.NoError(t, store.CreateDocument(Document{
+		Title: "Quote PDF", EntityKind: DocumentEntityQuote, EntityID: quoteID,
+	}))
+
+	require.ErrorContains(t, store.DeleteQuote(quoteID), "active document")
+
+	docs, _ := store.ListDocumentsByEntity(DocumentEntityQuote, quoteID, false)
+	require.NoError(t, store.DeleteDocument(docs[0].ID))
+	require.NoError(t, store.DeleteQuote(quoteID))
+}
+
+func TestDeleteMaintenanceBlockedByDocuments(t *testing.T) {
+	store := newTestStore(t)
+	cat := MaintenanceCategory{Name: "DocMCat"}
+	store.db.Create(&cat)
+
+	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
+		Name: "Documented Filter", CategoryID: cat.ID, IntervalMonths: 6,
+	}))
+	items, _ := store.ListMaintenance(false)
+	itemID := items[0].ID
+
+	require.NoError(t, store.CreateDocument(Document{
+		Title: "Manual", EntityKind: DocumentEntityMaintenance, EntityID: itemID,
+	}))
+
+	require.ErrorContains(t, store.DeleteMaintenance(itemID), "active document")
+
+	docs, _ := store.ListDocumentsByEntity(DocumentEntityMaintenance, itemID, false)
+	require.NoError(t, store.DeleteDocument(docs[0].ID))
+	require.NoError(t, store.DeleteMaintenance(itemID))
+}
+
+func TestDeleteServiceLogBlockedByDocuments(t *testing.T) {
+	store := newTestStore(t)
+	cat := MaintenanceCategory{Name: "SLDocCat"}
+	store.db.Create(&cat)
+	item := MaintenanceItem{Name: "SLDoc Item", CategoryID: cat.ID, IntervalMonths: 6}
+	store.db.Create(&item)
+
+	require.NoError(t, store.CreateServiceLog(
+		ServiceLogEntry{MaintenanceItemID: item.ID, ServicedAt: time.Now()},
+		Vendor{},
+	))
+	logs, _ := store.ListServiceLog(item.ID, false)
+	logID := logs[0].ID
+
+	require.NoError(t, store.CreateDocument(Document{
+		Title: "Receipt", EntityKind: DocumentEntityServiceLog, EntityID: logID,
+	}))
+
+	require.ErrorContains(t, store.DeleteServiceLog(logID), "active document")
+
+	docs, _ := store.ListDocumentsByEntity(DocumentEntityServiceLog, logID, false)
+	require.NoError(t, store.DeleteDocument(docs[0].ID))
+	require.NoError(t, store.DeleteServiceLog(logID))
+}
+
+func TestRestoreDocumentBlockedByDeletedVendor(t *testing.T) {
+	store := newTestStore(t)
+	require.NoError(t, store.CreateVendor(Vendor{Name: "Doomed Vendor"}))
+	vendors, _ := store.ListVendors(false)
+	vendorID := vendors[0].ID
+
+	require.NoError(t, store.CreateDocument(Document{
+		Title: "Vendor Doc", EntityKind: DocumentEntityVendor, EntityID: vendorID,
+	}))
+	docs, _ := store.ListDocuments(false)
+	docID := docs[0].ID
+
+	require.NoError(t, store.DeleteDocument(docID))
+	require.NoError(t, store.DeleteVendor(vendorID))
+
+	require.ErrorContains(t, store.RestoreDocument(docID), "vendor is deleted")
+
+	require.NoError(t, store.RestoreVendor(vendorID))
+	require.NoError(t, store.RestoreDocument(docID))
+}
+
+func TestRestoreDocumentBlockedByDeletedQuote(t *testing.T) {
+	store := newTestStore(t)
+	types, _ := store.ProjectTypes()
+	require.NoError(t, store.CreateProject(Project{
+		Title: "RQP", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}))
+	projects, _ := store.ListProjects(false)
+	projID := projects[0].ID
+
+	require.NoError(t, store.CreateQuote(
+		Quote{ProjectID: projID, TotalCents: 100},
+		Vendor{Name: "RQV"},
+	))
+	quotes, _ := store.ListQuotes(false)
+	quoteID := quotes[0].ID
+
+	require.NoError(t, store.CreateDocument(Document{
+		Title: "Quote Receipt", EntityKind: DocumentEntityQuote, EntityID: quoteID,
+	}))
+	docs, _ := store.ListDocuments(false)
+	docID := docs[0].ID
+
+	require.NoError(t, store.DeleteDocument(docID))
+	require.NoError(t, store.DeleteQuote(quoteID))
+
+	require.ErrorContains(t, store.RestoreDocument(docID), "quote is deleted")
+
+	require.NoError(t, store.RestoreQuote(quoteID))
+	require.NoError(t, store.RestoreDocument(docID))
+}
+
+func TestRestoreDocumentBlockedByDeletedMaintenance(t *testing.T) {
+	store := newTestStore(t)
+	cat := MaintenanceCategory{Name: "RMCat"}
+	store.db.Create(&cat)
+
+	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
+		Name: "Doomed Filter", CategoryID: cat.ID, IntervalMonths: 12,
+	}))
+	items, _ := store.ListMaintenance(false)
+	itemID := items[0].ID
+
+	require.NoError(t, store.CreateDocument(Document{
+		Title: "Filter Manual", EntityKind: DocumentEntityMaintenance, EntityID: itemID,
+	}))
+	docs, _ := store.ListDocuments(false)
+	docID := docs[0].ID
+
+	require.NoError(t, store.DeleteDocument(docID))
+	require.NoError(t, store.DeleteMaintenance(itemID))
+
+	require.ErrorContains(t, store.RestoreDocument(docID), "maintenance item is deleted")
+
+	require.NoError(t, store.RestoreMaintenance(itemID))
+	require.NoError(t, store.RestoreDocument(docID))
+}
+
+func TestRestoreDocumentBlockedByDeletedServiceLog(t *testing.T) {
+	store := newTestStore(t)
+	cat := MaintenanceCategory{Name: "RSLCat"}
+	store.db.Create(&cat)
+	item := MaintenanceItem{Name: "RSL Item", CategoryID: cat.ID, IntervalMonths: 6}
+	store.db.Create(&item)
+
+	require.NoError(t, store.CreateServiceLog(
+		ServiceLogEntry{MaintenanceItemID: item.ID, ServicedAt: time.Now()},
+		Vendor{},
+	))
+	logs, _ := store.ListServiceLog(item.ID, false)
+	logID := logs[0].ID
+
+	require.NoError(t, store.CreateDocument(Document{
+		Title: "SL Receipt", EntityKind: DocumentEntityServiceLog, EntityID: logID,
+	}))
+	docs, _ := store.ListDocuments(false)
+	docID := docs[0].ID
+
+	require.NoError(t, store.DeleteDocument(docID))
+	require.NoError(t, store.DeleteServiceLog(logID))
+
+	require.ErrorContains(t, store.RestoreDocument(docID), "service log is deleted")
+
+	require.NoError(t, store.RestoreServiceLog(logID))
+	require.NoError(t, store.RestoreDocument(docID))
+}
+
 func TestSoftDeleteRestoreDocument(t *testing.T) {
 	store := newTestStore(t)
 

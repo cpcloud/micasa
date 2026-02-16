@@ -137,6 +137,16 @@ func TestYTDSpending(t *testing.T) {
 		Title: "P2", ProjectTypeID: pt.ID, Status: ProjectStatusInProgress,
 		ActualCents: ptr(10000),
 	})
+	// Project updated last year -- should not count.
+	oldProj := Project{
+		Title: "P3", ProjectTypeID: pt.ID, Status: ProjectStatusCompleted,
+		ActualCents: ptr(7777),
+	}
+	store.db.Create(&oldProj)
+	store.db.Exec(
+		"UPDATE projects SET updated_at = ? WHERE title = ?",
+		time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC), "P3",
+	)
 
 	projSpend, err := store.YTDProjectSpendCents(yearStart)
 	require.NoError(t, err)
