@@ -1294,12 +1294,22 @@ func findOrCreateVendor(tx *gorm.DB, vendor Vendor) (Vendor, error) {
 	if err != nil {
 		return Vendor{}, err
 	}
-	// Restore the vendor if it was soft-deleted.
+	// Restore the vendor if it was soft-deleted, and mark the
+	// DeletionRecord as restored so undo doesn't see a stale entry.
 	if existing.DeletedAt.Valid {
 		if err := tx.Unscoped().Model(&existing).Update(ColDeletedAt, nil).Error; err != nil {
 			return Vendor{}, err
 		}
 		existing.DeletedAt.Valid = false
+		restoredAt := time.Now()
+		if err := tx.Model(&DeletionRecord{}).
+			Where(
+				ColEntity+" = ? AND "+ColTargetID+" = ? AND "+ColRestoredAt+" IS NULL",
+				DeletionEntityVendor, existing.ID,
+			).
+			Update(ColRestoredAt, restoredAt).Error; err != nil {
+			return Vendor{}, err
+		}
 	}
 	// Unconditionally overwrite contact fields so callers can clear them
 	// (e.g. user blanks a phone number in the quote form).
