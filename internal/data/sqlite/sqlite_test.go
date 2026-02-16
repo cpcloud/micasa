@@ -24,13 +24,19 @@ import (
 	modernsqlite "modernc.org/sqlite"
 )
 
-const inMemoryDSN = "file:testdatabase?mode=memory&cache=shared"
+// testDSN returns a unique shared in-memory DSN per test to avoid
+// cross-test lock contention on the same shared cache database.
+func testDSN(t *testing.T) string {
+	t.Helper()
+	return fmt.Sprintf("file:%s?mode=memory&cache=shared", t.Name())
+}
 
 func TestDialector(t *testing.T) {
 	const customDriverName = "test_custom_driver"
 
 	sql.Register(customDriverName, &modernsqlite.Driver{})
 
+	dsn := testDSN(t)
 	tests := []struct {
 		description  string
 		dialector    *Dialector
@@ -40,7 +46,7 @@ func TestDialector(t *testing.T) {
 	}{
 		{
 			description:  "default_driver",
-			dialector:    &Dialector{DSN: inMemoryDSN},
+			dialector:    &Dialector{DSN: dsn},
 			openSuccess:  true,
 			query:        "SELECT 1",
 			querySuccess: true,
@@ -49,7 +55,7 @@ func TestDialector(t *testing.T) {
 			description: "explicit_default_driver",
 			dialector: &Dialector{
 				DriverName: DriverName,
-				DSN:        inMemoryDSN,
+				DSN:        dsn,
 			},
 			openSuccess:  true,
 			query:        "SELECT 1",
@@ -59,7 +65,7 @@ func TestDialector(t *testing.T) {
 			description: "bad_driver",
 			dialector: &Dialector{
 				DriverName: "not-a-real-driver",
-				DSN:        inMemoryDSN,
+				DSN:        dsn,
 			},
 			openSuccess: false,
 		},
@@ -67,7 +73,7 @@ func TestDialector(t *testing.T) {
 			description: "custom_driver",
 			dialector: &Dialector{
 				DriverName: customDriverName,
-				DSN:        inMemoryDSN,
+				DSN:        dsn,
 			},
 			openSuccess:  true,
 			query:        "SELECT 1",
@@ -102,7 +108,7 @@ func TestErrorTranslator(t *testing.T) {
 		ArticleNumber string `gorm:"unique"`
 	}
 
-	db, err := gorm.Open(&Dialector{DSN: inMemoryDSN}, &gorm.Config{
+	db, err := gorm.Open(&Dialector{DSN: testDSN(t)}, &gorm.Config{
 		Logger:         logger.Default.LogMode(logger.Silent),
 		TranslateError: true,
 	})
@@ -130,12 +136,13 @@ func TestSQLiteVersion(t *testing.T) {
 }
 
 func TestOpen(t *testing.T) {
-	d := Open(inMemoryDSN)
+	dsn := testDSN(t)
+	d := Open(dsn)
 	assert.Equal(t, "sqlite", d.Name())
 
 	dialector, ok := d.(*Dialector)
 	require.True(t, ok)
-	assert.Equal(t, inMemoryDSN, dialector.DSN)
+	assert.Equal(t, dsn, dialector.DSN)
 	assert.Empty(t, dialector.DriverName)
 }
 
@@ -209,7 +216,7 @@ func TestQuoteTo(t *testing.T) {
 }
 
 func TestSavePointAndRollbackTo(t *testing.T) {
-	db, err := gorm.Open(&Dialector{DSN: "file:test_savepoint?mode=memory"}, &gorm.Config{
+	db, err := gorm.Open(&Dialector{DSN: testDSN(t)}, &gorm.Config{
 		Logger:                 logger.Default.LogMode(logger.Silent),
 		SkipDefaultTransaction: true,
 	})
@@ -235,7 +242,7 @@ func TestSavePointAndRollbackTo(t *testing.T) {
 }
 
 func TestTranslateForeignKeyViolation(t *testing.T) {
-	db, err := gorm.Open(&Dialector{DSN: "file:test_fk_violation?mode=memory"}, &gorm.Config{
+	db, err := gorm.Open(&Dialector{DSN: testDSN(t)}, &gorm.Config{
 		Logger:         logger.Default.LogMode(logger.Silent),
 		TranslateError: true,
 	})
