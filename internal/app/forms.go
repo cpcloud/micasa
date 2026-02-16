@@ -1202,7 +1202,7 @@ func (m *Model) handleFormSubmit() error {
 	}
 	handler := m.handlerForFormKind(m.formKind)
 	if handler == nil {
-		return nil
+		return fmt.Errorf("no handler for form kind %v", m.formKind)
 	}
 	return handler.SubmitForm(m)
 }
