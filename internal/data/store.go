@@ -148,7 +148,6 @@ func (s *Store) AutoMigrate() error {
 		&DeletionRecord{},
 		&Setting{},
 		&ChatInput{},
-		&Document{},
 	)
 }
 
