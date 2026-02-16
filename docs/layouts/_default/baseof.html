@@ -9,6 +9,16 @@
   <meta name="description" content="{{ with .Params.description }}{{ . }}{{ else }}{{ site.Params.description }}{{ end }}">
   <link rel="icon" type="image/svg+xml" href="/images/favicon.svg">
   <link rel="stylesheet" href="{{ "css/docs.css" | relURL }}">
+  <script type="importmap">
+  {
+    "imports": {
+      "mermaid": "https://cdn.jsdelivr.net/npm/mermaid@11.12.2/dist/mermaid.esm.min.mjs"
+    },
+    "integrity": {
+      "https://cdn.jsdelivr.net/npm/mermaid@11.12.2/dist/mermaid.esm.min.mjs": "sha384-bBdf+Hx1qc+N2a4poQjInyeO803gqSNqanHQiQ3DgvXaz/aeQz4mQLhIXpK9MP83"
+    }
+  }
+  </script>
 </head>
 <body>
 
@@ -45,7 +55,7 @@ document.addEventListener('click', function(e) {
 </script>
 
 <script type="module">
-import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+import mermaid from 'mermaid';
 mermaid.initialize({
   startOnLoad: true,
   theme: 'base',
