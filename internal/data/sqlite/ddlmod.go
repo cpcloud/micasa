@@ -339,7 +339,7 @@ func (d *ddl) removeColumn(name string) bool {
 	// Match column names that are quoted (backtick, single, double) or
 	// unquoted, followed by whitespace and the column type definition.
 	reg := regexp.MustCompile(
-		"^[`'\" ]?" + regexp.QuoteMeta(name) + "[`'\" ]\\s",
+		"^[`'\" ]?" + regexp.QuoteMeta(name) + "[`'\" ]?\\s",
 	)
 
 	for i := 0; i < len(d.fields); i++ {
