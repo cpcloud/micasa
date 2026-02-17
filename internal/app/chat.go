@@ -204,7 +204,7 @@ func (m *Model) openChat() {
 			Role: roleNotice,
 			Content: fmt.Sprintf(
 				"No LLM configured. Create %s with:\n\n[llm]\nbase_url = \"http://localhost:11434/v1\"\nmodel = \"qwen3\"",
-				m.configPath,
+				shortenHome(m.configPath),
 			),
 		})
 		m.refreshChatViewport()

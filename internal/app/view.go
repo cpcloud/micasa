@@ -5,6 +5,7 @@ package app
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -114,7 +115,7 @@ func (m *Model) buildBaseView() string {
 		minGap := 2 // breathing room between tabs and path
 		available := m.effectiveWidth() - tabsW - minGap
 		if available > 5 {
-			path := truncateLeft(m.dbPath, available)
+			path := truncateLeft(shortenHome(m.dbPath), available)
 			label := m.styles.HeaderHint.Render(path)
 			gap := m.effectiveWidth() - tabsW - lipgloss.Width(label)
 			if gap > 0 {
@@ -1075,6 +1076,25 @@ func clampLines(s string, maxW int) string {
 		}
 	}
 	return strings.Join(lines, "\n")
+}
+
+// shortenHome replaces the user's home directory prefix with "~" for
+// display. Falls back to the original path if the home dir cannot be
+// determined or doesn't match.
+func shortenHome(path string) string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return path
+	}
+	if path == home {
+		return "~"
+	}
+	// Check for home prefix followed by a path separator.
+	prefix := home + string(os.PathSeparator)
+	if rest, ok := strings.CutPrefix(path, prefix); ok {
+		return "~" + string(os.PathSeparator) + rest
+	}
+	return path
 }
 
 // truncateLeft trims s from the left so the result fits within maxW visible

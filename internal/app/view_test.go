@@ -5,6 +5,8 @@ package app
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -441,6 +443,28 @@ func TestTruncateLeft(t *testing.T) {
 	t.Run("zero and negative width", func(t *testing.T) {
 		assert.Empty(t, truncateLeft("anything", 0))
 		assert.Empty(t, truncateLeft("anything", -1))
+	})
+}
+
+func TestShortenHome(t *testing.T) {
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+
+	t.Run("replaces home prefix with tilde", func(t *testing.T) {
+		p := filepath.Join(home, ".local", "share", "micasa", "micasa.db")
+		got := shortenHome(p)
+		assert.Equal(t, filepath.Join("~", ".local", "share", "micasa", "micasa.db"), got)
+	})
+	t.Run("exact home dir becomes tilde", func(t *testing.T) {
+		assert.Equal(t, "~", shortenHome(home))
+	})
+	t.Run("non-home path unchanged", func(t *testing.T) {
+		assert.Equal(t, "/tmp/other.db", shortenHome("/tmp/other.db"))
+	})
+	t.Run("home as substring does not match", func(t *testing.T) {
+		// e.g. /home/user2 should NOT be shortened when home is /home/user
+		p := home + "2/data.db"
+		assert.Equal(t, p, shortenHome(p))
 	})
 }
 
