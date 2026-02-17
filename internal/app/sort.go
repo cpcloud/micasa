@@ -54,17 +54,17 @@ func applySorts(tab *Tab) {
 
 	sort.SliceStable(indices, func(a, b int) bool {
 		for _, entry := range sorts {
-			va := cellValueAt(tab, indices[a], entry.Col)
-			vb := cellValueAt(tab, indices[b], entry.Col)
+			ca := cellAt(tab, indices[a], entry.Col)
+			cb := cellAt(tab, indices[b], entry.Col)
 
-			// Empty values always sort last, regardless of direction.
-			if va == "" && vb == "" {
+			// NULL cells always sort last, regardless of direction.
+			if ca.Null && cb.Null {
 				continue
 			}
-			if va == "" {
+			if ca.Null {
 				return false
 			}
-			if vb == "" {
+			if cb.Null {
 				return true
 			}
 
@@ -127,14 +127,19 @@ func compareCells(tab *Tab, col, a, b int) int {
 }
 
 func cellValueAt(tab *Tab, row, col int) string {
+	return strings.TrimSpace(cellAt(tab, row, col).Value)
+}
+
+// cellAt returns the cell at (row, col), or a zero cell if out of bounds.
+func cellAt(tab *Tab, row, col int) cell {
 	if row < 0 || row >= len(tab.CellRows) {
-		return ""
+		return cell{}
 	}
 	cells := tab.CellRows[row]
 	if col < 0 || col >= len(cells) {
-		return ""
+		return cell{}
 	}
-	return strings.TrimSpace(cells[col].Value)
+	return cells[col]
 }
 
 func compareMoney(a, b string) int {

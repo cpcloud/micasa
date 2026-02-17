@@ -135,13 +135,13 @@ func TestApplySortsByDateDesc(t *testing.T) {
 	assert.Equal(t, []string{"2025-03-01", "2025-02-10", "2025-01-15"}, dates)
 }
 
-func TestApplySortsEmptyLastRegardlessOfDirection(t *testing.T) {
+func TestApplySortsNullLastRegardlessOfDirection(t *testing.T) {
 	tab := &Tab{
 		Specs: []columnSpec{
 			{Title: "Name", Kind: cellText},
 		},
 		CellRows: [][]cell{
-			{{Value: "", Kind: cellText}},
+			{{Kind: cellText, Null: true}},
 			{{Value: "Bravo", Kind: cellText}},
 			{{Value: "Alpha", Kind: cellText}},
 		},
@@ -150,15 +150,56 @@ func TestApplySortsEmptyLastRegardlessOfDirection(t *testing.T) {
 	toggleSort(tab, 0) // asc
 	applySorts(tab)
 
-	names := collectCol(tab, 0)
-	assert.Empty(t, names[2], "expected empty value last")
+	assert.Equal(t, []string{"Alpha", "Bravo", ""}, collectCol(tab, 0),
+		"null should sort last in asc")
+	assert.True(t, tab.CellRows[2][0].Null, "last row should be null")
 
-	// Now desc: empty should still be last.
+	// Now desc: null should still be last.
 	toggleSort(tab, 0) // desc
 	applySorts(tab)
 
-	names = collectCol(tab, 0)
-	assert.Empty(t, names[2], "expected empty value last in desc")
+	assert.Equal(t, []string{"Bravo", "Alpha", ""}, collectCol(tab, 0),
+		"null should sort last in desc")
+	assert.True(t, tab.CellRows[2][0].Null, "last row should be null")
+}
+
+func TestApplySortsEmptySortsNormally(t *testing.T) {
+	tab := &Tab{
+		Specs: []columnSpec{
+			{Title: "Name", Kind: cellText},
+		},
+		CellRows: [][]cell{
+			{{Value: "Bravo", Kind: cellText}},
+			{{Value: "", Kind: cellText}},
+			{{Value: "Alpha", Kind: cellText}},
+		},
+		Rows: []rowMeta{{ID: 1}, {ID: 2}, {ID: 3}},
+	}
+	toggleSort(tab, 0) // asc
+	applySorts(tab)
+
+	assert.Equal(t, []string{"", "Alpha", "Bravo"}, collectCol(tab, 0),
+		"empty non-null should sort first (before alphabetic values)")
+}
+
+func TestApplySortsNullAfterEmpty(t *testing.T) {
+	tab := &Tab{
+		Specs: []columnSpec{
+			{Title: "Name", Kind: cellText},
+		},
+		CellRows: [][]cell{
+			{{Kind: cellText, Null: true}},
+			{{Value: "", Kind: cellText}},
+			{{Value: "Alpha", Kind: cellText}},
+		},
+		Rows: []rowMeta{{ID: 1}, {ID: 2}, {ID: 3}},
+	}
+	toggleSort(tab, 0) // asc
+	applySorts(tab)
+
+	assert.Equal(t, []string{"", "Alpha", ""}, collectCol(tab, 0))
+	assert.False(t, tab.CellRows[0][0].Null, "first row should be empty, not null")
+	assert.True(t, tab.CellRows[2][0].Null, "last row should be null")
 }
 
 func TestApplySortsMultiKey(t *testing.T) {
