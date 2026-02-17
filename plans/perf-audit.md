@@ -144,9 +144,10 @@ structs and keystroke frequency is human-limited (~10/sec max).
 4. P0-4: Pre-compute urgency/warranty styles -- **Skipped**. Style
    allocation was already fixed by #1. Remaining `time.Parse` per cell is
    ~1.5us/frame, not worth structural changes.
-5. P1-5: Pre-compute sort keys -- **Done**. Build a `sortKey` slice once
-   (O(N)) before sorting instead of re-parsing on every O(N log N)
-   comparison.
+5. P1-5: Pre-compute sort keys -- **Reverted**. Replaced four hand-rolled
+   comparators with a generic `cmpOrdered` helper but kept the
+   straightforward per-comparison approach. Pre-computing sort keys adds
+   complexity that isn't justified for the low row counts in this app.
 6. P1-6: Cache compact/mag transformations -- **Skipped**. These operate
    on viewport-sliced cells (~300-400 cells), and the transforms are cheap.
    Not worth invalidation complexity.
