@@ -595,6 +595,13 @@ func TestHelpContentNavModeEsc(t *testing.T) {
 	assert.Contains(t, help, "Close detail")
 }
 
+func TestHelpContentFormsShowsFieldNavigation(t *testing.T) {
+	m := newTestModel()
+	help := m.helpContent()
+	assert.Contains(t, help, "Next field")
+	assert.Contains(t, help, "Previous field")
+}
+
 func TestHelpContentShowsArrowKeyAlternatives(t *testing.T) {
 	m := newTestModel()
 	help := m.helpContent()
