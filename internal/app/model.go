@@ -74,7 +74,8 @@ type Model struct {
 	inlineInput           *inlineInputState
 	undoStack             []undoEntry
 	redoStack             []undoEntry
-	magMode               bool // easter egg: display numbers as order-of-magnitude
+	lastDeleted           *deletionRef // persists across tab switches for d-to-undo
+	magMode               bool         // easter egg: display numbers as order-of-magnitude
 	status                statusMsg
 	projectTypes          []data.ProjectType
 	maintenanceCategories []data.MaintenanceCategory
@@ -1205,8 +1206,8 @@ func (m *Model) toggleDeleteSelected() {
 			m.setStatusError(err.Error())
 			return
 		}
-		if tab.LastDeleted != nil && *tab.LastDeleted == meta.ID {
-			tab.LastDeleted = nil
+		if m.lastDeleted != nil && m.lastDeleted.Tab == tab.Kind && m.lastDeleted.ID == meta.ID {
+			m.lastDeleted = nil
 		}
 		m.setStatusInfo("Restored.")
 		m.surfaceError(m.reloadEffectiveTab())
@@ -1216,7 +1217,7 @@ func (m *Model) toggleDeleteSelected() {
 		m.setStatusError(err.Error())
 		return
 	}
-	tab.LastDeleted = &meta.ID
+	m.lastDeleted = &deletionRef{Tab: tab.Kind, ID: meta.ID}
 	m.setStatusInfo("Deleted. Press d to restore.")
 	m.surfaceError(m.reloadEffectiveTab())
 }

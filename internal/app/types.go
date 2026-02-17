@@ -32,6 +32,13 @@ const (
 	formDocument
 )
 
+// deletionRef tracks the most recent soft-delete so d-to-restore works
+// even after switching tabs.
+type deletionRef struct {
+	Tab TabKind
+	ID  uint
+}
+
 type TabKind int
 
 const (
@@ -97,7 +104,6 @@ type Tab struct {
 	CellRows    [][]cell
 	ColCursor   int
 	ViewOffset  int // first visible column in horizontal scroll viewport
-	LastDeleted *uint
 	ShowDeleted bool
 	Sorts       []sortEntry
 	Stale       bool // true when data may be outdated; cleared on reload
