@@ -20,8 +20,9 @@ import (
 var version = "dev"
 
 type cli struct {
-	DBPath    string           `arg:"" optional:"" help:"SQLite database path. Pass with --demo to persist demo data." env:"MICASA_DB_PATH"`
+	DBPath    string           `arg:"" optional:"" help:"SQLite database path. Pass with --demo to persist demo data."        env:"MICASA_DB_PATH"`
 	Demo      bool             `                   help:"Launch with sample data in an in-memory database."`
+	Years     int              `                   help:"Generate N years of simulated home ownership data. Requires --demo."`
 	PrintPath bool             `                   help:"Print the resolved database path and exit."`
 	Version   kong.VersionFlag `                   help:"Show version and exit."`
 }
@@ -53,9 +54,34 @@ func main() {
 	if err := store.SeedDefaults(); err != nil {
 		fail("seed defaults", err)
 	}
+	if c.Years > 0 && !c.Demo {
+		fail("invalid flags", fmt.Errorf("--years requires --demo"))
+	}
+	if c.Years < 0 {
+		fail("invalid flags", fmt.Errorf("--years must be non-negative"))
+	}
 	if c.Demo {
-		if err := store.SeedDemoData(); err != nil {
-			fail("seed demo data", err)
+		if c.Years > 0 {
+			summary, err := store.SeedScaledData(c.Years)
+			if err != nil {
+				fail("seed scaled data", err)
+			}
+			fmt.Fprintf(
+				os.Stderr,
+				"seeded %d years: %d vendors, %d projects, %d appliances, %d maintenance, %d service logs, %d quotes, %d documents\n",
+				c.Years,
+				summary.Vendors,
+				summary.Projects,
+				summary.Appliances,
+				summary.Maintenance,
+				summary.ServiceLogs,
+				summary.Quotes,
+				summary.Documents,
+			)
+		} else {
+			if err := store.SeedDemoData(); err != nil {
+				fail("seed demo data", err)
+			}
 		}
 	}
 

@@ -370,6 +370,23 @@ func (h *HomeFaker) Quote() Quote {
 	}
 }
 
+// DateInYear returns a random date within the given calendar year.
+func (h *HomeFaker) DateInYear(year int) time.Time {
+	start := time.Date(year, time.January, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(year, time.December, 31, 23, 59, 59, 0, time.UTC)
+	return h.f.DateRange(start, end)
+}
+
+// ServiceLogEntryAt generates a service log entry with the given service date.
+func (h *HomeFaker) ServiceLogEntryAt(servicedAt time.Time) ServiceLogEntry {
+	costCents := int64(h.f.IntRange(1000, 60000))
+	return ServiceLogEntry{
+		ServicedAt: servicedAt,
+		CostCents:  &costCents,
+		Notes:      h.pick(serviceLogNotes),
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Static lookups
 // ---------------------------------------------------------------------------
