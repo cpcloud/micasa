@@ -414,6 +414,7 @@ func (m *Model) startMaintenanceForm() {
 				Value(&values.ApplianceID),
 			huh.NewInput().
 				Title("Interval months").
+				Description("e.g. enter 12 for annual; blank for a single instance").
 				Placeholder("6").
 				Value(&values.IntervalMonths).
 				Validate(optionalInt("interval months")),
@@ -461,6 +462,7 @@ func (m *Model) openMaintenanceForm(
 				Validate(optionalDate("last serviced")),
 			huh.NewInput().
 				Title("Interval months").
+				Description("e.g. enter 12 for annual; blank for a single instance").
 				Placeholder("6").
 				Value(&values.IntervalMonths).
 				Validate(optionalInt("interval months")),
