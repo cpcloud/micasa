@@ -13,6 +13,10 @@ import (
 	"github.com/cpcloud/micasa/internal/data"
 )
 
+// defaultStyle is reused for cells that need no special styling, avoiding
+// a lipgloss.NewStyle() allocation per cell per render.
+var defaultStyle = lipgloss.NewStyle()
+
 const (
 	linkArrow      = "→"   // FK link to another tab
 	drilldownArrow = "↘"   // opens a detail sub-table
@@ -138,8 +142,12 @@ func computeTableViewport(tab *Tab, termWidth int, normalSep string, styles Styl
 		return vp
 	}
 
+	// Compute natural widths once for visible columns, then reuse for both
+	// columnWidths calls below (avoids a duplicate O(rows*cols) measurement).
+	visNatural := naturalWidths(visSpecs, visCells)
+
 	sepW := lipgloss.Width(normalSep)
-	fullWidths := columnWidths(visSpecs, visCells, termWidth, sepW)
+	fullWidths := columnWidths(visSpecs, visCells, termWidth, sepW, visNatural)
 
 	start, end, hasLeft, hasRight := viewportRange(
 		fullWidths, sepW, termWidth, tab.ViewOffset, visColCursor,
@@ -162,11 +170,15 @@ func computeTableViewport(tab *Tab, termWidth int, normalSep string, styles Styl
 	// activating/deactivating a filter doesn't shift column widths or
 	// remove link arrows from headers.
 	fullCells := vp.Cells
+	natSlice := visNatural[start:end]
 	if len(tab.Pins) > 0 && len(tab.FullCellRows) > 0 {
 		fullCells = projectCellRows(tab.FullCellRows, visToFull, start, end)
+		allFullCells := projectCellRows(tab.FullCellRows, visToFull, 0, len(visToFull))
+		fullNatural := naturalWidths(visSpecs, allFullCells)
+		natSlice = fullNatural[start:end]
 	}
 	vp.LinkCells = fullCells
-	vp.Widths = columnWidths(vp.Specs, fullCells, termWidth, sepW)
+	vp.Widths = columnWidths(vp.Specs, fullCells, termWidth, sepW, natSlice)
 
 	// Per-gap separators need to match the viewport's projected columns.
 	vp.PlainSeps, vp.CollapsedSeps = gapSeparators(vpVisToFull, len(tab.Specs), normalSep, styles)
@@ -567,47 +579,57 @@ func cellStyle(kind cellKind, styles Styles) lipgloss.Style {
 	case cellDrilldown:
 		return styles.Drilldown
 	default:
-		return lipgloss.NewStyle()
+		return defaultStyle
 	}
 }
+
+// Pre-computed urgency/warranty styles to avoid allocating per cell per frame.
+var (
+	urgencyOverdue  = lipgloss.NewStyle().Foreground(danger).Bold(true)
+	urgencySoon     = lipgloss.NewStyle().Foreground(secondary)
+	urgencyUpcoming = lipgloss.NewStyle().Foreground(warning)
+	urgencyFar      = lipgloss.NewStyle().Foreground(success)
+	warrantyExpired = lipgloss.NewStyle().Foreground(danger)
+	warrantyActive  = lipgloss.NewStyle().Foreground(success)
+)
 
 // urgencyStyle returns a style colored from green (far out) through yellow
 // (upcoming) to red (overdue) based on the number of days until a date.
 // Thresholds: >60 days = green, 30-60 = yellow, 0-30 = orange, <0 = red.
 func urgencyStyle(dateStr string) lipgloss.Style {
 	if dateStr == "" {
-		return lipgloss.NewStyle()
+		return defaultStyle
 	}
 	t, err := time.Parse(data.DateLayout, strings.TrimSpace(dateStr))
 	if err != nil {
-		return lipgloss.NewStyle()
+		return defaultStyle
 	}
 	days := int(time.Until(t).Hours() / 24)
 	switch {
 	case days < 0:
-		return lipgloss.NewStyle().Foreground(danger).Bold(true)
+		return urgencyOverdue
 	case days <= 30:
-		return lipgloss.NewStyle().Foreground(secondary)
+		return urgencySoon
 	case days <= 60:
-		return lipgloss.NewStyle().Foreground(warning)
+		return urgencyUpcoming
 	default:
-		return lipgloss.NewStyle().Foreground(success)
+		return urgencyFar
 	}
 }
 
 // warrantyStyle returns green if the warranty is still active, red if expired.
 func warrantyStyle(dateStr string) lipgloss.Style {
 	if dateStr == "" {
-		return lipgloss.NewStyle()
+		return defaultStyle
 	}
 	t, err := time.Parse(data.DateLayout, strings.TrimSpace(dateStr))
 	if err != nil {
-		return lipgloss.NewStyle()
+		return defaultStyle
 	}
 	if time.Now().After(t) {
-		return lipgloss.NewStyle().Foreground(danger)
+		return warrantyExpired
 	}
-	return lipgloss.NewStyle().Foreground(success)
+	return warrantyActive
 }
 
 func formatCell(value string, width int, align alignKind) string {
@@ -658,6 +680,7 @@ func columnWidths(
 	rows [][]cell,
 	width int,
 	separatorWidth int,
+	precompNatural []int, // nil = compute on the fly
 ) []int {
 	columnCount := len(specs)
 	if columnCount == 0 {
@@ -668,7 +691,10 @@ func columnWidths(
 		available = columnCount
 	}
 
-	natural := naturalWidths(specs, rows)
+	natural := precompNatural
+	if natural == nil {
+		natural = naturalWidths(specs, rows)
+	}
 
 	// If content-driven widths fit, use them — no truncation.
 	if sumInts(natural) <= available {

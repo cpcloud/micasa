@@ -57,6 +57,11 @@ type chatState struct {
 	HistoryCur   int             // index into History for up/down browsing (-1 = live input)
 	HistoryBuf   string          // stashed live input while browsing history
 	Visible      bool            // false when the overlay is hidden but session persists
+
+	// Cached glamour renderer, keyed by width. Avoids re-parsing the JSON
+	// stylesheet on every streaming tick (~10/sec during LLM responses).
+	mdRenderer  *glamour.TermRenderer
+	mdRendererW int
 }
 
 // modelCompleter is the inline autocomplete list for /model.
@@ -1260,7 +1265,7 @@ func (m *Model) renderChatMessages() string {
 				if sqlWidth < 30 {
 					sqlWidth = 30
 				}
-				sqlBlock := renderMarkdown(
+				sqlBlock := m.chat.renderMarkdown(
 					"```sql\n"+llm.FormatSQL(sql, sqlWidth)+"\n```",
 					innerW-2,
 				)
@@ -1273,7 +1278,7 @@ func (m *Model) renderChatMessages() string {
 				if m.magMode {
 					display = magTransformText(display)
 				}
-				parts = append(parts, renderMarkdown(display, innerW-2))
+				parts = append(parts, m.chat.renderMarkdown(display, innerW-2))
 			}
 
 			// Join content parts, trimming glamour's leading whitespace.
@@ -1325,18 +1330,24 @@ func (m *Model) renderChatMessages() string {
 }
 
 // renderMarkdown renders markdown text for terminal display using glamour.
-func renderMarkdown(text string, width int) string {
+// The renderer is cached on the chatState and reused across calls at the same
+// width, avoiding repeated JSON stylesheet parsing during LLM streaming.
+func (cs *chatState) renderMarkdown(text string, width int) string {
 	if width < 10 {
 		width = 10
 	}
-	r, err := glamour.NewTermRenderer(
-		glamour.WithAutoStyle(),
-		glamour.WithWordWrap(width),
-	)
-	if err != nil {
-		return wordWrap(text, width)
+	if cs.mdRenderer == nil || cs.mdRendererW != width {
+		r, err := glamour.NewTermRenderer(
+			glamour.WithAutoStyle(),
+			glamour.WithWordWrap(width),
+		)
+		if err != nil {
+			return wordWrap(text, width)
+		}
+		cs.mdRenderer = r
+		cs.mdRendererW = width
 	}
-	out, err := r.Render(text)
+	out, err := cs.mdRenderer.Render(text)
 	if err != nil {
 		return wordWrap(text, width)
 	}

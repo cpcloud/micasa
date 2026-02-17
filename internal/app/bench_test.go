@@ -101,7 +101,7 @@ func BenchmarkColumnWidths(b *testing.B) {
 	sepW := 3
 	b.ResetTimer()
 	for b.Loop() {
-		_ = columnWidths(visSpecs, visCells, 120, sepW)
+		_ = columnWidths(visSpecs, visCells, 120, sepW, nil)
 	}
 }
 
@@ -158,6 +158,27 @@ func BenchmarkBuildBaseView(b *testing.B) {
 	b.ResetTimer()
 	for b.Loop() {
 		_ = m.buildBaseView()
+	}
+}
+
+func BenchmarkApplySorts(b *testing.B) {
+	m := benchModel(b)
+	tab := m.activeTab()
+	// Sort by a date column to exercise date parsing.
+	dateCol := -1
+	for i, spec := range tab.Specs {
+		if spec.Kind == cellDate || spec.Kind == cellUrgency {
+			dateCol = i
+			break
+		}
+	}
+	if dateCol < 0 {
+		b.Skip("no date column in active tab")
+	}
+	tab.Sorts = []sortEntry{{Col: dateCol, Dir: sortAsc}}
+	b.ResetTimer()
+	for b.Loop() {
+		applySorts(tab)
 	}
 }
 

@@ -76,7 +76,7 @@ func TestColumnWidthsNoTruncationWhenRoomAvailable(t *testing.T) {
 	}
 	// "A long name here" = 16 chars, exceeds Max=12.
 	// With 200 width and 3 separator, natural widths should fit.
-	widths := columnWidths(specs, rows, 200, 3)
+	widths := columnWidths(specs, rows, 200, 3, nil)
 	assert.GreaterOrEqual(t, widths[1], 16)
 }
 
@@ -89,7 +89,7 @@ func TestColumnWidthsTruncatesWhenTerminalNarrow(t *testing.T) {
 		{{Value: "1"}, {Value: "A very long name indeed"}},
 	}
 	// Very narrow terminal: 20 total - 3 separator = 17 available.
-	widths := columnWidths(specs, rows, 20, 3)
+	widths := columnWidths(specs, rows, 20, 3, nil)
 	total := widths[0] + widths[1]
 	assert.LessOrEqual(t, total, 17)
 }
@@ -103,7 +103,7 @@ func TestColumnWidthsTruncatedColumnsGetExtraFirst(t *testing.T) {
 	rows := [][]cell{
 		{{Value: "1"}, {Value: "Fifteen chars!!"}, {Value: "short"}},
 	}
-	widths := columnWidths(specs, rows, 60, 3)
+	widths := columnWidths(specs, rows, 60, 3, nil)
 	assert.GreaterOrEqual(t, widths[1], 15)
 }
 
@@ -402,7 +402,7 @@ func TestColumnWidthsFixedValuesStillStabilize(t *testing.T) {
 	rows := [][]cell{
 		{{Value: "planned"}},
 	}
-	widths := columnWidths(specs, rows, 80, 3)
+	widths := columnWidths(specs, rows, 80, 3, nil)
 	assert.GreaterOrEqual(t, widths[0], 9)
 }
 
