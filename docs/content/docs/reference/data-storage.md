@@ -100,6 +100,31 @@ The database is a standard SQLite file. You can:
 The file uses a pure-Go SQLite driver (no CGO), so the binary has zero
 native dependencies.
 
+## A note on scale
+
+micasa manages one house. Yours. The expected dataset is something like 1 house
+profile, a few dozen projects, a handful of appliances, and maybe a few hundred
+maintenance entries if you've been religiously logging every generator spark
+plug, oil change, and leaf you've raked since the Clinton administration. The entire database will comfortably
+fit on a floppy disk, assuming you can find one. Attach enough PDFs of
+appliance manuals and warranty certificates and you might graduate to two
+floppy disks. Exciting times.
+
+There is no sharding strategy. There is no read replica. The query planner's
+hardest decision is whether to use the index. We have not load-tested the
+application to determine peak concurrent homeowner throughput, but we're
+confident the answer is "one" and the bottleneck is "the homeowner going to get
+a snack."
+
+SQLite caps out at 281 terabytes. If your maintenance records are approaching
+even a fraction of that, you do not have a database problem -- you have a house
+problem. That is less "home maintenance" and more "the Winchester Mystery House
+is my primary residence and I am writing down every nail."
+
+If you're managing enough houses to worry about database performance, you're a
+property management company, and you should probably use property management
+software.
+
 ## LLM data exposure
 
 If you enable the optional [LLM chat]({{< ref "/docs/guide/llm-chat" >}}),
