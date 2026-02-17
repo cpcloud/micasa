@@ -177,18 +177,19 @@ func applianceColumnSpecs() []columnSpec {
 	}
 }
 
-// applianceMaintenanceColumnSpecs is like maintenanceColumnSpecs but without
-// the Appliance column (already scoped by the parent appliance).
-func applianceMaintenanceColumnSpecs() []columnSpec {
-	return []columnSpec{
-		{Title: "ID", Min: 4, Max: 6, Align: alignRight, Kind: cellReadonly},
-		{Title: "Item", Min: 12, Max: 26, Flex: true},
-		{Title: "Category", Min: 10, Max: 14},
-		{Title: "Last", Min: 10, Max: 12, Kind: cellDate},
-		{Title: "Next", Min: 10, Max: 12, Kind: cellUrgency},
-		{Title: "Every", Min: 6, Max: 10},
-		{Title: "Log", Min: 4, Max: 6, Align: alignRight, Kind: cellDrilldown},
+// withoutColumn returns a copy of specs with the named column removed.
+func withoutColumn(specs []columnSpec, title string) []columnSpec {
+	out := make([]columnSpec, 0, len(specs)-1)
+	for _, s := range specs {
+		if s.Title != title {
+			out = append(out, s)
+		}
 	}
+	return out
+}
+
+func applianceMaintenanceColumnSpecs() []columnSpec {
+	return withoutColumn(maintenanceColumnSpecs(), "Appliance")
 }
 
 func applianceMaintenanceRows(
@@ -534,21 +535,7 @@ func buildRows[T any](items []T, toRow func(T) rowSpec) ([]table.Row, []rowMeta,
 // vendorQuoteColumnSpecs defines the columns for quotes scoped to a vendor.
 // Omits the Vendor column since the parent context provides that.
 func vendorQuoteColumnSpecs() []columnSpec {
-	return []columnSpec{
-		{Title: "ID", Min: 4, Max: 6, Align: alignRight, Kind: cellReadonly},
-		{
-			Title: "Project",
-			Min:   12,
-			Max:   24,
-			Flex:  true,
-			Link:  &columnLink{TargetTab: tabProjects},
-		},
-		{Title: "Total", Min: 10, Max: 14, Align: alignRight, Kind: cellMoney},
-		{Title: "Labor", Min: 10, Max: 14, Align: alignRight, Kind: cellMoney},
-		{Title: "Mat", Min: 8, Max: 12, Align: alignRight, Kind: cellMoney},
-		{Title: "Other", Min: 8, Max: 12, Align: alignRight, Kind: cellMoney},
-		{Title: "Recv", Min: 10, Max: 12, Kind: cellDate},
-	}
+	return withoutColumn(quoteColumnSpecs(), "Vendor")
 }
 
 func vendorQuoteRows(
@@ -612,24 +599,8 @@ func vendorJobsRows(
 	})
 }
 
-// projectQuoteColumnSpecs defines the columns for quotes scoped to a project.
-// Omits the Project column since the parent context provides that.
 func projectQuoteColumnSpecs() []columnSpec {
-	return []columnSpec{
-		{Title: "ID", Min: 4, Max: 6, Align: alignRight, Kind: cellReadonly},
-		{
-			Title: "Vendor",
-			Min:   12,
-			Max:   20,
-			Flex:  true,
-			Link:  &columnLink{TargetTab: tabVendors},
-		},
-		{Title: "Total", Min: 10, Max: 14, Align: alignRight, Kind: cellMoney},
-		{Title: "Labor", Min: 10, Max: 14, Align: alignRight, Kind: cellMoney},
-		{Title: "Mat", Min: 8, Max: 12, Align: alignRight, Kind: cellMoney},
-		{Title: "Other", Min: 8, Max: 12, Align: alignRight, Kind: cellMoney},
-		{Title: "Recv", Min: 10, Max: 12, Kind: cellDate},
-	}
+	return withoutColumn(quoteColumnSpecs(), "Project")
 }
 
 func projectQuoteRows(
@@ -679,17 +650,8 @@ func documentColumnSpecs() []columnSpec {
 	}
 }
 
-// entityDocumentColumnSpecs defines columns for documents scoped to a
-// specific entity (drill view). Omits the Entity column.
 func entityDocumentColumnSpecs() []columnSpec {
-	return []columnSpec{
-		{Title: "ID", Min: 4, Max: 6, Align: alignRight, Kind: cellReadonly},
-		{Title: "Title", Min: 14, Max: 32, Flex: true},
-		{Title: "Type", Min: 8, Max: 16},
-		{Title: "Size", Min: 6, Max: 10, Align: alignRight, Kind: cellReadonly},
-		{Title: "Notes", Min: 12, Max: 40, Flex: true, Kind: cellNotes},
-		{Title: "Updated", Min: 10, Max: 12, Kind: cellReadonly},
-	}
+	return withoutColumn(documentColumnSpecs(), "Entity")
 }
 
 func documentRows(docs []data.Document) ([]table.Row, []rowMeta, [][]cell) {

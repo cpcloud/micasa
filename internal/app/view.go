@@ -24,34 +24,23 @@ func (m *Model) buildView() string {
 
 	base := m.buildBaseView()
 
-	if m.dashboardVisible() {
-		fg := cancelFaint(m.buildDashboardOverlay())
-		base = overlay.Composite(fg, dimBackground(base), overlay.Center, overlay.Center, 0, 0)
+	// Overlays applied in priority order (later overlays render on top).
+	overlays := []struct {
+		active bool
+		render func() string
+	}{
+		{m.dashboardVisible(), m.buildDashboardOverlay},
+		{m.calendar != nil, m.buildCalendarOverlay},
+		{m.showNotePreview, m.buildNotePreviewOverlay},
+		{m.columnFinder != nil, m.buildColumnFinderOverlay},
+		{m.chat != nil && m.chat.Visible, m.buildChatOverlay},
+		{m.helpViewport != nil, m.buildHelpOverlay},
 	}
-
-	if m.calendar != nil {
-		fg := cancelFaint(m.buildCalendarOverlay())
-		base = overlay.Composite(fg, dimBackground(base), overlay.Center, overlay.Center, 0, 0)
-	}
-
-	if m.showNotePreview {
-		fg := cancelFaint(m.buildNotePreviewOverlay())
-		base = overlay.Composite(fg, dimBackground(base), overlay.Center, overlay.Center, 0, 0)
-	}
-
-	if m.columnFinder != nil {
-		fg := cancelFaint(m.buildColumnFinderOverlay())
-		base = overlay.Composite(fg, dimBackground(base), overlay.Center, overlay.Center, 0, 0)
-	}
-
-	if m.chat != nil && m.chat.Visible {
-		fg := cancelFaint(m.buildChatOverlay())
-		base = overlay.Composite(fg, dimBackground(base), overlay.Center, overlay.Center, 0, 0)
-	}
-
-	if m.helpViewport != nil {
-		fg := cancelFaint(m.buildHelpOverlay())
-		base = overlay.Composite(fg, dimBackground(base), overlay.Center, overlay.Center, 0, 0)
+	for _, o := range overlays {
+		if o.active {
+			fg := cancelFaint(o.render())
+			base = overlay.Composite(fg, dimBackground(base), overlay.Center, overlay.Center, 0, 0)
+		}
 	}
 
 	return base
@@ -461,34 +450,25 @@ func (m *Model) renderStatusHints(hints []statusHint) string {
 		return line
 	}
 
-	for priority := maxPriority; priority >= 0; priority-- {
-		for i := len(hints) - 1; i >= 0; i-- {
-			hint := hints[i]
-			if hint.required || hint.priority != priority || hint.compact == "" || compact[i] {
-				continue
-			}
-			compact[i] = true
-			line = build()
-			if lipgloss.Width(line) <= maxW {
-				return line
-			}
-		}
-	}
-
-	for priority := maxPriority; priority >= 0; priority-- {
-		for i := len(hints) - 1; i >= 0; i-- {
-			hint := hints[i]
-			if hint.priority != priority || hint.compact == "" || compact[i] {
-				continue
-			}
-			compact[i] = true
-			line = build()
-			if lipgloss.Width(line) <= maxW {
-				return line
+	// Phase 1: compact hints (non-required first, then required).
+	for _, skipRequired := range []bool{true, false} {
+		for priority := maxPriority; priority >= 0; priority-- {
+			for i := len(hints) - 1; i >= 0; i-- {
+				hint := hints[i]
+				if (skipRequired && hint.required) ||
+					hint.priority != priority || hint.compact == "" || compact[i] {
+					continue
+				}
+				compact[i] = true
+				line = build()
+				if lipgloss.Width(line) <= maxW {
+					return line
+				}
 			}
 		}
 	}
 
+	// Phase 2: drop non-required hints by descending priority.
 	droppedAny := false
 	for priority := maxPriority; priority >= 0; priority-- {
 		for i := len(hints) - 1; i >= 0; i-- {
@@ -497,8 +477,8 @@ func (m *Model) renderStatusHints(hints []statusHint) string {
 				continue
 			}
 			dropped[i] = true
-			droppedAny = true
-			if droppedAny {
+			if !droppedAny {
+				droppedAny = true
 				if helpIdx := statusHintIndex(hints, "help"); helpIdx >= 0 &&
 					hints[helpIdx].compact != "" {
 					compact[helpIdx] = true
@@ -1057,10 +1037,6 @@ func joinVerticalNonEmpty(values ...string) string {
 
 func joinWithSeparator(sep string, values ...string) string {
 	return strings.Join(filterNonBlank(values), sep)
-}
-
-func joinNonEmpty(values []string, sep string) string {
-	return joinWithSeparator(sep, values...)
 }
 
 // clampLines truncates each line in s to maxW visible columns, appending "…"

@@ -359,77 +359,86 @@ func (applianceHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
 func (applianceHandler) SyncFixedValues(_ *Model, _ []columnSpec) {}
 
 // ---------------------------------------------------------------------------
-// applianceMaintenanceHandler -- detail-view handler for maintenance items
-// scoped to a single appliance.
+// scopedHandler wraps a parent TabHandler for detail-view sub-tables.
+// The embedded TabHandler provides default implementations for all interface
+// methods; only Load, InlineEdit, StartAddForm, and SubmitForm are overridden
+// when the scoped view differs from the parent.
 // ---------------------------------------------------------------------------
 
-type applianceMaintenanceHandler struct {
-	applianceID uint
+type scopedHandler struct {
+	TabHandler   // embedded; delegates FormKind, Delete, Restore, StartEditForm, Snapshot, SyncFixedValues
+	loadFn       func(*data.Store, bool) ([]table.Row, []rowMeta, [][]cell, error)
+	inlineEditFn func(*Model, uint, int) error // nil = TabHandler.InlineEdit
+	startAddFn   func(*Model) error            // nil = TabHandler.StartAddForm
+	submitFn     func(*Model) error            // nil = TabHandler.SubmitForm
 }
 
-func (h applianceMaintenanceHandler) FormKind() FormKind { return formMaintenance }
-
-func (h applianceMaintenanceHandler) Load(
+func (s scopedHandler) Load(
 	store *data.Store,
 	showDeleted bool,
 ) ([]table.Row, []rowMeta, [][]cell, error) {
-	items, err := store.ListMaintenanceByAppliance(h.applianceID, showDeleted)
-	if err != nil {
-		return nil, nil, nil, err
+	return s.loadFn(store, showDeleted)
+}
+
+func (s scopedHandler) StartAddForm(m *Model) error {
+	if s.startAddFn != nil {
+		return s.startAddFn(m)
 	}
-	ids := make([]uint, len(items))
-	for i, item := range items {
-		ids[i] = item.ID
+	return s.TabHandler.StartAddForm(m)
+}
+
+func (s scopedHandler) InlineEdit(m *Model, id uint, col int) error {
+	if s.inlineEditFn != nil {
+		return s.inlineEditFn(m, id, col)
 	}
-	logCounts, err := store.CountServiceLogs(ids)
-	if err != nil {
-		logCounts = map[uint]int{}
+	return s.TabHandler.InlineEdit(m, id, col)
+}
+
+func (s scopedHandler) SubmitForm(m *Model) error {
+	if s.submitFn != nil {
+		return s.submitFn(m)
 	}
-	rows, meta, cellRows := applianceMaintenanceRows(items, logCounts)
-	return rows, meta, cellRows, nil
+	return s.TabHandler.SubmitForm(m)
 }
 
-func (h applianceMaintenanceHandler) Delete(store *data.Store, id uint) error {
-	return store.DeleteMaintenance(id)
-}
-
-func (h applianceMaintenanceHandler) Restore(store *data.Store, id uint) error {
-	return store.RestoreMaintenance(id)
-}
-
-func (h applianceMaintenanceHandler) StartAddForm(m *Model) error {
-	m.startMaintenanceForm()
-	return nil
-}
-
-func (h applianceMaintenanceHandler) StartEditForm(m *Model, id uint) error {
-	return m.startEditMaintenanceForm(id)
-}
-
-func (h applianceMaintenanceHandler) InlineEdit(m *Model, id uint, col int) error {
-	// Column mapping without Appliance: 0=ID, 1=Item, 2=Category, 3=Last,
-	// 4=Next, 5=Every, 6=Log. Remap to the full maintenance column indices
-	// (skip col 3=Appliance in the full spec).
-	fullCol := col
-	if col >= 3 {
-		fullCol = col + 1
+// skipColEdit returns an InlineEdit function that skips a removed column by
+// remapping indices at and above skipAt to skipAt+1.
+func skipColEdit(parent TabHandler, skipAt int) func(*Model, uint, int) error {
+	return func(m *Model, id uint, col int) error {
+		fullCol := col
+		if col >= skipAt {
+			fullCol = col + 1
+		}
+		return parent.InlineEdit(m, id, fullCol)
 	}
-	return m.inlineEditMaintenance(id, fullCol)
 }
 
-func (h applianceMaintenanceHandler) SubmitForm(m *Model) error {
-	return m.submitMaintenanceForm()
-}
+// ---------------------------------------------------------------------------
+// Scoped handler constructors
+// ---------------------------------------------------------------------------
 
-func (applianceMaintenanceHandler) Snapshot(
-	store *data.Store,
-	id uint,
-) (undoEntry, bool) {
-	return maintenanceHandler{}.Snapshot(store, id)
-}
-
-func (applianceMaintenanceHandler) SyncFixedValues(m *Model, specs []columnSpec) {
-	maintenanceHandler{}.SyncFixedValues(m, specs)
+func newApplianceMaintenanceHandler(applianceID uint) scopedHandler {
+	parent := maintenanceHandler{}
+	return scopedHandler{
+		TabHandler: parent,
+		loadFn: func(store *data.Store, showDeleted bool) ([]table.Row, []rowMeta, [][]cell, error) {
+			items, err := store.ListMaintenanceByAppliance(applianceID, showDeleted)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			ids := make([]uint, len(items))
+			for i, item := range items {
+				ids[i] = item.ID
+			}
+			logCounts, err := store.CountServiceLogs(ids)
+			if err != nil {
+				logCounts = map[uint]int{}
+			}
+			rows, meta, cellRows := applianceMaintenanceRows(items, logCounts)
+			return rows, meta, cellRows, nil
+		},
+		inlineEditFn: skipColEdit(parent, 3), // skip Appliance column
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -571,185 +580,67 @@ func (vendorHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
 
 func (vendorHandler) SyncFixedValues(_ *Model, _ []columnSpec) {}
 
-// ---------------------------------------------------------------------------
-// vendorQuoteHandler -- detail-view handler for quotes scoped to a vendor.
-// ---------------------------------------------------------------------------
-
-type vendorQuoteHandler struct {
-	vendorID uint
-}
-
-func (vendorQuoteHandler) FormKind() FormKind { return formQuote }
-
-func (h vendorQuoteHandler) Load(
-	store *data.Store,
-	showDeleted bool,
-) ([]table.Row, []rowMeta, [][]cell, error) {
-	quotes, err := store.ListQuotesByVendor(h.vendorID, showDeleted)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	rows, meta, cellRows := vendorQuoteRows(quotes)
-	return rows, meta, cellRows, nil
-}
-
-func (vendorQuoteHandler) Delete(store *data.Store, id uint) error {
-	return store.DeleteQuote(id)
-}
-
-func (vendorQuoteHandler) Restore(store *data.Store, id uint) error {
-	return store.RestoreQuote(id)
-}
-
-func (vendorQuoteHandler) StartAddForm(m *Model) error {
-	return m.startQuoteForm()
-}
-
-func (vendorQuoteHandler) StartEditForm(m *Model, id uint) error {
-	return m.startEditQuoteForm(id)
-}
-
-func (vendorQuoteHandler) InlineEdit(m *Model, id uint, col int) error {
-	// Columns: 0=ID, 1=Project, 2=Total, 3=Labor, 4=Mat, 5=Other, 6=Recv.
-	// Map to full quote columns (skip col 2=Vendor).
-	fullCol := col
-	if col >= 2 {
-		fullCol = col + 1
-	}
-	return m.inlineEditQuote(id, fullCol)
-}
-
-func (vendorQuoteHandler) SubmitForm(m *Model) error {
-	return m.submitQuoteForm()
-}
-
-func (vendorQuoteHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
-	return quoteHandler{}.Snapshot(store, id)
-}
-
-func (vendorQuoteHandler) SyncFixedValues(_ *Model, _ []columnSpec) {}
-
-// ---------------------------------------------------------------------------
-// vendorJobsHandler -- detail-view handler for service log entries scoped to
-// a vendor.
-// ---------------------------------------------------------------------------
-
-type vendorJobsHandler struct {
-	vendorID uint
-}
-
-func (vendorJobsHandler) FormKind() FormKind { return formServiceLog }
-
-func (h vendorJobsHandler) Load(
-	store *data.Store,
-	showDeleted bool,
-) ([]table.Row, []rowMeta, [][]cell, error) {
-	entries, err := store.ListServiceLogsByVendor(h.vendorID, showDeleted)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	rows, meta, cellRows := vendorJobsRows(entries)
-	return rows, meta, cellRows, nil
-}
-
-func (vendorJobsHandler) Delete(store *data.Store, id uint) error {
-	return store.DeleteServiceLog(id)
-}
-
-func (vendorJobsHandler) Restore(store *data.Store, id uint) error {
-	return store.RestoreServiceLog(id)
-}
-
-func (h vendorJobsHandler) StartAddForm(m *Model) error {
-	// Service log entries need a maintenance item ID; cannot add from
-	// the vendor-scoped view since the parent maintenance item is unknown.
-	return fmt.Errorf("add service log entries from the Maintenance tab")
-}
-
-func (vendorJobsHandler) StartEditForm(m *Model, id uint) error {
-	return m.startEditServiceLogForm(id)
-}
-
-func (vendorJobsHandler) InlineEdit(m *Model, id uint, col int) error {
-	// Columns: 0=ID, 1=Item, 2=Date, 3=Cost, 4=Notes.
-	// Map to full service log columns: 0=ID, 1=Date, 2=Performed By, 3=Cost, 4=Notes.
-	switch col {
-	case 2:
-		return m.inlineEditServiceLog(id, 1) // Date
-	case 3:
-		return m.inlineEditServiceLog(id, 3) // Cost
-	default:
-		return nil
+func newVendorQuoteHandler(vendorID uint) scopedHandler {
+	parent := quoteHandler{}
+	return scopedHandler{
+		TabHandler: parent,
+		loadFn: func(store *data.Store, showDeleted bool) ([]table.Row, []rowMeta, [][]cell, error) {
+			quotes, err := store.ListQuotesByVendor(vendorID, showDeleted)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			rows, meta, cellRows := vendorQuoteRows(quotes)
+			return rows, meta, cellRows, nil
+		},
+		inlineEditFn: skipColEdit(parent, 2), // skip Vendor column
 	}
 }
 
-func (vendorJobsHandler) SubmitForm(m *Model) error {
-	return m.submitServiceLogForm()
-}
-
-func (vendorJobsHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
-	return serviceLogHandler{}.Snapshot(store, id)
-}
-
-func (vendorJobsHandler) SyncFixedValues(_ *Model, _ []columnSpec) {}
-
-// ---------------------------------------------------------------------------
-// projectQuoteHandler -- detail-view handler for quotes scoped to a project.
-// ---------------------------------------------------------------------------
-
-type projectQuoteHandler struct {
-	projectID uint
-}
-
-func (projectQuoteHandler) FormKind() FormKind { return formQuote }
-
-func (h projectQuoteHandler) Load(
-	store *data.Store,
-	showDeleted bool,
-) ([]table.Row, []rowMeta, [][]cell, error) {
-	quotes, err := store.ListQuotesByProject(h.projectID, showDeleted)
-	if err != nil {
-		return nil, nil, nil, err
+func newVendorJobsHandler(vendorID uint) scopedHandler {
+	parent := serviceLogHandler{}
+	return scopedHandler{
+		TabHandler: parent,
+		loadFn: func(store *data.Store, showDeleted bool) ([]table.Row, []rowMeta, [][]cell, error) {
+			entries, err := store.ListServiceLogsByVendor(vendorID, showDeleted)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			rows, meta, cellRows := vendorJobsRows(entries)
+			return rows, meta, cellRows, nil
+		},
+		inlineEditFn: func(m *Model, id uint, col int) error {
+			// Vendor jobs columns: 0=ID, 1=Item, 2=Date, 3=Cost, 4=Notes.
+			// Map to full service log columns: 0=ID, 1=Date, 2=Performed By, 3=Cost, 4=Notes.
+			switch col {
+			case 2:
+				return m.inlineEditServiceLog(id, 1) // Date
+			case 3:
+				return m.inlineEditServiceLog(id, 3) // Cost
+			default:
+				return nil
+			}
+		},
+		startAddFn: func(_ *Model) error {
+			return fmt.Errorf("add service log entries from the Maintenance tab")
+		},
 	}
-	rows, meta, cellRows := projectQuoteRows(quotes)
-	return rows, meta, cellRows, nil
 }
 
-func (projectQuoteHandler) Delete(store *data.Store, id uint) error {
-	return store.DeleteQuote(id)
-}
-
-func (projectQuoteHandler) Restore(store *data.Store, id uint) error {
-	return store.RestoreQuote(id)
-}
-
-func (projectQuoteHandler) StartAddForm(m *Model) error {
-	return m.startQuoteForm()
-}
-
-func (projectQuoteHandler) StartEditForm(m *Model, id uint) error {
-	return m.startEditQuoteForm(id)
-}
-
-func (projectQuoteHandler) InlineEdit(m *Model, id uint, col int) error {
-	// Columns: 0=ID, 1=Vendor, 2=Total, 3=Labor, 4=Mat, 5=Other, 6=Recv.
-	// Map to full quote columns (skip col 1=Project).
-	fullCol := col
-	if col >= 1 {
-		fullCol = col + 1
+func newProjectQuoteHandler(projectID uint) scopedHandler {
+	parent := quoteHandler{}
+	return scopedHandler{
+		TabHandler: parent,
+		loadFn: func(store *data.Store, showDeleted bool) ([]table.Row, []rowMeta, [][]cell, error) {
+			quotes, err := store.ListQuotesByProject(projectID, showDeleted)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			rows, meta, cellRows := projectQuoteRows(quotes)
+			return rows, meta, cellRows, nil
+		},
+		inlineEditFn: skipColEdit(parent, 1), // skip Project column
 	}
-	return m.inlineEditQuote(id, fullCol)
 }
-
-func (projectQuoteHandler) SubmitForm(m *Model) error {
-	return m.submitQuoteForm()
-}
-
-func (projectQuoteHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
-	return quoteHandler{}.Snapshot(store, id)
-}
-
-func (projectQuoteHandler) SyncFixedValues(_ *Model, _ []columnSpec) {}
 
 // ---------------------------------------------------------------------------
 // documentHandler -- top-level handler for the Documents tab.
@@ -812,120 +703,24 @@ func (documentHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
 
 func (documentHandler) SyncFixedValues(_ *Model, _ []columnSpec) {}
 
-// ---------------------------------------------------------------------------
-// projectDocumentHandler -- detail-view handler for documents scoped to a
-// single project.
-// ---------------------------------------------------------------------------
-
-type projectDocumentHandler struct {
-	projectID uint
-}
-
-func (projectDocumentHandler) FormKind() FormKind { return formDocument }
-
-func (h projectDocumentHandler) Load(
-	store *data.Store,
-	showDeleted bool,
-) ([]table.Row, []rowMeta, [][]cell, error) {
-	docs, err := store.ListDocumentsByEntity(data.DocumentEntityProject, h.projectID, showDeleted)
-	if err != nil {
-		return nil, nil, nil, err
+func newEntityDocumentHandler(entityKind string, entityID uint) scopedHandler {
+	parent := documentHandler{}
+	return scopedHandler{
+		TabHandler: parent,
+		loadFn: func(store *data.Store, showDeleted bool) ([]table.Row, []rowMeta, [][]cell, error) {
+			docs, err := store.ListDocumentsByEntity(entityKind, entityID, showDeleted)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			rows, meta, cellRows := entityDocumentRows(docs)
+			return rows, meta, cellRows, nil
+		},
+		inlineEditFn: skipColEdit(parent, 2), // skip Entity column
+		startAddFn: func(m *Model) error {
+			return m.startDocumentForm(entityKind)
+		},
+		submitFn: func(m *Model) error {
+			return m.submitScopedDocumentForm(entityKind, entityID)
+		},
 	}
-	rows, meta, cellRows := entityDocumentRows(docs)
-	return rows, meta, cellRows, nil
 }
-
-func (projectDocumentHandler) Delete(store *data.Store, id uint) error {
-	return store.DeleteDocument(id)
-}
-
-func (projectDocumentHandler) Restore(store *data.Store, id uint) error {
-	return store.RestoreDocument(id)
-}
-
-func (h projectDocumentHandler) StartAddForm(m *Model) error {
-	return m.startDocumentForm(data.DocumentEntityProject)
-}
-
-func (projectDocumentHandler) StartEditForm(m *Model, id uint) error {
-	return m.startEditDocumentForm(id)
-}
-
-func (projectDocumentHandler) InlineEdit(m *Model, id uint, col int) error {
-	// Entity doc columns: 0=ID, 1=Title, 2=Type, 3=Size, 4=Notes, 5=Updated.
-	// Map to full document columns: skip col 2=Entity.
-	fullCol := col
-	if col >= 2 {
-		fullCol = col + 1
-	}
-	return m.inlineEditDocument(id, fullCol)
-}
-
-func (h projectDocumentHandler) SubmitForm(m *Model) error {
-	return m.submitScopedDocumentForm(data.DocumentEntityProject, h.projectID)
-}
-
-func (projectDocumentHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
-	return documentHandler{}.Snapshot(store, id)
-}
-
-func (projectDocumentHandler) SyncFixedValues(_ *Model, _ []columnSpec) {}
-
-// ---------------------------------------------------------------------------
-// applianceDocumentHandler -- detail-view handler for documents scoped to a
-// single appliance.
-// ---------------------------------------------------------------------------
-
-type applianceDocumentHandler struct {
-	applianceID uint
-}
-
-func (applianceDocumentHandler) FormKind() FormKind { return formDocument }
-
-func (h applianceDocumentHandler) Load(
-	store *data.Store,
-	showDeleted bool,
-) ([]table.Row, []rowMeta, [][]cell, error) {
-	docs, err := store.ListDocumentsByEntity(
-		data.DocumentEntityAppliance, h.applianceID, showDeleted,
-	)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	rows, meta, cellRows := entityDocumentRows(docs)
-	return rows, meta, cellRows, nil
-}
-
-func (applianceDocumentHandler) Delete(store *data.Store, id uint) error {
-	return store.DeleteDocument(id)
-}
-
-func (applianceDocumentHandler) Restore(store *data.Store, id uint) error {
-	return store.RestoreDocument(id)
-}
-
-func (h applianceDocumentHandler) StartAddForm(m *Model) error {
-	return m.startDocumentForm(data.DocumentEntityAppliance)
-}
-
-func (applianceDocumentHandler) StartEditForm(m *Model, id uint) error {
-	return m.startEditDocumentForm(id)
-}
-
-func (applianceDocumentHandler) InlineEdit(m *Model, id uint, col int) error {
-	fullCol := col
-	if col >= 2 {
-		fullCol = col + 1
-	}
-	return m.inlineEditDocument(id, fullCol)
-}
-
-func (h applianceDocumentHandler) SubmitForm(m *Model) error {
-	return m.submitScopedDocumentForm(data.DocumentEntityAppliance, h.applianceID)
-}
-
-func (applianceDocumentHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
-	return documentHandler{}.Snapshot(store, id)
-}
-
-func (applianceDocumentHandler) SyncFixedValues(_ *Model, _ []columnSpec) {}

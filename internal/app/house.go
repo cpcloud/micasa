@@ -236,7 +236,7 @@ func formatCityState(profile data.HouseProfile) string {
 		strings.TrimSpace(profile.City),
 		strings.TrimSpace(profile.State),
 	}
-	return joinNonEmpty(parts, ", ")
+	return joinWithSeparator(", ", parts...)
 }
 
 func formatAddress(profile data.HouseProfile) string {
@@ -247,7 +247,7 @@ func formatAddress(profile data.HouseProfile) string {
 		strings.TrimSpace(profile.State),
 		strings.TrimSpace(profile.PostalCode),
 	}
-	return joinNonEmpty(parts, ", ")
+	return joinWithSeparator(", ", parts...)
 }
 
 func hoaSummary(profile data.HouseProfile) string {

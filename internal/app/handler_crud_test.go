@@ -536,7 +536,7 @@ func TestApplianceMaintenanceHandlerLoad(t *testing.T) {
 		IntervalMonths: 12,
 	}))
 
-	h := applianceMaintenanceHandler{applianceID: appID}
+	h := newApplianceMaintenanceHandler(appID)
 	rows, meta, _, err := h.Load(m.store, false)
 	require.NoError(t, err)
 	require.Len(t, rows, 1)

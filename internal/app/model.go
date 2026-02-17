@@ -723,178 +723,210 @@ func (m *Model) effectiveTab() *Tab {
 	return m.activeTab()
 }
 
-func (m *Model) openServiceLogDetail(maintID uint, maintName string) error {
-	// When drilled from the top-level Maintenance tab, the breadcrumb starts
-	// with "Maintenance"; when nested (e.g. Appliances > … > Maint item),
-	// the parent tab context is already on the stack so we skip the prefix.
-	bc := maintName + breadcrumbSep + "Service Log"
-	if !m.inDetail() {
-		bc = "Maintenance" + breadcrumbSep + bc
+// detailDef describes how to construct a detail drilldown view. Shared by the
+// named openXxxDetail helpers and the table-driven openDetailForRow dispatch.
+type detailDef struct {
+	tabKind    TabKind
+	subName    string
+	specs      func() []columnSpec
+	handler    func(parentID uint) TabHandler
+	breadcrumb func(m *Model, parentName string) string
+	getName    func(store *data.Store, id uint) (string, error) // resolve parent display name
+}
+
+// stdBreadcrumb returns a breadcrumb builder that produces the standard
+// "prefix > parentName > subName" format. Pass "" for subName to omit it.
+func stdBreadcrumb(prefix, subName string) func(*Model, string) string {
+	return func(_ *Model, parentName string) string {
+		if subName == "" {
+			return prefix + breadcrumbSep + parentName
+		}
+		return prefix + breadcrumbSep + parentName + breadcrumbSep + subName
 	}
-	specs := serviceLogColumnSpecs()
+}
+
+var (
+	serviceLogDef = detailDef{
+		tabKind: tabMaintenance,
+		subName: "Service Log",
+		specs:   serviceLogColumnSpecs,
+		handler: func(id uint) TabHandler { return serviceLogHandler{maintenanceItemID: id} },
+		breadcrumb: func(m *Model, parentName string) string {
+			// When drilled from the top-level Maintenance tab, the breadcrumb
+			// starts with "Maintenance"; when nested (e.g. Appliances > … >
+			// Maint item), the parent context is already on the stack.
+			bc := parentName + breadcrumbSep + "Service Log"
+			if !m.inDetail() {
+				bc = "Maintenance" + breadcrumbSep + bc
+			}
+			return bc
+		},
+		getName: func(s *data.Store, id uint) (string, error) {
+			item, err := s.GetMaintenance(id)
+			if err != nil {
+				return "", fmt.Errorf("load maintenance item: %w", err)
+			}
+			return item.Name, nil
+		},
+	}
+	applianceMaintenanceDef = detailDef{
+		tabKind:    tabAppliances,
+		subName:    "Maintenance",
+		specs:      applianceMaintenanceColumnSpecs,
+		handler:    func(id uint) TabHandler { return newApplianceMaintenanceHandler(id) },
+		breadcrumb: stdBreadcrumb("Appliances", ""),
+		getName: func(s *data.Store, id uint) (string, error) {
+			a, err := s.GetAppliance(id)
+			if err != nil {
+				return "", fmt.Errorf("load appliance: %w", err)
+			}
+			return a.Name, nil
+		},
+	}
+	vendorQuoteDef = detailDef{
+		tabKind:    tabVendors,
+		subName:    tabQuotes.String(),
+		specs:      vendorQuoteColumnSpecs,
+		handler:    func(id uint) TabHandler { return newVendorQuoteHandler(id) },
+		breadcrumb: stdBreadcrumb("Vendors", tabQuotes.String()),
+		getName:    getVendorName,
+	}
+	vendorJobsDef = detailDef{
+		tabKind:    tabVendors,
+		subName:    "Jobs",
+		specs:      vendorJobsColumnSpecs,
+		handler:    func(id uint) TabHandler { return newVendorJobsHandler(id) },
+		breadcrumb: stdBreadcrumb("Vendors", "Jobs"),
+		getName:    getVendorName,
+	}
+	projectQuoteDef = detailDef{
+		tabKind:    tabProjects,
+		subName:    tabQuotes.String(),
+		specs:      projectQuoteColumnSpecs,
+		handler:    func(id uint) TabHandler { return newProjectQuoteHandler(id) },
+		breadcrumb: stdBreadcrumb("Projects", tabQuotes.String()),
+		getName:    getProjectTitle,
+	}
+	projectDocumentDef = detailDef{
+		tabKind:    tabProjects,
+		subName:    tabDocuments.String(),
+		specs:      entityDocumentColumnSpecs,
+		handler:    func(id uint) TabHandler { return newEntityDocumentHandler(data.DocumentEntityProject, id) },
+		breadcrumb: stdBreadcrumb("Projects", tabDocuments.String()),
+		getName:    getProjectTitle,
+	}
+	applianceDocumentDef = detailDef{
+		tabKind:    tabAppliances,
+		subName:    tabDocuments.String(),
+		specs:      entityDocumentColumnSpecs,
+		handler:    func(id uint) TabHandler { return newEntityDocumentHandler(data.DocumentEntityAppliance, id) },
+		breadcrumb: stdBreadcrumb("Appliances", tabDocuments.String()),
+		getName: func(s *data.Store, id uint) (string, error) {
+			a, err := s.GetAppliance(id)
+			if err != nil {
+				return "", fmt.Errorf("load appliance: %w", err)
+			}
+			return a.Name, nil
+		},
+	}
+)
+
+// Shared getName helpers for defs that resolve the same entity type.
+func getVendorName(s *data.Store, id uint) (string, error) {
+	v, err := s.GetVendor(id)
+	if err != nil {
+		return "", fmt.Errorf("load vendor: %w", err)
+	}
+	return v.Name, nil
+}
+
+func getProjectTitle(s *data.Store, id uint) (string, error) {
+	p, err := s.GetProject(id)
+	if err != nil {
+		return "", fmt.Errorf("load project: %w", err)
+	}
+	return p.Title, nil
+}
+
+// openDetailFromDef opens a drilldown using a detail definition.
+func (m *Model) openDetailFromDef(def detailDef, parentID uint, parentName string) error {
+	specs := def.specs()
 	return m.openDetailWith(detailContext{
 		ParentTabIndex: m.active,
-		ParentRowID:    maintID,
-		Breadcrumb:     bc,
+		ParentRowID:    parentID,
+		Breadcrumb:     def.breadcrumb(m, parentName),
 		Tab: Tab{
-			Kind:    tabMaintenance,
-			Name:    "Service Log",
-			Handler: serviceLogHandler{maintenanceItemID: maintID},
+			Kind:    def.tabKind,
+			Name:    def.subName,
+			Handler: def.handler(parentID),
 			Specs:   specs,
 			Table:   newTable(specsToColumns(specs), m.styles),
 		},
 	})
+}
+
+func (m *Model) openServiceLogDetail(maintID uint, maintName string) error {
+	return m.openDetailFromDef(serviceLogDef, maintID, maintName)
 }
 
 func (m *Model) openApplianceMaintenanceDetail(applianceID uint, applianceName string) error {
-	specs := applianceMaintenanceColumnSpecs()
-	return m.openDetailWith(detailContext{
-		ParentTabIndex: m.active,
-		ParentRowID:    applianceID,
-		Breadcrumb:     "Appliances" + breadcrumbSep + applianceName,
-		Tab: Tab{
-			Kind:    tabAppliances,
-			Name:    "Maintenance",
-			Handler: applianceMaintenanceHandler{applianceID: applianceID},
-			Specs:   specs,
-			Table:   newTable(specsToColumns(specs), m.styles),
-		},
-	})
+	return m.openDetailFromDef(applianceMaintenanceDef, applianceID, applianceName)
 }
 
 func (m *Model) openVendorQuoteDetail(vendorID uint, vendorName string) error {
-	specs := vendorQuoteColumnSpecs()
-	return m.openDetailWith(detailContext{
-		ParentTabIndex: m.active,
-		ParentRowID:    vendorID,
-		Breadcrumb:     "Vendors" + breadcrumbSep + vendorName + breadcrumbSep + tabQuotes.String(),
-		Tab: Tab{
-			Kind:    tabVendors,
-			Name:    tabQuotes.String(),
-			Handler: vendorQuoteHandler{vendorID: vendorID},
-			Specs:   specs,
-			Table:   newTable(specsToColumns(specs), m.styles),
-		},
-	})
+	return m.openDetailFromDef(vendorQuoteDef, vendorID, vendorName)
 }
 
 func (m *Model) openVendorJobsDetail(vendorID uint, vendorName string) error {
-	specs := vendorJobsColumnSpecs()
-	return m.openDetailWith(detailContext{
-		ParentTabIndex: m.active,
-		ParentRowID:    vendorID,
-		Breadcrumb:     "Vendors" + breadcrumbSep + vendorName + breadcrumbSep + "Jobs",
-		Tab: Tab{
-			Kind:    tabVendors,
-			Name:    "Jobs",
-			Handler: vendorJobsHandler{vendorID: vendorID},
-			Specs:   specs,
-			Table:   newTable(specsToColumns(specs), m.styles),
-		},
-	})
+	return m.openDetailFromDef(vendorJobsDef, vendorID, vendorName)
 }
 
 func (m *Model) openProjectQuoteDetail(projectID uint, projectTitle string) error {
-	specs := projectQuoteColumnSpecs()
-	return m.openDetailWith(detailContext{
-		ParentTabIndex: m.active,
-		ParentRowID:    projectID,
-		Breadcrumb:     "Projects" + breadcrumbSep + projectTitle + breadcrumbSep + tabQuotes.String(),
-		Tab: Tab{
-			Kind:    tabProjects,
-			Name:    tabQuotes.String(),
-			Handler: projectQuoteHandler{projectID: projectID},
-			Specs:   specs,
-			Table:   newTable(specsToColumns(specs), m.styles),
-		},
-	})
+	return m.openDetailFromDef(projectQuoteDef, projectID, projectTitle)
 }
 
 func (m *Model) openProjectDocumentDetail(projectID uint, projectTitle string) error {
-	specs := entityDocumentColumnSpecs()
-	return m.openDetailWith(detailContext{
-		ParentTabIndex: m.active,
-		ParentRowID:    projectID,
-		Breadcrumb:     "Projects" + breadcrumbSep + projectTitle + breadcrumbSep + tabDocuments.String(),
-		Tab: Tab{
-			Kind:    tabProjects,
-			Name:    tabDocuments.String(),
-			Handler: projectDocumentHandler{projectID: projectID},
-			Specs:   specs,
-			Table:   newTable(specsToColumns(specs), m.styles),
-		},
-	})
+	return m.openDetailFromDef(projectDocumentDef, projectID, projectTitle)
 }
 
 func (m *Model) openApplianceDocumentDetail(applianceID uint, applianceName string) error {
-	specs := entityDocumentColumnSpecs()
-	return m.openDetailWith(detailContext{
-		ParentTabIndex: m.active,
-		ParentRowID:    applianceID,
-		Breadcrumb:     "Appliances" + breadcrumbSep + applianceName + breadcrumbSep + tabDocuments.String(),
-		Tab: Tab{
-			Kind:    tabAppliances,
-			Name:    tabDocuments.String(),
-			Handler: applianceDocumentHandler{applianceID: applianceID},
-			Specs:   specs,
-			Table:   newTable(specsToColumns(specs), m.styles),
-		},
-	})
+	return m.openDetailFromDef(applianceDocumentDef, applianceID, applianceName)
+}
+
+// detailRoute maps a (TabKind, colTitle) pair to a detailDef for dispatch.
+type detailRoute struct {
+	tabKinds []TabKind
+	colTitle string
+	def      detailDef
+}
+
+var detailRoutes = []detailRoute{
+	{[]TabKind{tabMaintenance, tabAppliances}, "Log", serviceLogDef},
+	{[]TabKind{tabAppliances}, "Maint", applianceMaintenanceDef},
+	{[]TabKind{tabVendors}, tabQuotes.String(), vendorQuoteDef},
+	{[]TabKind{tabVendors}, "Jobs", vendorJobsDef},
+	{[]TabKind{tabProjects}, tabQuotes.String(), projectQuoteDef},
+	{[]TabKind{tabProjects}, tabDocuments.String(), projectDocumentDef},
+	{[]TabKind{tabAppliances}, tabDocuments.String(), applianceDocumentDef},
 }
 
 // openDetailForRow dispatches a drilldown based on the current tab kind and the
 // column that was activated. Supports nested drilldowns (e.g. Appliance →
 // Maintenance → Service Log).
 func (m *Model) openDetailForRow(tab *Tab, rowID uint, colTitle string) error {
-	switch {
-	case (tab.Kind == tabMaintenance || tab.Kind == tabAppliances) && colTitle == "Log":
-		item, err := m.store.GetMaintenance(rowID)
-		if err != nil {
-			return fmt.Errorf("load maintenance item: %w", err)
+	for _, route := range detailRoutes {
+		if route.colTitle != colTitle {
+			continue
 		}
-		return m.openServiceLogDetail(rowID, item.Name)
-
-	case tab.Kind == tabAppliances && colTitle == "Maint":
-		appliance, err := m.store.GetAppliance(rowID)
-		if err != nil {
-			return fmt.Errorf("load appliance: %w", err)
+		for _, kind := range route.tabKinds {
+			if tab.Kind == kind {
+				name, err := route.def.getName(m.store, rowID)
+				if err != nil {
+					return err
+				}
+				return m.openDetailFromDef(route.def, rowID, name)
+			}
 		}
-		return m.openApplianceMaintenanceDetail(rowID, appliance.Name)
-
-	case tab.Kind == tabVendors && colTitle == tabQuotes.String():
-		vendor, err := m.store.GetVendor(rowID)
-		if err != nil {
-			return fmt.Errorf("load vendor: %w", err)
-		}
-		return m.openVendorQuoteDetail(rowID, vendor.Name)
-
-	case tab.Kind == tabVendors && colTitle == "Jobs":
-		vendor, err := m.store.GetVendor(rowID)
-		if err != nil {
-			return fmt.Errorf("load vendor: %w", err)
-		}
-		return m.openVendorJobsDetail(rowID, vendor.Name)
-
-	case tab.Kind == tabProjects && colTitle == tabQuotes.String():
-		project, err := m.store.GetProject(rowID)
-		if err != nil {
-			return fmt.Errorf("load project: %w", err)
-		}
-		return m.openProjectQuoteDetail(rowID, project.Title)
-
-	case tab.Kind == tabProjects && colTitle == tabDocuments.String():
-		project, err := m.store.GetProject(rowID)
-		if err != nil {
-			return fmt.Errorf("load project: %w", err)
-		}
-		return m.openProjectDocumentDetail(rowID, project.Title)
-
-	case tab.Kind == tabAppliances && colTitle == tabDocuments.String():
-		appliance, err := m.store.GetAppliance(rowID)
-		if err != nil {
-			return fmt.Errorf("load appliance: %w", err)
-		}
-		return m.openApplianceDocumentDetail(rowID, appliance.Name)
 	}
 	return nil
 }

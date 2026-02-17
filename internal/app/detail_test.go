@@ -299,7 +299,7 @@ func TestApplianceMaintenanceDetailOpens(t *testing.T) {
 }
 
 func TestApplianceMaintenanceHandlerFormKind(t *testing.T) {
-	h := applianceMaintenanceHandler{applianceID: 1}
+	h := newApplianceMaintenanceHandler(1)
 	assert.Equal(t, formMaintenance, h.FormKind())
 }
 
@@ -458,12 +458,12 @@ func TestVendorJobsDrilldown(t *testing.T) {
 }
 
 func TestVendorQuoteHandlerFormKind(t *testing.T) {
-	h := vendorQuoteHandler{vendorID: 1}
+	h := newVendorQuoteHandler(1)
 	assert.Equal(t, formQuote, h.FormKind())
 }
 
 func TestVendorJobsHandlerFormKind(t *testing.T) {
-	h := vendorJobsHandler{vendorID: 1}
+	h := newVendorJobsHandler(1)
 	assert.Equal(t, formServiceLog, h.FormKind())
 }
 
@@ -494,7 +494,7 @@ func TestProjectQuoteDrilldown(t *testing.T) {
 }
 
 func TestProjectQuoteHandlerFormKind(t *testing.T) {
-	h := projectQuoteHandler{projectID: 1}
+	h := newProjectQuoteHandler(1)
 	assert.Equal(t, formQuote, h.FormKind())
 }
 
@@ -695,12 +695,12 @@ func TestApplianceDocumentDrilldown(t *testing.T) {
 }
 
 func TestProjectDocumentHandlerFormKind(t *testing.T) {
-	h := projectDocumentHandler{projectID: 1}
+	h := newEntityDocumentHandler(data.DocumentEntityProject, 1)
 	assert.Equal(t, formDocument, h.FormKind())
 }
 
 func TestApplianceDocumentHandlerFormKind(t *testing.T) {
-	h := applianceDocumentHandler{applianceID: 1}
+	h := newEntityDocumentHandler(data.DocumentEntityAppliance, 1)
 	assert.Equal(t, formDocument, h.FormKind())
 }
 
