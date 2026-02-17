@@ -31,12 +31,15 @@ Complete reference of every keybinding in micasa, organized by mode.
 | `G`             | Jump to last row |
 | `d` / `ctrl+d`  | Half-page down |
 | `u` / `ctrl+u`  | Half-page up |
+| `pgdown`         | Full page down |
+| `pgup`           | Full page up |
 
 ### Tabs and views
 
 | Key             | Action |
 |-----------------|--------|
 | `b` / `f`       | Previous / next tab |
+| `B` / `F`       | First / last tab |
 | `tab`           | Toggle house profile |
 | `D`             | Toggle dashboard       |
 
@@ -80,6 +83,7 @@ Same as Nav mode, except `d` and `u` are rebound:
 | `j`/`k`/`h`/`l`/`g`/`G` | Same as Nav |
 | `ctrl+d`       | Half-page down |
 | `ctrl+u`       | Half-page up |
+| `pgdown`/`pgup` | Full page down/up |
 
 ### Data operations
 
@@ -108,10 +112,7 @@ captures all keyboard input until dismissed. See the
 | `up` / `ctrl+p`  | Previous prompt from history |
 | `down` / `ctrl+n` | Next prompt from history |
 | `esc`            | Hide chat overlay (session is preserved) |
-| `ctrl+c`         | Cancel in-flight LLM request |
 | `ctrl+s`         | Toggle SQL query display |
-| `ctrl+o`         | Toggle mag mode |
-| `ctrl+q`         | Quit |
 
 ### Model picker
 

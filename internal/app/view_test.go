@@ -574,6 +574,27 @@ func TestHelpContentIncludesProjectStatusFilterShortcut(t *testing.T) {
 	assert.Contains(t, help, "Toggle settled projects")
 }
 
+func TestHelpContentHasGlobalSection(t *testing.T) {
+	m := newTestModel()
+	help := m.helpContent()
+	assert.Contains(t, help, "Global")
+	assert.Contains(t, help, "Quit")
+	assert.Contains(t, help, "Cancel LLM")
+}
+
+func TestHelpContentEditModeHalfPage(t *testing.T) {
+	m := newTestModel()
+	help := m.helpContent()
+	assert.Contains(t, help, "CTRL+D")
+	assert.Contains(t, help, "CTRL+U")
+}
+
+func TestHelpContentNavModeEsc(t *testing.T) {
+	m := newTestModel()
+	help := m.helpContent()
+	assert.Contains(t, help, "Close detail")
+}
+
 func TestHeaderTitleWidth(t *testing.T) {
 	tests := []struct {
 		name string

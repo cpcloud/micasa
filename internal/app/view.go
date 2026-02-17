@@ -684,6 +684,13 @@ func (m *Model) helpContent() string {
 		bindings []binding
 	}{
 		{
+			title: "Global",
+			bindings: []binding{
+				{"ctrl+c", "Cancel LLM operation"},
+				{"ctrl+q", "Quit"},
+			},
+		},
+		{
 			title: "Nav Mode",
 			bindings: []binding{
 				{"j/k", "Rows"},
@@ -706,7 +713,7 @@ func (m *Model) helpContent() string {
 				{"@", "Ask LLM"},
 				{"i", "Edit mode"},
 				{"?", "Help"},
-				{"ctrl+q", "Quit"},
+				{"esc", "Close detail / clear status"},
 			},
 		},
 		{
@@ -716,6 +723,7 @@ func (m *Model) helpContent() string {
 				{"e", "Edit cell or row"},
 				{"d", "Delete / restore"},
 				{"u/r", "Undo / redo"},
+				{"ctrl+d/ctrl+u", "Half page down/up"},
 				{"x", "Show deleted"},
 				{"p", "House profile"},
 				{"esc", "Nav mode"},
@@ -735,7 +743,6 @@ func (m *Model) helpContent() string {
 				{"enter", "Send message"},
 				{"ctrl+s", "Toggle SQL display"},
 				{"\u2191/\u2193", "Prompt history"},
-				{"ctrl+c", "Cancel operation"},
 				{"esc", "Hide chat"},
 			},
 		},
