@@ -1179,18 +1179,56 @@ func applyFormDefaults(form *huh.Form) {
 	form.WithShowErrors(true)
 	form.WithKeyMap(formKeyMap())
 
-	// Match both the error indicator (shown on the field title) and the
-	// error message prefix (shown with the validation text) to the
-	// required-field marker (colored ∗ U+2217).
-	theme := huh.ThemeBase()
+	form.WithTheme(formTheme())
+}
+
+// formTheme builds a huh form theme using the app's Wong palette.
+func formTheme() *huh.Theme {
+	t := huh.ThemeBase()
+
 	marker := lipgloss.NewStyle().
 		SetString(" ∗").
 		Foreground(secondary)
-	theme.Focused.ErrorIndicator = marker
-	theme.Blurred.ErrorIndicator = marker
-	theme.Focused.ErrorMessage = marker
-	theme.Blurred.ErrorMessage = marker
-	form.WithTheme(theme)
+
+	// Focused field styles.
+	t.Focused.Base = t.Focused.Base.BorderForeground(border)
+	t.Focused.Card = t.Focused.Base
+	t.Focused.Title = t.Focused.Title.Foreground(accent).Bold(true)
+	t.Focused.NoteTitle = t.Focused.NoteTitle.Foreground(accent).Bold(true).MarginBottom(1)
+	t.Focused.Description = t.Focused.Description.Foreground(textDim)
+	t.Focused.ErrorIndicator = marker
+	t.Focused.ErrorMessage = marker
+	t.Focused.SelectSelector = t.Focused.SelectSelector.Foreground(accent)
+	t.Focused.NextIndicator = t.Focused.NextIndicator.Foreground(accent)
+	t.Focused.PrevIndicator = t.Focused.PrevIndicator.Foreground(accent)
+	t.Focused.Option = t.Focused.Option.Foreground(textBright)
+	t.Focused.MultiSelectSelector = t.Focused.MultiSelectSelector.Foreground(accent)
+	t.Focused.SelectedOption = t.Focused.SelectedOption.Foreground(success)
+	t.Focused.SelectedPrefix = lipgloss.NewStyle().Foreground(success).SetString("[•] ")
+	t.Focused.UnselectedPrefix = lipgloss.NewStyle().Foreground(textMid).SetString("[ ] ")
+	t.Focused.UnselectedOption = t.Focused.UnselectedOption.Foreground(textBright)
+	t.Focused.FocusedButton = t.Focused.FocusedButton.Foreground(onAccent).Background(accent)
+	t.Focused.BlurredButton = t.Focused.BlurredButton.Foreground(textMid).Background(surface)
+
+	t.Focused.TextInput.Cursor = t.Focused.TextInput.Cursor.Foreground(accent)
+	t.Focused.TextInput.Placeholder = t.Focused.TextInput.Placeholder.Foreground(textDim)
+	t.Focused.TextInput.Prompt = t.Focused.TextInput.Prompt.Foreground(accent)
+
+	// Blurred inherits focused, then dims.
+	t.Blurred = t.Focused
+	t.Blurred.Base = t.Blurred.Base.BorderStyle(lipgloss.HiddenBorder())
+	t.Blurred.Card = t.Blurred.Base
+	t.Blurred.Title = t.Blurred.Title.Foreground(textMid).Bold(false)
+	t.Blurred.NoteTitle = t.Blurred.NoteTitle.Foreground(textMid).Bold(false)
+	t.Blurred.TextInput.Prompt = t.Blurred.TextInput.Prompt.Foreground(textDim)
+	t.Blurred.TextInput.Text = t.Blurred.TextInput.Text.Foreground(textMid)
+	t.Blurred.NextIndicator = lipgloss.NewStyle()
+	t.Blurred.PrevIndicator = lipgloss.NewStyle()
+
+	t.Group.Title = t.Focused.Title
+	t.Group.Description = t.Focused.Description
+
+	return t
 }
 
 func formKeyMap() *huh.KeyMap {
