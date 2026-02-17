@@ -481,7 +481,8 @@ These have been repeatedly requested. Violating them wastes the user's time.
   `~/src/agent-work/` (e.g.
   `git worktree add ~/src/agent-work/<descriptive-name> -b <branch> origin/main`),
   and (3) IMMEDIATELY `cd` into the new worktree and set it as your working
-  directory. Do ALL work in that worktree. Never start unrelated work
+  directory, then run `direnv allow` followed by `direnv reload` to load the
+  Nix dev shell. Do ALL work in that worktree. Never start unrelated work
   directly in the main checkout or the current worktree. Worktrees are cheap.
 - **Set your working directory, don't keep cd-ing**: If you notice yourself
   repeatedly `cd`-ing into the same directory before running commands,
