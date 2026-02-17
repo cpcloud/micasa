@@ -165,6 +165,52 @@ lookups and ad-hoc questions -- "when is X due?", "how much did Y cost?",
 "show me Z." For anything you'd act on financially or contractually, verify
 the answer against the actual tables.
 
+## Data and privacy
+
+micasa defaults to a local LLM server on your machine. When you use the chat,
+here is exactly what gets sent to the LLM endpoint.
+
+### What the model sees
+
+The two-stage pipeline sends different data at each step:
+
+1. **SQL generation** (stage 1) -- the model receives your database **schema**
+   (table names, column names, types) plus a sample of **distinct values** from
+   key columns (project types, statuses, vendor names, etc.). It does **not**
+   see full row data at this stage.
+2. **Result interpretation** (stage 2) -- the model receives the SQL query
+   results (just the rows matching your question) and summarizes them.
+
+If the model fails to produce valid SQL, micasa falls back to a single-stage
+mode that sends a **full dump of all non-deleted rows** from every user table.
+Internal columns (`id`, `created_at`, `updated_at`, `deleted_at`) and document
+file contents are excluded, but everything else -- addresses, costs, vendor
+contacts, appliance details, notes -- is included.
+
+In both modes, the model also receives your **conversation history** from the
+current session and any **extra context** you configured.
+
+### Local by default
+
+The default endpoint is `http://localhost:11434/v1` (Ollama running on your
+machine). With this setup, all data stays on your computer -- nothing is sent
+over the network.
+
+### Remote endpoints
+
+If you point `base_url` at a remote server (a cloud-hosted Ollama instance,
+a LAN machine, etc.), your home data travels over the network to that server.
+micasa connects over plain HTTP by default. Consider:
+
+- **Use HTTPS** if the endpoint supports it (`https://...`)
+- **Trust the server** -- the operator of a remote LLM endpoint can see
+  everything micasa sends, including the full data dump in fallback mode
+- **Network exposure** -- anyone who can intercept traffic between you and a
+  remote HTTP endpoint can read your home data
+
+The LLM feature is entirely optional. If you never configure an `[llm]`
+section, no data is ever sent anywhere.
+
 ## Configuration
 
 The chat requires an `[llm]` section in your config file. If no LLM is

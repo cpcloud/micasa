@@ -100,6 +100,15 @@ The database is a standard SQLite file. You can:
 The file uses a pure-Go SQLite driver (no CGO), so the binary has zero
 native dependencies.
 
+## LLM data exposure
+
+If you enable the optional [LLM chat]({{< ref "/docs/guide/llm-chat" >}}),
+micasa sends database contents to the configured LLM endpoint. By default this
+is localhost (Ollama), so data stays on your machine. If you configure a remote
+endpoint, your home data travels over the network. See the
+[Data and privacy]({{< ref "/docs/guide/llm-chat#data-and-privacy" >}})
+section of the LLM chat guide for details on exactly what is sent.
+
 ## Demo mode
 
 `micasa --demo` creates an in-memory database populated with fictitious sample
