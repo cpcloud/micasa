@@ -77,7 +77,7 @@ type Styles struct {
 // Neutral roles:
 //   Text bright:      Dark #E5E7EB  Light #1F2937
 //   Text mid:         Dark #9CA3AF  Light #4B5563
-//   Text dim:         Dark #6B7280  Light #6B7280
+//   Text dim:         Dark #6B7280  Light #4B5563
 //   Surface:          Dark #1F2937  Light #F3F4F6
 //   Surface deep:     Dark #111827  Light #E5E7EB
 //   On-accent text:   Dark #0F172A  Light #FFFFFF
@@ -92,7 +92,7 @@ var (
 
 	textBright = lipgloss.AdaptiveColor{Light: "#1F2937", Dark: "#E5E7EB"}
 	textMid    = lipgloss.AdaptiveColor{Light: "#4B5563", Dark: "#9CA3AF"}
-	textDim    = lipgloss.AdaptiveColor{Light: "#6B7280", Dark: "#6B7280"}
+	textDim    = lipgloss.AdaptiveColor{Light: "#4B5563", Dark: "#6B7280"}
 	surface    = lipgloss.AdaptiveColor{Light: "#F3F4F6", Dark: "#1F2937"}
 	onAccent   = lipgloss.AdaptiveColor{Light: "#FFFFFF", Dark: "#0F172A"}
 	border     = lipgloss.AdaptiveColor{Light: "#D1D5DB", Dark: "#374151"}
