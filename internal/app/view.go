@@ -98,7 +98,11 @@ func (m *Model) buildBaseView() string {
 
 	var content string
 	if m.mode == modeForm && m.form != nil {
-		content = m.form.View()
+		if legend := m.requiredLegend(); legend != "" {
+			content = legend + "\n\n" + m.form.View()
+		} else {
+			content = m.form.View()
+		}
 	} else if tab := m.effectiveTab(); tab != nil {
 		content = m.tableView(tab)
 	}
@@ -586,6 +590,9 @@ func (m *Model) drilldownHint(_ *Tab, _ columnSpec) string {
 
 func (m *Model) formFullScreen() string {
 	formContent := m.form.View()
+	if legend := m.requiredLegend(); legend != "" {
+		formContent = legend + "\n\n" + formContent
+	}
 	status := m.statusView()
 	panel := lipgloss.JoinVertical(lipgloss.Left, formContent, "", status)
 	return m.centerPanel(panel, 1)

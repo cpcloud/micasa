@@ -802,6 +802,56 @@ func TestRowCountUpdatesAcrossTabs(t *testing.T) {
 	}
 }
 
+func TestRequiredLegendShownOnMultiFieldForm(t *testing.T) {
+	m := newTestModelWithStore(t)
+	m.width = 120
+	m.height = 40
+	m.startProjectForm()
+	m.form.Init()
+
+	output := m.buildView()
+	assert.Contains(t, output, "required",
+		"multi-field form should show required-field legend")
+}
+
+func TestRequiredLegendShownOnFullScreenHouseForm(t *testing.T) {
+	m := newTestModelWithStore(t)
+	m.width = 120
+	m.height = 40
+	m.startHouseForm()
+	m.form.Init()
+
+	// House form renders via formFullScreen, not buildBaseView.
+	output := m.buildView()
+	assert.Contains(t, output, "required",
+		"fullscreen house form should show required-field legend")
+}
+
+func TestRequiredLegendHiddenOnInlineEdit(t *testing.T) {
+	m := newTestModelWithStore(t)
+	m.width = 120
+	m.height = 40
+
+	// Create a project so we can inline-edit it.
+	m.startProjectForm()
+	m.form.Init()
+	values, ok := m.formData.(*projectFormData)
+	require.True(t, ok)
+	values.Title = testProjectTitle
+	require.NoError(t, m.submitProjectForm())
+	m.exitForm()
+	m.reloadAll()
+
+	// Inline-edit the Status column (col 3) — a Select via openInlineEdit.
+	require.NoError(t, m.inlineEditProject(1, 3))
+	require.Equal(t, modeForm, m.mode, "inline edit should activate form mode")
+	m.form.Init()
+
+	output := m.buildView()
+	assert.NotContains(t, output, "required",
+		"inline edit should not show required-field legend")
+}
+
 func TestSetStatusSavedWithUndo(t *testing.T) {
 	m := newTestModel()
 	m.undoStack = append(m.undoStack, undoEntry{Description: "test"})

@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const testProjectTitle = "Test Project"
+
 // newTestModelWithStore creates a Model backed by a real in-memory SQLite
 // store with seeded defaults (project types, maintenance categories). The
 // model is sized to 120x40 and starts in normal mode (dashboard and house

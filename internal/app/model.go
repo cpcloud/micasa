@@ -69,6 +69,7 @@ type Model struct {
 	formData              any
 	formSnapshot          any
 	formDirty             bool
+	formHasRequired       bool
 	editID                *uint
 	inlineInput           *inlineInputState
 	undoStack             []undoEntry

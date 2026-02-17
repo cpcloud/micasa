@@ -42,7 +42,7 @@ func TestEditProjectFormHasMoreFieldsThanAdd(t *testing.T) {
 	m.form.Init()
 	values, ok := m.formData.(*projectFormData)
 	require.True(t, ok, "unexpected form data type")
-	values.Title = "Test Project"
+	values.Title = testProjectTitle
 	require.NoError(t, m.submitProjectForm())
 	m.exitForm()
 	m.reloadAll()
@@ -116,7 +116,7 @@ func TestAddQuoteFormHasOnlyEssentialFields(t *testing.T) {
 	m.form.Init()
 	values, ok := m.formData.(*projectFormData)
 	require.True(t, ok, "unexpected form data type")
-	values.Title = "Test Project"
+	values.Title = testProjectTitle
 	require.NoError(t, m.submitProjectForm())
 	m.exitForm()
 	m.reloadAll()

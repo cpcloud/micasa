@@ -1135,6 +1135,7 @@ func (m *Model) activateForm(kind FormKind, form *huh.Form, values any) {
 	m.formKind = kind
 	m.form = form
 	m.formData = values
+	m.formHasRequired = true
 	m.snapshotForm()
 }
 
@@ -1143,6 +1144,7 @@ func (m *Model) activateForm(kind FormKind, form *huh.Form, values any) {
 func (m *Model) openInlineEdit(id uint, kind FormKind, field huh.Field, values any) {
 	m.editID = &id
 	m.activateForm(kind, huh.NewForm(huh.NewGroup(field)), values)
+	m.formHasRequired = false
 }
 
 // openInlineInput sets up a single-field text edit rendered in the status bar,
@@ -1701,6 +1703,17 @@ func requiredTitle(label string) string {
 	return label + marker
 }
 
+// requiredLegend returns the "∗ required" legend line for forms that have
+// required fields. Returns empty string when the form has none.
+func (m *Model) requiredLegend() string {
+	if !m.formHasRequired {
+		return ""
+	}
+	marker := lipgloss.NewStyle().Foreground(secondary).Render("∗")
+	label := lipgloss.NewStyle().Foreground(textDim).Render(" required")
+	return marker + label
+}
+
 func intToString(value int) string {
 	if value == 0 {
 		return ""
@@ -1719,7 +1732,7 @@ func (m *Model) startDocumentForm(entityKind string) error {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
-				Title("Title").
+				Title(requiredTitle("Title")).
 				Value(&values.Title).
 				Validate(requiredText("title")),
 			huh.NewInput().
@@ -1749,7 +1762,7 @@ func (m *Model) openEditDocumentForm(values *documentFormData) {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
-				Title("Title").
+				Title(requiredTitle("Title")).
 				Value(&values.Title).
 				Validate(requiredText("title")),
 			huh.NewText().Title("Notes").Value(&values.Notes),
