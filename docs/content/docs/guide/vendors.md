@@ -45,7 +45,7 @@ tab.
 ## Drill columns
 
 The `Quotes` and `Jobs` columns show how many quotes and service log entries
-reference each vendor. In Normal mode, press `enter` to drill into a detail
+reference each vendor. In Nav mode, press `enter` to drill into a detail
 view showing those records.
 
 ## Notes

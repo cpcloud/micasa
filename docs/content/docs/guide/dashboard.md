@@ -12,7 +12,7 @@ The dashboard shows what needs attention right now.
 ## Opening the dashboard
 
 - On launch (if you have a house profile), the dashboard opens automatically
-- Press `D` in Normal mode to toggle it on/off
+- Press `D` in Nav mode to toggle it on/off
 - Press `f` to dismiss it and switch to the next tab
 
 ## Sections

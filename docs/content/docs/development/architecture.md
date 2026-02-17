@@ -57,7 +57,7 @@ free.
 
 ### Modal key handling
 
-micasa uses three modes: Normal, Edit, and Form. The key dispatch chain in
+micasa uses three modes: Nav, Edit, and Form. The key dispatch chain in
 `Update()` is:
 
 1. Window resize handling
@@ -72,7 +72,7 @@ micasa uses three modes: Normal, Edit, and Form. The key dispatch chain in
 10. Inline input: absorbs keys when editing a cell
 11. Form mode delegates to `huh` form library
 12. Dashboard intercepts nav keys when visible
-13. Common keys (shared by Normal and Edit)
+13. Common keys (shared by Nav and Edit)
 14. Mode-specific keys
 
 The `bubbles/table` widget has its own vim keybindings. In Edit mode, `d` and

@@ -78,7 +78,7 @@ Sleep 1.2s
 Type "i"
 Sleep 1.5s
 
-# Return to Normal mode.
+# Return to Nav mode.
 Escape
 Sleep 1.2s
 

@@ -57,7 +57,7 @@ belongs to (e.g., "project #3", "appliance #7").
 ## Drill columns
 
 The `Docs` column appears on the **Projects** and **Appliances** tabs, showing
-how many documents are linked to each record. In Normal mode, press `enter` to
+how many documents are linked to each record. In Nav mode, press `enter` to
 drill into a scoped document list for that record.
 
 ## Inline editing

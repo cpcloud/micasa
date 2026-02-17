@@ -5,14 +5,14 @@ description = "Modal keybindings and how to move around."
 linkTitle = "Navigation"
 +++
 
-micasa uses vim-style modal keybindings. There are three modes: **Normal**,
+micasa uses vim-style modal keybindings. There are three modes: **Nav**,
 **Edit**, and **Form**.
 
 ![Navigation demo showing cursor movement, tab switching, and mode changes](/images/using-navigation.webp)
 
-## Normal mode
+## Nav mode
 
-Normal mode is the default. The status bar shows a blue **NAV** badge. You
+Nav mode is the default. The status bar shows a blue **NAV** badge. You
 have full table navigation:
 
 | Key         | Action               |
@@ -37,7 +37,7 @@ have full table navigation:
 
 ## Edit mode
 
-Press `i` from Normal mode to enter Edit mode. The status bar shows an orange
+Press `i` from Nav mode to enter Edit mode. The status bar shows an orange
 **EDIT** badge. Navigation still works (`j`/`k`/`h`/`l`/`g`/`G`), but `d`
 and `u` are rebound from page navigation to data actions:
 
@@ -50,7 +50,7 @@ and `u` are rebound from page navigation to data actions:
 | `p`   | Edit house profile        |
 | `u`   | Undo last edit            |
 | `r`   | Redo undone edit          |
-| `esc` | Return to Normal mode     |
+| `esc` | Return to Nav mode     |
 
 > **Tip:** `ctrl+d` and `ctrl+u` still work for half-page navigation in Edit
 > mode.
@@ -67,7 +67,7 @@ to move between fields, type to fill them in.
 | `1`-`9`  | Jump to Nth option in select fields |
 
 The form shows a dirty indicator when you've changed something. After saving
-or canceling, you return to whichever mode you were in before (Normal or
+or canceling, you return to whichever mode you were in before (Nav or
 Edit).
 
 ## Tabs

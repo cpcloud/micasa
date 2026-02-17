@@ -38,7 +38,7 @@ URL, model, or backend.
 
 ## Opening the chat
 
-Press `@` from Normal or Edit mode to open the chat overlay. A text input
+Press `@` from Nav or Edit mode to open the chat overlay. A text input
 appears at the bottom of a centered panel. Type a question and press `enter`.
 
 Press `esc` to dismiss the overlay. Your conversation is preserved -- press

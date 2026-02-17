@@ -55,5 +55,5 @@ the `Total`, `Labor`, `Mat`, and `Other` columns across vendors.
 
 ## Project link
 
-The `Project` column is a foreign key. In Normal mode, press `enter` on the
+The `Project` column is a foreign key. In Nav mode, press `enter` on the
 `Project` cell to jump to the linked project in the Projects tab.

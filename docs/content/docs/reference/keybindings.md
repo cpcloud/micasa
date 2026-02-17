@@ -15,7 +15,7 @@ Complete reference of every keybinding in micasa, organized by mode.
 | `ctrl+c`  | Cancel in-flight LLM operation |
 | `ctrl+o`  | Toggle [mag mode](https://magworld.pw) for numeric values |
 
-## Normal mode
+## Nav mode
 
 ### Movement
 
@@ -73,11 +73,11 @@ Complete reference of every keybinding in micasa, organized by mode.
 
 ### Movement
 
-Same as Normal mode, except `d` and `u` are rebound:
+Same as Nav mode, except `d` and `u` are rebound:
 
 | Key            | Action |
 |----------------|--------|
-| `j`/`k`/`h`/`l`/`g`/`G` | Same as Normal |
+| `j`/`k`/`h`/`l`/`g`/`G` | Same as Nav |
 | `ctrl+d`       | Half-page down |
 | `ctrl+u`       | Half-page up |
 
@@ -92,11 +92,11 @@ Same as Normal mode, except `d` and `u` are rebound:
 | `p`   | Edit house profile |
 | `u`   | Undo last edit |
 | `r`   | Redo undone edit |
-| `esc` | Return to Normal mode |
+| `esc` | Return to Nav mode |
 
 ## Chat overlay
 
-Press `@` from Normal or Edit mode to open the LLM chat. The overlay
+Press `@` from Nav or Edit mode to open the LLM chat. The overlay
 captures all keyboard input until dismissed. See the
 [LLM Chat guide]({{< ref "/docs/guide/llm-chat" >}}) for full details.
 

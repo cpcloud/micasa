@@ -23,7 +23,7 @@ No cloud. No account. No subscriptions.
   maintenance history tied to each one
 - **[Dashboard]({{< ref "/docs/guide/dashboard" >}})** showing overdue maintenance, active projects, expiring
   warranties, and YTD spending at a glance
-- **[Vim-style modal navigation]({{< ref "/docs/using/navigation" >}})** with Normal and Edit modes, multi-column
+- **[Vim-style modal navigation]({{< ref "/docs/using/navigation" >}})** with Nav and Edit modes, multi-column
   sorting, column hiding, and cross-tab FK links
 - **[Document attachments]({{< ref "/docs/guide/documents" >}})** -- attach files (manuals, invoices,
   photos) to any record, stored as BLOBs in the same SQLite file

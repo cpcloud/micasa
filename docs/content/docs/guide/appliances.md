@@ -43,7 +43,7 @@ Enter the warranty expiry date when you add an appliance. The
 ## Maintenance drill
 
 The `Maint` column shows how many maintenance items are linked to this
-appliance. In Normal mode, navigate to the `Maint` column and press `enter` to
+appliance. In Nav mode, navigate to the `Maint` column and press `enter` to
 open a detail view showing those maintenance items (without the Appliance
 column, since it's redundant).
 

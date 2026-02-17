@@ -12,7 +12,7 @@ and horizontal scrolling.
 
 ## Multi-column sorting
 
-micasa supports multi-column sorting in Normal mode.
+micasa supports multi-column sorting in Nav mode.
 
 ### How it works
 
@@ -49,7 +49,7 @@ ordering.
 
 ## Fuzzy column finder
 
-Press `/` in Normal mode to open a fuzzy finder overlay. Type to filter
+Press `/` in Nav mode to open a fuzzy finder overlay. Type to filter
 columns by name -- matched characters are highlighted. Use `up`/`down` to
 navigate the list, `enter` to jump to the selected column, `esc` to cancel.
 
@@ -62,7 +62,7 @@ hidden columns come back when you restart.
 
 ### Hiding
 
-In Normal mode, navigate to a column and press `c` to hide it. The column
+In Nav mode, navigate to a column and press `c` to hide it. The column
 disappears from the table. Hidden column names are shown as color-coded badges
 below the table and listed in the status bar.
 

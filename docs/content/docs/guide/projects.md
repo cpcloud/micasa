@@ -47,7 +47,7 @@ Projects move through these statuses. Each has a distinct color in the table:
 
 ## Settled filter
 
-In Normal mode on the Projects tab, press `t` to toggle hiding **settled
+In Nav mode on the Projects tab, press `t` to toggle hiding **settled
 projects** (`completed` + `abandoned`). A `◀` triangle appears to the right of
 the tab when the filter is active.
 
@@ -66,7 +66,7 @@ form, which includes the description field.
 ## Linked quotes
 
 The `Quotes` column shows how many quotes are linked to this project. In
-Normal mode, press `enter` to drill into a detail view of those quotes.
+Nav mode, press `enter` to drill into a detail view of those quotes.
 
 On the Quotes tab, the `Project` column links back -- press `enter` to jump
 to the project.
