@@ -12,8 +12,6 @@ import (
 
 func TestStatusBarHiddenWhenDashboardActive(t *testing.T) {
 	m := newTestModel()
-	m.width = 120
-	m.height = 40
 	m.showDashboard = true
 	m.dashboard = dashboardData{ServiceSpendCents: 1}
 
@@ -27,10 +25,8 @@ func TestStatusBarHiddenWhenDashboardActive(t *testing.T) {
 
 func TestStatusBarHiddenWhenHelpActive(t *testing.T) {
 	m := newTestModel()
-	m.width = 120
-	m.height = 40
 	sendKey(m, "?")
-	require.NotNil(t, m.helpViewport)
+	require.Contains(t, m.buildView(), "Keyboard Shortcuts")
 
 	status := m.statusView()
 
@@ -42,8 +38,6 @@ func TestStatusBarHiddenWhenHelpActive(t *testing.T) {
 
 func TestStatusBarHiddenWhenNotePreviewActive(t *testing.T) {
 	m := newTestModel()
-	m.width = 120
-	m.height = 40
 	m.showNotePreview = true
 	m.notePreviewText = "test note"
 
@@ -57,10 +51,8 @@ func TestStatusBarHiddenWhenNotePreviewActive(t *testing.T) {
 
 func TestStatusBarHiddenWhenColumnFinderActive(t *testing.T) {
 	m := newTestModel()
-	m.width = 120
-	m.height = 40
 	sendKey(m, "/")
-	require.NotNil(t, m.columnFinder)
+	require.Contains(t, m.buildView(), "Jump to Column")
 
 	status := m.statusView()
 
@@ -72,11 +64,9 @@ func TestStatusBarHiddenWhenColumnFinderActive(t *testing.T) {
 
 func TestStatusBarHiddenWhenCalendarActive(t *testing.T) {
 	m := newTestModel()
-	m.width = 120
-	m.height = 40
 	fieldValue := ""
 	m.openCalendar(&fieldValue, nil)
-	require.NotNil(t, m.calendar)
+	require.Contains(t, m.buildView(), "Su Mo Tu We Th Fr Sa")
 
 	status := m.statusView()
 
@@ -88,8 +78,6 @@ func TestStatusBarHiddenWhenCalendarActive(t *testing.T) {
 
 func TestStatusBarShownWhenNoOverlayActive(t *testing.T) {
 	m := newTestModel()
-	m.width = 120
-	m.height = 40
 	m.showDashboard = false
 	m.showNotePreview = false
 	m.helpViewport = nil
@@ -100,42 +88,4 @@ func TestStatusBarShownWhenNoOverlayActive(t *testing.T) {
 
 	// Main tab keybindings should be visible.
 	assert.Contains(t, status, "NAV")
-}
-
-func TestHasActiveOverlayDetectsAllOverlays(t *testing.T) {
-	m := newTestModel()
-
-	// No overlays
-	assert.False(t, m.hasActiveOverlay())
-
-	// Dashboard (needs data to be considered visible)
-	m.showDashboard = true
-	m.dashboard = dashboardData{ServiceSpendCents: 1}
-	assert.True(t, m.hasActiveOverlay())
-	m.showDashboard = false
-	m.dashboard = dashboardData{}
-
-	// Help
-	m.openHelp()
-	assert.True(t, m.hasActiveOverlay())
-	m.helpViewport = nil
-
-	// Note preview
-	m.showNotePreview = true
-	assert.True(t, m.hasActiveOverlay())
-	m.showNotePreview = false
-
-	// Column finder
-	m.openColumnFinder()
-	assert.True(t, m.hasActiveOverlay())
-	m.columnFinder = nil
-
-	// Calendar
-	fieldValue := ""
-	m.openCalendar(&fieldValue, nil)
-	assert.True(t, m.hasActiveOverlay())
-	m.calendar = nil
-
-	// Still no overlays
-	assert.False(t, m.hasActiveOverlay())
 }

@@ -325,16 +325,33 @@ func TestChatMagModeToggle(t *testing.T) {
 	m := newTestModel()
 	m.openChat()
 
-	// Initially off.
+	// Simulate a completed assistant response with a dollar amount.
+	m.chat.Messages = []chatMessage{
+		{Role: roleUser, Content: "how much?"},
+		{Role: roleAssistant, Content: "You spent $1,000.00 total."},
+	}
+
+	// Initially off: dollar amount visible in rendered chat.
 	assert.False(t, m.magMode)
+	rendered := m.renderChatMessages()
+	assert.Contains(t, rendered, "$1,000.00",
+		"dollar amount should appear with mag mode off")
 
 	// Toggle on from within chat.
 	sendKey(m, "ctrl+o")
 	assert.True(t, m.magMode)
+	rendered = m.renderChatMessages()
+	assert.NotContains(t, rendered, "$1,000.00",
+		"dollar amount should not appear with mag mode on")
+	assert.Contains(t, rendered, magArrow,
+		"magnitude notation should appear with mag mode on")
 
 	// Toggle off.
 	sendKey(m, "ctrl+o")
 	assert.False(t, m.magMode)
+	rendered = m.renderChatMessages()
+	assert.Contains(t, rendered, "$1,000.00",
+		"dollar amount should reappear after toggling off")
 }
 
 // TestChatMagModeTogglesRenderedOutput verifies that toggling mag mode

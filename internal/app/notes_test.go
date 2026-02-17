@@ -45,6 +45,10 @@ func TestNotePreviewOpensOnEnter(t *testing.T) {
 	require.True(t, m.showNotePreview)
 	assert.Equal(t, "Changed the filter and checked pressure", m.notePreviewText)
 	assert.Equal(t, "Notes", m.notePreviewTitle)
+	// Note preview overlay should be visible in the rendered view.
+	view := m.buildView()
+	assert.Contains(t, view, "Changed the filter and checked pressure")
+	assert.Contains(t, view, "Notes")
 }
 
 func TestNotePreviewDismissesOnAnyKey(t *testing.T) {
@@ -57,6 +61,11 @@ func TestNotePreviewDismissesOnAnyKey(t *testing.T) {
 
 	assert.False(t, m.showNotePreview)
 	assert.Empty(t, m.notePreviewText)
+	// After dismissal, the note overlay should not be in the view and
+	// the normal tab hints should be visible.
+	view := m.buildView()
+	assert.NotContains(t, view, "Press any key to close")
+	assert.Contains(t, m.statusView(), "NAV")
 }
 
 func TestNotePreviewDoesNotOpenOnEmptyNote(t *testing.T) {
@@ -81,12 +90,12 @@ func TestNotePreviewDoesNotOpenOnEmptyNote(t *testing.T) {
 	sendKey(m, "enter")
 
 	assert.False(t, m.showNotePreview)
+	// Tab hints should still be visible (no overlay opened).
+	assert.Contains(t, m.statusView(), "NAV")
 }
 
 func TestNotePreviewRendersInView(t *testing.T) {
 	m := newTestModel()
-	m.width = 120
-	m.height = 40
 	m.showNotePreview = true
 	m.notePreviewText = "This is a test note with some content."
 	m.notePreviewTitle = "Notes"

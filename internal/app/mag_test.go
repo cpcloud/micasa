@@ -212,19 +212,69 @@ func TestMagTransformText(t *testing.T) {
 
 func TestMagModeToggle(t *testing.T) {
 	m := newTestModel()
+	seedMoneyCells(m)
+
+	// Initially off: compact money format visible ($ in header, "5k" in cell).
 	assert.False(t, m.magMode)
+	view := m.buildView()
+	assert.Contains(t, view, "5k",
+		"compact money should appear with mag mode off")
+	assert.NotContains(t, view, magArrow,
+		"magnitude notation should not appear with mag mode off")
+
+	// Toggle on: compact replaced by magnitude notation.
 	sendKey(m, "ctrl+o")
 	assert.True(t, m.magMode)
+	view = m.buildView()
+	assert.Contains(t, view, magArrow,
+		"magnitude notation should appear with mag mode on")
+
+	// Toggle off: compact money restored.
 	sendKey(m, "ctrl+o")
 	assert.False(t, m.magMode)
+	view = m.buildView()
+	assert.Contains(t, view, "5k",
+		"compact money should reappear after toggling mag mode off")
+	assert.NotContains(t, view, magArrow,
+		"magnitude notation should disappear after toggling off")
 }
 
 func TestMagModeWorksInEditMode(t *testing.T) {
 	m := newTestModel()
+	seedMoneyCells(m)
 	sendKey(m, "i")
+
+	// Initially off in edit mode: compact money format visible.
 	assert.False(t, m.magMode)
+	view := m.buildView()
+	assert.Contains(t, view, "5k",
+		"compact money should appear with mag mode off in edit mode")
+
+	// Toggle on in edit mode.
 	sendKey(m, "ctrl+o")
 	assert.True(t, m.magMode)
+	view = m.buildView()
+	assert.Contains(t, view, magArrow,
+		"magnitude notation should appear with mag mode on in edit mode")
+}
+
+// seedMoneyCells populates the active tab with a row containing a money cell
+// so that buildView renders dollar values affected by mag mode toggling.
+func seedMoneyCells(m *Model) {
+	tab := m.effectiveTab()
+	row := make([]cell, len(tab.Specs))
+	for i, spec := range tab.Specs {
+		switch spec.Kind {
+		case cellMoney:
+			row[i] = cell{Value: "$5,000.00", Kind: cellMoney}
+		case cellReadonly:
+			row[i] = cell{Value: "1", Kind: cellReadonly}
+		default:
+			row[i] = cell{Value: "test", Kind: spec.Kind}
+		}
+	}
+	tab.CellRows = [][]cell{row}
+	tab.FullCellRows = tab.CellRows
 }
 
 func TestMagCentsIncludesUnit(t *testing.T) {
