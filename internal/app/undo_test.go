@@ -53,6 +53,8 @@ func TestPopUndoRestoresAndRemoves(t *testing.T) {
 	assert.True(t, restored, "expected Restore closure to be called")
 	assert.Empty(t, m.undoStack)
 	assert.Equal(t, statusInfo, m.status.Kind)
+	// The undo message should be visible in the status bar.
+	assert.Contains(t, m.statusView(), "changed title")
 }
 
 func TestPopUndoEmptyStack(t *testing.T) {
@@ -119,16 +121,20 @@ func TestUndoKeyIgnoredInNormalMode(t *testing.T) {
 	m := newTestModel()
 	m.mode = modeNormal
 
+	called := false
 	m.pushUndo(undoEntry{
 		Description: "test",
 		Restore: func() error {
-			assert.Fail(t, "should not be called in Normal mode")
+			called = true
 			return nil
 		},
 	})
 
 	sendKey(m, "u")
+	assert.False(t, called, "undo closure should not be called in Normal mode")
 	assert.Len(t, m.undoStack, 1, "expected undo stack unchanged in Normal mode")
+	// Status bar should still show NAV, not an undo message.
+	assert.Contains(t, m.statusView(), "NAV")
 }
 
 func TestSnapshotForUndoSkipsCreates(t *testing.T) {
@@ -165,6 +171,8 @@ func TestPopRedoRestoresAndRemoves(t *testing.T) {
 	assert.True(t, restored, "expected Restore closure to be called")
 	assert.Empty(t, m.redoStack)
 	assert.Equal(t, statusInfo, m.status.Kind)
+	// The redo message should be visible in the status bar.
+	assert.Contains(t, m.statusView(), "redo test")
 }
 
 func TestRedoKeyInEditMode(t *testing.T) {
@@ -189,16 +197,19 @@ func TestRedoKeyIgnoredInNormalMode(t *testing.T) {
 	m := newTestModel()
 	m.mode = modeNormal
 
+	called := false
 	m.pushRedo(undoEntry{
 		Description: "test",
 		Restore: func() error {
-			assert.Fail(t, "should not be called in Normal mode")
+			called = true
 			return nil
 		},
 	})
 
 	sendKey(m, "r")
+	assert.False(t, called, "redo closure should not be called in Normal mode")
 	assert.Len(t, m.redoStack, 1, "expected redo stack unchanged in Normal mode")
+	assert.Contains(t, m.statusView(), "NAV")
 }
 
 func TestNewEditClearsRedoStack(t *testing.T) {

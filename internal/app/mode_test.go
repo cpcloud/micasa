@@ -21,6 +21,8 @@ func newTestModel() *Model {
 		tabs:   NewTabs(styles),
 		active: 0,
 		mode:   modeNormal,
+		width:  120,
+		height: 40,
 	}
 	// Seed minimal rows so cursor operations don't panic.
 	for i := range m.tabs {
@@ -57,12 +59,14 @@ func sendKey(m *Model, key string) {
 func TestStartsInNormalMode(t *testing.T) {
 	m := newTestModel()
 	assert.Equal(t, modeNormal, m.mode)
+	assert.Contains(t, m.statusView(), "NAV")
 }
 
 func TestEnterEditMode(t *testing.T) {
 	m := newTestModel()
 	sendKey(m, "i")
 	assert.Equal(t, modeEdit, m.mode)
+	assert.Contains(t, m.statusView(), "EDIT")
 }
 
 func TestExitEditModeWithEsc(t *testing.T) {
@@ -70,6 +74,7 @@ func TestExitEditModeWithEsc(t *testing.T) {
 	sendKey(m, "i")
 	sendKey(m, "esc")
 	assert.Equal(t, modeNormal, m.mode)
+	assert.Contains(t, m.statusView(), "NAV")
 }
 
 func TestTableKeyMapNormalMode(t *testing.T) {
@@ -161,10 +166,12 @@ func TestNextTabAdvances(t *testing.T) {
 	m.active = 0
 	sendKey(m, "i")
 	assert.Equal(t, modeEdit, m.mode)
+	assert.Contains(t, m.statusView(), "EDIT")
 	assert.Equal(t, 0, m.active, "entering edit mode should not change active tab")
 	m.active = 2
 	sendKey(m, "esc")
 	assert.Equal(t, modeNormal, m.mode)
+	assert.Contains(t, m.statusView(), "NAV")
 	assert.Equal(t, 2, m.active, "entering normal mode should not change active tab")
 }
 
@@ -181,34 +188,54 @@ func TestIKeyDoesNothingInEditMode(t *testing.T) {
 	m := newTestModel()
 	sendKey(m, "i")
 	require.Equal(t, modeEdit, m.mode)
+	require.Contains(t, m.statusView(), "EDIT")
 	// Press 'i' again — should not switch mode or do anything unexpected.
 	sendKey(m, "i")
-	assert.Equal(t, modeEdit, m.mode, "expected to stay in modeEdit")
+	assert.Equal(t, modeEdit, m.mode)
+	assert.Contains(t, m.statusView(), "EDIT", "expected to stay in edit mode")
 }
 
 func TestHouseToggle(t *testing.T) {
 	m := newTestModel()
 	m.hasHouse = true
-	assert.False(t, m.showHouse, "expected house hidden initially")
+	assert.False(t, m.showHouse)
+
+	// House starts collapsed (shows ▸).
+	view := m.buildView()
+	assert.Contains(t, view, "▸", "expected collapsed house initially")
+
 	// Tab toggles house in both modes.
 	sendKey(m, "tab")
-	assert.True(t, m.showHouse, "expected house shown after tab")
+	assert.True(t, m.showHouse)
+	view = m.buildView()
+	assert.Contains(t, view, "▾", "expected expanded house after tab")
+
 	sendKey(m, "tab")
-	assert.False(t, m.showHouse, "expected house hidden after second tab")
+	assert.False(t, m.showHouse)
+	view = m.buildView()
+	assert.Contains(t, view, "▸", "expected collapsed house after second tab")
 }
 
 func TestHelpToggle(t *testing.T) {
 	m := newTestModel()
 	sendKey(m, "?")
-	assert.NotNil(t, m.helpViewport, "expected help visible after '?'")
+	assert.NotNil(t, m.helpViewport)
+	assert.Contains(t, m.buildView(), "Keyboard Shortcuts", "expected help visible after '?'")
 	sendKey(m, "?")
-	assert.Nil(t, m.helpViewport, "expected help hidden after second '?'")
+	assert.Nil(t, m.helpViewport)
+	assert.NotContains(
+		t,
+		m.buildView(),
+		"Keyboard Shortcuts",
+		"expected help hidden after second '?'",
+	)
 }
 
 func TestHelpViewportScrolling(t *testing.T) {
 	m := newTestModel()
 	sendKey(m, "?")
-	require.NotNil(t, m.helpViewport, "expected help visible")
+	require.NotNil(t, m.helpViewport)
+	require.Contains(t, m.buildView(), "Keyboard Shortcuts", "expected help visible")
 
 	// Scroll down and verify offset moves.
 	sendKey(m, "j")
@@ -232,12 +259,12 @@ func TestHelpViewportScrolling(t *testing.T) {
 
 	// Esc dismisses.
 	sendKey(m, "esc")
-	assert.Nil(t, m.helpViewport, "expected help hidden after esc")
+	assert.Nil(t, m.helpViewport)
+	assert.NotContains(t, m.buildView(), "Keyboard Shortcuts", "expected help hidden after esc")
 }
 
 func TestHelpOverlayFixedWidthOnScroll(t *testing.T) {
 	m := newTestModel()
-	m.width = 120
 	m.height = 20 // Small height forces scrolling.
 	sendKey(m, "?")
 	require.NotNil(t, m.helpViewport, "expected help visible")
@@ -264,7 +291,6 @@ func TestHelpOverlayFixedWidthOnScroll(t *testing.T) {
 
 func TestHelpScrollIndicatorChanges(t *testing.T) {
 	m := newTestModel()
-	m.width = 120
 	m.height = 20
 	sendKey(m, "?")
 	require.NotNil(t, m.helpViewport, "expected help visible")
@@ -290,11 +316,16 @@ func TestHelpScrollIndicatorChanges(t *testing.T) {
 func TestHelpAbsorbsOtherKeys(t *testing.T) {
 	m := newTestModel()
 	sendKey(m, "?")
-	require.NotNil(t, m.helpViewport, "expected help visible")
+	require.NotNil(t, m.helpViewport)
+	require.Contains(t, m.buildView(), "Keyboard Shortcuts", "expected help visible")
 
 	// Keys that would normally affect the model should be absorbed.
 	sendKey(m, "i")
-	assert.Equal(t, modeNormal, m.mode, "'i' should not switch to edit mode while help is open")
+	assert.Equal(t, modeNormal, m.mode)
+	// After pressing 'i', the help overlay should still be open and
+	// the status bar should not show EDIT mode.
+	assert.Contains(t, m.buildView(), "Keyboard Shortcuts",
+		"'i' should not close help overlay")
 }
 
 func TestDeleteRequiresEditMode(t *testing.T) {
@@ -302,14 +333,18 @@ func TestDeleteRequiresEditMode(t *testing.T) {
 	// In normal mode, 'd' is half-page-down (table handles it).
 	// It should NOT trigger delete.
 	sendKey(m, "d")
-	assert.Empty(t, m.status.Text, "'d' in normal mode should not set status")
+	assert.Empty(t, m.status.Text)
+	status := m.statusView()
+	assert.Contains(t, status, "NAV", "'d' in normal mode should not change mode")
 }
 
 func TestEscClearsStatusInNormalMode(t *testing.T) {
 	m := newTestModel()
 	m.status = statusMsg{Text: "something", Kind: statusInfo}
+	require.Contains(t, m.statusView(), "something")
 	sendKey(m, "esc")
 	assert.Empty(t, m.status.Text)
+	assert.NotContains(t, m.statusView(), "something")
 }
 
 func TestProjectStatusFilterToggleKeys(t *testing.T) {
@@ -326,11 +361,13 @@ func TestProjectStatusFilterToggleKeys(t *testing.T) {
 	assert.True(t, hasColumnPins(tab, col), "expected status pins after t")
 	assert.True(t, tab.FilterActive, "expected filter active after t")
 	assert.Contains(t, m.status.Text, "hidden")
+	assert.Contains(t, m.statusView(), "hidden")
 
 	sendKey(m, "t")
 	assert.False(t, hasColumnPins(tab, col), "expected no status pins after second t")
 	assert.False(t, tab.FilterActive, "expected filter inactive after second t")
 	assert.Contains(t, m.status.Text, "shown")
+	assert.Contains(t, m.statusView(), "shown")
 }
 
 func TestProjectStatusFilterToggleIgnoredOutsideProjects(t *testing.T) {
@@ -344,6 +381,8 @@ func TestProjectStatusFilterToggleIgnoredOutsideProjects(t *testing.T) {
 	assert.False(t, tab.FilterActive,
 		"filter should not activate on non-project tabs")
 	assert.Empty(t, m.status.Text)
+	assert.NotContains(t, m.statusView(), "hidden")
+	assert.NotContains(t, m.statusView(), "shown")
 }
 
 func TestKeyDispatchEditModeOnly(t *testing.T) {
@@ -351,13 +390,16 @@ func TestKeyDispatchEditModeOnly(t *testing.T) {
 
 	// 'p' should not change mode in normal mode.
 	sendKey(m, "p")
-	assert.Equal(t, modeNormal, m.mode, "'p' should not change mode in normal mode")
+	assert.Equal(t, modeNormal, m.mode)
+	assert.Contains(t, m.statusView(), "NAV", "'p' should not change mode in normal mode")
 
 	// 'esc' should be handled in edit mode (back to normal).
 	sendKey(m, "i")
 	require.Equal(t, modeEdit, m.mode)
+	require.Contains(t, m.statusView(), "EDIT")
 	sendKey(m, "esc")
 	assert.Equal(t, modeNormal, m.mode)
+	assert.Contains(t, m.statusView(), "NAV")
 }
 
 func TestModeAfterFormExit(t *testing.T) {
@@ -365,24 +407,25 @@ func TestModeAfterFormExit(t *testing.T) {
 	// Enter edit mode via key, open a form, then exit.
 	sendKey(m, "i")
 	require.Equal(t, modeEdit, m.mode)
+	require.Contains(t, m.statusView(), "EDIT")
 	m.prevMode = m.mode
 	m.mode = modeForm
 	// Simulate exitForm (no key to close a form without a database).
 	m.exitForm()
-	assert.Equal(t, modeEdit, m.mode, "expected modeEdit after exitForm (was in edit before form)")
+	assert.Equal(t, modeEdit, m.mode)
+	assert.Contains(t, m.statusView(), "EDIT",
+		"expected edit mode after exitForm (was in edit before form)")
 
 	// Return to normal mode via key, then form again.
 	sendKey(m, "esc")
 	require.Equal(t, modeNormal, m.mode)
+	require.Contains(t, m.statusView(), "NAV")
 	m.prevMode = m.mode
 	m.mode = modeForm
 	m.exitForm()
-	assert.Equal(
-		t,
-		modeNormal,
-		m.mode,
-		"expected modeNormal after exitForm (was in normal before form)",
-	)
+	assert.Equal(t, modeNormal, m.mode)
+	assert.Contains(t, m.statusView(), "NAV",
+		"expected normal mode after exitForm (was in normal before form)")
 }
 
 func TestTabTogglesHouseInEditMode(t *testing.T) {
@@ -390,15 +433,21 @@ func TestTabTogglesHouseInEditMode(t *testing.T) {
 	m.hasHouse = true
 	sendKey(m, "i")
 	require.Equal(t, modeEdit, m.mode)
+	require.Contains(t, m.statusView(), "EDIT")
 	assert.False(t, m.showHouse)
+	view := m.buildView()
+	assert.Contains(t, view, "▸", "house should start collapsed")
 	sendKey(m, "tab")
-	assert.True(t, m.showHouse, "tab should toggle house in edit mode")
+	assert.True(t, m.showHouse)
+	view = m.buildView()
+	assert.Contains(t, view, "▾", "tab should toggle house to expanded in edit mode")
 }
 
 func TestTabSwitchKeysBlockedInEditMode(t *testing.T) {
 	m := newTestModel()
 	sendKey(m, "i")
 	require.Equal(t, modeEdit, m.mode)
+	require.Contains(t, m.statusView(), "EDIT")
 	startTab := m.active
 	// b/f (tab-switch keys) should not switch tabs in edit mode.
 	sendKey(m, "b")

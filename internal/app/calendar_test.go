@@ -95,6 +95,7 @@ func TestCalendarKeyNavigation(t *testing.T) {
 	dateVal := testDate
 	m.openCalendar(&dateVal, nil)
 	require.NotNil(t, m.calendar)
+	require.Contains(t, m.buildView(), "February 2026", "calendar should be visible")
 	assert.Equal(t, 15, m.calendar.Cursor.Day())
 
 	// Move right (l).
@@ -112,6 +113,9 @@ func TestCalendarKeyNavigation(t *testing.T) {
 	// Move up (k) = -7 days.
 	sendKey(m, "k")
 	assert.Equal(t, 15, m.calendar.Cursor.Day())
+
+	grid := calendarGrid(*m.calendar, m.styles)
+	assert.Contains(t, grid, "February 2026", "should still show February after navigation")
 }
 
 func TestCalendarConfirmWritesDate(t *testing.T) {
@@ -129,6 +133,8 @@ func TestCalendarConfirmWritesDate(t *testing.T) {
 	assert.Equal(t, "2026-03-20", dateVal)
 	assert.True(t, confirmed)
 	assert.Nil(t, m.calendar)
+	// Calendar should be dismissed -- tab hints visible again.
+	assert.Contains(t, m.statusView(), "NAV")
 }
 
 func TestCalendarEscCancels(t *testing.T) {
@@ -137,6 +143,8 @@ func TestCalendarEscCancels(t *testing.T) {
 	m.openCalendar(&dateVal, nil)
 	sendKey(m, "esc")
 	assert.Nil(t, m.calendar)
+	// Calendar should be dismissed -- tab hints visible again.
+	assert.Contains(t, m.statusView(), "NAV")
 	assert.Equal(t, testDate, dateVal)
 }
 
@@ -157,14 +165,18 @@ func TestCalendarMonthNavigation(t *testing.T) {
 	dateVal := testDate
 	m.openCalendar(&dateVal, nil)
 
-	// H = previous month.
+	// H = previous month -- grid should show January.
 	sendKey(m, "H")
 	assert.Equal(t, time.January, m.calendar.Cursor.Month())
+	grid := calendarGrid(*m.calendar, m.styles)
+	assert.Contains(t, grid, "January 2026")
 
-	// L = next month.
+	// L = next month twice -- grid should show March.
 	sendKey(m, "L")
 	sendKey(m, "L")
 	assert.Equal(t, time.March, m.calendar.Cursor.Month())
+	grid = calendarGrid(*m.calendar, m.styles)
+	assert.Contains(t, grid, "March 2026")
 }
 
 func TestCalendarYearNavigation(t *testing.T) {
@@ -294,12 +306,15 @@ func TestCalendarMoveMonthViaKeyboardClamps(t *testing.T) {
 	dateVal := "2025-01-31"
 	m.openCalendar(&dateVal, nil)
 	require.NotNil(t, m.calendar)
+	require.Contains(t, m.buildView(), "January 2025", "calendar should show January")
 	assert.Equal(t, 31, m.calendar.Cursor.Day())
 
 	sendKey(m, "L") // next month
 	assert.Equal(t, time.February, m.calendar.Cursor.Month())
-	assert.Equal(t, 28, m.calendar.Cursor.Day(),
-		"navigating forward from Jan 31 should land on Feb 28, not overflow to March")
+	assert.Equal(t, 28, m.calendar.Cursor.Day())
+	grid := calendarGrid(*m.calendar, m.styles)
+	assert.Contains(t, grid, "February 2025",
+		"navigating forward from Jan 31 should show February, not overflow to March")
 }
 
 func TestOpenCalendarWithEmptyValue(t *testing.T) {
@@ -307,7 +322,11 @@ func TestOpenCalendarWithEmptyValue(t *testing.T) {
 	dateVal := ""
 	m.openCalendar(&dateVal, nil)
 	require.NotNil(t, m.calendar)
-	// Should default to today.
 	assert.True(t, sameDay(m.calendar.Cursor, time.Now()))
 	assert.False(t, m.calendar.HasValue)
+	// Calendar overlay should be visible with the current month.
+	now := time.Now()
+	view := m.buildView()
+	assert.Contains(t, view, now.Month().String(),
+		"calendar should open to the current month")
 }

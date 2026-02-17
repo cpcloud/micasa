@@ -117,6 +117,7 @@ func TestOpenColumnFinder(t *testing.T) {
 	m.openColumnFinder()
 	require.NotNil(t, m.columnFinder)
 	assert.NotEmpty(t, m.columnFinder.All)
+	assert.Contains(t, m.buildView(), "Jump to Column")
 }
 
 func TestColumnFinderJump(t *testing.T) {
@@ -132,6 +133,7 @@ func TestColumnFinderJump(t *testing.T) {
 
 	m.columnFinderJump()
 	assert.Nil(t, m.columnFinder)
+	assert.NotContains(t, m.buildView(), "Jump to Column", "finder should close after jump")
 	if origCol != targetIdx {
 		assert.NotEqual(t, origCol, tab.ColCursor, "ColCursor should have moved")
 	}
@@ -172,6 +174,7 @@ func TestHandleColumnFinderKey_EscCloses(t *testing.T) {
 	m.openColumnFinder()
 	m.handleColumnFinderKey(tea.KeyMsg{Type: tea.KeyEscape})
 	assert.Nil(t, m.columnFinder)
+	assert.Contains(t, m.statusView(), "NAV", "finder should close after esc")
 }
 
 func TestHandleColumnFinderKey_Typing(t *testing.T) {
@@ -287,14 +290,18 @@ func TestSlashBlockedOnDashboard(t *testing.T) {
 func TestSlashOpensColumnFinder(t *testing.T) {
 	m := newTestModel()
 	sendKey(m, "/")
-	assert.NotNil(t, m.columnFinder, "/ in Normal mode should open column finder")
+	assert.NotNil(t, m.columnFinder)
+	assert.Contains(t, m.buildView(), "Jump to Column",
+		"/ in Normal mode should open column finder")
 }
 
 func TestSlashBlockedInEditMode(t *testing.T) {
 	m := newTestModel()
 	m.mode = modeEdit
 	sendKey(m, "/")
-	assert.Nil(t, m.columnFinder, "/ should not open column finder in Edit mode")
+	assert.Nil(t, m.columnFinder)
+	assert.NotContains(t, m.buildView(), "Jump to Column",
+		"/ should not open column finder in Edit mode")
 }
 
 func TestColumnFinderEnterJumps(t *testing.T) {
@@ -310,6 +317,7 @@ func TestColumnFinderEnterJumps(t *testing.T) {
 
 	m.handleColumnFinderKey(tea.KeyMsg{Type: tea.KeyEnter})
 	assert.Nil(t, m.columnFinder)
+	assert.NotContains(t, m.buildView(), "Jump to Column", "finder should close after enter")
 	tab := m.effectiveTab()
 	assert.Equal(t, target, tab.ColCursor)
 }
