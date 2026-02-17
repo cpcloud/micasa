@@ -4,14 +4,6 @@
 You are Claude Opus 4.6 Thinking running via the cursor CLI. You are running as
 a coding agent on a user's computer.
 
-> **STOP. Read this before running ANY shell command.**
->
-> You are already in the workspace root. **NEVER prefix commands with
-> `cd /path/to/repo`** — the working directory is already correct. This has
-> been raised 5+ times. If you need a *different* directory, use the
-> `working_directory` parameter on the Shell tool. Doing `cd $PWD` is a no-op
-> and wastes time.
-
 # Git history
 
 - Make sure before you run your first command that you take a look at recent
@@ -20,9 +12,6 @@ a coding agent on a user's computer.
 
 # General
 
-- When searching for text or files, prefer using `rg` or `rg --files`
-  respectively because `rg` is much faster than alternatives like `grep`. (If
-  the `rg` command is not found, then use alternatives.)
 - Default expectation: deliver working code, not just a plan. If some details
   are missing, make reasonable assumptions and complete a working version of
   the feature.
@@ -131,9 +120,6 @@ a coding agent on a user's computer.
       unavoidable.
     - This concerns every read/list/search operations including, but not only,
       `cat`, `rg`, `sed`, `ls`, `git show`, `nl`, `wc`, ...
-    - DO NOT join commands together with `&&`
-    - You're already in the correct working directory, so DO NOT `cd` into it
-      before every command.
 
 # Plan tool
 
@@ -270,11 +256,11 @@ It's very likely another agent has been working and just run out of context.
 
 These have been repeatedly requested. Violating them wastes the user's time.
 
-- **No `cd`**: You are already in the workspace directory. Never prepend `cd
-  /path && ...` to shell commands. Use the `working_directory` parameter if you
-  need a different directory.
 - **No `&&`**: Do not join shell commands with `&&`. Run them as separate tool
   calls (parallel when independent, sequential when dependent).
+- **Use `jq`, not Python, for JSON**: Never reach for Python to process JSON
+  output. Use `jq` directly, or use the `--jq` flag that many `gh` subcommands
+  support (e.g. `gh pr list --json number,title --jq '.[].title'`).
 - **Treat "upstream" conceptually**: When the user says "rebase on upstream",
   use the repository's canonical mainline remote even if it is not literally
   named `upstream` (for example `origin/main` when no `upstream` remote exists).
@@ -297,10 +283,13 @@ These have been repeatedly requested. Violating them wastes the user's time.
   part of the pre-commit verification bag. It performs whole-program
   reachability analysis and catches exported-but-unreachable functions
   that per-package linters miss. Fix any findings before committing.
-- **Fallback to `nix develop` for missing dev commands**: If a development
-  command is unavailable in PATH (for example `go`, `golangci-lint`, or other
-  toolchain binaries), retry it with `nix develop -c <command>` before
-  declaring it unavailable.
+- **Nix fallback priority for missing commands**: If a command is not found,
+  try these in order: (1) `nix run '.#<tool>'` — preferred, runs the tool
+  directly from a flake app; (2) `nix shell 'nixpkgs#<tool>' -c <command>` —
+  ad-hoc from nixpkgs, also necessary when you need multiple packages in one
+  command (e.g. `nix shell 'nixpkgs#foo' 'nixpkgs#bar' -c <command>`);
+  (3) `nix develop -c <command>` — last resort, pulls in the full dev shell.
+  Never declare a tool unavailable without trying all three.
 - **Dynamic nix store paths**: Use
   `nix build '.#micasa' --print-out-paths --no-link` to get the store path
   at runtime. Never hardcode `/nix/store/...` hashes in variables or
@@ -491,8 +480,12 @@ These have been repeatedly requested. Violating them wastes the user's time.
   latest remote state, (2) create a uniquely-named git worktree in
   `~/src/agent-work/` (e.g.
   `git worktree add ~/src/agent-work/<descriptive-name> -b <branch> origin/main`),
-  and (3) do ALL work in that worktree. Never start unrelated work directly
-  in the main checkout or the current worktree. Worktrees are cheap.
+  and (3) IMMEDIATELY `cd` into the new worktree and set it as your working
+  directory. Do ALL work in that worktree. Never start unrelated work
+  directly in the main checkout or the current worktree. Worktrees are cheap.
+- **Set your working directory, don't keep cd-ing**: If you notice yourself
+  repeatedly `cd`-ing into the same directory before running commands,
+  stop and set that directory as your working directory instead.
 - **CI commits use `ci:` scope**: Use `ci:` (not `fix:`) for CI workflow
   changes unless the user explicitly says otherwise.
 - **`fix:` is for user-facing bugs only**: Never use `fix:` (or `fix(test):`)
@@ -536,9 +529,6 @@ like `LEARNINGS.md` are not.
 
 - At each point where you have the next stage of the application, pause and let
   the user play around with things.
-- Write exhaustive unit tests; make sure they don't poke into implementation
-  details.
-- Remember to add unit tests when you author new code.
 - Commit when you reach logical stopping points; use conventional commits and
   include scopes.
 - Make sure to run the appropriate testing and formatting commands when you
@@ -553,11 +543,8 @@ like `LEARNINGS.md` are not.
 - **Run long commands in the background**: `go test`, `go vet`, `go build`,
   and `nix run '.#pre-commit'` can all be run as background tasks so you can
   continue working while they execute.
-- Depend on `pre-commit` (which is automatically run when you make a commit) to
-  catch formatting issues. **DO NOT** attempt to use `gofmt` or any other
-  formatting tool directly
-- Every so often, take a breather and find opportunities to refactor code add
-  more thorough tests (but still DO NOT poke into implementation details).
+- Every so often, take a breather and find opportunities to refactor code and
+  add more thorough tests.
 - "Refactoring" includes **all** code in the repo: Go, JS/CSS in
   `docs/layouts/index.html`, Nix expressions, CI workflows, Hugo templates,
   etc. Don't skip inline `<script>` blocks in HTML just because they're not
