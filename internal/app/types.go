@@ -215,6 +215,12 @@ type columnSpec struct {
 	HideOrder   int         // 0 = visible; >0 = hidden (higher = more recently hidden)
 }
 
+// confirmState holds state for a yes/no confirmation overlay (e.g. delete).
+type confirmState struct {
+	Prompt    string // question displayed in the overlay
+	OnConfirm func() // called when the user confirms (y/enter)
+}
+
 // inlineInputState holds state for a single-field text edit rendered in the
 // status bar, keeping the table visible. Used instead of a full form overlay
 // for simple text/number fields.

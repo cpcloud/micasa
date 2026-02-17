@@ -31,6 +31,7 @@ func (m *Model) buildView() string {
 	}{
 		{m.dashboardVisible(), m.buildDashboardOverlay},
 		{m.calendar != nil, m.buildCalendarOverlay},
+		{m.confirm != nil, m.buildConfirmOverlay},
 		{m.showNotePreview, m.buildNotePreviewOverlay},
 		{m.columnFinder != nil, m.buildColumnFinderOverlay},
 		{m.chat != nil && m.chat.Visible, m.buildChatOverlay},
@@ -589,6 +590,23 @@ func (m *Model) buildCalendarOverlay() string {
 		BorderForeground(accent).
 		Padding(1, 2).
 		Render(grid)
+}
+
+func (m *Model) buildConfirmOverlay() string {
+	if m.confirm == nil {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString(m.confirm.Prompt)
+	b.WriteString("\n\n")
+	b.WriteString(m.renderKeys("y") + " " + m.styles.HeaderHint.Render("confirm"))
+	b.WriteString(m.helpSeparator())
+	b.WriteString(m.renderKeys("esc") + " " + m.styles.HeaderHint.Render("cancel"))
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(accent).
+		Padding(1, 2).
+		Render(b.String())
 }
 
 func (m *Model) buildNotePreviewOverlay() string {

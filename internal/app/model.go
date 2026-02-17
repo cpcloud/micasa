@@ -56,6 +56,7 @@ type Model struct {
 	notePreviewText       string
 	notePreviewTitle      string
 	calendar              *calendarState
+	confirm               *confirmState
 	columnFinder          *columnFinderState
 	dashboard             dashboardData
 	dashCursor            int
@@ -244,6 +245,22 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.calendar != nil {
 		if keyMsg, ok := msg.(tea.KeyMsg); ok {
 			return m.handleCalendarKey(keyMsg)
+		}
+		return m, nil
+	}
+
+	// Confirmation dialog: y/enter confirms, anything else cancels.
+	if m.confirm != nil {
+		if keyMsg, ok := msg.(tea.KeyMsg); ok {
+			switch keyMsg.String() {
+			case "y", keyEnter:
+				cb := m.confirm.OnConfirm
+				m.confirm = nil
+				cb()
+			default:
+				m.confirm = nil
+				m.setStatusInfo("Cancelled.")
+			}
 		}
 		return m, nil
 	}
@@ -1200,6 +1217,7 @@ func (m *Model) toggleDeleteSelected() {
 		m.setStatusError("Nothing selected.")
 		return
 	}
+	// Restore is immediate — no confirmation needed.
 	if meta.Deleted {
 		if err := tab.Handler.Restore(m.store, meta.ID); err != nil {
 			m.setStatusError(err.Error())
@@ -1212,13 +1230,60 @@ func (m *Model) toggleDeleteSelected() {
 		m.surfaceError(m.reloadEffectiveTab())
 		return
 	}
-	if err := tab.Handler.Delete(m.store, meta.ID); err != nil {
-		m.setStatusError(err.Error())
-		return
+	// Build a display name from the first visible column.
+	name := m.selectedRowName()
+	prompt := fmt.Sprintf("Delete %q?", name)
+	id := meta.ID
+	m.confirm = &confirmState{
+		Prompt: prompt,
+		OnConfirm: func() {
+			if err := tab.Handler.Delete(m.store, id); err != nil {
+				m.setStatusError(err.Error())
+				return
+			}
+			tab.LastDeleted = &id
+			m.setStatusInfo("Deleted. Press d to restore.")
+			m.surfaceError(m.reloadEffectiveTab())
+		},
 	}
-	tab.LastDeleted = &meta.ID
-	m.setStatusInfo("Deleted. Press d to restore.")
-	m.surfaceError(m.reloadEffectiveTab())
+}
+
+// nameColumnTitles lists column titles that represent an entity's primary
+// display name, checked in priority order.
+var nameColumnTitles = []string{"Title", "Item", "Name", "Description"}
+
+// selectedRowName returns a human-readable name for the selected row by
+// looking for a known name/title column first, then falling back to the
+// first non-readonly non-empty cell value.
+func (m *Model) selectedRowName() string {
+	tab := m.effectiveTab()
+	if tab == nil {
+		return ""
+	}
+	cursor := tab.Table.Cursor()
+	rows := tab.Table.Rows()
+	if cursor < 0 || cursor >= len(rows) {
+		return ""
+	}
+	row := rows[cursor]
+	// Try known name columns in priority order.
+	for _, title := range nameColumnTitles {
+		for i, spec := range tab.Specs {
+			if spec.Title == title && i < len(row) && row[i] != "" {
+				return row[i]
+			}
+		}
+	}
+	// Fallback: first non-readonly, non-empty value.
+	for i, spec := range tab.Specs {
+		if spec.Kind == cellReadonly || i >= len(row) {
+			continue
+		}
+		if row[i] != "" {
+			return row[i]
+		}
+	}
+	return ""
 }
 
 func (m *Model) toggleShowDeleted() {
