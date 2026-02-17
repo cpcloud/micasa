@@ -366,6 +366,46 @@ func TestAddMonths(t *testing.T) {
 	}
 }
 
+func TestParseIntervalMonths(t *testing.T) {
+	tests := []struct {
+		input string
+		want  int
+	}{
+		// bare integers
+		{"12", 12},
+		{"0", 0},
+		{"  7  ", 7},
+		// month suffix
+		{"6m", 6},
+		{"6M", 6},
+		{" 3m ", 3},
+		// year suffix
+		{"1y", 12},
+		{"2Y", 24},
+		{" 1y ", 12},
+		// combined
+		{"2y 6m", 30},
+		{"1y6m", 18},
+		{"1Y 3M", 15},
+		{"  2y  6m  ", 30},
+		// empty
+		{"", 0},
+		{"   ", 0},
+	}
+	for _, tt := range tests {
+		got, err := ParseIntervalMonths(tt.input)
+		require.NoError(t, err, "input=%q", tt.input)
+		assert.Equal(t, tt.want, got, "input=%q", tt.input)
+	}
+}
+
+func TestParseIntervalMonthsInvalid(t *testing.T) {
+	for _, input := range []string{"abc", "-1", "1.5m", "1x", "m", "y", "6m 1y"} {
+		_, err := ParseIntervalMonths(input)
+		assert.Error(t, err, "input=%q should be rejected", input)
+	}
+}
+
 func TestComputeNextDueMonthEndClamping(t *testing.T) {
 	// User scenario: maintenance item serviced Jan 31, interval 1 month.
 	// Next due should be Feb 28, not March 3 (the time.AddDate gotcha).

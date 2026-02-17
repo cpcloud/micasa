@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -17,11 +18,12 @@ import (
 const DateLayout = "2006-01-02"
 
 var (
-	ErrInvalidMoney  = errors.New("invalid money value")
-	ErrNegativeMoney = errors.New("negative money value")
-	ErrInvalidDate   = errors.New("invalid date value")
-	ErrInvalidInt    = errors.New("invalid integer value")
-	ErrInvalidFloat  = errors.New("invalid decimal value")
+	ErrInvalidMoney    = errors.New("invalid money value")
+	ErrNegativeMoney   = errors.New("negative money value")
+	ErrInvalidDate     = errors.New("invalid date value")
+	ErrInvalidInt      = errors.New("invalid integer value")
+	ErrInvalidFloat    = errors.New("invalid decimal value")
+	ErrInvalidInterval = errors.New("invalid interval value")
 )
 
 func ParseRequiredCents(input string) (int64, error) {
@@ -151,6 +153,58 @@ func ParseRequiredInt(input string) (int, error) {
 		return 0, ErrInvalidInt
 	}
 	return value, nil
+}
+
+// intervalRe matches duration strings like "1y", "6m", "2y 6m", "1y6m".
+var intervalRe = regexp.MustCompile(
+	`(?i)^\s*(?:(\d+)\s*y)?\s*(?:(\d+)\s*m)?\s*$`,
+)
+
+// ParseIntervalMonths parses a human-friendly interval into months.
+// Accepts bare integers ("12"), month suffix ("6m"), year suffix ("1y"),
+// or combined ("2y 6m", "1y6m"). Case-insensitive, whitespace-flexible.
+// Returns (0, nil) for empty/blank input (non-recurring).
+func ParseIntervalMonths(input string) (int, error) {
+	trimmed := strings.TrimSpace(input)
+	if trimmed == "" {
+		return 0, nil
+	}
+	// Try bare integer first.
+	if value, err := strconv.Atoi(trimmed); err == nil {
+		if value < 0 {
+			return 0, ErrInvalidInterval
+		}
+		return value, nil
+	}
+	matches := intervalRe.FindStringSubmatch(trimmed)
+	if matches == nil {
+		return 0, ErrInvalidInterval
+	}
+	yearStr, monthStr := matches[1], matches[2]
+	// Regex matched but both groups empty means the pattern matched
+	// zero-length content -- reject.
+	if yearStr == "" && monthStr == "" {
+		return 0, ErrInvalidInterval
+	}
+	var total int
+	if yearStr != "" {
+		y, err := strconv.Atoi(yearStr)
+		if err != nil {
+			return 0, ErrInvalidInterval
+		}
+		total += y * 12
+	}
+	if monthStr != "" {
+		m, err := strconv.Atoi(monthStr)
+		if err != nil {
+			return 0, ErrInvalidInterval
+		}
+		total += m
+	}
+	if total < 0 {
+		return 0, ErrInvalidInterval
+	}
+	return total, nil
 }
 
 func ParseOptionalFloat(input string) (float64, error) {

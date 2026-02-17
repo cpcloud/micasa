@@ -413,10 +413,11 @@ func (m *Model) startMaintenanceForm() {
 				Options(appOpts...).
 				Value(&values.ApplianceID),
 			huh.NewInput().
-				Title("Interval months").
-				Placeholder("6").
+				Title("Interval").
+				Description("e.g. 6 (months), 6m, 1y, 2y 6m; blank for one-time").
+				Placeholder("6m").
 				Value(&values.IntervalMonths).
-				Validate(optionalInt("interval months")),
+				Validate(optionalInterval("interval")),
 		),
 	)
 	m.activateForm(formMaintenance, form, values)
@@ -460,10 +461,11 @@ func (m *Model) openMaintenanceForm(
 				Value(&values.LastServiced).
 				Validate(optionalDate("last serviced")),
 			huh.NewInput().
-				Title("Interval months").
-				Placeholder("6").
+				Title("Interval").
+				Description("e.g. 6 (months), 6m, 1y, 2y 6m; blank for one-time").
+				Placeholder("6m").
 				Value(&values.IntervalMonths).
-				Validate(optionalInt("interval months")),
+				Validate(optionalInterval("interval")),
 		).Title("Schedule"),
 		huh.NewGroup(
 			huh.NewInput().Title("Manual URL").Value(&values.ManualURL),
@@ -859,10 +861,10 @@ func (m *Model) inlineEditMaintenance(id uint, col int) error {
 		m.openInlineInput(
 			id,
 			formMaintenance,
-			"Interval months",
-			"6",
+			"Interval",
+			"6m",
 			&values.IntervalMonths,
-			optionalInt("interval months"),
+			optionalInterval("interval"),
 			values,
 		)
 	default:
@@ -1452,7 +1454,7 @@ func (m *Model) parseMaintenanceFormData() (data.MaintenanceItem, error) {
 	if err != nil {
 		return data.MaintenanceItem{}, err
 	}
-	interval, err := data.ParseOptionalInt(values.IntervalMonths)
+	interval, err := data.ParseIntervalMonths(values.IntervalMonths)
 	if err != nil {
 		return data.MaintenanceItem{}, err
 	}
@@ -1557,6 +1559,18 @@ func optionalInt(label string) func(string) error {
 	}
 }
 
+func optionalInterval(label string) func(string) error {
+	return func(input string) error {
+		if _, err := data.ParseIntervalMonths(input); err != nil {
+			return fmt.Errorf(
+				"%s should be months (6), or a duration like 6m, 1y, 2y 6m",
+				label,
+			)
+		}
+		return nil
+	}
+}
+
 func optionalFloat(label string) func(string) error {
 	return func(input string) error {
 		if _, err := data.ParseOptionalFloat(input); err != nil {
@@ -1641,7 +1655,7 @@ func maintenanceFormValues(item data.MaintenanceItem) *maintenanceFormData {
 		CategoryID:     item.CategoryID,
 		ApplianceID:    appID,
 		LastServiced:   data.FormatDate(item.LastServicedAt),
-		IntervalMonths: intToString(item.IntervalMonths),
+		IntervalMonths: formatInterval(item.IntervalMonths),
 		ManualURL:      item.ManualURL,
 		ManualText:     item.ManualText,
 		Cost:           data.FormatOptionalCents(item.CostCents),

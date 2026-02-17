@@ -40,6 +40,24 @@ func TestOptionalIntRejectsInvalid(t *testing.T) {
 	}
 }
 
+func TestOptionalIntervalAcceptsValid(t *testing.T) {
+	validate := optionalInterval("interval")
+	for _, input := range []string{"", "0", "12", "6m", "1y", "2y 6m", "1y6m", "  1Y  "} {
+		assert.NoErrorf(t, validate(input), "optionalInterval(%q)", input)
+	}
+}
+
+func TestOptionalIntervalRejectsInvalid(t *testing.T) {
+	validate := optionalInterval("interval")
+	for _, input := range []string{"abc", "-1", "1x", "m", "y"} {
+		err := validate(input)
+		assert.Errorf(t, err, "optionalInterval(%q) expected error", input)
+		if err != nil {
+			assert.Contains(t, err.Error(), "6m, 1y, 2y 6m", "error should be actionable")
+		}
+	}
+}
+
 func TestOptionalFloatAcceptsValid(t *testing.T) {
 	validate := optionalFloat("bathrooms")
 	for _, input := range []string{"", "0", "2.5", "  3  "} {
@@ -152,7 +170,7 @@ func TestMaintenanceFormValues(t *testing.T) {
 	got := maintenanceFormValues(item)
 	assert.Equal(t, "HVAC Filter", got.Name)
 	assert.Equal(t, uint(3), got.ApplianceID)
-	assert.Equal(t, "3", got.IntervalMonths)
+	assert.Equal(t, "3m", got.IntervalMonths)
 }
 
 func TestMaintenanceFormValuesNoAppliance(t *testing.T) {
@@ -221,6 +239,7 @@ func TestServiceLogFormValuesNoVendor(t *testing.T) {
 
 func TestFormDirtyDetectionUserFlow(t *testing.T) {
 	m := newTestModel()
+	m.mode = modeForm
 
 	// Simulate: user opens an appliance edit form with pre-filled values.
 	values := &applianceFormData{
@@ -231,19 +250,24 @@ func TestFormDirtyDetectionUserFlow(t *testing.T) {
 	m.formData = values
 	m.snapshotForm()
 
-	// User hasn't changed anything yet — form should not be dirty.
+	// User hasn't changed anything yet — status should show "saved".
 	m.checkFormDirty()
-	assert.False(t, m.formDirty, "form should not be dirty before any edits")
+	status := m.statusView()
+	assert.Contains(t, status, "saved", "status should show saved before any edits")
+	assert.NotContains(t, status, "unsaved", "status should not show unsaved before edits")
 
 	// User edits the brand field.
 	values.Brand = "LG"
 	m.checkFormDirty()
-	assert.True(t, m.formDirty, "form should be dirty after editing a field")
+	assert.Contains(t, m.statusView(), "unsaved",
+		"status should show unsaved after editing a field")
 
 	// User reverts the edit back to the original value.
 	values.Brand = "Samsung"
 	m.checkFormDirty()
-	assert.False(t, m.formDirty, "form should not be dirty after reverting")
+	status = m.statusView()
+	assert.Contains(t, status, "saved", "status should show saved after reverting")
+	assert.NotContains(t, status, "unsaved", "status should not show unsaved after reverting")
 }
 
 func TestOversizedDocumentShowsHumanReadableSize(t *testing.T) {

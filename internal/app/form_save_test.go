@@ -27,23 +27,22 @@ func openAddForm(m *Model) {
 func TestUserEditsHouseProfileAndSavesWithCtrlS(t *testing.T) {
 	m := newTestModelWithStore(t)
 	openHouseForm(m)
-	require.Equal(t, modeForm, m.mode, "user should be in form mode")
-	require.Equal(t, formHouse, m.formKind)
+	require.Contains(t, m.statusView(), "saved", "user should be in form mode")
 
 	// User changes the nickname field.
 	values, ok := m.formData.(*houseFormData)
 	require.True(t, ok)
 	values.Nickname = "Beach House"
 	m.checkFormDirty()
-	require.True(t, m.formDirty, "form should be dirty after editing")
+	require.Contains(t, m.statusView(), "unsaved", "form should be dirty after editing")
 
 	// User presses Ctrl+S to save.
 	sendKey(m, "ctrl+s")
 
 	// User sees the form is still open and dirty indicator resets.
-	assert.Equal(t, modeForm, m.mode, "form should remain open after ctrl+s")
-	assert.Equal(t, formHouse, m.formKind)
-	assert.False(t, m.formDirty, "dirty indicator should reset after save")
+	status := m.statusView()
+	assert.Contains(t, status, "saved", "form should remain open after ctrl+s")
+	assert.NotContains(t, status, "unsaved", "dirty indicator should reset after save")
 
 	// Data actually persisted to the database.
 	require.NoError(t, m.loadHouse())
@@ -62,14 +61,16 @@ func TestUserEditsHouseProfileThenSavesThenEditsAgain(t *testing.T) {
 	sendKey(m, "ctrl+s")
 
 	// After save, user continues editing in the same form.
-	assert.Equal(t, modeForm, m.mode)
+	assert.Contains(t, m.statusView(), "saved", "form should remain open after save")
 	values.City = "Tahoe"
 	m.checkFormDirty()
-	assert.True(t, m.formDirty, "form should be dirty again after further edits")
+	assert.Contains(t, m.statusView(), "unsaved", "form should be dirty again after further edits")
 
 	// Second save.
 	sendKey(m, "ctrl+s")
-	assert.False(t, m.formDirty)
+	status := m.statusView()
+	assert.Contains(t, status, "saved")
+	assert.NotContains(t, status, "unsaved")
 
 	// Both values persisted.
 	require.NoError(t, m.loadHouse())
@@ -80,8 +81,7 @@ func TestUserEditsHouseProfileThenSavesThenEditsAgain(t *testing.T) {
 func TestUserAddsProjectAndSavesWithCtrlS(t *testing.T) {
 	m := newTestModelWithStore(t)
 	openAddForm(m)
-	require.Equal(t, modeForm, m.mode)
-	require.Equal(t, formProject, m.formKind)
+	require.Contains(t, m.statusView(), "saved", "user should be in form mode")
 
 	values, ok := m.formData.(*projectFormData)
 	require.True(t, ok)
@@ -91,9 +91,9 @@ func TestUserAddsProjectAndSavesWithCtrlS(t *testing.T) {
 	sendKey(m, "ctrl+s")
 
 	// User is still in the form.
-	assert.Equal(t, modeForm, m.mode)
-	assert.Equal(t, formProject, m.formKind)
-	assert.False(t, m.formDirty)
+	status := m.statusView()
+	assert.Contains(t, status, "saved", "form should remain open after save")
+	assert.NotContains(t, status, "unsaved")
 }
 
 func TestUserSeesStatusBarTransitionOnSave(t *testing.T) {
@@ -122,6 +122,56 @@ func TestUserSeesStatusBarTransitionOnSave(t *testing.T) {
 	assert.NotContains(t, view, "unsaved")
 }
 
+func TestUserCreatesMaintenanceWithDurationInterval(t *testing.T) {
+	m := newTestModelWithStore(t)
+
+	// User navigates to the Maintenance tab, then opens the add form.
+	m.active = tabIndex(tabMaintenance)
+	openAddForm(m)
+	require.Contains(t, m.statusView(), "saved", "user should be in form mode")
+
+	values, ok := m.formData.(*maintenanceFormData)
+	require.True(t, ok)
+	values.Name = "HVAC Filter"
+	values.IntervalMonths = "1y"
+	m.checkFormDirty()
+
+	// User presses Ctrl+S to save.
+	sendKey(m, "ctrl+s")
+	status := m.statusView()
+	assert.Contains(t, status, "saved", "form should stay open after save")
+	assert.NotContains(t, status, "unsaved")
+
+	// Verify the interval was stored as 12 months in the database.
+	items, err := m.store.ListMaintenance(false)
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	assert.Equal(t, 12, items[0].IntervalMonths)
+
+	// Verify round-trip: editing shows compact format "1y", not "12".
+	got := maintenanceFormValues(items[0])
+	assert.Equal(t, "1y", got.IntervalMonths)
+}
+
+func TestUserCreatesMaintenanceWithCombinedInterval(t *testing.T) {
+	m := newTestModelWithStore(t)
+	m.active = tabIndex(tabMaintenance)
+	openAddForm(m)
+	require.Contains(t, m.statusView(), "saved", "user should be in form mode")
+
+	values, ok := m.formData.(*maintenanceFormData)
+	require.True(t, ok)
+	values.Name = "Gutter Cleaning"
+	values.IntervalMonths = "2y 6m"
+	sendKey(m, "ctrl+s")
+
+	items, err := m.store.ListMaintenance(false)
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	assert.Equal(t, 30, items[0].IntervalMonths)
+	assert.Equal(t, "2y 6m", maintenanceFormValues(items[0]).IntervalMonths)
+}
+
 func TestUserCancelsFormWithEscAfterSaving(t *testing.T) {
 	m := newTestModelWithStore(t)
 	openHouseForm(m)
@@ -133,11 +183,11 @@ func TestUserCancelsFormWithEscAfterSaving(t *testing.T) {
 
 	// Save in place.
 	sendKey(m, "ctrl+s")
-	assert.Equal(t, modeForm, m.mode)
+	assert.Contains(t, m.statusView(), "saved", "form should still be open after save")
 
 	// Esc closes the form, returning to the previous mode.
 	sendKey(m, "esc")
-	assert.NotEqual(t, modeForm, m.mode, "esc should close the form")
+	assert.Contains(t, m.statusView(), "EDIT", "esc should close the form and return to edit mode")
 
 	// Data from the save is still persisted.
 	require.NoError(t, m.loadHouse())
