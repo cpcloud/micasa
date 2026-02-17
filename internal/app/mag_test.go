@@ -20,7 +20,7 @@ func TestMagFormatMoneyWithUnit(t *testing.T) {
 		{"thousands", "$5,234.23", "$ \U0001F8214"},
 		{"hundreds", "$500.00", "$ \U0001F8213"},
 		{"millions", "$1,000,000.00", "$ \U0001F8216"},
-		{"zero", "$0.00", "$ \U0001F8210"},
+		{"zero", "$0.00", "$ \U0001F821-\u221E"},
 		{"negative", "-$5.00", "-$ \U0001F8211"},
 		{"negative large", "-$12,345.00", "-$ \U0001F8214"},
 	}
@@ -47,7 +47,7 @@ func TestMagFormatBareMoney(t *testing.T) {
 		{"tens", "$42.00", "\U0001F8212"},
 		{"single digit", "$7.50", "\U0001F8211"},
 		{"sub-dollar", "$0.50", "\U0001F8210"},
-		{"zero", "$0.00", "\U0001F8210"},
+		{"zero", "$0.00", "\U0001F821-\u221E"},
 		{"negative", "-$5.00", "-\U0001F8211"},
 	}
 	for _, tt := range tests {
@@ -65,7 +65,7 @@ func TestMagFormatDrilldown(t *testing.T) {
 		want  string
 	}{
 		{"count", "42", "\U0001F8212"},
-		{"zero", "0", "\U0001F8210"},
+		{"zero", "0", "0"},
 		{"large", "1000", "\U0001F8213"},
 	}
 	for _, tt := range tests {
@@ -143,9 +143,9 @@ func TestMagTransformCells(t *testing.T) {
 	assert.Equal(t, "\U0001F8214", out[0][2].Value)
 	assert.Equal(t, "\U0001F8212", out[1][2].Value)
 
-	// Drilldown counts transformed.
+	// Drilldown: non-zero count transformed, zero left alone.
 	assert.Equal(t, "\U0001F8210", out[0][3].Value)
-	assert.Equal(t, "\U0001F8210", out[1][3].Value)
+	assert.Equal(t, "0", out[1][3].Value)
 
 	// Original rows are not modified.
 	assert.Equal(t, "$5,234.23", rows[0][2].Value)
