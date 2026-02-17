@@ -518,11 +518,8 @@ func statusHintIndex(hints []statusHint, id string) int {
 	return -1
 }
 
-// withStatusMessage renders the help line, prepending the status message if
-// set. When mag mode is active, a subtle green arrow is anchored to the
-// far right of the help line.
+// withStatusMessage renders the help line, prepending the status message if set.
 func (m *Model) withStatusMessage(helpLine string) string {
-	helpLine = m.appendMagIndicator(helpLine)
 	if m.status.Text == "" {
 		return helpLine
 	}
@@ -531,22 +528,6 @@ func (m *Model) withStatusMessage(helpLine string) string {
 		style = m.styles.Error
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, style.Render(m.status.Text), helpLine)
-}
-
-// appendMagIndicator pads a green 🠡 to the far right of the line when
-// mag mode is on. Returns the line unchanged when off.
-func (m *Model) appendMagIndicator(line string) string {
-	if !m.magMode {
-		return line
-	}
-	indicator := lipgloss.NewStyle().Foreground(success).Render(magArrow)
-	lineW := lipgloss.Width(line)
-	indicatorW := lipgloss.Width(indicator)
-	gap := m.effectiveWidth() - lineW - indicatorW
-	if gap < 1 {
-		gap = 1
-	}
-	return line + strings.Repeat(" ", gap) + indicator
 }
 
 func (m *Model) editHint() string {
