@@ -739,6 +739,8 @@ func (m *Model) helpContent() string {
 		{
 			title: "Forms",
 			bindings: []binding{
+				{"tab", "Next field"},
+				{"shift+tab", "Previous field"},
 				{"1-9", "Jump to Nth option"},
 				{"ctrl+s", "Save"},
 				{"esc", "Cancel"},
