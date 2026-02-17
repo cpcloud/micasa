@@ -595,6 +595,17 @@ func TestHelpContentNavModeEsc(t *testing.T) {
 	assert.Contains(t, help, "Close detail")
 }
 
+func TestHelpContentShowsArrowKeyAlternatives(t *testing.T) {
+	m := newTestModel()
+	help := m.helpContent()
+	// Nav mode row/column bindings include arrow symbols (renderKeys splits
+	// on "/" so they appear as individual badges, not as "↑/↓").
+	assert.Contains(t, help, "\u2191")
+	assert.Contains(t, help, "\u2193")
+	assert.Contains(t, help, "\u2190")
+	assert.Contains(t, help, "\u2192")
+}
+
 func TestHeaderTitleWidth(t *testing.T) {
 	tests := []struct {
 		name string

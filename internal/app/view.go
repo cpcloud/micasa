@@ -693,8 +693,8 @@ func (m *Model) helpContent() string {
 		{
 			title: "Nav Mode",
 			bindings: []binding{
-				{"j/k", "Rows"},
-				{"h/l", "Columns"},
+				{"j/k/\u2191/\u2193", "Rows"},
+				{"h/l/\u2190/\u2192", "Columns"},
 				{"^/$", "First/last column"},
 				{"g/G", "First/last row"},
 				{"d/u", "Half page down/up"},
@@ -749,8 +749,8 @@ func (m *Model) helpContent() string {
 		{
 			title: "Date Picker",
 			bindings: []binding{
-				{"h/l", "Day"},
-				{"j/k", "Week"},
+				{"h/l/\u2190/\u2192", "Day"},
+				{"j/k/\u2191/\u2193", "Week"},
 				{"H/L", "Month"},
 				{"[/]", "Year"},
 				{"enter", "Pick"},
