@@ -1079,15 +1079,15 @@ func truncateLeft(s string, maxW int) string {
 func emptyHint(kind TabKind) string {
 	switch kind {
 	case tabProjects:
-		return "No projects yet. Press i then a to add one."
+		return "No projects yet. Press i for edit mode, then a to add one. ? for help."
 	case tabQuotes:
-		return "No quotes yet. Add a project first, then press i then a."
+		return "No quotes yet. Create a project first, then drill in and add a quote."
 	case tabMaintenance:
-		return "No maintenance items yet. Press i then a to add one."
+		return "No maintenance items yet. Press i for edit mode, then a to add one. ? for help."
 	case tabAppliances:
-		return "No appliances yet. Press i then a to add one."
+		return "No appliances yet. Press i for edit mode, then a to add one. ? for help."
 	case tabVendors:
-		return "No vendors yet. Press i then a to add one."
+		return "No vendors yet. Press i for edit mode, then a to add one. ? for help."
 	default:
 		return "No entries yet."
 	}

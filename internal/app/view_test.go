@@ -733,19 +733,20 @@ func TestDeletedHintProminentWhenShowDeleted(t *testing.T) {
 
 func TestEmptyHintPerTab(t *testing.T) {
 	tests := []struct {
-		kind TabKind
-		want string
+		kind    TabKind
+		want    string
+		wantSub string // secondary substring to verify
 	}{
-		{tabProjects, "No projects yet"},
-		{tabQuotes, "No quotes yet"},
-		{tabMaintenance, "No maintenance items yet"},
-		{tabAppliances, "No appliances yet"},
-		{tabVendors, "No vendors yet"},
+		{tabProjects, "No projects yet", "edit mode"},
+		{tabQuotes, "No quotes yet", "Create a project first"},
+		{tabMaintenance, "No maintenance items yet", "edit mode"},
+		{tabAppliances, "No appliances yet", "edit mode"},
+		{tabVendors, "No vendors yet", "edit mode"},
 	}
 	for _, tt := range tests {
 		hint := emptyHint(tt.kind)
 		assert.Contains(t, hint, tt.want)
-		assert.Contains(t, hint, "i then a", "should contain add instruction")
+		assert.Contains(t, hint, tt.wantSub)
 	}
 }
 
