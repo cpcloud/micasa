@@ -4,12 +4,15 @@
 package app
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/cpcloud/micasa/internal/data"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRequiredTextRejectsEmpty(t *testing.T) {
@@ -241,6 +244,31 @@ func TestFormDirtyDetectionUserFlow(t *testing.T) {
 	values.Brand = "Samsung"
 	m.checkFormDirty()
 	assert.False(t, m.formDirty, "form should not be dirty after reverting")
+}
+
+func TestOversizedDocumentShowsHumanReadableSize(t *testing.T) {
+	m := newTestModelWithStore(t)
+
+	// Set a small max to avoid writing a large temp file.
+	require.NoError(t, m.store.SetMaxDocumentSize(1024))
+
+	// Create a temp file that exceeds the limit.
+	bigFile := filepath.Join(t.TempDir(), "big.pdf")
+	require.NoError(t, os.WriteFile(bigFile, make([]byte, 2048), 0o600))
+
+	// Simulate the user filling out the document form with the oversized file.
+	m.formData = &documentFormData{
+		Title:    "Too Big",
+		FilePath: bigFile,
+	}
+	_, err := m.parseDocumentFormData()
+	require.Error(t, err)
+
+	// Error should contain human-readable sizes, not raw byte counts.
+	assert.Contains(t, err.Error(), "2.0 KB")
+	assert.Contains(t, err.Error(), "1.0 KB")
+	assert.NotContains(t, err.Error(), "2048")
+	assert.NotContains(t, err.Error(), "1024")
 }
 
 // TestFormDataStructsHaveNoReferenceFields ensures cloneFormData's shallow

@@ -12,6 +12,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/dustin/go-humanize"
 	"github.com/iancoleman/strcase"
 
 	"github.com/cpcloud/micasa/internal/data/sqlite"
@@ -917,11 +918,20 @@ func (s *Store) GetDocument(id uint) (Document, error) {
 func (s *Store) CreateDocument(doc Document) error {
 	if doc.SizeBytes > s.maxDocumentSize {
 		return fmt.Errorf(
-			"file is too large (%d bytes) -- maximum allowed is %d bytes",
-			doc.SizeBytes, s.maxDocumentSize,
+			"file is too large (%s) -- maximum allowed is %s",
+			formatBytes(doc.SizeBytes), formatBytes(s.maxDocumentSize),
 		)
 	}
 	return s.db.Create(&doc).Error
+}
+
+// formatBytes renders a byte count as a human-readable IEC string (KiB,
+// MiB, etc.). Negative values are clamped to zero.
+func formatBytes(n int64) string {
+	if n < 0 {
+		n = 0
+	}
+	return humanize.IBytes(uint64(n)) //nolint:gosec // clamped above
 }
 
 // UpdateDocument persists changes to a document. When Data is empty the

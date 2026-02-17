@@ -1767,8 +1767,8 @@ func (m *Model) parseDocumentFormData() (data.Document, error) {
 		maxSize := m.store.MaxDocumentSize()
 		if info.Size() > maxSize {
 			return data.Document{}, fmt.Errorf(
-				"file is too large (%d bytes) -- maximum allowed is %d bytes",
-				info.Size(), maxSize,
+				"file is too large (%s) -- maximum allowed is %s",
+				formatFileSize(info.Size()), formatFileSize(maxSize),
 			)
 		}
 		fileData, err := os.ReadFile(path)
