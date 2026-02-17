@@ -208,14 +208,32 @@ func (s *Store) SeedDemoDataFrom(h *fake.HomeFaker) error {
 		return fmt.Errorf("seed house: %w", err)
 	}
 
+	// Lookup helpers that panic on missing seed data. SeedDefaults must run
+	// before SeedDemoDataFrom; a missing type/category is a programming error.
 	typeID := func(name string) uint {
 		var pt ProjectType
-		s.db.Where(ColName+" = ?", name).First(&pt)
+		if err := s.db.Where(ColName+" = ?", name).First(&pt).Error; err != nil {
+			panic(
+				fmt.Sprintf(
+					"seed: project type %q not found (run SeedDefaults first): %v",
+					name,
+					err,
+				),
+			)
+		}
 		return pt.ID
 	}
 	catID := func(name string) uint {
 		var mc MaintenanceCategory
-		s.db.Where(ColName+" = ?", name).First(&mc)
+		if err := s.db.Where(ColName+" = ?", name).First(&mc).Error; err != nil {
+			panic(
+				fmt.Sprintf(
+					"seed: maintenance category %q not found (run SeedDefaults first): %v",
+					name,
+					err,
+				),
+			)
+		}
 		return mc.ID
 	}
 
@@ -541,7 +559,9 @@ func (s *Store) ListServiceLogsByVendor(
 		Preload("Vendor", func(q *gorm.DB) *gorm.DB {
 			return q.Unscoped()
 		}).
-		Preload("MaintenanceItem").
+		Preload("MaintenanceItem", func(q *gorm.DB) *gorm.DB {
+			return q.Unscoped()
+		}).
 		Order(ColServicedAt + " desc, " + ColID + " desc")
 	if includeDeleted {
 		db = db.Unscoped()

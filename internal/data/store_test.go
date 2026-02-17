@@ -1858,7 +1858,7 @@ func TestDeleteQuoteBlockedByDocuments(t *testing.T) {
 func TestDeleteMaintenanceBlockedByDocuments(t *testing.T) {
 	store := newTestStore(t)
 	cat := MaintenanceCategory{Name: "DocMCat"}
-	store.db.Create(&cat)
+	require.NoError(t, store.db.Create(&cat).Error)
 
 	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
 		Name: "Documented Filter", CategoryID: cat.ID, IntervalMonths: 6,
@@ -1880,9 +1880,9 @@ func TestDeleteMaintenanceBlockedByDocuments(t *testing.T) {
 func TestDeleteServiceLogBlockedByDocuments(t *testing.T) {
 	store := newTestStore(t)
 	cat := MaintenanceCategory{Name: "SLDocCat"}
-	store.db.Create(&cat)
+	require.NoError(t, store.db.Create(&cat).Error)
 	item := MaintenanceItem{Name: "SLDoc Item", CategoryID: cat.ID, IntervalMonths: 6}
-	store.db.Create(&item)
+	require.NoError(t, store.db.Create(&item).Error)
 
 	require.NoError(t, store.CreateServiceLog(
 		ServiceLogEntry{MaintenanceItemID: item.ID, ServicedAt: time.Now()},
@@ -1957,7 +1957,7 @@ func TestRestoreDocumentBlockedByDeletedQuote(t *testing.T) {
 func TestRestoreDocumentBlockedByDeletedMaintenance(t *testing.T) {
 	store := newTestStore(t)
 	cat := MaintenanceCategory{Name: "RMCat"}
-	store.db.Create(&cat)
+	require.NoError(t, store.db.Create(&cat).Error)
 
 	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
 		Name: "Doomed Filter", CategoryID: cat.ID, IntervalMonths: 12,
@@ -1983,9 +1983,9 @@ func TestRestoreDocumentBlockedByDeletedMaintenance(t *testing.T) {
 func TestRestoreDocumentBlockedByDeletedServiceLog(t *testing.T) {
 	store := newTestStore(t)
 	cat := MaintenanceCategory{Name: "RSLCat"}
-	store.db.Create(&cat)
+	require.NoError(t, store.db.Create(&cat).Error)
 	item := MaintenanceItem{Name: "RSL Item", CategoryID: cat.ID, IntervalMonths: 6}
-	store.db.Create(&item)
+	require.NoError(t, store.db.Create(&item).Error)
 
 	require.NoError(t, store.CreateServiceLog(
 		ServiceLogEntry{MaintenanceItemID: item.ID, ServicedAt: time.Now()},

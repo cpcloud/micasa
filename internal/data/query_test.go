@@ -151,11 +151,11 @@ func TestDataDumpExcludesSoftDeletedRecords(t *testing.T) {
 
 	// Create a vendor, then soft-delete it. The LLM dump should NOT mention it.
 	v := Vendor{Name: "DeletedVendorXYZ"}
-	store.db.Create(&v)
-	store.db.Delete(&v) // soft delete
+	require.NoError(t, store.db.Create(&v).Error)
+	require.NoError(t, store.db.Delete(&v).Error) // soft delete
 
 	// Create a non-deleted vendor to verify the dump still works.
-	store.db.Create(&Vendor{Name: "ActiveVendorABC"})
+	require.NoError(t, store.db.Create(&Vendor{Name: "ActiveVendorABC"}).Error)
 
 	dump := store.DataDump()
 	assert.NotContains(t, dump, "DeletedVendorXYZ",

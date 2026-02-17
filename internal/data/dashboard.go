@@ -58,7 +58,9 @@ func (s *Store) ListExpiringWarranties(
 func (s *Store) ListRecentServiceLogs(limit int) ([]ServiceLogEntry, error) {
 	var entries []ServiceLogEntry
 	err := s.db.
-		Preload("MaintenanceItem").
+		Preload("MaintenanceItem", func(q *gorm.DB) *gorm.DB {
+			return q.Unscoped()
+		}).
 		Preload("Vendor", func(q *gorm.DB) *gorm.DB {
 			return q.Unscoped()
 		}).

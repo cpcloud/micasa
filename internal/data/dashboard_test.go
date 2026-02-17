@@ -14,21 +14,21 @@ import (
 func TestListMaintenanceWithSchedule(t *testing.T) {
 	store := newTestStore(t)
 	cat := MaintenanceCategory{Name: "TestCat"}
-	store.db.Create(&cat)
+	require.NoError(t, store.db.Create(&cat).Error)
 
 	ptrTime := func(y, m, d int) *time.Time {
 		t := time.Date(y, time.Month(m), d, 0, 0, 0, 0, time.UTC)
 		return &t
 	}
 	// Item with interval > 0 should appear.
-	store.db.Create(&MaintenanceItem{
+	require.NoError(t, store.db.Create(&MaintenanceItem{
 		Name: "With Interval", CategoryID: cat.ID,
 		IntervalMonths: 3, LastServicedAt: ptrTime(2025, 6, 1),
-	})
+	}).Error)
 	// Item with interval = 0 should NOT appear.
-	store.db.Create(&MaintenanceItem{
+	require.NoError(t, store.db.Create(&MaintenanceItem{
 		Name: "No Interval", CategoryID: cat.ID, IntervalMonths: 0,
-	})
+	}).Error)
 
 	items, err := store.ListMaintenanceWithSchedule()
 	require.NoError(t, err)
@@ -39,11 +39,31 @@ func TestListMaintenanceWithSchedule(t *testing.T) {
 func TestListActiveProjects(t *testing.T) {
 	store := newTestStore(t)
 	var pt ProjectType
-	store.db.First(&pt)
-	store.db.Create(&Project{Title: "A", ProjectTypeID: pt.ID, Status: ProjectStatusInProgress})
-	store.db.Create(&Project{Title: "B", ProjectTypeID: pt.ID, Status: ProjectStatusDelayed})
-	store.db.Create(&Project{Title: "C", ProjectTypeID: pt.ID, Status: ProjectStatusCompleted})
-	store.db.Create(&Project{Title: "D", ProjectTypeID: pt.ID, Status: ProjectStatusIdeating})
+	require.NoError(t, store.db.First(&pt).Error)
+	require.NoError(
+		t,
+		store.db.Create(
+			&Project{Title: "A", ProjectTypeID: pt.ID, Status: ProjectStatusInProgress},
+		).Error,
+	)
+	require.NoError(
+		t,
+		store.db.Create(
+			&Project{Title: "B", ProjectTypeID: pt.ID, Status: ProjectStatusDelayed},
+		).Error,
+	)
+	require.NoError(
+		t,
+		store.db.Create(
+			&Project{Title: "C", ProjectTypeID: pt.ID, Status: ProjectStatusCompleted},
+		).Error,
+	)
+	require.NoError(
+		t,
+		store.db.Create(
+			&Project{Title: "D", ProjectTypeID: pt.ID, Status: ProjectStatusIdeating},
+		).Error,
+	)
 
 	projects, err := store.ListActiveProjects()
 	require.NoError(t, err)
@@ -63,15 +83,27 @@ func TestListExpiringWarranties(t *testing.T) {
 		return &t
 	}
 	// Expiring in 30 days -- should appear.
-	store.db.Create(&Appliance{Name: "Soon", WarrantyExpiry: ptrTime(2026, 3, 10)})
+	require.NoError(
+		t,
+		store.db.Create(&Appliance{Name: "Soon", WarrantyExpiry: ptrTime(2026, 3, 10)}).Error,
+	)
 	// Expired 10 days ago -- should appear (within lookBack).
-	store.db.Create(&Appliance{Name: "Recent", WarrantyExpiry: ptrTime(2026, 1, 29)})
+	require.NoError(
+		t,
+		store.db.Create(&Appliance{Name: "Recent", WarrantyExpiry: ptrTime(2026, 1, 29)}).Error,
+	)
 	// Expired 60 days ago -- should NOT appear.
-	store.db.Create(&Appliance{Name: "Old", WarrantyExpiry: ptrTime(2025, 12, 1)})
+	require.NoError(
+		t,
+		store.db.Create(&Appliance{Name: "Old", WarrantyExpiry: ptrTime(2025, 12, 1)}).Error,
+	)
 	// Expiring in 120 days -- should NOT appear.
-	store.db.Create(&Appliance{Name: "Far", WarrantyExpiry: ptrTime(2026, 6, 8)})
+	require.NoError(
+		t,
+		store.db.Create(&Appliance{Name: "Far", WarrantyExpiry: ptrTime(2026, 6, 8)}).Error,
+	)
 	// No warranty -- should NOT appear.
-	store.db.Create(&Appliance{Name: "None"})
+	require.NoError(t, store.db.Create(&Appliance{Name: "None"}).Error)
 
 	apps, err := store.ListExpiringWarranties(now, 30*24*time.Hour, 90*24*time.Hour)
 	require.NoError(t, err)
@@ -81,15 +113,15 @@ func TestListExpiringWarranties(t *testing.T) {
 func TestListRecentServiceLogs(t *testing.T) {
 	store := newTestStore(t)
 	cat := MaintenanceCategory{Name: "SLCat"}
-	store.db.Create(&cat)
+	require.NoError(t, store.db.Create(&cat).Error)
 	item := MaintenanceItem{Name: "SL Item", CategoryID: cat.ID, IntervalMonths: 6}
-	store.db.Create(&item)
+	require.NoError(t, store.db.Create(&item).Error)
 
 	for i := 0; i < 10; i++ {
-		store.db.Create(&ServiceLogEntry{
+		require.NoError(t, store.db.Create(&ServiceLogEntry{
 			MaintenanceItemID: item.ID,
 			ServicedAt:        time.Date(2025, 1+time.Month(i), 1, 0, 0, 0, 0, time.UTC),
-		})
+		}).Error)
 	}
 
 	entries, err := store.ListRecentServiceLogs(5)
@@ -104,22 +136,22 @@ func TestYTDSpending(t *testing.T) {
 	ptr := func(v int64) *int64 { return &v }
 
 	cat := MaintenanceCategory{Name: "SpendCat"}
-	store.db.Create(&cat)
+	require.NoError(t, store.db.Create(&cat).Error)
 	item := MaintenanceItem{Name: "Spend Item", CategoryID: cat.ID, IntervalMonths: 6}
-	store.db.Create(&item)
+	require.NoError(t, store.db.Create(&item).Error)
 
 	// This year.
-	store.db.Create(&ServiceLogEntry{
+	require.NoError(t, store.db.Create(&ServiceLogEntry{
 		MaintenanceItemID: item.ID,
 		ServicedAt:        time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
 		CostCents:         ptr(5000),
-	})
+	}).Error)
 	// Last year -- should not count.
-	store.db.Create(&ServiceLogEntry{
+	require.NoError(t, store.db.Create(&ServiceLogEntry{
 		MaintenanceItemID: item.ID,
 		ServicedAt:        time.Date(2025, 12, 1, 0, 0, 0, 0, time.UTC),
 		CostCents:         ptr(9999),
-	})
+	}).Error)
 
 	yearStart := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	spend, err := store.YTDServiceSpendCents(yearStart)
@@ -129,25 +161,25 @@ func TestYTDSpending(t *testing.T) {
 	// Projects — TotalProjectSpendCents sums ALL non-deleted projects
 	// regardless of updated_at (the old YTD filter was incorrect).
 	var pt ProjectType
-	store.db.First(&pt)
-	store.db.Create(&Project{
+	require.NoError(t, store.db.First(&pt).Error)
+	require.NoError(t, store.db.Create(&Project{
 		Title: "P1", ProjectTypeID: pt.ID, Status: ProjectStatusCompleted,
 		ActualCents: ptr(20000),
-	})
-	store.db.Create(&Project{
+	}).Error)
+	require.NoError(t, store.db.Create(&Project{
 		Title: "P2", ProjectTypeID: pt.ID, Status: ProjectStatusInProgress,
 		ActualCents: ptr(10000),
-	})
+	}).Error)
 	// Project updated last year — still included (no date filter).
 	oldProj := Project{
 		Title: "P3", ProjectTypeID: pt.ID, Status: ProjectStatusCompleted,
 		ActualCents: ptr(7777),
 	}
-	store.db.Create(&oldProj)
-	store.db.Exec(
+	require.NoError(t, store.db.Create(&oldProj).Error)
+	require.NoError(t, store.db.Exec(
 		"UPDATE projects SET updated_at = ? WHERE title = ?",
 		time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC), "P3",
-	)
+	).Error)
 
 	projSpend, err := store.TotalProjectSpendCents()
 	require.NoError(t, err)
@@ -162,25 +194,25 @@ func TestTotalProjectSpendUnaffectedByEdits(t *testing.T) {
 	ptr := func(v int64) *int64 { return &v }
 
 	var pt ProjectType
-	store.db.First(&pt)
+	require.NoError(t, store.db.First(&pt).Error)
 	p := Project{
 		Title: "Kitchen Remodel", ProjectTypeID: pt.ID,
 		Status: ProjectStatusCompleted, ActualCents: ptr(50000),
 	}
-	store.db.Create(&p)
+	require.NoError(t, store.db.Create(&p).Error)
 
 	// Push updated_at into the past to simulate an old project.
-	store.db.Exec(
+	require.NoError(t, store.db.Exec(
 		"UPDATE projects SET updated_at = ? WHERE id = ?",
 		time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC), p.ID,
-	)
+	).Error)
 
 	spend1, err := store.TotalProjectSpendCents()
 	require.NoError(t, err)
 	assert.Equal(t, int64(50000), spend1)
 
 	// Simulate user editing the description — touches updated_at.
-	store.db.Model(&p).Update("notes", "added new countertops")
+	require.NoError(t, store.db.Model(&p).Update("description", "added new countertops").Error)
 
 	spend2, err := store.TotalProjectSpendCents()
 	require.NoError(t, err)
