@@ -905,3 +905,26 @@ func TestSetStatusSavedNoUndo(t *testing.T) {
 	assert.Equal(t, "Saved.", m.status.Text)
 	assert.NotContains(t, m.status.Text, "undo")
 }
+
+func TestFirstRunHouseFormShowsHint(t *testing.T) {
+	m := newTestModelWithStore(t)
+	// Simulate first run: no house profile exists yet.
+	m.hasHouse = false
+	m.startHouseForm()
+	m.form.Init()
+
+	output := m.buildView()
+	assert.Contains(t, output, "edit the rest anytime",
+		"first-run house form should hint that only nickname is required")
+}
+
+func TestEditHouseFormHidesHint(t *testing.T) {
+	m := newTestModelWithStore(t)
+	// Model already has a house from newTestModelWithStore.
+	openHouseForm(m)
+	m.form.Init()
+
+	output := m.buildView()
+	assert.NotContains(t, output, "edit the rest anytime",
+		"editing existing house profile should not show first-run hint")
+}

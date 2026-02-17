@@ -130,19 +130,26 @@ func (m *Model) startHouseForm() {
 	if m.hasHouse {
 		values = houseFormValues(m.house)
 	}
+
+	basicsGroup := huh.NewGroup(
+		huh.NewInput().
+			Title(requiredTitle("Nickname")).
+			Description("Ex: Primary Residence").
+			Value(&values.Nickname).
+			Validate(requiredText("nickname")),
+		huh.NewInput().Title("Address line 1").Value(&values.AddressLine1),
+		huh.NewInput().Title("Address line 2").Value(&values.AddressLine2),
+		huh.NewInput().Title("City").Value(&values.City),
+		huh.NewInput().Title("State").Value(&values.State),
+		huh.NewInput().Title("Postal code").Value(&values.PostalCode),
+	).Title("Basics")
+	if !m.hasHouse {
+		basicsGroup.Description(
+			"Only nickname is required -- edit the rest anytime with p (edit mode)")
+	}
+
 	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().
-				Title(requiredTitle("Nickname")).
-				Description("Ex: Primary Residence").
-				Value(&values.Nickname).
-				Validate(requiredText("nickname")),
-			huh.NewInput().Title("Address line 1").Value(&values.AddressLine1),
-			huh.NewInput().Title("Address line 2").Value(&values.AddressLine2),
-			huh.NewInput().Title("City").Value(&values.City),
-			huh.NewInput().Title("State").Value(&values.State),
-			huh.NewInput().Title("Postal code").Value(&values.PostalCode),
-		).Title("Basics"),
+		basicsGroup,
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Year built").
