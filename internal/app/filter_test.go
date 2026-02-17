@@ -469,6 +469,67 @@ func TestTranslatePinsFromMag(t *testing.T) {
 	assert.False(t, tab.Pins[0].Values["$50.00"], "$50 is mag 2, not 3")
 }
 
+func TestCellDisplayValueNull(t *testing.T) {
+	c := cell{Kind: cellText, Null: true}
+	assert.Equal(t, nullPinKey, cellDisplayValue(c, false))
+	assert.Equal(t, nullPinKey, cellDisplayValue(c, true))
+}
+
+func TestCellDisplayValueNonNull(t *testing.T) {
+	c := cell{Value: "Hello", Kind: cellText}
+	assert.Equal(t, "hello", cellDisplayValue(c, false))
+}
+
+func TestMatchesAllPinsNullCell(t *testing.T) {
+	pins := []filterPin{{Col: 1, Values: map[string]bool{nullPinKey: true}}}
+	nullRow := []cell{{Value: "1"}, {Kind: cellText, Null: true}}
+	emptyRow := []cell{{Value: "1"}, {Value: "", Kind: cellText}}
+	filledRow := []cell{{Value: "1"}, {Value: "Alice", Kind: cellText}}
+
+	assert.True(t, matchesAllPins(nullRow, pins, false), "null cell should match null pin")
+	assert.False(
+		t,
+		matchesAllPins(emptyRow, pins, false),
+		"empty non-null should not match null pin",
+	)
+	assert.False(t, matchesAllPins(filledRow, pins, false), "filled cell should not match null pin")
+}
+
+func TestPinSummaryNull(t *testing.T) {
+	tab := newFilterTab()
+	togglePin(tab, 1, nullPinKey)
+	s := pinSummary(tab)
+	assert.Contains(t, s, "\u2205", "null pin should display as ∅ in summary")
+	assert.NotContains(t, s, nullPinKey, "raw sentinel should not appear")
+}
+
+func TestTogglePinNullCell(t *testing.T) {
+	m, tab := newFilterModel()
+	// Replace row 0, col 1 with a null cell.
+	tab.CellRows[0][1] = cell{Kind: cellStatus, Null: true}
+	tab.FullCellRows[0][1] = cell{Kind: cellStatus, Null: true}
+	tab.Table.SetCursor(0)
+
+	sendKey(m, "n")
+	assert.True(t, isPinned(tab, 1, nullPinKey), "pinning a null cell should use nullPinKey")
+
+	sendKey(m, "n")
+	assert.False(t, isPinned(tab, 1, nullPinKey), "second press should unpin")
+}
+
+func TestTranslatePinsPreservesNull(t *testing.T) {
+	tab := &Tab{
+		Specs: []columnSpec{{Title: "Cost", Kind: cellMoney}},
+		FullCellRows: [][]cell{
+			{{Value: "$50.00", Kind: cellMoney}},
+			{{Kind: cellMoney, Null: true}},
+		},
+	}
+	togglePin(tab, 0, nullPinKey)
+	translatePins(tab, true)
+	assert.True(t, tab.Pins[0].Values[nullPinKey], "null pin should survive mag translation")
+}
+
 func TestTranslatePinsRoundTrip(t *testing.T) {
 	// Pin $1,000.00 -> toggle to mag (🠡3) -> toggle back -> should get
 	// $1,000.00 AND $2,000.00 (both mag 3).

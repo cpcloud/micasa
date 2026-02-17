@@ -63,8 +63,12 @@ func clearPinsForColumn(tab *Tab, col int) {
 }
 
 // cellDisplayValue returns the value used for pin matching. In mag mode,
-// numeric cells are transformed to their magnitude representation.
+// numeric cells are transformed to their magnitude representation. NULL cells
+// return a sentinel key so they can be pinned independently of empty strings.
 func cellDisplayValue(c cell, magMode bool) string {
+	if c.Null {
+		return nullPinKey
+	}
 	if magMode {
 		return strings.ToLower(strings.TrimSpace(magFormat(c, false)))
 	}
@@ -164,11 +168,11 @@ func translatePins(tab *Tab, nowMagMode bool) {
 					continue
 				}
 				c := row[pin.Col]
-				rawKey := strings.ToLower(strings.TrimSpace(c.Value))
+				rawKey := cellDisplayValue(c, false)
 				if !pin.Values[rawKey] {
 					continue
 				}
-				magKey := strings.ToLower(strings.TrimSpace(magFormat(c, false)))
+				magKey := cellDisplayValue(c, true)
 				newValues[magKey] = true
 			}
 		} else {
@@ -178,11 +182,11 @@ func translatePins(tab *Tab, nowMagMode bool) {
 					continue
 				}
 				c := row[pin.Col]
-				magKey := strings.ToLower(strings.TrimSpace(magFormat(c, false)))
+				magKey := cellDisplayValue(c, true)
 				if !pin.Values[magKey] {
 					continue
 				}
-				rawKey := strings.ToLower(strings.TrimSpace(c.Value))
+				rawKey := cellDisplayValue(c, false)
 				newValues[rawKey] = true
 			}
 		}
@@ -227,7 +231,11 @@ func pinSummary(tab *Tab) string {
 		}
 		vals := make([]string, 0, len(pin.Values))
 		for v := range pin.Values {
-			vals = append(vals, v)
+			if v == nullPinKey {
+				vals = append(vals, "\u2205") // ∅
+			} else {
+				vals = append(vals, v)
+			}
 		}
 		parts = append(parts, colName+": "+strings.Join(vals, ", "))
 	}

@@ -31,6 +31,7 @@ type Styles struct {
 	Readonly        lipgloss.Style
 	Drilldown       lipgloss.Style
 	Empty           lipgloss.Style
+	Null            lipgloss.Style
 	Error           lipgloss.Style
 	Info            lipgloss.Style
 	DeletedLabel    lipgloss.Style
@@ -181,6 +182,9 @@ func DefaultStyles() Styles {
 			Padding(0, 1),
 		Empty: lipgloss.NewStyle().
 			Foreground(textDim),
+		Null: lipgloss.NewStyle().
+			Foreground(textDim).
+			Italic(true),
 		Error: lipgloss.NewStyle().
 			Foreground(danger).
 			Bold(true),

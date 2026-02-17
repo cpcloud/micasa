@@ -425,8 +425,11 @@ func renderCell(
 	}
 	value := strings.TrimSpace(cellValue.Value)
 	style := cellStyle(cellValue.Kind, styles)
-	if value == "" {
-		value = "—"
+	if cellValue.Null {
+		value = "\u2205" // ∅
+		style = styles.Null
+	} else if value == "" {
+		value = "\u2014" // —
 		style = styles.Empty
 	} else if cellValue.Kind == cellDrilldown {
 		return renderPillCell(value, spec, width, hl, deleted, dimmed, styles)

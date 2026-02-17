@@ -128,6 +128,7 @@ func TestMaintenanceRowsNoAppliance(t *testing.T) {
 	}
 	_, _, cells := maintenanceRows(items, nil)
 	assert.Empty(t, cells[0][3].Value)
+	assert.True(t, cells[0][3].Null, "nil appliance should produce a null cell")
 	assert.Zero(t, cells[0][3].LinkID)
 }
 
@@ -164,8 +165,11 @@ func TestApplianceRowsNoOptionalFields(t *testing.T) {
 	}
 	_, _, cells := applianceRows(items, nil, nil, now)
 	assert.Empty(t, cells[0][6].Value, "expected empty purchase date")
+	assert.True(t, cells[0][6].Null, "nil purchase date should be null")
 	assert.Empty(t, cells[0][7].Value, "expected empty age")
+	assert.True(t, cells[0][7].Null, "age without purchase date should be null")
 	assert.Empty(t, cells[0][9].Value, "expected empty cost")
+	assert.True(t, cells[0][9].Null, "nil cost should be null")
 	assert.Empty(t, cells[0][10].Value, "expected empty maint count")
 }
 
@@ -228,6 +232,65 @@ func TestDocumentEntityLabel(t *testing.T) {
 	assert.Empty(t, documentEntityLabel("", 0))
 	assert.Equal(t, "project #5", documentEntityLabel("project", 5))
 	assert.Equal(t, "appliance #12", documentEntityLabel("appliance", 12))
+}
+
+func TestCentsCellNil(t *testing.T) {
+	c := centsCell(nil)
+	assert.True(t, c.Null, "nil cents should produce a null cell")
+	assert.Empty(t, c.Value)
+	assert.Equal(t, cellMoney, c.Kind)
+}
+
+func TestCentsCellPresent(t *testing.T) {
+	v := int64(123456)
+	c := centsCell(&v)
+	assert.False(t, c.Null)
+	assert.Equal(t, "$1,234.56", c.Value)
+}
+
+func TestDateCellNil(t *testing.T) {
+	c := dateCell(nil, cellDate)
+	assert.True(t, c.Null, "nil time should produce a null cell")
+	assert.Empty(t, c.Value)
+	assert.Equal(t, cellDate, c.Kind)
+}
+
+func TestDateCellPresent(t *testing.T) {
+	d := time.Date(2025, 6, 11, 0, 0, 0, 0, time.UTC)
+	c := dateCell(&d, cellDate)
+	assert.False(t, c.Null)
+	assert.Equal(t, "2025-06-11", c.Value)
+}
+
+func TestNullTextCellEmpty(t *testing.T) {
+	c := nullTextCell("", 0)
+	assert.True(t, c.Null, "empty string with no link should be null")
+	assert.Empty(t, c.Value)
+}
+
+func TestNullTextCellWithValue(t *testing.T) {
+	c := nullTextCell("hello", 0)
+	assert.False(t, c.Null)
+	assert.Equal(t, "hello", c.Value)
+}
+
+func TestNullTextCellEmptyWithLink(t *testing.T) {
+	c := nullTextCell("", 5)
+	assert.False(t, c.Null, "empty string with a link ID should not be null")
+	assert.Equal(t, uint(5), c.LinkID)
+}
+
+func TestProjectRowsNullOptionalFields(t *testing.T) {
+	projects := []data.Project{
+		{ID: 1, Title: "Minimal", Status: data.ProjectStatusPlanned},
+	}
+	_, _, cells := projectRows(projects, nil, nil)
+	require.Len(t, cells, 1)
+	// Budget (col 4), Actual (col 5), Start (col 6), End (col 7) are all nil.
+	assert.True(t, cells[0][4].Null, "nil budget should be null")
+	assert.True(t, cells[0][5].Null, "nil actual should be null")
+	assert.True(t, cells[0][6].Null, "nil start date should be null")
+	assert.True(t, cells[0][7].Null, "nil end date should be null")
 }
 
 func TestCellsToRow(t *testing.T) {

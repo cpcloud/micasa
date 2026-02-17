@@ -112,6 +112,7 @@ func magTransformCells(rows [][]cell) [][]cell {
 			transformed[j] = cell{
 				Value:  magFormat(c, false),
 				Kind:   c.Kind,
+				Null:   c.Null,
 				LinkID: c.LinkID,
 			}
 		}

@@ -190,8 +190,13 @@ const (
 type cell struct {
 	Value  string
 	Kind   cellKind
+	Null   bool // true when the database value is NULL (not just empty)
 	LinkID uint // FK target ID for cross-tab navigation; 0 = no link
 }
+
+// nullPinKey is the internal key used by the pin/filter system to represent
+// NULL cells. It cannot collide with any real display value.
+const nullPinKey = "\x00null"
 
 // columnLink describes a foreign-key relationship to another tab.
 type columnLink struct {

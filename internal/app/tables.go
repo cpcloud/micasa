@@ -210,8 +210,8 @@ func applianceMaintenanceRows(
 				{Value: fmt.Sprintf("%d", item.ID), Kind: cellReadonly},
 				{Value: item.Name, Kind: cellText},
 				{Value: item.Category.Name, Kind: cellText},
-				{Value: dateValue(item.LastServicedAt), Kind: cellDate},
-				{Value: dateValue(nextDue), Kind: cellUrgency},
+				dateCell(item.LastServicedAt, cellDate),
+				dateCell(nextDue, cellUrgency),
 				{Value: interval, Kind: cellText},
 				{Value: logCount, Kind: cellDrilldown},
 			},
@@ -252,7 +252,7 @@ func serviceLogRows(
 				{Value: fmt.Sprintf("%d", e.ID), Kind: cellReadonly},
 				{Value: e.ServicedAt.Format(data.DateLayout), Kind: cellDate},
 				{Value: performedBy, Kind: cellText, LinkID: vendorLinkID},
-				{Value: centsValue(e.CostCents), Kind: cellMoney},
+				centsCell(e.CostCents),
 				{Value: e.Notes, Kind: cellNotes},
 			},
 		}
@@ -274,6 +274,10 @@ func applianceRows(
 		if n := docCounts[a.ID]; n > 0 {
 			docCount = fmt.Sprintf("%d", n)
 		}
+		ageCell := cell{Kind: cellReadonly, Null: a.PurchaseDate == nil}
+		if a.PurchaseDate != nil {
+			ageCell.Value = applianceAge(a.PurchaseDate, now)
+		}
 		return rowSpec{
 			ID:      a.ID,
 			Deleted: a.DeletedAt.Valid,
@@ -284,10 +288,10 @@ func applianceRows(
 				{Value: a.ModelNumber, Kind: cellText},
 				{Value: a.SerialNumber, Kind: cellText},
 				{Value: a.Location, Kind: cellText},
-				{Value: dateValue(a.PurchaseDate), Kind: cellDate},
-				{Value: applianceAge(a.PurchaseDate, now), Kind: cellReadonly},
-				{Value: dateValue(a.WarrantyExpiry), Kind: cellWarranty},
-				{Value: centsValue(a.CostCents), Kind: cellMoney},
+				dateCell(a.PurchaseDate, cellDate),
+				ageCell,
+				dateCell(a.WarrantyExpiry, cellWarranty),
+				centsCell(a.CostCents),
 				{Value: maintCount, Kind: cellDrilldown},
 				{Value: docCount, Kind: cellDrilldown},
 			},
@@ -431,10 +435,10 @@ func projectRows(
 				{Value: p.ProjectType.Name, Kind: cellText},
 				{Value: p.Title, Kind: cellText},
 				{Value: p.Status, Kind: cellStatus},
-				{Value: centsValue(p.BudgetCents), Kind: cellMoney},
-				{Value: centsValue(p.ActualCents), Kind: cellMoney},
-				{Value: dateValue(p.StartDate), Kind: cellDate},
-				{Value: dateValue(p.EndDate), Kind: cellDate},
+				centsCell(p.BudgetCents),
+				centsCell(p.ActualCents),
+				dateCell(p.StartDate, cellDate),
+				dateCell(p.EndDate, cellDate),
 				{Value: quoteCount, Kind: cellDrilldown},
 				{Value: docCount, Kind: cellDrilldown},
 			},
@@ -458,10 +462,10 @@ func quoteRows(
 				{Value: projectName, Kind: cellText, LinkID: q.ProjectID},
 				{Value: q.Vendor.Name, Kind: cellText, LinkID: q.VendorID},
 				{Value: data.FormatCents(q.TotalCents), Kind: cellMoney},
-				{Value: centsValue(q.LaborCents), Kind: cellMoney},
-				{Value: centsValue(q.MaterialsCents), Kind: cellMoney},
-				{Value: centsValue(q.OtherCents), Kind: cellMoney},
-				{Value: dateValue(q.ReceivedDate), Kind: cellDate},
+				centsCell(q.LaborCents),
+				centsCell(q.MaterialsCents),
+				centsCell(q.OtherCents),
+				dateCell(q.ReceivedDate, cellDate),
 			},
 		}
 	})
@@ -473,11 +477,11 @@ func maintenanceRows(
 ) ([]table.Row, []rowMeta, [][]cell) {
 	return buildRows(items, func(item data.MaintenanceItem) rowSpec {
 		interval := formatInterval(item.IntervalMonths)
-		appName := ""
-		var appLinkID uint
+		var appCell cell
 		if item.ApplianceID != nil {
-			appName = item.Appliance.Name
-			appLinkID = *item.ApplianceID
+			appCell = cell{Value: item.Appliance.Name, Kind: cellText, LinkID: *item.ApplianceID}
+		} else {
+			appCell = cell{Kind: cellText, Null: true}
 		}
 		logCount := ""
 		if n := logCounts[item.ID]; n > 0 {
@@ -491,9 +495,9 @@ func maintenanceRows(
 				{Value: fmt.Sprintf("%d", item.ID), Kind: cellReadonly},
 				{Value: item.Name, Kind: cellText},
 				{Value: item.Category.Name, Kind: cellText},
-				{Value: appName, Kind: cellText, LinkID: appLinkID},
-				{Value: dateValue(item.LastServicedAt), Kind: cellDate},
-				{Value: dateValue(nextDue), Kind: cellUrgency},
+				appCell,
+				dateCell(item.LastServicedAt, cellDate),
+				dateCell(nextDue, cellUrgency),
 				{Value: interval, Kind: cellText},
 				{Value: logCount, Kind: cellDrilldown},
 			},
@@ -553,10 +557,10 @@ func vendorQuoteRows(
 				{Value: fmt.Sprintf("%d", q.ID), Kind: cellReadonly},
 				{Value: projectName, Kind: cellText, LinkID: q.ProjectID},
 				{Value: data.FormatCents(q.TotalCents), Kind: cellMoney},
-				{Value: centsValue(q.LaborCents), Kind: cellMoney},
-				{Value: centsValue(q.MaterialsCents), Kind: cellMoney},
-				{Value: centsValue(q.OtherCents), Kind: cellMoney},
-				{Value: dateValue(q.ReceivedDate), Kind: cellDate},
+				centsCell(q.LaborCents),
+				centsCell(q.MaterialsCents),
+				centsCell(q.OtherCents),
+				dateCell(q.ReceivedDate, cellDate),
 			},
 		}
 	})
@@ -592,7 +596,7 @@ func vendorJobsRows(
 				{Value: fmt.Sprintf("%d", e.ID), Kind: cellReadonly},
 				{Value: itemName, Kind: cellText, LinkID: e.MaintenanceItemID},
 				{Value: e.ServicedAt.Format(data.DateLayout), Kind: cellDate},
-				{Value: centsValue(e.CostCents), Kind: cellMoney},
+				centsCell(e.CostCents),
 				{Value: e.Notes, Kind: cellNotes},
 			},
 		}
@@ -614,10 +618,10 @@ func projectQuoteRows(
 				{Value: fmt.Sprintf("%d", q.ID), Kind: cellReadonly},
 				{Value: q.Vendor.Name, Kind: cellText, LinkID: q.VendorID},
 				{Value: data.FormatCents(q.TotalCents), Kind: cellMoney},
-				{Value: centsValue(q.LaborCents), Kind: cellMoney},
-				{Value: centsValue(q.MaterialsCents), Kind: cellMoney},
-				{Value: centsValue(q.OtherCents), Kind: cellMoney},
-				{Value: dateValue(q.ReceivedDate), Kind: cellDate},
+				centsCell(q.LaborCents),
+				centsCell(q.MaterialsCents),
+				centsCell(q.OtherCents),
+				dateCell(q.ReceivedDate, cellDate),
 			},
 		}
 	})
@@ -635,6 +639,33 @@ func dateValue(value *time.Time) string {
 		return ""
 	}
 	return value.Format(data.DateLayout)
+}
+
+// centsCell returns a cell for an optional money value. NULL pointer produces
+// a null cell; non-nil produces a formatted money cell.
+func centsCell(cents *int64) cell {
+	if cents == nil {
+		return cell{Kind: cellMoney, Null: true}
+	}
+	return cell{Value: data.FormatCents(*cents), Kind: cellMoney}
+}
+
+// dateCell returns a cell for an optional date value. NULL pointer produces
+// a null cell with the given kind; non-nil produces a formatted date cell.
+func dateCell(value *time.Time, kind cellKind) cell {
+	if value == nil {
+		return cell{Kind: kind, Null: true}
+	}
+	return cell{Value: value.Format(data.DateLayout), Kind: kind}
+}
+
+// nullTextCell returns a null cell when value is empty (representing a NULL FK
+// or optional field), otherwise a normal text cell.
+func nullTextCell(value string, linkID uint) cell {
+	if value == "" && linkID == 0 {
+		return cell{Kind: cellText, Null: true}
+	}
+	return cell{Value: value, Kind: cellText, LinkID: linkID}
 }
 
 // documentColumnSpecs defines columns for the top-level Documents tab.

@@ -138,6 +138,18 @@ func TestCompactMoneyCells(t *testing.T) {
 	assert.Equal(t, "$5,234.23", rows[0][2].Value)
 }
 
+func TestCompactMoneyCellsPreservesNull(t *testing.T) {
+	rows := [][]cell{
+		{
+			{Value: "", Kind: cellMoney, Null: true},
+			{Value: "Kitchen", Kind: cellText},
+		},
+	}
+	out := compactMoneyCells(rows)
+	assert.True(t, out[0][0].Null, "Null flag should be preserved through compact transform")
+	assert.Equal(t, cellMoney, out[0][0].Kind)
+}
+
 func TestAnnotateMoneyHeaders(t *testing.T) {
 	styles := DefaultStyles()
 	specs := []columnSpec{

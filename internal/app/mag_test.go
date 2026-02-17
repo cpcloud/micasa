@@ -151,6 +151,18 @@ func TestMagTransformCells(t *testing.T) {
 	assert.Equal(t, "$5,234.23", rows[0][2].Value)
 }
 
+func TestMagTransformCellsPreservesNull(t *testing.T) {
+	rows := [][]cell{
+		{
+			{Value: "", Kind: cellMoney, Null: true},
+			{Value: "Kitchen", Kind: cellText},
+		},
+	}
+	out := magTransformCells(rows)
+	assert.True(t, out[0][0].Null, "Null flag should be preserved through mag transform")
+	assert.Equal(t, cellMoney, out[0][0].Kind)
+}
+
 func TestMagTransformText(t *testing.T) {
 	tests := []struct {
 		name  string

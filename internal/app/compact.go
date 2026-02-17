@@ -55,6 +55,7 @@ func compactMoneyCells(rows [][]cell) [][]cell {
 				transformed[j] = cell{
 					Value:  compactMoneyValue(c.Value),
 					Kind:   c.Kind,
+					Null:   c.Null,
 					LinkID: c.LinkID,
 				}
 			} else {

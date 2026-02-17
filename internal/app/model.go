@@ -1750,11 +1750,9 @@ func (m *Model) togglePinAtCursor() {
 	if !ok {
 		return
 	}
-	// Pin what the user sees: in mag mode, pin the magnitude value.
-	pinValue := c.Value
-	if m.magMode {
-		pinValue = magFormat(c, false)
-	}
+	// Pin what the user sees: null cells use the sentinel key; in mag mode,
+	// pin the magnitude representation; otherwise pin the raw value.
+	pinValue := cellDisplayValue(c, m.magMode)
 	pinned := togglePin(tab, col, pinValue)
 	applyRowFilter(tab, m.magMode)
 	applySorts(tab)
