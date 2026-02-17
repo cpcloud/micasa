@@ -78,7 +78,7 @@ func main() {
 		DBPath:     dbPath,
 		ConfigPath: config.Path(),
 	}
-	opts.SetLLM(cfg.LLM.BaseURL, cfg.LLM.Model, cfg.LLM.ExtraContext)
+	opts.SetLLM(cfg.LLM.BaseURL, cfg.LLM.Model, cfg.LLM.ExtraContext, cfg.LLM.TimeoutDuration())
 
 	model, err := app.NewModel(store, opts)
 	if err != nil {

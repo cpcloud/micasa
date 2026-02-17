@@ -15,13 +15,12 @@ import (
 	"time"
 )
 
-const pingTimeout = 3 * time.Second
-
 // Client talks to an OpenAI-compatible API endpoint (Ollama, llama.cpp,
 // LM Studio, etc.) for local LLM inference.
 type Client struct {
 	baseURL string // e.g. "http://localhost:11434/v1"
 	model   string
+	timeout time.Duration
 	http    *http.Client
 }
 
@@ -72,11 +71,13 @@ type modelsResponse struct {
 }
 
 // NewClient creates an LLM client targeting the given OpenAI-compatible
-// endpoint and model.
-func NewClient(baseURL, model string) *Client {
+// endpoint and model. The timeout controls quick operations like ping and
+// model listing.
+func NewClient(baseURL, model string, timeout time.Duration) *Client {
 	return &Client{
 		baseURL: strings.TrimRight(baseURL, "/"),
 		model:   model,
+		timeout: timeout,
 		http:    &http.Client{},
 	}
 }
@@ -97,9 +98,14 @@ func (c *Client) BaseURL() string {
 	return c.baseURL
 }
 
+// Timeout returns the configured timeout for quick operations.
+func (c *Client) Timeout() time.Duration {
+	return c.timeout
+}
+
 // ListModels fetches the available model IDs from the inference server.
 func (c *Client) ListModels(ctx context.Context) ([]string, error) {
-	ctx, cancel := context.WithTimeout(ctx, pingTimeout)
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(
@@ -216,7 +222,7 @@ func (c *Client) PullModel(ctx context.Context, model string) (*PullScanner, err
 // Ping checks whether the API is reachable and the configured model is
 // available. Returns a user-friendly error if not.
 func (c *Client) Ping(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, pingTimeout)
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(

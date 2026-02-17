@@ -4,6 +4,8 @@
 package app
 
 import (
+	"time"
+
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
 )
@@ -146,16 +148,22 @@ type llmConfig struct {
 	BaseURL      string
 	Model        string
 	ExtraContext string
+	Timeout      time.Duration
 }
 
 // SetLLM configures the LLM backend on the Options. Pass empty strings to
 // disable the LLM feature.
-func (o *Options) SetLLM(baseURL, model, extraContext string) {
+func (o *Options) SetLLM(baseURL, model, extraContext string, timeout time.Duration) {
 	if baseURL == "" || model == "" {
 		o.LLMConfig = nil
 		return
 	}
-	o.LLMConfig = &llmConfig{BaseURL: baseURL, Model: model, ExtraContext: extraContext}
+	o.LLMConfig = &llmConfig{
+		BaseURL:      baseURL,
+		Model:        model,
+		ExtraContext: extraContext,
+		Timeout:      timeout,
+	}
 }
 
 type alignKind int

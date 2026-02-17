@@ -9,10 +9,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+const testTimeout = 5 * time.Second
 
 func TestPingSuccess(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -21,7 +24,7 @@ func TestPingSuccess(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := NewClient(srv.URL+"/v1", "qwen3")
+	client := NewClient(srv.URL+"/v1", "qwen3", testTimeout)
 	err := client.Ping(context.Background())
 	assert.NoError(t, err)
 }
@@ -32,7 +35,7 @@ func TestPingModelNotFound(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := NewClient(srv.URL+"/v1", "qwen3")
+	client := NewClient(srv.URL+"/v1", "qwen3", testTimeout)
 	err := client.Ping(context.Background())
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
@@ -40,7 +43,7 @@ func TestPingModelNotFound(t *testing.T) {
 }
 
 func TestPingServerDown(t *testing.T) {
-	client := NewClient("http://127.0.0.1:1", "qwen3")
+	client := NewClient("http://127.0.0.1:1", "qwen3", testTimeout)
 	err := client.Ping(context.Background())
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot reach")
@@ -66,7 +69,7 @@ func TestChatStreamSuccess(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := NewClient(srv.URL+"/v1", "test-model")
+	client := NewClient(srv.URL+"/v1", "test-model", testTimeout)
 	ch, err := client.ChatStream(context.Background(), []Message{
 		{Role: "user", Content: "hi"},
 	})
@@ -102,7 +105,7 @@ func TestChatStreamCancellation(t *testing.T) {
 	defer srv.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	client := NewClient(srv.URL+"/v1", "test-model")
+	client := NewClient(srv.URL+"/v1", "test-model", testTimeout)
 	ch, err := client.ChatStream(ctx, []Message{
 		{Role: "user", Content: "hi"},
 	})
@@ -127,7 +130,7 @@ func TestChatStreamServerError(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := NewClient(srv.URL+"/v1", "test-model")
+	client := NewClient(srv.URL+"/v1", "test-model", testTimeout)
 	_, err := client.ChatStream(context.Background(), []Message{
 		{Role: "user", Content: "hi"},
 	})
@@ -136,13 +139,14 @@ func TestChatStreamServerError(t *testing.T) {
 }
 
 func TestModelAndBaseURL(t *testing.T) {
-	client := NewClient("http://localhost:11434/v1/", "qwen3")
+	client := NewClient("http://localhost:11434/v1/", "qwen3", testTimeout)
 	assert.Equal(t, "qwen3", client.Model())
 	assert.Equal(t, "http://localhost:11434/v1", client.BaseURL())
+	assert.Equal(t, testTimeout, client.Timeout())
 }
 
 func TestSetModel(t *testing.T) {
-	client := NewClient("http://localhost:11434/v1", "qwen3")
+	client := NewClient("http://localhost:11434/v1", "qwen3", testTimeout)
 	assert.Equal(t, "qwen3", client.Model())
 
 	client.SetModel("llama3")
@@ -159,14 +163,14 @@ func TestListModelsSuccess(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := NewClient(srv.URL+"/v1", "qwen3")
+	client := NewClient(srv.URL+"/v1", "qwen3", testTimeout)
 	models, err := client.ListModels(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, []string{"qwen3:latest", "llama3:8b", "mistral:7b"}, models)
 }
 
 func TestListModelsServerDown(t *testing.T) {
-	client := NewClient("http://127.0.0.1:1", "qwen3")
+	client := NewClient("http://127.0.0.1:1", "qwen3", testTimeout)
 	_, err := client.ListModels(context.Background())
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot reach")
@@ -178,7 +182,7 @@ func TestListModelsEmpty(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := NewClient(srv.URL+"/v1", "qwen3")
+	client := NewClient(srv.URL+"/v1", "qwen3", testTimeout)
 	models, err := client.ListModels(context.Background())
 	require.NoError(t, err)
 	assert.Empty(t, models)
@@ -195,7 +199,7 @@ func TestChatCompleteSuccess(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := NewClient(srv.URL+"/v1", "test-model")
+	client := NewClient(srv.URL+"/v1", "test-model", testTimeout)
 	result, err := client.ChatComplete(context.Background(), []Message{
 		{Role: "user", Content: "how many projects?"},
 	})
@@ -210,7 +214,7 @@ func TestChatCompleteServerError(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := NewClient(srv.URL+"/v1", "test-model")
+	client := NewClient(srv.URL+"/v1", "test-model", testTimeout)
 	_, err := client.ChatComplete(context.Background(), []Message{
 		{Role: "user", Content: "hi"},
 	})
@@ -224,7 +228,7 @@ func TestChatCompleteEmptyChoices(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := NewClient(srv.URL+"/v1", "test-model")
+	client := NewClient(srv.URL+"/v1", "test-model", testTimeout)
 	_, err := client.ChatComplete(context.Background(), []Message{
 		{Role: "user", Content: "hi"},
 	})

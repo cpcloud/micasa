@@ -427,8 +427,9 @@ func (m *Model) cmdListModels() tea.Cmd {
 		return nil
 	}
 	client := m.llmClient
+	timeout := client.Timeout()
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 		models, err := client.ListModels(ctx)
 		return modelsListMsg{Models: models, Err: err}
@@ -507,8 +508,9 @@ func (m *Model) activateCompleter() tea.Cmd {
 		return nil
 	}
 	client := m.llmClient
+	timeout := client.Timeout()
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 		models, err := client.ListModels(ctx)
 		return modelsListMsg{Models: models, Err: err}
@@ -610,8 +612,9 @@ func (m *Model) cmdSwitchModel(name string) tea.Cmd {
 	m.chat.PullDisplay = "checking " + name + "..."
 
 	client := m.llmClient
+	timeout := client.Timeout()
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 		models, _ := client.ListModels(ctx)
 		for _, model := range models {

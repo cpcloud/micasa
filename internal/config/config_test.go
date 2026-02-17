@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/cpcloud/micasa/internal/data"
 	"github.com/stretchr/testify/assert"
@@ -95,6 +96,7 @@ func TestExampleTOML(t *testing.T) {
 	assert.Contains(t, example, "[llm]")
 	assert.Contains(t, example, "base_url")
 	assert.Contains(t, example, "model")
+	assert.Contains(t, example, "timeout")
 }
 
 func TestMalformedConfigReturnsError(t *testing.T) {
@@ -170,4 +172,47 @@ func TestCacheTTLDaysRejectsNegative(t *testing.T) {
 	_, err := LoadFromPath(path)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "must be non-negative")
+}
+
+func TestLLMTimeout(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
+		cfg, err := LoadFromPath(filepath.Join(t.TempDir(), "nope.toml"))
+		require.NoError(t, err)
+		assert.Equal(t, DefaultLLMTimeout, cfg.LLM.TimeoutDuration())
+	})
+
+	t.Run("from file", func(t *testing.T) {
+		path := writeConfig(t, "[llm]\ntimeout = \"10s\"\n")
+		cfg, err := LoadFromPath(path)
+		require.NoError(t, err)
+		assert.Equal(t, 10*time.Second, cfg.LLM.TimeoutDuration())
+	})
+
+	t.Run("sub-second", func(t *testing.T) {
+		path := writeConfig(t, "[llm]\ntimeout = \"500ms\"\n")
+		cfg, err := LoadFromPath(path)
+		require.NoError(t, err)
+		assert.Equal(t, 500*time.Millisecond, cfg.LLM.TimeoutDuration())
+	})
+
+	t.Run("env override", func(t *testing.T) {
+		t.Setenv("MICASA_LLM_TIMEOUT", "15s")
+		cfg, err := LoadFromPath(filepath.Join(t.TempDir(), "nope.toml"))
+		require.NoError(t, err)
+		assert.Equal(t, 15*time.Second, cfg.LLM.TimeoutDuration())
+	})
+
+	t.Run("rejects invalid", func(t *testing.T) {
+		path := writeConfig(t, "[llm]\ntimeout = \"not-a-duration\"\n")
+		_, err := LoadFromPath(path)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid duration")
+	})
+
+	t.Run("rejects negative", func(t *testing.T) {
+		path := writeConfig(t, "[llm]\ntimeout = \"-1s\"\n")
+		_, err := LoadFromPath(path)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "must be positive")
+	})
 }

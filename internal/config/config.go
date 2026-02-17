@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/adrg/xdg"
@@ -37,6 +38,24 @@ type LLM struct {
 	// Useful for domain-specific details: house style, currency, location, etc.
 	// Optional; defaults to empty.
 	ExtraContext string `toml:"extra_context"`
+
+	// Timeout is the maximum time to wait for quick LLM server operations
+	// (ping, model listing, auto-detect). Go duration string, e.g. "5s",
+	// "10s", "500ms". Default: "5s".
+	Timeout string `toml:"timeout"`
+}
+
+// TimeoutDuration returns the parsed LLM timeout, falling back to
+// DefaultLLMTimeout if the value is empty or unparseable.
+func (l LLM) TimeoutDuration() time.Duration {
+	if l.Timeout == "" {
+		return DefaultLLMTimeout
+	}
+	d, err := time.ParseDuration(l.Timeout)
+	if err != nil {
+		return DefaultLLMTimeout
+	}
+	return d
 }
 
 // Documents holds settings for document attachments.
@@ -54,6 +73,7 @@ type Documents struct {
 const (
 	DefaultBaseURL      = "http://localhost:11434/v1"
 	DefaultModel        = "qwen3"
+	DefaultLLMTimeout   = 5 * time.Second
 	DefaultCacheTTLDays = 30
 	configRelPath       = "micasa/config.toml"
 )
@@ -64,6 +84,7 @@ func defaults() Config {
 		LLM: LLM{
 			BaseURL: DefaultBaseURL,
 			Model:   DefaultModel,
+			Timeout: DefaultLLMTimeout.String(),
 		},
 		Documents: Documents{
 			MaxFileSize:  data.MaxDocumentSize,
@@ -101,6 +122,19 @@ func LoadFromPath(path string) (Config, error) {
 	// Normalize: strip trailing slash from base URL.
 	cfg.LLM.BaseURL = strings.TrimRight(cfg.LLM.BaseURL, "/")
 
+	if cfg.LLM.Timeout != "" {
+		d, err := time.ParseDuration(cfg.LLM.Timeout)
+		if err != nil {
+			return cfg, fmt.Errorf(
+				"llm.timeout: invalid duration %q -- use Go syntax like \"5s\" or \"10s\"",
+				cfg.LLM.Timeout,
+			)
+		}
+		if d <= 0 {
+			return cfg, fmt.Errorf("llm.timeout must be positive, got %s", cfg.LLM.Timeout)
+		}
+	}
+
 	if cfg.Documents.MaxFileSize <= 0 {
 		return cfg, fmt.Errorf(
 			"documents.max_file_size must be positive, got %d",
@@ -131,6 +165,9 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if model := os.Getenv("MICASA_LLM_MODEL"); model != "" {
 		cfg.LLM.Model = model
+	}
+	if timeout := os.Getenv("MICASA_LLM_TIMEOUT"); timeout != "" {
+		cfg.LLM.Timeout = timeout
 	}
 	if maxSize := os.Getenv("MICASA_MAX_DOCUMENT_SIZE"); maxSize != "" {
 		if n, err := strconv.ParseInt(maxSize, 10, 64); err == nil {
@@ -163,6 +200,11 @@ model = "` + DefaultModel + `"
 # Optional: custom context appended to all system prompts.
 # Use this to inject domain-specific details about your house, currency, etc.
 # extra_context = "My house is a 1920s craftsman in Portland, OR. All budgets are in CAD."
+
+# Timeout for quick LLM server operations (ping, model listing).
+# Go duration syntax: "5s", "10s", "500ms", etc. Default: "5s".
+# Increase if your LLM server is slow to respond.
+# timeout = "5s"
 
 [documents]
 # Maximum file size (in bytes) for document imports. Default: 50 MiB.
