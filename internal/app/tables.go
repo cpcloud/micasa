@@ -198,7 +198,7 @@ func applianceMaintenanceRows(
 ) ([]table.Row, []rowMeta, [][]cell) {
 	return buildRows(items, func(item data.MaintenanceItem) rowSpec {
 		interval := formatInterval(item.IntervalMonths)
-		logCount := ""
+		logCount := "0"
 		if n := logCounts[item.ID]; n > 0 {
 			logCount = fmt.Sprintf("%d", n)
 		}
@@ -266,11 +266,11 @@ func applianceRows(
 	now time.Time,
 ) ([]table.Row, []rowMeta, [][]cell) {
 	return buildRows(items, func(a data.Appliance) rowSpec {
-		maintCount := ""
+		maintCount := "0"
 		if n := maintCounts[a.ID]; n > 0 {
 			maintCount = fmt.Sprintf("%d", n)
 		}
-		docCount := ""
+		docCount := "0"
 		if n := docCounts[a.ID]; n > 0 {
 			docCount = fmt.Sprintf("%d", n)
 		}
@@ -364,11 +364,11 @@ func vendorRows(
 	jobCounts map[uint]int,
 ) ([]table.Row, []rowMeta, [][]cell) {
 	return buildRows(vendors, func(v data.Vendor) rowSpec {
-		quoteCount := ""
+		quoteCount := "0"
 		if n := quoteCounts[v.ID]; n > 0 {
 			quoteCount = fmt.Sprintf("%d", n)
 		}
-		jobCount := ""
+		jobCount := "0"
 		if n := jobCounts[v.ID]; n > 0 {
 			jobCount = fmt.Sprintf("%d", n)
 		}
@@ -419,11 +419,11 @@ func projectRows(
 	docCounts map[uint]int,
 ) ([]table.Row, []rowMeta, [][]cell) {
 	return buildRows(projects, func(p data.Project) rowSpec {
-		quoteCount := ""
+		quoteCount := "0"
 		if n := quoteCounts[p.ID]; n > 0 {
 			quoteCount = fmt.Sprintf("%d", n)
 		}
-		docCount := ""
+		docCount := "0"
 		if n := docCounts[p.ID]; n > 0 {
 			docCount = fmt.Sprintf("%d", n)
 		}
@@ -483,7 +483,7 @@ func maintenanceRows(
 		} else {
 			appCell = cell{Kind: cellText, Null: true}
 		}
-		logCount := ""
+		logCount := "0"
 		if n := logCounts[item.ID]; n > 0 {
 			logCount = fmt.Sprintf("%d", n)
 		}
