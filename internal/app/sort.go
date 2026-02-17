@@ -36,6 +36,17 @@ func clearSorts(tab *Tab) {
 	tab.Sorts = nil
 }
 
+// cmpOrdered returns -1, 0, or 1 for any ordered type.
+func cmpOrdered[T ~string | ~float64 | ~int](a, b T) int {
+	if a < b {
+		return -1
+	}
+	if a > b {
+		return 1
+	}
+	return 0
+}
+
 // applySorts sorts the tab's rows in place using the current sort stack.
 // PK (column 0) is always appended as an implicit ascending tiebreaker
 // unless it's already in the stack. When the sort stack is empty this
@@ -83,20 +94,9 @@ func applySorts(tab *Tab) {
 	reorderTab(tab, indices)
 }
 
-// withPKTiebreaker appends a PK (col 0) ascending entry if col 0 is not
-// already in the stack, ensuring a stable deterministic order.
-func withPKTiebreaker(sorts []sortEntry) []sortEntry {
-	for _, e := range sorts {
-		if e.Col == 0 {
-			return sorts
-		}
-	}
-	return append(sorts, sortEntry{Col: 0, Dir: sortAsc})
-}
-
 // compareCells returns -1, 0, or 1 comparing row a vs row b at the given
 // column. Uses type-aware comparison based on the column's cellKind.
-// Empty values are handled by the caller (applySorts) to ensure they
+// NULL values are handled by the caller (applySorts) to ensure they
 // always sort last regardless of direction.
 func compareCells(tab *Tab, col, a, b int) int {
 	va := cellValueAt(tab, a, col)
@@ -113,17 +113,35 @@ func compareCells(tab *Tab, col, a, b int) int {
 
 	switch kind {
 	case cellMoney:
-		return compareMoney(va, vb)
+		return cmpOrdered(parseMoney(va), parseMoney(vb))
 	case cellDate, cellUrgency, cellWarranty:
-		return compareDates(va, vb)
-	case cellReadonly:
-		// ID columns are numeric.
-		return compareNumeric(va, vb)
-	case cellDrilldown:
-		return compareNumeric(va, vb)
+		ta, errA := time.Parse(data.DateLayout, va)
+		tb, errB := time.Parse(data.DateLayout, vb)
+		if errA != nil || errB != nil {
+			return cmpOrdered(strings.ToLower(va), strings.ToLower(vb))
+		}
+		return ta.Compare(tb)
+	case cellReadonly, cellDrilldown:
+		na, errA := strconv.ParseFloat(va, 64)
+		nb, errB := strconv.ParseFloat(vb, 64)
+		if errA != nil || errB != nil {
+			return cmpOrdered(strings.ToLower(va), strings.ToLower(vb))
+		}
+		return cmpOrdered(na, nb)
 	default:
-		return compareStrings(va, vb)
+		return cmpOrdered(strings.ToLower(va), strings.ToLower(vb))
 	}
+}
+
+// withPKTiebreaker appends a PK (col 0) ascending entry if col 0 is not
+// already in the stack, ensuring a stable deterministic order.
+func withPKTiebreaker(sorts []sortEntry) []sortEntry {
+	for _, e := range sorts {
+		if e.Col == 0 {
+			return sorts
+		}
+	}
+	return append(sorts, sortEntry{Col: 0, Dir: sortAsc})
 }
 
 func cellValueAt(tab *Tab, row, col int) string {
@@ -142,65 +160,11 @@ func cellAt(tab *Tab, row, col int) cell {
 	return cells[col]
 }
 
-func compareMoney(a, b string) int {
-	pa := parseMoney(a)
-	pb := parseMoney(b)
-	if pa < pb {
-		return -1
-	}
-	if pa > pb {
-		return 1
-	}
-	return 0
-}
-
-func compareDates(a, b string) int {
-	ta, errA := time.Parse(data.DateLayout, a)
-	tb, errB := time.Parse(data.DateLayout, b)
-	if errA != nil || errB != nil {
-		return compareStrings(a, b)
-	}
-	if ta.Before(tb) {
-		return -1
-	}
-	if ta.After(tb) {
-		return 1
-	}
-	return 0
-}
-
-func compareNumeric(a, b string) int {
-	na, errA := strconv.ParseFloat(a, 64)
-	nb, errB := strconv.ParseFloat(b, 64)
-	if errA != nil || errB != nil {
-		return compareStrings(a, b)
-	}
-	if na < nb {
-		return -1
-	}
-	if na > nb {
-		return 1
-	}
-	return 0
-}
-
-func compareStrings(a, b string) int {
-	la := strings.ToLower(a)
-	lb := strings.ToLower(b)
-	if la < lb {
-		return -1
-	}
-	if la > lb {
-		return 1
-	}
-	return 0
-}
-
 // parseMoney strips $, commas, and parses as float64. All money cell
-// values come from FormatCents (always valid) and empty cells are
-// filtered out before compareMoney is called, so the parse cannot fail
-// in practice. Form-level validators (optionalMoney / requiredMoney)
-// reject invalid input before it reaches the data layer.
+// values come from FormatCents (always valid) and NULL cells are
+// filtered out before sorting, so the parse cannot fail in practice.
+// Form-level validators (optionalMoney / requiredMoney) reject invalid
+// input before it reaches the data layer.
 func parseMoney(s string) float64 {
 	s = strings.ReplaceAll(s, "$", "")
 	s = strings.ReplaceAll(s, ",", "")
