@@ -245,14 +245,17 @@ func viewportSorts(sorts []sortEntry, vpStart int) []sortEntry {
 }
 
 // headerTitleWidth returns the rendered width of a column header including
-// any link/drilldown arrow suffix. Sort indicators are rendered within the
-// existing column width so toggling sorts never changes the layout.
+// any link/drilldown arrow suffix. For columns with a link or drilldown
+// indicator, extra space is reserved so that a sort arrow can appear
+// without truncating the indicator.
 func headerTitleWidth(spec columnSpec) int {
 	w := lipgloss.Width(spec.Title)
 	if spec.Link != nil {
 		w += 1 + lipgloss.Width(linkArrow) // " →"
+		w += 1 + 1                         // room for " ▲" sort indicator
 	} else if spec.Kind == cellDrilldown {
 		w += 1 + lipgloss.Width(drilldownArrow) // " ↘"
+		w += 1 + 1                              // room for " ▲" sort indicator
 	}
 	return w
 }

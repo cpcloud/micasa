@@ -646,12 +646,12 @@ func TestHeaderTitleWidth(t *testing.T) {
 		{
 			"link",
 			columnSpec{Title: "Project", Link: &columnLink{TargetTab: tabProjects}},
-			lipgloss.Width("Project") + 1 + lipgloss.Width(linkArrow),
+			lipgloss.Width("Project") + 1 + lipgloss.Width(linkArrow) + 1 + 1,
 		},
 		{
 			"drilldown",
 			columnSpec{Title: "Log", Kind: cellDrilldown},
-			lipgloss.Width("Log") + 1 + lipgloss.Width(drilldownArrow),
+			lipgloss.Width("Log") + 1 + lipgloss.Width(drilldownArrow) + 1 + 1,
 		},
 		{"plain", columnSpec{Title: "Name"}, lipgloss.Width("Name")},
 	}
@@ -660,6 +660,21 @@ func TestHeaderTitleWidth(t *testing.T) {
 			assert.Equal(t, tt.want, headerTitleWidth(tt.spec))
 		})
 	}
+}
+
+func TestSortedDrilldownColumnPreservesBothArrows(t *testing.T) {
+	spec := columnSpec{Title: "Log", Kind: cellDrilldown}
+	width := headerTitleWidth(spec)
+
+	// Render the title the same way renderHeaderRow does.
+	title := spec.Title + " " + drilldownArrow
+	indicator := sortIndicator([]sortEntry{{Col: 0, Dir: sortAsc}}, 0)
+	rendered := formatHeaderCell(title, indicator, width)
+
+	assert.Contains(t, rendered, drilldownArrow,
+		"drilldown arrow must survive when column is sorted")
+	assert.Contains(t, rendered, "\u25b2",
+		"sort arrow must appear when column is sorted")
 }
 
 func TestColumnHasLinks(t *testing.T) {
