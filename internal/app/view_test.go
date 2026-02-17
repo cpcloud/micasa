@@ -626,6 +626,13 @@ func TestHelpContentFormsShowsFieldNavigation(t *testing.T) {
 	assert.Contains(t, help, "Previous field")
 }
 
+func TestHelpContentExcludesDatePicker(t *testing.T) {
+	m := newTestModel()
+	help := m.helpContent()
+	assert.NotContains(t, help, "Date Picker",
+		"date picker is a transient widget and should not appear in global help")
+}
+
 func TestHelpContentShowsArrowKeyAlternatives(t *testing.T) {
 	m := newTestModel()
 	help := m.helpContent()

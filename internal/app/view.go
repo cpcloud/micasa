@@ -736,17 +736,6 @@ func (m *Model) helpContent() string {
 				{"esc", "Hide chat"},
 			},
 		},
-		{
-			title: "Date Picker",
-			bindings: []binding{
-				{"h/l/\u2190/\u2192", "Day"},
-				{"j/k/\u2191/\u2193", "Week"},
-				{"H/L", "Month"},
-				{"[/]", "Year"},
-				{"enter", "Pick"},
-				{"esc", "Cancel"},
-			},
-		},
 	}
 
 	var b strings.Builder
