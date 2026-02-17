@@ -1802,6 +1802,10 @@ func TestCreateDocumentRejectsOversized(t *testing.T) {
 		Data:      make([]byte, 200),
 	})
 	require.ErrorContains(t, err, "too large")
+	// Error should show human-readable sizes, not raw byte counts.
+	assert.Contains(t, err.Error(), "200 B")
+	assert.Contains(t, err.Error(), "100 B")
+	assert.NotContains(t, err.Error(), "200 bytes")
 
 	// Exactly at the limit should succeed.
 	require.NoError(t, store.CreateDocument(Document{
