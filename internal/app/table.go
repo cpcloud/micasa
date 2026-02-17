@@ -119,6 +119,7 @@ type tableViewport struct {
 	HasRight      bool
 	Specs         []columnSpec
 	Cells         [][]cell
+	LinkCells     [][]cell // unfiltered rows for link-arrow presence check
 	Widths        []int
 	PlainSeps     []string
 	CollapsedSeps []string
@@ -157,13 +158,15 @@ func computeTableViewport(tab *Tab, termWidth int, normalSep string, styles Styl
 	}
 	vp.VisToFull = vpVisToFull
 
-	// Compute widths from the full (unfiltered) cell rows when pins are
-	// active so that activating/deactivating a filter doesn't shift columns.
-	widthCells := vp.Cells
+	// Use the full (unfiltered) cell rows when pins are active so that
+	// activating/deactivating a filter doesn't shift column widths or
+	// remove link arrows from headers.
+	fullCells := vp.Cells
 	if len(tab.Pins) > 0 && len(tab.FullCellRows) > 0 {
-		widthCells = projectCellRows(tab.FullCellRows, visToFull, start, end)
+		fullCells = projectCellRows(tab.FullCellRows, visToFull, start, end)
 	}
-	vp.Widths = columnWidths(vp.Specs, widthCells, termWidth, sepW)
+	vp.LinkCells = fullCells
+	vp.Widths = columnWidths(vp.Specs, fullCells, termWidth, sepW)
 
 	// Per-gap separators need to match the viewport's projected columns.
 	vp.PlainSeps, vp.CollapsedSeps = gapSeparators(vpVisToFull, len(tab.Specs), normalSep, styles)

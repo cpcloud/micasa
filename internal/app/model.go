@@ -270,7 +270,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch typed := msg.(type) {
 	case tea.KeyMsg:
 		// Dashboard intercepts nav keys before other handlers.
-		if m.showDashboard {
+		if m.dashboardVisible() {
 			if cmd, handled := m.handleDashboardKeys(typed); handled {
 				return m, cmd
 			}
@@ -291,7 +291,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// Dashboard absorbs remaining keys so they don't reach the table.
-	if m.showDashboard {
+	if m.dashboardVisible() {
 		return m, nil
 	}
 
@@ -308,7 +308,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // updateForm handles input while a form is active.
 func (m *Model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "ctrl+s" {
-		return m, m.saveForm()
+		return m, m.saveFormInPlace()
 	}
 	if _, isResize := msg.(tea.WindowSizeMsg); isResize && m.formKind == formHouse {
 		return m, nil
@@ -1010,6 +1010,12 @@ func (m *Model) reloadIfStale(tab *Tab) error {
 	return m.reloadTab(tab)
 }
 
+// dashboardVisible reports whether the dashboard overlay should actually
+// render. The preference may be on but there's nothing to show.
+func (m *Model) dashboardVisible() bool {
+	return m.showDashboard && !m.dashboard.empty()
+}
+
 func (m *Model) toggleDashboard() {
 	m.showDashboard = !m.showDashboard
 	if m.showDashboard {
@@ -1373,7 +1379,6 @@ func (m *Model) statusLines() int {
 }
 
 func (m *Model) saveForm() tea.Cmd {
-	wasEdit := m.editID != nil
 	isFirstHouse := m.formKind == formHouse && !m.hasHouse
 	m.snapshotForUndo()
 	kind := m.formKind
@@ -1385,9 +1390,22 @@ func (m *Model) saveForm() tea.Cmd {
 	m.exitForm()
 	if isFirstHouse {
 		m.setStatusInfo("House set up. b/f to switch tabs, i to edit, ? for help")
-	} else {
-		m.setStatusSaved(wasEdit)
 	}
+	m.reloadAfterFormSave(kind)
+	return nil
+}
+
+// saveFormInPlace persists the form data without closing the form,
+// so the user can continue editing after a Ctrl+S save.
+func (m *Model) saveFormInPlace() tea.Cmd {
+	m.snapshotForUndo()
+	kind := m.formKind
+	err := m.handleFormSubmit()
+	if err != nil {
+		m.setStatusError(err.Error())
+		return nil
+	}
+	m.snapshotForm()
 	m.reloadAfterFormSave(kind)
 	return nil
 }
@@ -1607,7 +1625,7 @@ func (m *Model) terminalTooSmall() bool {
 // true, main tab keybindings should be hidden from the status bar since they
 // are not accessible.
 func (m *Model) hasActiveOverlay() bool {
-	return m.showDashboard ||
+	return m.dashboardVisible() ||
 		m.calendar != nil ||
 		m.showNotePreview ||
 		m.columnFinder != nil ||
@@ -1723,11 +1741,6 @@ func (m *Model) toggleFilterActivation() {
 	// Toggle between active filter and preview. Works even with no pins
 	// ("eager mode"): arm the filter first, then every n immediately filters.
 	tab.FilterActive = !tab.FilterActive
-	if tab.FilterActive {
-		m.setStatusInfo("Filter on.")
-	} else {
-		m.setStatusInfo("Filter off.")
-	}
 	if hasPins(tab) {
 		applyRowFilter(tab, m.magMode)
 		applySorts(tab)

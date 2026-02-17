@@ -156,7 +156,7 @@ func DefaultStyles() Styles {
 			Foreground(secondary).
 			Bold(true),
 		FormClean: lipgloss.NewStyle().
-			Foreground(textMid),
+			Foreground(success),
 		FormDirty: lipgloss.NewStyle().
 			Foreground(secondary).
 			Bold(true),

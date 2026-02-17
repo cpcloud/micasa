@@ -23,7 +23,7 @@ func (m *Model) buildView() string {
 
 	base := m.buildBaseView()
 
-	if m.showDashboard {
+	if m.dashboardVisible() {
 		fg := cancelFaint(m.buildDashboardOverlay())
 		base = overlay.Composite(fg, dimBackground(base), overlay.Center, overlay.Center, 0, 0)
 	}
@@ -859,7 +859,7 @@ func (m *Model) tableView(tab *Tab) string {
 		vp.Sorts,
 		vp.HasLeft,
 		vp.HasRight,
-		vp.Cells,
+		vp.LinkCells,
 		m.styles,
 	)
 	divider := renderDivider(vp.Widths, vp.PlainSeps, normalDiv, m.styles.TableSeparator)
