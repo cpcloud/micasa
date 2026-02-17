@@ -338,6 +338,7 @@ func TestCtrlNNoopWithoutPins(t *testing.T) {
 func TestPinOnDashboardBlocked(t *testing.T) {
 	m := newTestModel()
 	m.showDashboard = true
+	m.dashboard = dashboardData{ServiceSpendCents: 1}
 	startPins := len(m.effectiveTab().Pins)
 
 	sendKey(m, "n")

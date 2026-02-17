@@ -1179,13 +1179,17 @@ func applyFormDefaults(form *huh.Form) {
 	form.WithShowErrors(true)
 	form.WithKeyMap(formKeyMap())
 
-	// Match the error indicator to the required-field marker (colored ∗).
+	// Match both the error indicator (shown on the field title) and the
+	// error message prefix (shown with the validation text) to the
+	// required-field marker (colored ∗ U+2217).
 	theme := huh.ThemeBase()
-	indicator := lipgloss.NewStyle().
+	marker := lipgloss.NewStyle().
 		SetString(" ∗").
 		Foreground(secondary)
-	theme.Focused.ErrorIndicator = indicator
-	theme.Blurred.ErrorIndicator = indicator
+	theme.Focused.ErrorIndicator = marker
+	theme.Blurred.ErrorIndicator = marker
+	theme.Focused.ErrorMessage = marker
+	theme.Blurred.ErrorMessage = marker
 	form.WithTheme(theme)
 }
 

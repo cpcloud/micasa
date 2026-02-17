@@ -99,6 +99,7 @@ func TestDashboardDismissedByTabSwitch(t *testing.T) {
 func TestDashboardNavigation(t *testing.T) {
 	m := newTestModel()
 	m.showDashboard = true
+	m.dashboard = dashboardData{ServiceSpendCents: 1}
 	// Populate nav with 5 entries.
 	m.dashNav = []dashNavEntry{
 		{Tab: tabMaintenance, ID: 1},
@@ -132,6 +133,7 @@ func TestDashboardNavigation(t *testing.T) {
 func TestDashboardEnterKeyJumps(t *testing.T) {
 	m := newTestModel()
 	m.showDashboard = true
+	m.dashboard = dashboardData{ServiceSpendCents: 1}
 	m.dashNav = []dashNavEntry{
 		{Tab: tabMaintenance, ID: 1},
 		{Tab: tabProjects, ID: 42},
@@ -146,6 +148,7 @@ func TestDashboardEnterKeyJumps(t *testing.T) {
 func TestDashboardBlocksTableKeys(t *testing.T) {
 	m := newTestModel()
 	m.showDashboard = true
+	m.dashboard = dashboardData{ServiceSpendCents: 1}
 	m.dashNav = []dashNavEntry{{Tab: tabMaintenance, ID: 1}}
 	m.dashCursor = 0
 	startTab := m.active
@@ -320,8 +323,8 @@ func TestDashboardOverlayDimsSurroundingContent(t *testing.T) {
 	m.width = 120
 	m.height = 40
 	m.showDashboard = true
-	m.dashboard = dashboardData{}
-	m.dashNav = nil
+	// Populate dashboard with data so the overlay actually renders.
+	m.dashboard = dashboardData{ServiceSpendCents: 100}
 
 	view := m.buildView()
 	// Every line of the composited view that contains background content
@@ -336,11 +339,29 @@ func TestDashboardOverlayDimsSurroundingContent(t *testing.T) {
 	}
 }
 
+func TestDashboardHiddenWhenEmpty(t *testing.T) {
+	m := newTestModel()
+	m.width = 120
+	m.height = 40
+	m.showDashboard = true
+	m.dashboard = dashboardData{}
+
+	view := m.buildView()
+	// Empty dashboard should not show the overlay — no dimming.
+	for _, line := range strings.Split(view, "\n") {
+		if strings.Contains(line, "━") {
+			assert.NotContains(t, line, "\033[2m",
+				"empty dashboard should not dim the background")
+		}
+	}
+}
+
 func TestDashboardStatusBarShowsNormal(t *testing.T) {
 	m := newTestModel()
 	m.width = 120
 	m.height = 40
 	m.showDashboard = true
+	m.dashboard = dashboardData{ServiceSpendCents: 1}
 	status := m.statusView()
 	// With overlay active, main tab keybindings should be hidden.
 	assert.NotContains(t, status, "NAV")

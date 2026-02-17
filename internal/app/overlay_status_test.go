@@ -15,6 +15,7 @@ func TestStatusBarHiddenWhenDashboardActive(t *testing.T) {
 	m.width = 120
 	m.height = 40
 	m.showDashboard = true
+	m.dashboard = dashboardData{ServiceSpendCents: 1}
 
 	status := m.statusView()
 
@@ -107,10 +108,12 @@ func TestHasActiveOverlayDetectsAllOverlays(t *testing.T) {
 	// No overlays
 	assert.False(t, m.hasActiveOverlay())
 
-	// Dashboard
+	// Dashboard (needs data to be considered visible)
 	m.showDashboard = true
+	m.dashboard = dashboardData{ServiceSpendCents: 1}
 	assert.True(t, m.hasActiveOverlay())
 	m.showDashboard = false
+	m.dashboard = dashboardData{}
 
 	// Help
 	m.openHelp()

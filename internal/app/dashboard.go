@@ -47,6 +47,16 @@ type dashboardData struct {
 	ProjectSpendCents  int64
 }
 
+func (d dashboardData) empty() bool {
+	return len(d.Overdue) == 0 &&
+		len(d.Upcoming) == 0 &&
+		len(d.ActiveProjects) == 0 &&
+		len(d.ExpiringWarranties) == 0 &&
+		d.InsuranceRenewal == nil &&
+		d.ServiceSpendCents == 0 &&
+		d.ProjectSpendCents == 0
+}
+
 type maintenanceUrgency struct {
 	Item          data.MaintenanceItem
 	NextDue       time.Time

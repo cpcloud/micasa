@@ -48,6 +48,8 @@ func sendKey(m *Model, key string) {
 		msg = tea.KeyMsg{Type: tea.KeyCtrlN}
 	case "ctrl+o":
 		msg = tea.KeyMsg{Type: tea.KeyCtrlO}
+	case "ctrl+s":
+		msg = tea.KeyMsg{Type: tea.KeyCtrlS}
 	}
 	m.Update(msg)
 }
