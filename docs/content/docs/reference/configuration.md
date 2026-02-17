@@ -88,6 +88,16 @@ export MICASA_LLM_MODEL=llama3.3
 micasa   # uses llama3.3 instead of the default qwen3
 ```
 
+### `MICASA_LLM_TIMEOUT`
+
+Sets the LLM timeout for quick operations (ping, model listing), overriding
+the config file value. Uses Go duration syntax:
+
+```sh
+export MICASA_LLM_TIMEOUT=15s
+micasa   # waits up to 15s for LLM server responses
+```
+
 ### Platform data directory
 
 micasa uses platform-aware data directories (via
@@ -146,6 +156,11 @@ model = "qwen3"
 # Optional: custom context appended to all system prompts.
 # Use this to inject domain-specific details about your house, currency, etc.
 # extra_context = "My house is a 1920s craftsman in Portland, OR. All budgets are in CAD."
+
+# Timeout for quick LLM server operations (ping, model listing).
+# Go duration syntax: "5s", "10s", "500ms", etc. Default: "5s".
+# Increase if your LLM server is slow to respond.
+# timeout = "5s"
 ```
 
 ### `[llm]` section
@@ -155,6 +170,7 @@ model = "qwen3"
 | `base_url` | string | `http://localhost:11434/v1` | Root URL of an OpenAI-compatible API. micasa appends `/chat/completions`, `/models`, etc. |
 | `model` | string | `qwen3` | Model identifier sent in chat requests. Must be available on the server. |
 | `extra_context` | string | (empty) | Free-form text appended to all LLM system prompts. Useful for telling the model about your house, preferred currency, or regional conventions. |
+| `timeout` | string | `"5s"` | Max wait time for quick LLM operations (ping, model listing). Go duration syntax, e.g. `"10s"`, `"500ms"`. Increase for slow servers. |
 
 ### Supported LLM backends
 
@@ -173,7 +189,7 @@ backend:
 Environment variables override config file values. The full precedence order
 (highest to lowest):
 
-1. `OLLAMA_HOST` / `MICASA_LLM_MODEL` environment variables
+1. `OLLAMA_HOST` / `MICASA_LLM_MODEL` / `MICASA_LLM_TIMEOUT` environment variables
 2. Config file values
 3. Built-in defaults
 
