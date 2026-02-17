@@ -242,6 +242,15 @@ func (m *Model) statusView() string {
 		return m.inlineInputStatusView()
 	}
 	if m.mode == modeForm {
+		if m.confirmDiscard {
+			prompt := m.styles.FormDirty.Render("Discard unsaved changes?")
+			hints := joinWithSeparator(
+				m.helpSeparator(),
+				m.helpItem("y", "discard"),
+				m.helpItem("n", "keep editing"),
+			)
+			return prompt + "  " + hints
+		}
 		dirtyIndicator := m.styles.FormClean.Render("○ saved")
 		if m.formDirty {
 			dirtyIndicator = m.styles.FormDirty.Render("● unsaved")

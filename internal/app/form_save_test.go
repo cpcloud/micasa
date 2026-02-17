@@ -193,3 +193,137 @@ func TestUserCancelsFormWithEscAfterSaving(t *testing.T) {
 	require.NoError(t, m.loadHouse())
 	assert.Equal(t, "Saved Then Cancelled", m.house.Nickname)
 }
+
+func TestUserEscDirtyFormShowsConfirmation(t *testing.T) {
+	m := newTestModelWithStore(t)
+	openHouseForm(m)
+
+	// User edits a field, making the form dirty.
+	values, ok := m.formData.(*houseFormData)
+	require.True(t, ok)
+	values.Nickname = "Unsaved Change"
+	m.checkFormDirty()
+	require.True(t, m.formDirty, "form should be dirty after edit")
+
+	// User presses ESC — should see confirmation instead of exiting.
+	sendKey(m, "esc")
+	assert.Equal(t, modeForm, m.mode, "should still be in form mode")
+	assert.True(t, m.confirmDiscard, "confirm dialog should be active")
+	status := m.statusView()
+	assert.Contains(t, status, "Discard unsaved changes?")
+	assert.Contains(t, status, "discard")
+	assert.Contains(t, status, "keep editing")
+}
+
+func TestUserConfirmsDiscardWithY(t *testing.T) {
+	m := newTestModelWithStore(t)
+	openHouseForm(m)
+
+	values, ok := m.formData.(*houseFormData)
+	require.True(t, ok)
+	values.Nickname = "Will Be Discarded"
+	m.checkFormDirty()
+
+	// ESC triggers confirmation, y discards.
+	sendKey(m, "esc")
+	require.True(t, m.confirmDiscard)
+	sendKey(m, "y")
+	assert.False(t, m.confirmDiscard, "confirm dialog should be dismissed")
+	assert.NotEqual(t, modeForm, m.mode, "should have exited form mode")
+	assert.Nil(t, m.form, "form should be nil after discard")
+
+	// Database should still have the original value, not the discarded edit.
+	require.NoError(t, m.loadHouse())
+	assert.Equal(t, "Test House", m.house.Nickname)
+}
+
+func TestUserCancelsDiscardWithN(t *testing.T) {
+	m := newTestModelWithStore(t)
+	openHouseForm(m)
+
+	values, ok := m.formData.(*houseFormData)
+	require.True(t, ok)
+	values.Nickname = "Keep This Edit"
+	m.checkFormDirty()
+
+	// ESC triggers confirmation, n cancels it.
+	sendKey(m, "esc")
+	require.True(t, m.confirmDiscard)
+	sendKey(m, "n")
+	assert.False(t, m.confirmDiscard, "confirm dialog should be dismissed")
+	assert.Equal(t, modeForm, m.mode, "should remain in form mode")
+	assert.NotNil(t, m.form, "form should still be open")
+
+	// The unsaved edit should still be in the form data.
+	assert.Equal(t, "Keep This Edit", values.Nickname)
+}
+
+func TestUserCancelsDiscardWithEsc(t *testing.T) {
+	m := newTestModelWithStore(t)
+	openHouseForm(m)
+
+	values, ok := m.formData.(*houseFormData)
+	require.True(t, ok)
+	values.Nickname = "Keep Editing"
+	m.checkFormDirty()
+
+	// ESC triggers confirmation, a second ESC cancels it.
+	sendKey(m, "esc")
+	require.True(t, m.confirmDiscard)
+	sendKey(m, "esc")
+	assert.False(t, m.confirmDiscard, "confirm dialog should be dismissed")
+	assert.Equal(t, modeForm, m.mode, "should remain in form mode")
+}
+
+func TestCleanFormExitsImmediatelyOnEsc(t *testing.T) {
+	m := newTestModelWithStore(t)
+	openHouseForm(m)
+
+	// Form is clean (no edits), so ESC should exit immediately.
+	require.False(t, m.formDirty)
+	sendKey(m, "esc")
+	assert.False(t, m.confirmDiscard, "confirm should not appear for clean forms")
+	assert.NotEqual(t, modeForm, m.mode, "should exit form on ESC when clean")
+}
+
+func TestConfirmDiscardSwallowsOtherKeys(t *testing.T) {
+	m := newTestModelWithStore(t)
+	openHouseForm(m)
+
+	values, ok := m.formData.(*houseFormData)
+	require.True(t, ok)
+	values.Nickname = "Dirty"
+	m.checkFormDirty()
+
+	sendKey(m, "esc")
+	require.True(t, m.confirmDiscard)
+
+	// Keys other than y/n/esc should be swallowed.
+	sendKey(m, "a")
+	assert.True(t, m.confirmDiscard, "confirm should still be active after 'a'")
+	sendKey(m, "x")
+	assert.True(t, m.confirmDiscard, "confirm should still be active after 'x'")
+	assert.Equal(t, modeForm, m.mode, "should remain in form mode")
+}
+
+func TestSavedFormExitsImmediatelyOnEsc(t *testing.T) {
+	m := newTestModelWithStore(t)
+	openHouseForm(m)
+
+	// Edit, save in place, then ESC — form is clean after save.
+	values, ok := m.formData.(*houseFormData)
+	require.True(t, ok)
+	values.Nickname = "Saved Edit"
+	m.checkFormDirty()
+	sendKey(m, "ctrl+s")
+	require.False(t, m.formDirty, "form should be clean after ctrl+s")
+
+	// ESC should exit immediately since form is no longer dirty.
+	sendKey(m, "esc")
+	assert.False(t, m.confirmDiscard, "no confirm needed after save")
+	assert.NotEqual(t, modeForm, m.mode, "should exit form mode")
+
+	// Saved data should persist.
+	require.NoError(t, m.loadHouse())
+	assert.Equal(t, "Saved Edit", m.house.Nickname)
+}

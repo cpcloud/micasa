@@ -69,6 +69,7 @@ type Model struct {
 	formData              any
 	formSnapshot          any
 	formDirty             bool
+	confirmDiscard        bool // true when showing "discard unsaved changes?" prompt
 	formHasRequired       bool
 	editID                *uint
 	inlineInput           *inlineInputState
@@ -308,6 +309,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // updateForm handles input while a form is active.
 func (m *Model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Handle confirm-discard dialog: only y/n/esc are active.
+	if m.confirmDiscard {
+		if keyMsg, ok := msg.(tea.KeyMsg); ok {
+			return m.handleConfirmDiscard(keyMsg)
+		}
+		return m, nil
+	}
 	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "ctrl+s" {
 		return m, m.saveFormInPlace()
 	}
@@ -318,6 +326,14 @@ func (m *Model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
 		if n, isOrdinal := selectOrdinal(keyMsg); isOrdinal && isSelectField(m.form) {
 			m.jumpSelectToOrdinal(n)
+			return m, nil
+		}
+	}
+	// Intercept ESC on dirty forms to confirm before discarding.
+	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == keyEsc {
+		mandatoryHouse := m.formKind == formHouse && !m.hasHouse
+		if m.formDirty && !mandatoryHouse {
+			m.confirmDiscard = true
 			return m, nil
 		}
 	}
@@ -340,6 +356,19 @@ func (m *Model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	default:
 	}
 	return m, cmd
+}
+
+// handleConfirmDiscard processes keys while the "discard unsaved changes?"
+// prompt is active. Only y (discard) and n/esc (keep editing) are recognized.
+func (m *Model) handleConfirmDiscard(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch key.String() {
+	case "y":
+		m.confirmDiscard = false
+		m.exitForm()
+	case "n", keyEsc:
+		m.confirmDiscard = false
+	}
+	return m, nil
 }
 
 // handleDashboardKeys intercepts keys that belong to the dashboard (j/k
@@ -1578,6 +1607,7 @@ func (m *Model) exitForm() {
 	m.formData = nil
 	m.formSnapshot = nil
 	m.formDirty = false
+	m.confirmDiscard = false
 	m.editID = nil
 }
 
