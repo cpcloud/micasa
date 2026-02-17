@@ -52,9 +52,9 @@ func TestVendorRows(t *testing.T) {
 	assert.Equal(t, uint(2), meta[1].ID)
 	// Vendor 1 has 3 quotes, 0 jobs.
 	assert.Equal(t, "3", cells[0][6].Value)
-	assert.Empty(t, cells[0][7].Value)
+	assert.Equal(t, "0", cells[0][7].Value)
 	// Vendor 2 has 0 quotes, 5 jobs.
-	assert.Empty(t, cells[1][6].Value)
+	assert.Equal(t, "0", cells[1][6].Value)
 	assert.Equal(t, "5", cells[1][7].Value)
 }
 

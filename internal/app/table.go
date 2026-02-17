@@ -431,8 +431,11 @@ func renderCell(
 	} else if value == "" {
 		value = "\u2014" // —
 		style = styles.Empty
-	} else if cellValue.Kind == cellDrilldown {
+	} else if cellValue.Kind == cellDrilldown && value != "0" {
 		return renderPillCell(value, spec, width, hl, deleted, dimmed, styles)
+	} else if cellValue.Kind == cellDrilldown {
+		// Zero count: dim instead of pill to keep the grid quiet.
+		style = styles.Empty
 	} else if cellValue.Kind == cellStatus {
 		if s, ok := styles.StatusStyles[value]; ok {
 			style = s

@@ -170,7 +170,7 @@ func TestApplianceRowsNoOptionalFields(t *testing.T) {
 	assert.True(t, cells[0][7].Null, "age without purchase date should be null")
 	assert.Empty(t, cells[0][9].Value, "expected empty cost")
 	assert.True(t, cells[0][9].Null, "nil cost should be null")
-	assert.Empty(t, cells[0][10].Value, "expected empty maint count")
+	assert.Equal(t, "0", cells[0][10].Value, "zero maint count should be explicit")
 }
 
 func TestBuildRowsEmpty(t *testing.T) {
