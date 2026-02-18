@@ -1249,6 +1249,7 @@ func (m *Model) toggleDeleteSelected() {
 		return
 	}
 	tab.LastDeleted = &meta.ID
+	tab.ShowDeleted = true
 	m.setStatusInfo("Deleted. Press d to restore.")
 	m.surfaceError(m.reloadEffectiveTab())
 }

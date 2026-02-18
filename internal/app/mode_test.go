@@ -488,3 +488,43 @@ func containsKey(keys []string, target string) bool {
 	}
 	return false
 }
+
+func TestDeleteAutoShowsDeletedAndRestoreWorks(t *testing.T) {
+	m := newTestModelWithStore(t)
+
+	// Create a vendor (no FK children to block deletion).
+	h := vendorHandler{}
+	m.formData = &vendorFormData{Name: "Test Vendor", Phone: "555-0000"}
+	require.NoError(t, h.SubmitForm(m))
+
+	// Switch to vendors tab and reload so the row is visible.
+	m.active = tabIndex(tabVendors)
+	require.NoError(t, m.reloadActiveTab())
+
+	tab := m.activeTab()
+	tab.Table.SetCursor(0)
+	require.NotNil(t, tab)
+	require.Len(t, tab.Rows, 1, "should have one vendor row")
+	assert.False(t, tab.ShowDeleted, "ShowDeleted should start off")
+
+	// User enters edit mode and deletes the selected row.
+	sendKey(m, "i")
+	require.Equal(t, modeEdit, m.mode)
+	sendKey(m, "d")
+
+	tab = m.activeTab()
+	assert.True(t, tab.ShowDeleted,
+		"ShowDeleted should auto-enable after delete")
+	assert.Contains(t, m.status.Text, "Deleted",
+		"status should confirm deletion")
+	assert.Len(t, tab.Rows, 1,
+		"deleted row should still be visible because ShowDeleted is on")
+
+	// User presses d again on the same row to restore it.
+	sendKey(m, "d")
+	tab = m.activeTab()
+	assert.Contains(t, m.status.Text, "Restored",
+		"status should confirm restoration")
+	assert.Len(t, tab.Rows, 1, "restored row should remain visible")
+	assert.False(t, tab.Rows[0].Deleted, "row should no longer be marked deleted")
+}
