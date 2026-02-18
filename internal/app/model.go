@@ -431,12 +431,25 @@ func (m *Model) handleCommonKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 		if m.chat != nil && m.chat.Visible {
 			m.refreshChatViewport()
 		}
-		// Translate pin values between raw and magnitude representations
-		// so the filter stays meaningful after a mode switch.
-		if tab := m.effectiveTab(); tab != nil && hasPins(tab) {
+		// Translate pin values on ALL tabs (not just the active one)
+		// so non-visible tabs don't retain stale pin formats.
+		for i := range m.tabs {
+			tab := &m.tabs[i]
+			if !hasPins(tab) {
+				continue
+			}
 			translatePins(tab, m.magMode)
 			applyRowFilter(tab, m.magMode)
 			applySorts(tab)
+		}
+		for _, dc := range m.detailStack {
+			if hasPins(&dc.Tab) {
+				translatePins(&dc.Tab, m.magMode)
+				applyRowFilter(&dc.Tab, m.magMode)
+				applySorts(&dc.Tab)
+			}
+		}
+		if tab := m.effectiveTab(); tab != nil {
 			m.updateTabViewport(tab)
 		}
 		return nil, true

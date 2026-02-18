@@ -6,7 +6,9 @@ package app
 import (
 	"testing"
 
+	"github.com/charmbracelet/bubbles/table"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMagFormatMoneyWithUnit(t *testing.T) {
@@ -268,6 +270,96 @@ func TestMagModeWorksInEditMode(t *testing.T) {
 	view = m.buildView()
 	assert.Contains(t, view, magArrow,
 		"magnitude notation should appear with mag mode on in edit mode")
+}
+
+// seedTabMoneyCells populates the given tab with money cell rows and wires
+// the Full* fields so pin translation works.
+func seedTabMoneyCells(tab *Tab, amounts []string) {
+	cellRows := make([][]cell, len(amounts))
+	rows := make([]table.Row, len(amounts))
+	meta := make([]rowMeta, len(amounts))
+	for i, amt := range amounts {
+		cr := make([]cell, len(tab.Specs))
+		r := make(table.Row, len(tab.Specs))
+		for j, spec := range tab.Specs {
+			switch spec.Kind {
+			case cellMoney:
+				cr[j] = cell{Value: amt, Kind: cellMoney}
+			case cellReadonly:
+				cr[j] = cell{Value: "1", Kind: cellReadonly}
+			default:
+				cr[j] = cell{Value: "test", Kind: spec.Kind}
+			}
+			r[j] = cr[j].Value
+		}
+		cellRows[i] = cr
+		rows[i] = r
+		meta[i] = rowMeta{ID: uint(i + 1)} //nolint:gosec // i bounded by slice length
+	}
+	tab.CellRows = cellRows
+	tab.FullCellRows = cellRows
+	tab.FullRows = rows
+	tab.FullMeta = meta
+	tab.Rows = meta
+	tab.Table.SetRows(rows)
+}
+
+func TestMagModeTranslatesPinsOnAllTabs(t *testing.T) {
+	m := newTestModel()
+	m.showDashboard = false
+
+	// Seed money cells on the active tab (Projects, index 0) and a
+	// non-active tab (Quotes, index 1).
+	quotesIdx := tabIndex(tabQuotes)
+	require.Greater(t, len(m.tabs), quotesIdx)
+
+	seedTabMoneyCells(&m.tabs[m.active], []string{"$5,000.00", "$1,234.00"})
+	seedTabMoneyCells(&m.tabs[quotesIdx], []string{"$1,234.00", "$50.00"})
+
+	// Find the first money column on each tab.
+	projectsMoneyCol := -1
+	for i, s := range m.tabs[m.active].Specs {
+		if s.Kind == cellMoney {
+			projectsMoneyCol = i
+			break
+		}
+	}
+	quotesMoneyCol := -1
+	for i, s := range m.tabs[quotesIdx].Specs {
+		if s.Kind == cellMoney {
+			quotesMoneyCol = i
+			break
+		}
+	}
+	require.NotEqual(t, -1, projectsMoneyCol)
+	require.NotEqual(t, -1, quotesMoneyCol)
+
+	// Pin "$1,234.00" on the non-active quotes tab (raw mode pin).
+	togglePin(&m.tabs[quotesIdx], quotesMoneyCol, "$1,234.00")
+	require.True(t, hasPins(&m.tabs[quotesIdx]))
+	require.True(t, m.tabs[quotesIdx].Pins[0].Values["$1,234.00"],
+		"raw pin should exist before toggle")
+
+	// Toggle mag mode via ctrl+o.
+	sendKey(m, "ctrl+o")
+	require.True(t, m.magMode)
+
+	// The non-active tab's pin should be translated to the mag
+	// representation. $1,234 -> log10(1234) ~ 3.09 -> rounds to 3.
+	assert.False(t, m.tabs[quotesIdx].Pins[0].Values["$1,234.00"],
+		"raw pin should be gone after mag toggle")
+	assert.True(t, m.tabs[quotesIdx].Pins[0].Values[magArrow+"3"],
+		"mag pin should exist on non-active tab after toggle")
+
+	// Toggle mag mode off.
+	sendKey(m, "ctrl+o")
+	require.False(t, m.magMode)
+
+	// Pin should be translated back to raw.
+	assert.True(t, m.tabs[quotesIdx].Pins[0].Values["$1,234.00"],
+		"raw pin should be restored after toggling mag off")
+	assert.False(t, m.tabs[quotesIdx].Pins[0].Values[magArrow+"3"],
+		"mag pin should be gone after toggling mag off")
 }
 
 // seedMoneyCells populates the active tab with a row containing a money cell
