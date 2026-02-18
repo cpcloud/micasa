@@ -1234,6 +1234,56 @@ func TestUpdateDocumentMetadataPreservesFile(t *testing.T) {
 	assert.Equal(t, content, cached)
 }
 
+func TestUpdateDocumentPreservesEntityLink(t *testing.T) {
+	store := newTestStore(t)
+
+	types, _ := store.ProjectTypes()
+	require.NoError(t, store.CreateProject(&Project{
+		Title: "Linked Project", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}))
+	projects, _ := store.ListProjects(false)
+	projectID := projects[0].ID
+
+	content := []byte("linked doc content")
+	checksum := fmt.Sprintf("%x", sha256.Sum256(content))
+
+	require.NoError(t, store.CreateDocument(&Document{
+		Title:          "Linked Doc",
+		FileName:       "linked.pdf",
+		MIMEType:       "application/pdf",
+		SizeBytes:      int64(len(content)),
+		ChecksumSHA256: checksum,
+		Data:           content,
+		EntityKind:     DocumentEntityProject,
+		EntityID:       projectID,
+	}))
+	docs, err := store.ListDocuments(false)
+	require.NoError(t, err)
+	require.Len(t, docs, 1)
+	original := docs[0]
+	require.Equal(t, projectID, original.EntityID)
+	require.Equal(t, DocumentEntityProject, original.EntityKind)
+
+	// Simulate what the form does: update title with EntityID=0 and empty Data.
+	require.NoError(t, store.UpdateDocument(Document{
+		ID:    original.ID,
+		Title: "Renamed Doc",
+		Notes: "added notes",
+	}))
+
+	updated, err := store.GetDocument(original.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "Renamed Doc", updated.Title)
+	assert.Equal(t, "added notes", updated.Notes)
+	assert.Equal(t, projectID, updated.EntityID, "EntityID must survive a metadata-only edit")
+	assert.Equal(
+		t,
+		DocumentEntityProject,
+		updated.EntityKind,
+		"EntityKind must survive a metadata-only edit",
+	)
+}
+
 func TestUpdateDocumentReplacesFile(t *testing.T) {
 	store := newTestStore(t)
 

@@ -922,11 +922,12 @@ func formatBytes(n int64) string {
 	return humanize.IBytes(uint64(n)) //nolint:gosec // clamped above
 }
 
-// UpdateDocument persists changes to a document. When Data is empty the
-// existing BLOB and file metadata columns are preserved, so callers that
-// only modify Title/Notes/EntityKind don't accidentally erase the file.
+// UpdateDocument persists changes to a document. Entity linkage (EntityID,
+// EntityKind) is always preserved -- callers must use a dedicated method to
+// re-link a document. When Data is empty the existing BLOB and file metadata
+// columns are also preserved, so metadata-only edits don't erase the file.
 func (s *Store) UpdateDocument(doc Document) error {
-	omit := []string{ColID, ColCreatedAt, ColDeletedAt}
+	omit := []string{ColID, ColCreatedAt, ColDeletedAt, ColEntityID, ColEntityKind}
 	if len(doc.Data) == 0 {
 		omit = append(omit,
 			ColFileName, ColMIMEType, ColSizeBytes,
