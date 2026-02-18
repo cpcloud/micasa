@@ -120,11 +120,10 @@ type HouseProfile struct {
 }
 
 type ProjectType struct {
-	ID          uint   `gorm:"primaryKey"`
-	Name        string `gorm:"uniqueIndex"`
-	Description string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID        uint   `gorm:"primaryKey"`
+	Name      string `gorm:"uniqueIndex"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 type Vendor struct {
