@@ -558,7 +558,8 @@ func (m *Model) submitApplianceForm() error {
 	if err := m.store.CreateAppliance(&item); err != nil {
 		return err
 	}
-	m.editID = &item.ID
+	id := item.ID
+	m.editID = &id
 	return nil
 }
 
@@ -647,7 +648,8 @@ func (m *Model) submitVendorForm() error {
 	if err := m.store.CreateVendor(&vendor); err != nil {
 		return err
 	}
-	m.editID = &vendor.ID
+	id := vendor.ID
+	m.editID = &id
 	return nil
 }
 
@@ -998,7 +1000,8 @@ func (m *Model) submitServiceLogForm() error {
 	if err := m.store.CreateServiceLog(&entry, vendor); err != nil {
 		return err
 	}
-	m.editID = &entry.ID
+	id := entry.ID
+	m.editID = &id
 	return nil
 }
 
@@ -1364,7 +1367,8 @@ func (m *Model) submitProjectForm() error {
 	if err := m.store.CreateProject(&project); err != nil {
 		return err
 	}
-	m.editID = &project.ID
+	id := project.ID
+	m.editID = &id
 	return nil
 }
 
@@ -1413,7 +1417,8 @@ func (m *Model) submitQuoteForm() error {
 	if err := m.store.CreateQuote(&quote, vendor); err != nil {
 		return err
 	}
-	m.editID = &quote.ID
+	id := quote.ID
+	m.editID = &id
 	return nil
 }
 
@@ -1474,7 +1479,8 @@ func (m *Model) submitMaintenanceForm() error {
 	if err := m.store.CreateMaintenance(&item); err != nil {
 		return err
 	}
-	m.editID = &item.ID
+	id := item.ID
+	m.editID = &id
 	return nil
 }
 
@@ -1828,7 +1834,8 @@ func (m *Model) submitDocumentForm() error {
 	if err := m.store.CreateDocument(&doc); err != nil {
 		return err
 	}
-	m.editID = &doc.ID
+	id := doc.ID
+	m.editID = &id
 	return nil
 }
 
@@ -1847,7 +1854,8 @@ func (m *Model) submitScopedDocumentForm(entityKind string, entityID uint) error
 	if err := m.store.CreateDocument(&doc); err != nil {
 		return err
 	}
-	m.editID = &doc.ID
+	id := doc.ID
+	m.editID = &id
 	return nil
 }
 
