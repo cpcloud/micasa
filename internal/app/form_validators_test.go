@@ -15,6 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const testValidatorDate = "2025-06-15"
+
 func TestRequiredTextRejectsEmpty(t *testing.T) {
 	validate := requiredText("title")
 	assert.Error(t, validate(""))
@@ -84,6 +86,59 @@ func TestOptionalDateRejectsInvalid(t *testing.T) {
 	for _, input := range []string{"06/11/2025", "not-a-date"} {
 		assert.Errorf(t, validate(input), "optionalDate(%q) expected error", input)
 	}
+}
+
+func TestEndDateAfterStartRejectsEarlierEnd(t *testing.T) {
+	start := testValidatorDate
+	end := "2025-06-10"
+	validate := endDateAfterStart(&start, &end)
+	err := validate(end)
+	require.Error(t, err)
+	assert.Equal(t, "end date must not be before start date", err.Error())
+}
+
+func TestEndDateAfterStartAcceptsSameDay(t *testing.T) {
+	start := testValidatorDate
+	end := testValidatorDate
+	validate := endDateAfterStart(&start, &end)
+	assert.NoError(t, validate(end))
+}
+
+func TestEndDateAfterStartAcceptsLaterEnd(t *testing.T) {
+	start := "2025-06-10"
+	end := testValidatorDate
+	validate := endDateAfterStart(&start, &end)
+	assert.NoError(t, validate(end))
+}
+
+func TestEndDateAfterStartAcceptsEmptyEnd(t *testing.T) {
+	start := testValidatorDate
+	end := ""
+	validate := endDateAfterStart(&start, &end)
+	assert.NoError(t, validate(end))
+}
+
+func TestEndDateAfterStartAcceptsEmptyStart(t *testing.T) {
+	start := ""
+	end := testValidatorDate
+	validate := endDateAfterStart(&start, &end)
+	assert.NoError(t, validate(end))
+}
+
+func TestEndDateAfterStartAcceptsBothEmpty(t *testing.T) {
+	start := ""
+	end := ""
+	validate := endDateAfterStart(&start, &end)
+	assert.NoError(t, validate(end))
+}
+
+func TestEndDateAfterStartRejectsInvalidEndFormat(t *testing.T) {
+	start := testValidatorDate
+	end := "not-a-date"
+	validate := endDateAfterStart(&start, &end)
+	err := validate(end)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "YYYY-MM-DD")
 }
 
 func TestOptionalMoneyAcceptsValid(t *testing.T) {

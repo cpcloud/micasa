@@ -290,7 +290,7 @@ func (m *Model) openProjectForm(values *projectFormData, options []huh.Option[ui
 			huh.NewInput().
 				Title("End date (YYYY-MM-DD)").
 				Value(&values.EndDate).
-				Validate(optionalDate("end date")),
+				Validate(endDateAfterStart(&values.StartDate, &values.EndDate)),
 			huh.NewText().
 				Title("Description").
 				Value(&values.Description),
@@ -1584,6 +1584,34 @@ func optionalFloat(label string) func(string) error {
 	return func(input string) error {
 		if _, err := data.ParseOptionalFloat(input); err != nil {
 			return fmt.Errorf("%s should be a number like 2.5", label)
+		}
+		return nil
+	}
+}
+
+// endDateAfterStart validates that end date is a valid optional date and,
+// when both dates are provided, that end date is not before start date.
+func endDateAfterStart(startDate, endDate *string) func(string) error {
+	return func(_ string) error {
+		end := strings.TrimSpace(*endDate)
+		if err := optionalDate("end date")(end); err != nil {
+			return err
+		}
+		start := strings.TrimSpace(*startDate)
+		if end == "" || start == "" {
+			return nil
+		}
+		s, err := time.Parse(data.DateLayout, start)
+		if err != nil {
+			// start date will be caught by its own validator
+			return nil //nolint:nilerr // start date validated by its own field
+		}
+		e, err := time.Parse(data.DateLayout, end)
+		if err != nil {
+			return nil //nolint:nilerr // end date format already checked by optionalDate above
+		}
+		if e.Before(s) {
+			return fmt.Errorf("end date must not be before start date")
 		}
 		return nil
 	}
