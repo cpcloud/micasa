@@ -58,6 +58,8 @@ body {
   top: 0;
   height: 100vh;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .sidebar-brand {
@@ -103,6 +105,12 @@ body {
   color: var(--warm-gray);
 }
 
+.sidebar-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 .sidebar-nav ul {
   list-style: none;
   padding: 0;
@@ -125,6 +133,25 @@ body {
 .sidebar-nav a.active {
   color: var(--terracotta);
   font-weight: 600;
+}
+
+.sidebar-external {
+  margin-top: auto;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--rule);
+  display: flex;
+  gap: 1rem;
+}
+
+.sidebar-external a {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.75rem;
+  color: var(--warm-gray);
+  text-decoration: none;
+}
+
+.sidebar-external a:hover {
+  color: var(--terracotta);
 }
 
 /* ── Main content ──────────────────────────────────────────── */
@@ -155,6 +182,22 @@ body {
 }
 
 .docs-topbar a:hover {
+  color: var(--terracotta);
+}
+
+.docs-topbar-nav {
+  margin-left: auto;
+  display: flex;
+  gap: 1rem;
+}
+
+.docs-topbar-nav a {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.75rem;
+  color: var(--warm-gray);
+}
+
+.docs-topbar-nav a:hover {
   color: var(--terracotta);
 }
 

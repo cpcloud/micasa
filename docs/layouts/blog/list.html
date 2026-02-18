@@ -1,0 +1,17 @@
+{{- /* Copyright 2026 Phillip Cloud */ -}}
+{{- /* Licensed under the Apache License, Version 2.0 */ -}}
+
+{{ define "main" }}
+<div class="blog-index">
+  <h1>Blog</h1>
+  <p class="blog-index-subtitle">Notes on building a terminal UI for your house.</p>
+
+  {{ range .Pages.ByDate.Reverse }}
+  <article class="blog-index-entry">
+    <time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "January 2, 2006" }}</time>
+    <h2><a href="{{ .RelPermalink }}">{{ .Title }}</a></h2>
+    {{ with .Params.description }}<p>{{ . }}</p>{{ end }}
+  </article>
+  {{ end }}
+</div>
+{{ end }}

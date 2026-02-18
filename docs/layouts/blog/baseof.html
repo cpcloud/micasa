@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+{{- /* Copyright 2026 Phillip Cloud */ -}}
+{{- /* Licensed under the Apache License, Version 2.0 */ -}}
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ .Title }} &mdash; micasa</title>
+  <meta name="description" content="{{ with .Params.description }}{{ . }}{{ else }}{{ site.Params.description }}{{ end }}">
+  <link rel="icon" type="image/svg+xml" href="{{ "images/favicon.svg" | relURL }}">
+  <link rel="stylesheet" href="{{ "css/blog.css" | relURL }}">
+</head>
+<body>
+
+<header class="blog-header">
+  <div class="blog-header-inner">
+    <a class="blog-brand" href="{{ site.Home.RelPermalink }}">micasa<span class="dot">.</span></a>
+    <nav class="blog-nav">
+      <a href="{{ "blog/" | relURL }}">Blog</a>
+      <a href="{{ "docs/" | relURL }}">Docs</a>
+      <a href="https://github.com/cpcloud/micasa">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="blog-main">
+  {{ block "main" . }}{{ end }}
+</main>
+
+<footer class="blog-footer">
+  <a href="/">micasa.dev</a> &middot;
+  <a href="https://github.com/cpcloud/micasa">GitHub</a> &middot;
+  <a href="https://github.com/cpcloud/micasa/blob/main/LICENSE">Apache-2.0</a>
+</footer>
+
+</body>
+</html>

@@ -27,6 +27,10 @@
 <div class="docs-topbar">
   <button class="menu-toggle" onclick="document.querySelector('.docs-sidebar').classList.toggle('open')" aria-label="Toggle menu">&#9776;</button>
   <a href="{{ site.Home.RelPermalink }}">micasa</a>
+  <nav class="docs-topbar-nav">
+    <a href="{{ "blog/" | relURL }}">Blog</a>
+    <a href="https://github.com/cpcloud/micasa">GitHub</a>
+  </nav>
 </div>
 
 <div class="docs-layout">
@@ -39,6 +43,7 @@
 
     <div class="docs-footer">
       <a href="/">micasa.dev</a> &middot;
+      <a href="{{ "blog/" | relURL }}">Blog</a> &middot;
       <a href="https://github.com/cpcloud/micasa">GitHub</a> &middot;
       <a href="https://github.com/cpcloud/micasa/blob/main/LICENSE">Apache-2.0</a>
     </div>

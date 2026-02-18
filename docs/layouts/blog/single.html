@@ -1,0 +1,17 @@
+{{- /* Copyright 2026 Phillip Cloud */ -}}
+{{- /* Licensed under the Apache License, Version 2.0 */ -}}
+
+{{ define "main" }}
+<article class="blog-post">
+  <header class="blog-post-header">
+    <time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "January 2, 2006" }}</time>
+    <h1>{{ .Title }}</h1>
+  </header>
+  <div class="blog-post-body">
+    {{ .Content }}
+  </div>
+  <footer class="blog-post-footer">
+    <a href="{{ "blog/" | relURL }}">&larr; All posts</a>
+  </footer>
+</article>
+{{ end }}
