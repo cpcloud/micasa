@@ -226,7 +226,7 @@ func TestApplySortsMultiKey(t *testing.T) {
 
 func TestSortIndicatorSingle(t *testing.T) {
 	sorts := []sortEntry{{Col: 2, Dir: sortAsc}}
-	assert.Equal(t, "\u25b2", sortIndicator(sorts, 2))
+	assert.Equal(t, " \u25b2", sortIndicator(sorts, 2))
 }
 
 func TestSortIndicatorMulti(t *testing.T) {
@@ -234,8 +234,8 @@ func TestSortIndicatorMulti(t *testing.T) {
 		{Col: 2, Dir: sortAsc},
 		{Col: 5, Dir: sortDesc},
 	}
-	assert.Equal(t, "\u25b21", sortIndicator(sorts, 2))
-	assert.Equal(t, "\u25bc2", sortIndicator(sorts, 5))
+	assert.Equal(t, " \u25b21", sortIndicator(sorts, 2))
+	assert.Equal(t, " \u25bc2", sortIndicator(sorts, 5))
 	assert.Empty(t, sortIndicator(sorts, 0))
 }
 

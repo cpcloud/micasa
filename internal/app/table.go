@@ -5,6 +5,7 @@ package app
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -247,28 +248,39 @@ func viewportSorts(sorts []sortEntry, vpStart int) []sortEntry {
 	return adjusted
 }
 
+// sortIndicatorWidth returns the maximum rendered width of a sort indicator
+// given the total number of columns. Single-column sorts show " ▲" (2),
+// multi-column sorts show " ▲N" where N can be up to log10(columns)+1 digits.
+func sortIndicatorWidth(columnCount int) int {
+	if columnCount <= 1 {
+		return 2 // " ▲"
+	}
+	digits := int(math.Log10(float64(columnCount))) + 1
+	return 2 + digits // " ▲" + index digits
+}
+
 // headerTitleWidth returns the rendered width of a column header including
-// any link/drilldown arrow suffix. For columns with a link or drilldown
-// indicator, extra space is reserved so that a sort arrow can appear
-// without truncating the indicator.
-func headerTitleWidth(spec columnSpec) int {
+// any suffix added at render time (link arrow, drilldown arrow, money "$")
+// plus room for the worst-case sort indicator given the column count.
+func headerTitleWidth(spec columnSpec, columnCount int) int {
 	w := lipgloss.Width(spec.Title)
 	if spec.Link != nil {
 		w += 1 + lipgloss.Width(linkArrow) // " →"
-		w += 1 + 1                         // room for " ▲" sort indicator
 	} else if spec.Kind == cellDrilldown {
 		w += 1 + lipgloss.Width(drilldownArrow) // " ↘"
-		w += 1 + 1                              // room for " ▲" sort indicator
+	} else if spec.Kind == cellMoney {
+		w += 1 + 1 // " $" annotation added by annotateMoneyHeaders
 	}
+	w += sortIndicatorWidth(columnCount)
 	return w
 }
 
 func sortIndicator(sorts []sortEntry, col int) string {
 	for i, entry := range sorts {
 		if entry.Col == col {
-			arrow := "\u25b2" // ▲
+			arrow := " \u25b2" // ▲ with leading space
 			if entry.Dir == sortDesc {
-				arrow = "\u25bc" // ▼
+				arrow = " \u25bc" // ▼ with leading space
 			}
 			if len(sorts) == 1 {
 				return arrow
@@ -771,8 +783,9 @@ func columnWidths(
 // fixed values, and actual cell values) floored by Min but NOT capped by Max.
 func naturalWidths(specs []columnSpec, rows [][]cell) []int {
 	widths := make([]int, len(specs))
+	colCount := len(specs)
 	for i, spec := range specs {
-		w := headerTitleWidth(spec)
+		w := headerTitleWidth(spec, colCount)
 		for _, fv := range spec.FixedValues {
 			if fw := lipgloss.Width(fv); fw > w {
 				w = fw

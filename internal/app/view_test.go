@@ -645,43 +645,125 @@ func TestHelpContentShowsArrowKeyAlternatives(t *testing.T) {
 }
 
 func TestHeaderTitleWidth(t *testing.T) {
+	// Single-column: sort indicator is " ▲" (2 chars).
+	siw := sortIndicatorWidth(1)
+	assert.Equal(t, 2, siw)
+
 	tests := []struct {
 		name string
 		spec columnSpec
+		cols int
 		want int
 	}{
 		{
 			"link",
 			columnSpec{Title: "Project", Link: &columnLink{TargetTab: tabProjects}},
-			lipgloss.Width("Project") + 1 + lipgloss.Width(linkArrow) + 1 + 1,
+			1,
+			lipgloss.Width("Project") + 1 + lipgloss.Width(linkArrow) + siw,
 		},
 		{
 			"drilldown",
 			columnSpec{Title: "Log", Kind: cellDrilldown},
-			lipgloss.Width("Log") + 1 + lipgloss.Width(drilldownArrow) + 1 + 1,
+			1,
+			lipgloss.Width("Log") + 1 + lipgloss.Width(drilldownArrow) + siw,
 		},
-		{"plain", columnSpec{Title: "Name"}, lipgloss.Width("Name")},
+		{"plain", columnSpec{Title: "Name"}, 1, lipgloss.Width("Name") + siw},
+		{
+			"money",
+			columnSpec{Title: "Budget", Kind: cellMoney},
+			1,
+			lipgloss.Width("Budget") + 1 + 1 + siw,
+		},
+		{
+			"multi-col plain",
+			columnSpec{Title: "ID"},
+			8,
+			lipgloss.Width("ID") + sortIndicatorWidth(8),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, headerTitleWidth(tt.spec))
+			assert.Equal(t, tt.want, headerTitleWidth(tt.spec, tt.cols))
 		})
 	}
 }
 
-func TestSortedDrilldownColumnPreservesBothArrows(t *testing.T) {
-	spec := columnSpec{Title: "Log", Kind: cellDrilldown}
-	width := headerTitleWidth(spec)
+// renderTestHeader is a helper that mirrors the real rendering pipeline:
+// naturalWidths → columnWidths → annotateMoneyHeaders → renderHeaderRow.
+// Returns the rendered header string for the given specs, sorts, and width.
+func renderTestHeader(
+	specs []columnSpec,
+	sorts []sortEntry,
+	termWidth int,
+) string {
+	styles := DefaultStyles()
+	sepW := lipgloss.Width(" │ ")
+	widths := columnWidths(specs, nil, termWidth, sepW, nil)
+	seps := make([]string, len(specs)-1)
+	for i := range seps {
+		seps[i] = " │ "
+	}
+	headerSpecs := annotateMoneyHeaders(specs, styles)
+	vpSorts := make([]sortEntry, len(sorts))
+	copy(vpSorts, sorts)
+	return renderHeaderRow(headerSpecs, widths, seps, 0, vpSorts, false, false, nil, styles)
+}
 
-	// Render the title the same way renderHeaderRow does.
-	title := spec.Title + " " + drilldownArrow
-	indicator := sortIndicator([]sortEntry{{Col: 0, Dir: sortAsc}}, 0)
-	rendered := formatHeaderCell(title, indicator, width)
+// Regression: user reported "ID" truncated to "I" on the quotes table
+// when multi-column sort is active.
+func TestMultiSortDoesNotTruncateShortTitle(t *testing.T) {
+	specs := []columnSpec{
+		{Title: "ID"},
+		{Title: "Project"},
+		{Title: "Vendor"},
+		{Title: "Total", Kind: cellMoney},
+	}
+	sorts := []sortEntry{
+		{Col: 0, Dir: sortAsc},
+		{Col: 1, Dir: sortDesc},
+	}
+	rendered := renderTestHeader(specs, sorts, 120)
+	assert.Contains(t, rendered, "ID",
+		"short column title must not be truncated by multi-sort indicator")
+}
 
+// Regression: user reported money "$" eaten by multi-column sort indicator.
+func TestMultiSortDoesNotEatDollarSign(t *testing.T) {
+	specs := []columnSpec{
+		{Title: "ID"},
+		{Title: "Total", Kind: cellMoney},
+		{Title: "Labor", Kind: cellMoney},
+	}
+	sorts := []sortEntry{
+		{Col: 1, Dir: sortAsc},
+		{Col: 2, Dir: sortDesc},
+	}
+	rendered := renderTestHeader(specs, sorts, 120)
+	assert.Contains(t, rendered, "$",
+		"money $ must survive multi-column sort")
+}
+
+// Regression: user reported drilldown "↘" arrow eaten by sort indicator.
+func TestMultiSortDoesNotEatDrilldownArrow(t *testing.T) {
+	specs := []columnSpec{
+		{Title: "ID"},
+		{Title: "Log", Kind: cellDrilldown},
+		{Title: "Status"},
+	}
+	sorts := []sortEntry{
+		{Col: 1, Dir: sortAsc},
+		{Col: 2, Dir: sortDesc},
+	}
+	rendered := renderTestHeader(specs, sorts, 120)
 	assert.Contains(t, rendered, drilldownArrow,
-		"drilldown arrow must survive when column is sorted")
-	assert.Contains(t, rendered, "\u25b2",
-		"sort arrow must appear when column is sorted")
+		"drilldown arrow must survive multi-column sort")
+}
+
+// Sort indicator must always include a leading space.
+func TestSortIndicatorIncludesLeadingSpace(t *testing.T) {
+	indicator := sortIndicator([]sortEntry{{Col: 0, Dir: sortAsc}}, 0)
+	assert.True(t, strings.HasPrefix(indicator, " "),
+		"sort indicator must start with a space")
 }
 
 func TestColumnHasLinks(t *testing.T) {
