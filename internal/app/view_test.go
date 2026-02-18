@@ -1058,7 +1058,7 @@ func TestSetStatusSavedWithUndo(t *testing.T) {
 	m := newTestModel()
 	m.undoStack = append(m.undoStack, undoEntry{Description: "test"})
 	m.setStatusSaved(true)
-	assert.Contains(t, m.status.Text, "u to undo")
+	assert.Contains(t, m.status.Text, "Press u to undo.")
 }
 
 func TestSetStatusSavedNoUndo(t *testing.T) {

@@ -596,12 +596,12 @@ func (m *Model) handleNormalEnter() error {
 			if c.LinkID > 0 {
 				return m.navigateToLink(spec.Link, c.LinkID)
 			}
-			m.setStatusInfo("nothing to follow")
+			m.setStatusInfo("Nothing to follow.")
 		}
 		return nil
 	}
 
-	m.setStatusInfo("i to edit")
+	m.setStatusInfo("Press i to edit.")
 	return nil
 }
 
@@ -1457,7 +1457,7 @@ func (m *Model) saveForm() tea.Cmd {
 	}
 	m.exitForm()
 	if isFirstHouse {
-		m.setStatusInfo("House set up. b/f to switch tabs, i to edit, ? for help")
+		m.setStatusInfo("House set up. Press b/f to switch tabs, i to edit, ? for help.")
 	}
 	m.reloadAfterFormSave(kind)
 	return nil
@@ -1625,7 +1625,7 @@ func (m *Model) setStatusInfo(text string) {
 // when the save was an edit (not a create).
 func (m *Model) setStatusSaved(wasEdit bool) {
 	if wasEdit && len(m.undoStack) > 0 {
-		m.setStatusInfo("Saved. u to undo")
+		m.setStatusInfo("Saved. Press u to undo.")
 	} else {
 		m.setStatusInfo("Saved.")
 	}

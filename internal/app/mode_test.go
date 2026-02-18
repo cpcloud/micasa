@@ -82,7 +82,7 @@ func TestEnterOnPlainColumnShowsGuidance(t *testing.T) {
 	// but should show guidance in the status bar.
 	sendKey(m, "enter")
 	assert.Equal(t, modeNormal, m.mode, "enter on plain column should stay in normal mode")
-	assert.Contains(t, m.status.Text, "i to edit", "status should guide user to press i")
+	assert.Contains(t, m.status.Text, "Press i to edit.", "status should guide user to press i")
 }
 
 func TestExitEditModeWithEsc(t *testing.T) {
