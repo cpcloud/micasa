@@ -376,12 +376,14 @@ func TestProjectStatusFilterToggleKeys(t *testing.T) {
 	sendKey(m, "t")
 	assert.True(t, hasColumnPins(tab, col), "expected status pins after t")
 	assert.True(t, tab.FilterActive, "expected filter active after t")
+	assert.True(t, tab.SettledHidden, "expected SettledHidden after t")
 	assert.Contains(t, m.status.Text, "hidden")
 	assert.Contains(t, m.statusView(), "hidden")
 
 	sendKey(m, "t")
 	assert.False(t, hasColumnPins(tab, col), "expected no status pins after second t")
 	assert.False(t, tab.FilterActive, "expected filter inactive after second t")
+	assert.False(t, tab.SettledHidden, "expected SettledHidden false after second t")
 	assert.Contains(t, m.status.Text, "shown")
 	assert.Contains(t, m.statusView(), "shown")
 }

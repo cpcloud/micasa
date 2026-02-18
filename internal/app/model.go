@@ -1339,19 +1339,30 @@ func (m *Model) toggleSettledFilter() bool {
 	if col < 0 {
 		return false
 	}
-	if hasColumnPins(tab, col) {
-		// Turn off: clear status column pins.
-		clearPinsForColumn(tab, col)
+	if tab.SettledHidden {
+		// Turn off: remove only the pin values that the shortcut added,
+		// preserving any manual pins on the status column.
+		removeSettledPins(tab, col)
+		tab.SettledHidden = false
+		tab.SettledPins = nil
 		applyRowFilter(tab, m.magMode)
 		applySorts(tab)
 		m.updateTabViewport(tab)
 		m.setStatusInfo("Settled shown.")
 	} else {
 		// Turn on: pin all active (non-settled) statuses, activate filter.
+		// Track which values are newly added so turn-off only removes those.
+		added := make(map[string]bool)
 		for _, status := range activeProjectStatuses {
-			togglePin(tab, col, status)
+			key := strings.ToLower(strings.TrimSpace(status))
+			if !isPinned(tab, col, status) {
+				addPin(tab, col, status)
+				added[key] = true
+			}
 		}
 		tab.FilterActive = true
+		tab.SettledHidden = true
+		tab.SettledPins = added
 		applyRowFilter(tab, m.magMode)
 		applySorts(tab)
 		m.updateTabViewport(tab)
@@ -1905,6 +1916,10 @@ func (m *Model) hideCurrentColumn() {
 	}
 	tab.Specs[col].HideOrder = nextHideOrder(tab.Specs)
 	// Clear any pins on the hidden column.
+	if tab.SettledHidden && col == statusColumnIndex(tab.Specs) {
+		tab.SettledHidden = false
+		tab.SettledPins = nil
+	}
 	clearPinsForColumn(tab, col)
 	if hasPins(tab) {
 		applyRowFilter(tab, m.magMode)

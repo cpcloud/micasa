@@ -207,6 +207,75 @@ func TestProjectStatusFilterToggleKeysReloadRows(t *testing.T) {
 	assert.False(t, m.activeTab().FilterActive, "filter should be inactive after second t")
 }
 
+func TestSettledFilterPreservesManualPins(t *testing.T) {
+	m := newTestModelWithStore(t)
+	types, _ := m.store.ProjectTypes()
+
+	// Create projects spanning active and settled statuses.
+	for _, p := range []data.Project{
+		{Title: "Live", ProjectTypeID: types[0].ID, Status: data.ProjectStatusInProgress},
+		{Title: "Done", ProjectTypeID: types[0].ID, Status: data.ProjectStatusCompleted},
+		{Title: "Plan", ProjectTypeID: types[0].ID, Status: data.ProjectStatusPlanned},
+	} {
+		require.NoError(t, m.store.CreateProject(p))
+	}
+
+	m.active = tabIndex(tabProjects)
+	require.NoError(t, m.reloadActiveTab())
+	tab := m.activeTab()
+	require.NotNil(t, tab)
+	require.Len(t, tab.Rows, 3, "expected 3 rows before any filtering")
+
+	col := statusColumnIndex(tab.Specs)
+	require.GreaterOrEqual(t, col, 0, "expected Status column")
+
+	// Manually pin "underway" (simulating the 'n' key on a status cell).
+	tab.ColCursor = col
+	// Find the row with "underway" status and position the cursor there.
+	underwayRow := -1
+	for i, cells := range tab.CellRows {
+		if len(cells) > col && cells[col].Value == data.ProjectStatusInProgress {
+			underwayRow = i
+			break
+		}
+	}
+	require.GreaterOrEqual(t, underwayRow, 0, "expected a row with underway status")
+	tab.Table.SetCursor(underwayRow)
+	sendKey(m, "n") // toggle pin at cursor → pins "underway"
+
+	require.True(t, isPinned(tab, col, data.ProjectStatusInProgress),
+		"underway should be pinned after manual n")
+	require.False(t, tab.SettledHidden, "SettledHidden should be false after manual pin")
+
+	// Press 't' to toggle the settled filter on.
+	sendKey(m, "t")
+	assert.True(t, tab.SettledHidden, "SettledHidden should be true after t")
+	assert.True(t, tab.FilterActive, "filter should be active after t")
+	// The manual pin must still be present.
+	assert.True(t, isPinned(tab, col, data.ProjectStatusInProgress),
+		"manual underway pin must survive settled toggle")
+	// Settled statuses should not appear in the filtered rows.
+	for i, cells := range tab.CellRows {
+		if len(cells) > col {
+			assert.NotEqual(t, data.ProjectStatusCompleted, cells[col].Value, "row %d", i)
+			assert.NotEqual(t, data.ProjectStatusAbandoned, cells[col].Value, "row %d", i)
+		}
+	}
+
+	// Press 't' again to turn off the settled filter.
+	sendKey(m, "t")
+	assert.False(t, tab.SettledHidden, "SettledHidden should be false after second t")
+	// The manual "underway" pin must still be present after turning settled off.
+	assert.True(t, isPinned(tab, col, data.ProjectStatusInProgress),
+		"manual underway pin must survive settled toggle off")
+	// The settled-shortcut pins (ideating, planned, quoted, delayed) should
+	// be removed.
+	assert.False(t, isPinned(tab, col, data.ProjectStatusIdeating),
+		"ideating should be unpinned after settled toggle off")
+	assert.False(t, isPinned(tab, col, data.ProjectStatusPlanned),
+		"planned should be unpinned after settled toggle off")
+}
+
 // ---------------------------------------------------------------------------
 // applianceHandler CRUD
 // ---------------------------------------------------------------------------

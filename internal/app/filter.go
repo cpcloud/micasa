@@ -42,11 +42,56 @@ func togglePin(tab *Tab, col int, value string) bool {
 	return true
 }
 
+// removeSettledPins removes only the pin values in tab.SettledPins from the
+// status column, preserving any manually pinned values. If no values remain
+// on the column, the column entry and filter state are cleaned up.
+func removeSettledPins(tab *Tab, col int) {
+	if len(tab.SettledPins) == 0 {
+		return
+	}
+	for i := range tab.Pins {
+		if tab.Pins[i].Col != col {
+			continue
+		}
+		for key := range tab.SettledPins {
+			delete(tab.Pins[i].Values, key)
+		}
+		if len(tab.Pins[i].Values) == 0 {
+			tab.Pins = append(tab.Pins[:i], tab.Pins[i+1:]...)
+			if len(tab.Pins) == 0 {
+				tab.FilterActive = false
+				tab.FilterInverted = false
+			}
+		}
+		return
+	}
+}
+
+// addPin ensures the given column+value is pinned. Unlike togglePin it never
+// removes an existing pin, making it safe when merging pins from different
+// sources (e.g. the settled shortcut layered on top of manual pins).
+func addPin(tab *Tab, col int, value string) {
+	key := strings.ToLower(strings.TrimSpace(value))
+	for i := range tab.Pins {
+		if tab.Pins[i].Col != col {
+			continue
+		}
+		tab.Pins[i].Values[key] = true
+		return
+	}
+	tab.Pins = append(tab.Pins, filterPin{
+		Col:    col,
+		Values: map[string]bool{key: true},
+	})
+}
+
 // clearPins removes all pins and deactivates the filter.
 func clearPins(tab *Tab) {
 	tab.Pins = nil
 	tab.FilterActive = false
 	tab.FilterInverted = false
+	tab.SettledHidden = false
+	tab.SettledPins = nil
 }
 
 // clearPinsForColumn removes pins on the given column. If no pins remain,
