@@ -598,8 +598,11 @@ func (m *Model) handleNormalEnter() error {
 			}
 			m.setStatusInfo("nothing to follow")
 		}
+		return nil
 	}
 
+	// On any other column, enter edit mode.
+	m.enterEditMode()
 	return nil
 }
 

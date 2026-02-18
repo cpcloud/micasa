@@ -560,8 +560,9 @@ func (m *Model) enterHint() string {
 		if c, ok := m.selectedCell(col); ok && c.LinkID > 0 {
 			return "follow " + linkArrow
 		}
+		return ""
 	}
-	return ""
+	return "edit"
 }
 
 // drilldownHint returns a short label for the drilldown target based on the
