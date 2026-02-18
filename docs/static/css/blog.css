@@ -196,14 +196,6 @@ body {
   border-bottom: 1px solid var(--rule);
 }
 
-.blog-post-body h3 {
-  font-family: "DM Serif Display", "Georgia", serif;
-  font-size: 1.15rem;
-  font-weight: 400;
-  line-height: 1.3;
-  margin: 2rem 0 0.75rem;
-}
-
 .heading-anchor {
   color: var(--warm-gray);
   text-decoration: none;
@@ -215,7 +207,6 @@ body {
 }
 
 .blog-post-body h2:hover .heading-anchor,
-.blog-post-body h3:hover .heading-anchor,
 .heading-anchor:focus {
   opacity: 1;
 }
@@ -247,67 +238,12 @@ body {
   font-weight: 600;
 }
 
-.blog-post-body blockquote {
-  border-left: 3px solid var(--terracotta);
-  background: var(--linen);
-  border-radius: 0 6px 6px 0;
-  padding: 0.75rem 1rem;
-  margin: 1.25rem 0;
-  color: var(--charcoal-soft);
-}
-
-.blog-post-body blockquote p {
-  margin-bottom: 0;
-}
-
-.blog-post-body hr {
-  border: none;
-  border-top: 1px solid var(--rule);
-  margin: 2rem 0;
-}
-
 .blog-post-body img {
   max-width: 100%;
   height: auto;
   border-radius: 8px;
   margin: 1rem 0 1.5rem;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-}
-
-/* Keystrokes */
-
-kbd {
-  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
-  font-size: 0.82em;
-  background: var(--linen);
-  border: 1px solid var(--rule);
-  border-radius: 4px;
-  padding: 0.1em 0.4em;
-  box-shadow: 0 1px 0 var(--rule);
-  white-space: nowrap;
-}
-
-/* Mode badges -- match terminal appearance */
-
-.mode-badge {
-  display: inline-block;
-  font-family: "JetBrains Mono", monospace;
-  font-size: 0.72em;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  padding: 0.1em 0.45em;
-  border-radius: 3px;
-  vertical-align: baseline;
-}
-
-.mode-nav {
-  background: var(--sage);
-  color: var(--cream);
-}
-
-.mode-edit {
-  background: var(--terracotta);
-  color: var(--cream);
 }
 
 /* Code */
