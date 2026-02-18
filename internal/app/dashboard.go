@@ -21,7 +21,6 @@ const (
 	dashSectionIncidents = "Incidents"
 	dashSectionOverdue   = "Overdue"
 	dashSectionUpcoming  = "Upcoming"
-	dashSectionMaint     = "Maintenance"
 	dashSectionProjects  = "Active Projects"
 	dashSectionExpiring  = "Expiring Soon"
 )

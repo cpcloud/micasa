@@ -46,7 +46,6 @@ type Styles struct {
 	DashSection      lipgloss.Style // dashboard section header
 	DashSectionWarn  lipgloss.Style // dashboard section header (overdue/warning)
 	DashSectionAlert lipgloss.Style // dashboard section header (incidents/attention)
-	DashSectionDim   lipgloss.Style // dashboard section header (unfocused)
 	DashRule         lipgloss.Style // dashboard horizontal rule
 	DashLabel        lipgloss.Style // dashboard dim label text
 	DashValue        lipgloss.Style // dashboard bright value text
@@ -230,9 +229,6 @@ func DefaultStyles() Styles {
 			Background(warning).
 			Padding(0, 1).
 			Bold(true),
-		DashSectionDim: lipgloss.NewStyle().
-			Foreground(textDim).
-			Padding(0, 1),
 		DashRule: lipgloss.NewStyle().
 			Foreground(border),
 		DashLabel: lipgloss.NewStyle().
