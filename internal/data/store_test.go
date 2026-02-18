@@ -603,9 +603,9 @@ func TestThreeLevelDeleteRestoreChain(t *testing.T) {
 	assert.Len(t, restoredLogs, 1)
 }
 
-func TestDeleteApplianceAllowedWithMaintenance(t *testing.T) {
+func TestDeleteApplianceBlockedByMaintenance(t *testing.T) {
 	store := newTestStore(t)
-	require.NoError(t, store.CreateAppliance(&Appliance{Name: "Deletable Fridge"}))
+	require.NoError(t, store.CreateAppliance(&Appliance{Name: "Guarded Fridge"}))
 	appliances, _ := store.ListAppliances(false)
 	appID := appliances[0].ID
 
@@ -614,6 +614,10 @@ func TestDeleteApplianceAllowedWithMaintenance(t *testing.T) {
 		Name: "Filter", CategoryID: cats[0].ID, IntervalMonths: 6, ApplianceID: &appID,
 	}))
 
+	require.ErrorContains(t, store.DeleteAppliance(appID), "active maintenance item")
+
+	items, _ := store.ListMaintenanceByAppliance(appID, false)
+	require.NoError(t, store.DeleteMaintenance(items[0].ID))
 	require.NoError(t, store.DeleteAppliance(appID))
 }
 
