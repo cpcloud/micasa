@@ -872,42 +872,6 @@ func TestRestoreServiceLogAllowedWithoutVendor(t *testing.T) {
 	require.NoError(t, store.RestoreServiceLog(logID))
 }
 
-func TestRestoreProjectBlockedByDeletedPreferredVendor(t *testing.T) {
-	store := newTestStore(t)
-	require.NoError(t, store.CreateVendor(&Vendor{Name: "Preferred Vendor"}))
-	vendors, _ := store.ListVendors(false)
-	vendorID := vendors[0].ID
-
-	types, _ := store.ProjectTypes()
-	require.NoError(t, store.CreateProject(&Project{
-		Title: "Vendor Project", ProjectTypeID: types[0].ID,
-		Status: ProjectStatusPlanned, PreferredVendorID: &vendorID,
-	}))
-	projects, _ := store.ListProjects(false)
-	projID := projects[0].ID
-
-	require.NoError(t, store.DeleteProject(projID))
-	require.NoError(t, store.DeleteVendor(vendorID))
-
-	require.ErrorContains(t, store.RestoreProject(projID), "preferred vendor is deleted")
-
-	require.NoError(t, store.RestoreVendor(vendorID))
-	require.NoError(t, store.RestoreProject(projID))
-}
-
-func TestRestoreProjectAllowedWithoutPreferredVendor(t *testing.T) {
-	store := newTestStore(t)
-	types, _ := store.ProjectTypes()
-	require.NoError(t, store.CreateProject(&Project{
-		Title: "No Vendor Project", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
-	}))
-	projects, _ := store.ListProjects(false)
-	projID := projects[0].ID
-
-	require.NoError(t, store.DeleteProject(projID))
-	require.NoError(t, store.RestoreProject(projID))
-}
-
 func TestVendorQuoteProjectDeleteRestoreChain(t *testing.T) {
 	store := newTestStore(t)
 

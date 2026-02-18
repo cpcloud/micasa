@@ -141,21 +141,19 @@ type Vendor struct {
 }
 
 type Project struct {
-	ID                uint `gorm:"primaryKey"`
-	Title             string
-	ProjectTypeID     uint
-	ProjectType       ProjectType `gorm:"constraint:OnDelete:RESTRICT;"`
-	Status            string
-	Description       string
-	StartDate         *time.Time
-	EndDate           *time.Time
-	BudgetCents       *int64
-	ActualCents       *int64
-	PreferredVendorID *uint
-	PreferredVendor   Vendor `gorm:"constraint:OnDelete:SET NULL;"`
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
-	DeletedAt         gorm.DeletedAt `gorm:"index"`
+	ID            uint `gorm:"primaryKey"`
+	Title         string
+	ProjectTypeID uint
+	ProjectType   ProjectType `gorm:"constraint:OnDelete:RESTRICT;"`
+	Status        string
+	Description   string
+	StartDate     *time.Time
+	EndDate       *time.Time
+	BudgetCents   *int64
+	ActualCents   *int64
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	DeletedAt     gorm.DeletedAt `gorm:"index"`
 }
 
 type Quote struct {

@@ -566,10 +566,7 @@ func (s *Store) ListServiceLogsByVendor(
 
 func (s *Store) ListProjects(includeDeleted bool) ([]Project, error) {
 	var projects []Project
-	db := s.db.Preload("ProjectType").Preload("PreferredVendor", func(q *gorm.DB) *gorm.DB {
-		return q.Unscoped()
-	})
-	db = db.Order(ColUpdatedAt + " desc")
+	db := s.db.Preload("ProjectType").Order(ColUpdatedAt + " desc")
 	if includeDeleted {
 		db = db.Unscoped()
 	}
@@ -632,9 +629,7 @@ func (s *Store) ListMaintenanceByAppliance(
 
 func (s *Store) GetProject(id uint) (Project, error) {
 	var project Project
-	err := s.db.Preload("ProjectType").Preload("PreferredVendor", func(q *gorm.DB) *gorm.DB {
-		return q.Unscoped()
-	}).First(&project, id).Error
+	err := s.db.Preload("ProjectType").First(&project, id).Error
 	return project, err
 }
 
@@ -1127,11 +1122,6 @@ func (s *Store) RestoreProject(id uint) error {
 	var project Project
 	if err := s.db.Unscoped().First(&project, id).Error; err != nil {
 		return err
-	}
-	if project.PreferredVendorID != nil {
-		if err := s.requireParentAlive(&Vendor{}, *project.PreferredVendorID); err != nil {
-			return parentRestoreError("preferred vendor", err)
-		}
 	}
 	return s.restoreEntity(&Project{}, DeletionEntityProject, id)
 }
