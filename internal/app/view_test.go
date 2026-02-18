@@ -786,40 +786,47 @@ func TestPinSummaryNotInStatusHints(t *testing.T) {
 		"pin summary should not appear in status hints")
 }
 
-func TestFilterDotAppearsOnTabRow(t *testing.T) {
-	m := newTestModel()
+func TestFilterIndicatorOnTabRow(t *testing.T) {
+	m, tab := newFilterModel()
 	m.width = 120
 	m.height = 40
-	tab := m.activeTab()
-	require.NotNil(t, tab)
 
-	// No filter: no dot in the tab row.
+	// No pins — no indicator.
 	tabs := m.tabsView()
-	assert.NotContains(t, tabs, filterMark)
+	assert.NotContains(t, tabs, filterMarkActive)
+	assert.NotContains(t, tabs, filterMarkPreview)
 
-	// Activate filter: dot appears.
-	tab.FilterActive = true
+	// User pins a value: preview indicator ▽.
+	sendKey(m, "n")
+	require.True(t, len(tab.Pins) > 0)
 	tabs = m.tabsView()
-	assert.Contains(t, tabs, filterMark)
-}
+	assert.Contains(t, tabs, filterMarkPreview)
 
-func TestFilterInvertedIndicatorOnTabRow(t *testing.T) {
-	m := newTestModel()
-	m.width = 120
-	m.height = 40
-	tab := m.activeTab()
-	require.NotNil(t, tab)
-
-	// Normal filter shows ◀.
-	tab.FilterActive = true
-	tabs := m.tabsView()
-	assert.Contains(t, tabs, filterMark)
-	assert.NotContains(t, tabs, filterMarkInverted)
-
-	// Inverted filter shows ▶ instead.
-	tab.FilterInverted = true
+	// User activates filter (N): active indicator ▼.
+	sendKey(m, "N")
+	require.True(t, tab.FilterActive)
 	tabs = m.tabsView()
-	assert.Contains(t, tabs, filterMarkInverted)
+	assert.Contains(t, tabs, filterMarkActive)
+
+	// User inverts (!): active+inverted indicator ▲.
+	sendKey(m, "!")
+	require.True(t, tab.FilterInverted)
+	tabs = m.tabsView()
+	assert.Contains(t, tabs, filterMarkActiveInverted)
+
+	// User deactivates filter (N): preview+inverted indicator △.
+	sendKey(m, "N")
+	require.False(t, tab.FilterActive)
+	tabs = m.tabsView()
+	assert.Contains(t, tabs, filterMarkPreviewInverted)
+
+	// User clears pins (ctrl+n): no indicator.
+	sendKey(m, keyCtrlN)
+	tabs = m.tabsView()
+	assert.NotContains(t, tabs, filterMarkActive)
+	assert.NotContains(t, tabs, filterMarkActiveInverted)
+	assert.NotContains(t, tabs, filterMarkPreview)
+	assert.NotContains(t, tabs, filterMarkPreviewInverted)
 }
 
 func TestHelpContentIncludesInvertFilter(t *testing.T) {

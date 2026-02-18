@@ -18,11 +18,13 @@ import (
 var defaultStyle = lipgloss.NewStyle()
 
 const (
-	linkArrow          = "→"   // FK link to another tab
-	drilldownArrow     = "↘"   // opens a detail sub-table
-	breadcrumbSep      = " › " // delimiter used in breadcrumb strings
-	filterMark         = "◀"   // left-pointing triangle shown between tabs when filter is active
-	filterMarkInverted = "◁"   // hollow left-pointing triangle shown when filter is inverted
+	linkArrow                 = "→"   // FK link to another tab
+	drilldownArrow            = "↘"   // opens a detail sub-table
+	breadcrumbSep             = " › " // delimiter used in breadcrumb strings
+	filterMarkActive          = "▼"   // filled down: active filter, normal
+	filterMarkActiveInverted  = "▲"   // filled up: active filter, inverted
+	filterMarkPreview         = "▽"   // hollow down: preview (pinned), normal
+	filterMarkPreviewInverted = "△"   // hollow up: preview (pinned), inverted
 )
 
 // visibleProjection computes the visible-only view of a tab's columns and data.

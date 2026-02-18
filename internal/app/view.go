@@ -193,14 +193,20 @@ func (m *Model) tabsView() string {
 		} else {
 			parts = append(parts, m.styles.TabInactive.Render(tab.Name))
 		}
-		// Gap between tabs: when a filter is active on this tab, show
-		// a triangle with a space on each side so it doesn't crowd either tab.
-		// ◀ = normal filter (filled), ◁ = inverted filter (hollow).
-		if tab.FilterActive {
-			mark := filterMark
-			if tab.FilterInverted {
-				mark = filterMarkInverted
-			}
+		// Gap between tabs: triangle indicates filter state.
+		// Filled/hollow = active/preview, down/up = normal/inverted.
+		var mark string
+		switch {
+		case tab.FilterActive && tab.FilterInverted:
+			mark = filterMarkActiveInverted
+		case tab.FilterActive:
+			mark = filterMarkActive
+		case tab.FilterInverted:
+			mark = filterMarkPreviewInverted
+		case len(tab.Pins) > 0:
+			mark = filterMarkPreview
+		}
+		if mark != "" {
 			parts = append(parts, " "+m.styles.FilterMark.Render(mark)+" ")
 		} else {
 			parts = append(parts, "   ")
