@@ -183,7 +183,7 @@
               cp images/favicon.svg docs/static/images/favicon.svg
               cp images/demo.webp docs/static/images/demo.webp
               rm -rf website
-              hugo --source docs --destination ../website
+              hugo --source docs --destination ../website --minify
             '';
           };
           website = pkgs.writeShellApplication {

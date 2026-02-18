@@ -74,7 +74,7 @@ Full docs at [micasa.dev/docs](https://micasa.dev/docs/) -- start with [Installa
 
 ## Development
 
-[Pure Go](https://go.dev), zero CGO. Built on [Charmbracelet](https://github.com/charmbracelet) + [GORM](https://gorm.io) + [SQLite](https://sqlite.org). Developed with AI coding agents ([Claude](https://claude.ai), [Claude Code](https://claude.ai/code)).
+[Pure Go](https://go.dev), zero CGO. Built on [Charmbracelet](https://github.com/charmbracelet) + [GORM](https://gorm.io) + [SQLite](https://sqlite.org). TUI design inspired by [VisiData](https://www.visidata.org/) -- modal navigation, column-level operations, and keyboard-driven data exploration. Developed with AI coding agents ([Claude](https://claude.ai), [Claude Code](https://claude.ai/code)).
 
 PRs welcome -- including AI-assisted ones, as long as you've reviewed and curated the code. See the [contributing guide](https://micasa.dev/docs/development/contributing/) for details. The repo uses a [Nix](https://nixos.org) dev shell with pre-commit hooks for formatting, linting, and tests:
 
