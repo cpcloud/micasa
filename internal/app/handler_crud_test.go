@@ -217,7 +217,7 @@ func TestSettledFilterPreservesManualPins(t *testing.T) {
 		{Title: "Done", ProjectTypeID: types[0].ID, Status: data.ProjectStatusCompleted},
 		{Title: "Plan", ProjectTypeID: types[0].ID, Status: data.ProjectStatusPlanned},
 	} {
-		require.NoError(t, m.store.CreateProject(p))
+		require.NoError(t, m.store.CreateProject(&p))
 	}
 
 	m.active = tabIndex(tabProjects)
