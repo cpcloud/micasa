@@ -601,8 +601,7 @@ func (m *Model) handleNormalEnter() error {
 		return nil
 	}
 
-	// On any other column, enter edit mode.
-	m.enterEditMode()
+	m.setStatusInfo("i to edit")
 	return nil
 }
 

@@ -69,7 +69,7 @@ func TestEnterEditMode(t *testing.T) {
 	assert.Contains(t, m.statusView(), "EDIT")
 }
 
-func TestEnterOnPlainColumnShowsHintAndEdits(t *testing.T) {
+func TestEnterOnPlainColumnShowsGuidance(t *testing.T) {
 	m := newTestModel()
 	m.showDashboard = false
 	tab := m.effectiveTab()
@@ -78,12 +78,11 @@ func TestEnterOnPlainColumnShowsHintAndEdits(t *testing.T) {
 	tab.ColCursor = 1
 	require.Equal(t, cellText, tab.Specs[1].Kind, "column 1 should be a plain text column")
 
-	// Status bar should show an "edit" hint for enter.
-	assert.Contains(t, m.statusView(), "edit", "enter hint should show on plain column")
-
-	// Pressing enter on a plain column should switch to edit mode.
+	// Pressing enter on a plain column should NOT enter edit mode,
+	// but should show guidance in the status bar.
 	sendKey(m, "enter")
-	assert.Equal(t, modeEdit, m.mode, "enter on plain column should enter edit mode")
+	assert.Equal(t, modeNormal, m.mode, "enter on plain column should stay in normal mode")
+	assert.Contains(t, m.status.Text, "i to edit", "status should guide user to press i")
 }
 
 func TestExitEditModeWithEsc(t *testing.T) {
