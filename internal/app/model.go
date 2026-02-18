@@ -686,6 +686,9 @@ func (m *Model) handleCalendarKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.confirmCalendar()
 	case keyEsc:
 		m.calendar = nil
+		m.formKind = formNone
+		m.formData = nil
+		m.editID = nil
 	}
 	return m, nil
 }

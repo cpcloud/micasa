@@ -148,6 +148,33 @@ func TestCalendarEscCancels(t *testing.T) {
 	assert.Equal(t, testDate, dateVal)
 }
 
+func TestDatePickerEscClearsFormState(t *testing.T) {
+	m := newTestModel()
+	dateVal := testDate
+	id := uint(42)
+
+	// Simulate what openDatePicker does: set form state then open calendar.
+	m.editID = &id
+	m.formKind = formMaintenance
+	m.formData = "dummy"
+	m.openCalendar(&dateVal, nil)
+	require.NotNil(t, m.calendar)
+
+	// Preconditions: form state is set.
+	require.NotNil(t, m.editID)
+	require.Equal(t, formMaintenance, m.formKind)
+	require.NotNil(t, m.formData)
+
+	// Press ESC to cancel.
+	sendKey(m, "esc")
+
+	assert.Nil(t, m.calendar, "calendar should be dismissed")
+	assert.Equal(t, formNone, m.formKind, "formKind should be reset after ESC")
+	assert.Nil(t, m.formData, "formData should be cleared after ESC")
+	assert.Nil(t, m.editID, "editID should be cleared after ESC")
+	assert.Equal(t, testDate, dateVal, "date value should be unchanged on cancel")
+}
+
 func TestCalendarRendersInView(t *testing.T) {
 	m := newTestModel()
 	m.width = 120
