@@ -1399,5 +1399,10 @@ func findOrCreateVendor(tx *gorm.DB, vendor Vendor) (Vendor, error) {
 	if err := tx.Model(&existing).Updates(updates).Error; err != nil {
 		return Vendor{}, err
 	}
+	// Re-read so the returned struct reflects the persisted state,
+	// not the potentially stale snapshot from the initial First query.
+	if err := tx.First(&existing, existing.ID).Error; err != nil {
+		return Vendor{}, err
+	}
 	return existing, nil
 }

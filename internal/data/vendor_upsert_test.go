@@ -86,6 +86,33 @@ func TestFindOrCreateVendorExistingWithUpdates(t *testing.T) {
 	assert.Equal(t, "great vendor", reloaded.Notes)
 }
 
+func TestFindOrCreateVendorReturnedValueReflectsUpdates(t *testing.T) {
+	db := openTestDB(t)
+	require.NoError(t, db.Create(&Vendor{
+		Name:  "Stale Co",
+		Phone: "111",
+		Email: "old@stale.co",
+	}).Error)
+
+	// The returned vendor must carry the new contact fields, not the
+	// pre-update values from the initial lookup.
+	v, err := findOrCreateVendor(db, Vendor{
+		Name:        "Stale Co",
+		Phone:       "222",
+		Email:       "new@stale.co",
+		ContactName: "Bob",
+		Website:     "https://stale.co",
+		Notes:       "updated notes",
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, "222", v.Phone, "returned vendor should have updated phone")
+	assert.Equal(t, "new@stale.co", v.Email, "returned vendor should have updated email")
+	assert.Equal(t, "Bob", v.ContactName, "returned vendor should have updated contact name")
+	assert.Equal(t, "https://stale.co", v.Website, "returned vendor should have updated website")
+	assert.Equal(t, "updated notes", v.Notes, "returned vendor should have updated notes")
+}
+
 func TestFindOrCreateVendorEmptyNameReturnsError(t *testing.T) {
 	db := openTestDB(t)
 	_, err := findOrCreateVendor(db, Vendor{Name: ""})
