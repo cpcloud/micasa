@@ -377,6 +377,72 @@ func TestCloseAllDetailsCollapsesStack(t *testing.T) {
 	assert.Equal(t, tabIndex(tabAppliances), m.active)
 }
 
+func TestCloseAllDetailsDeepStackFinalState(t *testing.T) {
+	// Push a two-level detail stack (Appliance -> Maintenance -> Service Log)
+	// and verify closeAllDetails restores the correct top-level state in a
+	// single operation.
+	m := newTestModelWithDemoData(t, testSeed)
+	m.active = tabIndex(tabAppliances)
+	tab := m.activeTab()
+	require.NotNil(t, tab)
+
+	appliances, err := m.store.ListAppliances(false)
+	require.NoError(t, err)
+	require.NotEmpty(t, appliances)
+
+	// Find an appliance with maintenance items so nested drilldown works.
+	var applianceID uint
+	var items []data.MaintenanceItem
+	for _, a := range appliances {
+		items, err = m.store.ListMaintenanceByAppliance(a.ID, false)
+		require.NoError(t, err)
+		if len(items) > 0 {
+			applianceID = a.ID
+			break
+		}
+	}
+	require.NotEmpty(t, items)
+
+	// Level 1: Appliance -> Maintenance
+	require.NoError(t, m.openDetailForRow(tab, applianceID, "Maint"))
+	require.Len(t, m.detailStack, 1)
+
+	// Reload so rows are populated for the nested drilldown.
+	require.NoError(t, m.reloadDetailTab())
+
+	// Level 2: Maintenance -> Service Log
+	detailTab := &m.detail().Tab
+	require.NoError(t, m.openDetailForRow(detailTab, items[0].ID, "Log"))
+	require.Len(t, m.detailStack, 2)
+
+	// Set a status to confirm it gets cleared.
+	m.status = statusMsg{Text: "should be cleared", Kind: statusInfo}
+
+	m.closeAllDetails()
+
+	assert.False(t, m.inDetail(), "detail stack should be empty")
+	assert.Equal(t, tabIndex(tabAppliances), m.active, "should return to Appliances tab")
+	assert.Equal(t, statusMsg{}, m.status, "status should be cleared")
+
+	// The active tab should have loaded rows (reload happened).
+	activeTab := m.activeTab()
+	require.NotNil(t, activeTab)
+	assert.NotEmpty(t, activeTab.Rows, "active tab should have rows after reload")
+}
+
+func TestCloseAllDetailsNoopOnEmptyStack(t *testing.T) {
+	m := newTestModel()
+	m.active = tabIndex(tabProjects)
+	m.status = statusMsg{Text: "keep me", Kind: statusInfo}
+
+	m.closeAllDetails()
+
+	// Nothing should change.
+	assert.Equal(t, tabIndex(tabProjects), m.active)
+	assert.False(t, m.inDetail())
+	assert.Equal(t, "keep me", m.status.Text, "status should be preserved when stack is empty")
+}
+
 func TestBreadcrumbsMultiLevel(t *testing.T) {
 	m := newTestModel()
 	m.width = 120
