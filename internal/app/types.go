@@ -103,8 +103,9 @@ type Tab struct {
 	Stale       bool // true when data may be outdated; cleared on reload
 
 	// Pin-and-filter state.
-	Pins         []filterPin // active pins; AND across columns, OR within
-	FilterActive bool        // true = non-matching rows hidden; false = preview only
+	Pins           []filterPin // active pins; AND across columns, OR within
+	FilterActive   bool        // true = non-matching rows hidden; false = preview only
+	FilterInverted bool        // true = show rows that DON'T match instead of rows that do
 
 	// Full data (pre-row-filter). Populated by reloadTab after project status
 	// filtering. Row filter operates on these without hitting the DB.

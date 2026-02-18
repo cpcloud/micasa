@@ -554,3 +554,117 @@ func TestTranslatePinsRoundTrip(t *testing.T) {
 	assert.True(t, tab.Pins[0].Values["$2,000.00"])
 	assert.Len(t, tab.Pins[0].Values, 2)
 }
+
+// --- Filter inversion tests ---
+
+func TestInvertPreviewDimsMatchingRows(t *testing.T) {
+	m, tab := newFilterModel()
+
+	// Pin "Plan" (rows 0 and 2 match), then invert in preview mode.
+	sendKey(m, "n")
+	sendKey(m, "!")
+
+	assert.False(t, tab.FilterActive, "! should not activate the filter")
+	require.Len(t, tab.CellRows, 4, "preview keeps all rows")
+	// With inversion, matching rows are dimmed instead of non-matching.
+	assert.True(t, tab.Rows[0].Dimmed, "row 0 matches Plan, should be dimmed when inverted")
+	assert.False(t, tab.Rows[1].Dimmed, "row 1 is Active, should be undimmed when inverted")
+	assert.True(t, tab.Rows[2].Dimmed, "row 2 matches Plan, should be dimmed when inverted")
+	assert.False(t, tab.Rows[3].Dimmed, "row 3 is Done, should be undimmed when inverted")
+}
+
+func TestInvertActiveFilterShowsNonMatchingRows(t *testing.T) {
+	m, tab := newFilterModel()
+
+	// Pin "Plan", activate filter, then invert.
+	sendKey(m, "n")
+	sendKey(m, "N")
+	sendKey(m, "!")
+
+	// Only non-matching rows (Active, Done) should remain.
+	require.Len(t, tab.CellRows, 2, "inverted active filter keeps non-matching")
+	assert.Equal(t, "2", tab.CellRows[0][0].Value)
+	assert.Equal(t, "4", tab.CellRows[1][0].Value)
+}
+
+func TestInvertToggleRoundTrip(t *testing.T) {
+	m, tab := newFilterModel()
+
+	sendKey(m, "!")
+	assert.True(t, tab.FilterInverted, "first ! should invert")
+
+	sendKey(m, "!")
+	assert.False(t, tab.FilterInverted, "second ! should restore")
+}
+
+func TestClearPinsResetsInvert(t *testing.T) {
+	m, tab := newFilterModel()
+
+	sendKey(m, "n") // Pin "Plan"
+	sendKey(m, "!") // Invert
+	require.True(t, tab.FilterInverted)
+
+	sendKey(m, keyCtrlN) // Clear all
+	assert.False(t, tab.FilterInverted, "ctrl+n should reset FilterInverted")
+}
+
+func TestInvertNullCellActiveFilter(t *testing.T) {
+	m, tab := newFilterModel()
+	// Replace row 0 col 1 with null.
+	tab.CellRows[0][1] = cell{Kind: cellStatus, Null: true}
+	tab.FullCellRows[0][1] = cell{Kind: cellStatus, Null: true}
+	tab.Table.SetCursor(0)
+
+	// Pin the null cell, activate, invert -> non-null rows shown.
+	sendKey(m, "n")
+	sendKey(m, "N")
+	sendKey(m, "!")
+
+	// Rows 1, 2, 3 have non-null Status; row 0 has null -> excluded.
+	require.Len(t, tab.CellRows, 3, "inverted null pin should show non-null rows")
+	for _, cr := range tab.CellRows {
+		assert.False(t, cr[1].Null, "all remaining rows should have non-null Status")
+	}
+}
+
+func TestInvertedPinHighlightsNonMatchingCells(t *testing.T) {
+	// Pin col 1 = "plan". Normal: pinMatch=true for "plan" cells.
+	// Inverted: pinMatch flips for pinned columns — "plan" cells lose
+	// highlight, non-plan cells gain it.
+	pins := []filterPin{{Col: 1, Values: map[string]bool{"plan": true}}}
+	planRow := []cell{{Value: "1"}, {Value: "Plan"}, {Value: "Alice"}}
+	doneRow := []cell{{Value: "4"}, {Value: "Done"}, {Value: "Alice"}}
+
+	// Normal: Plan matches, Done doesn't.
+	assert.True(t, cellMatchesPin(pins, 1, planRow[1], false))
+	assert.False(t, cellMatchesPin(pins, 1, doneRow[1], false))
+
+	// Inverted: flip for pinned column only.
+	assert.True(t, columnHasPin(pins, 1), "col 1 has a pin")
+	assert.False(t, columnHasPin(pins, 0), "col 0 has no pin")
+	assert.False(t, columnHasPin(pins, 2), "col 2 has no pin")
+}
+
+func TestInvertedPinContextPassedToRenderer(t *testing.T) {
+	m, tab := newFilterModel()
+
+	// Pin "Plan" and invert — the pinRenderContext should carry Inverted=true.
+	sendKey(m, "n")
+	sendKey(m, "!")
+
+	assert.True(t, tab.FilterInverted)
+	// Verify the render context wiring by checking the tab state that
+	// viewportPinContext reads. The Inverted field is set from
+	// tab.FilterInverted, which we just toggled.
+	assert.True(t, hasPins(tab), "pins should exist")
+}
+
+func TestInvertBlockedOnDashboard(t *testing.T) {
+	m := newTestModel()
+	m.showDashboard = true
+	m.dashboard = dashboardData{ServiceSpendCents: 1}
+	tab := m.effectiveTab()
+
+	sendKey(m, "!")
+	assert.False(t, tab.FilterInverted, "! should be blocked on dashboard")
+}

@@ -194,10 +194,14 @@ func (m *Model) tabsView() string {
 			parts = append(parts, m.styles.TabInactive.Render(tab.Name))
 		}
 		// Gap between tabs: when a filter is active on this tab, show
-		// a left-pointing triangle (pointing back at the tab it applies
-		// to) with a space on each side so it doesn't crowd either tab.
+		// a triangle with a space on each side so it doesn't crowd either tab.
+		// ◀ = normal filter (filled), ◁ = inverted filter (hollow).
 		if tab.FilterActive {
-			parts = append(parts, " "+m.styles.FilterMark.Render(filterMark)+" ")
+			mark := filterMark
+			if tab.FilterInverted {
+				mark = filterMarkInverted
+			}
+			parts = append(parts, " "+m.styles.FilterMark.Render(mark)+" ")
 		} else {
 			parts = append(parts, "   ")
 		}
@@ -694,6 +698,7 @@ func (m *Model) helpContent() string {
 				{"c/C", "Toggle column visibility"},
 				{"N", "Toggle filter"},
 				{"n", "Pin/unpin"},
+				{"!", "Invert filter"},
 				{keyCtrlN, "Clear pins and filter"},
 				{"enter", drilldownArrow + " drill / " + linkArrow + " follow / preview"},
 				{"tab", "House profile"},
@@ -927,6 +932,7 @@ func (m *Model) viewportPinContext(tab *Tab, vp tableViewport) pinRenderContext 
 		Pins:     translated,
 		RawCells: vp.Cells,
 		MagMode:  m.magMode,
+		Inverted: tab.FilterInverted,
 	}
 }
 

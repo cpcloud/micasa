@@ -18,10 +18,11 @@ import (
 var defaultStyle = lipgloss.NewStyle()
 
 const (
-	linkArrow      = "→"   // FK link to another tab
-	drilldownArrow = "↘"   // opens a detail sub-table
-	breadcrumbSep  = " › " // delimiter used in breadcrumb strings
-	filterMark     = "◀"   // left-pointing triangle shown between tabs when filter is active
+	linkArrow          = "→"   // FK link to another tab
+	drilldownArrow     = "↘"   // opens a detail sub-table
+	breadcrumbSep      = " › " // delimiter used in breadcrumb strings
+	filterMark         = "◀"   // left-pointing triangle shown between tabs when filter is active
+	filterMarkInverted = "◁"   // hollow left-pointing triangle shown when filter is inverted
 )
 
 // visibleProjection computes the visible-only view of a tab's columns and data.
@@ -306,6 +307,7 @@ type pinRenderContext struct {
 	Pins     []filterPin // nil when no pins are active
 	RawCells [][]cell    // pre-transform cells for pin matching (viewport coords)
 	MagMode  bool        // true when magnitude display is active
+	Inverted bool        // true when filter is inverted (highlight non-matching)
 }
 
 func renderRows(
@@ -404,11 +406,25 @@ func renderRow(
 				rawCell = pinCtx.RawCells[rowIdx][i]
 			}
 			pinMatch = cellMatchesPin(pinCtx.Pins, i, rawCell, pinCtx.MagMode)
+			// When inverted, highlight non-matching cells in pinned columns.
+			if pinCtx.Inverted && columnHasPin(pinCtx.Pins, i) {
+				pinMatch = !pinMatch
+			}
 		}
 		rendered := renderCell(cellValue, spec, width, hl, deleted, dimmed, pinMatch, styles)
 		cells = append(cells, rendered)
 	}
 	return joinCells(cells, separators)
+}
+
+// columnHasPin reports whether any pin targets the given column index.
+func columnHasPin(pins []filterPin, col int) bool {
+	for _, pin := range pins {
+		if pin.Col == col {
+			return true
+		}
+	}
+	return false
 }
 
 // cellMatchesPin checks if a cell matches any pinned value for its column

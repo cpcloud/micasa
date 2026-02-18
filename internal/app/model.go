@@ -368,7 +368,7 @@ func (m *Model) handleDashboardKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 	case "h", "l", "left", "right":
 		// Block column movement on dashboard.
 		return nil, true
-	case "s", "S", "c", "C", "i", "/", "n", "N":
+	case "s", "S", "c", "C", "i", "/", "n", "N", "!":
 		// Block table-specific keys on dashboard.
 		return nil, true
 	}
@@ -473,6 +473,9 @@ func (m *Model) handleNormalKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 		return nil, true
 	case keyCtrlN:
 		m.clearAllPins()
+		return nil, true
+	case "!":
+		m.toggleFilterInvert()
 		return nil, true
 	case "s":
 		if tab := m.effectiveTab(); tab != nil {
@@ -1789,6 +1792,24 @@ func (m *Model) clearAllPins() {
 	applySorts(tab)
 	m.updateTabViewport(tab)
 	m.setStatusInfo("Pins cleared.")
+}
+
+func (m *Model) toggleFilterInvert() {
+	tab := m.effectiveTab()
+	if tab == nil {
+		return
+	}
+	tab.FilterInverted = !tab.FilterInverted
+	if hasPins(tab) {
+		applyRowFilter(tab, m.magMode)
+		applySorts(tab)
+		m.updateTabViewport(tab)
+	}
+	if tab.FilterInverted {
+		m.setStatusInfo("Filter inverted.")
+	} else {
+		m.setStatusInfo("Filter normal.")
+	}
 }
 
 func (m *Model) hideCurrentColumn() {

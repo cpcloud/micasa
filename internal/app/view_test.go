@@ -803,6 +803,31 @@ func TestFilterDotAppearsOnTabRow(t *testing.T) {
 	assert.Contains(t, tabs, filterMark)
 }
 
+func TestFilterInvertedIndicatorOnTabRow(t *testing.T) {
+	m := newTestModel()
+	m.width = 120
+	m.height = 40
+	tab := m.activeTab()
+	require.NotNil(t, tab)
+
+	// Normal filter shows ◀.
+	tab.FilterActive = true
+	tabs := m.tabsView()
+	assert.Contains(t, tabs, filterMark)
+	assert.NotContains(t, tabs, filterMarkInverted)
+
+	// Inverted filter shows ▶ instead.
+	tab.FilterInverted = true
+	tabs = m.tabsView()
+	assert.Contains(t, tabs, filterMarkInverted)
+}
+
+func TestHelpContentIncludesInvertFilter(t *testing.T) {
+	m := newTestModel()
+	help := m.helpContent()
+	assert.Contains(t, help, "Invert filter")
+}
+
 func TestDeletedHintProminentWhenShowDeleted(t *testing.T) {
 	m := newTestModel()
 	m.width = 200

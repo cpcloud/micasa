@@ -46,6 +46,7 @@ func togglePin(tab *Tab, col int, value string) bool {
 func clearPins(tab *Tab) {
 	tab.Pins = nil
 	tab.FilterActive = false
+	tab.FilterInverted = false
 }
 
 // clearPinsForColumn removes pins on the given column. If no pins remain,
@@ -59,6 +60,7 @@ func clearPinsForColumn(tab *Tab, col int) {
 	}
 	if len(tab.Pins) == 0 {
 		tab.FilterActive = false
+		tab.FilterInverted = false
 	}
 }
 
@@ -105,12 +107,13 @@ func applyRowFilter(tab *Tab, magMode bool) {
 	}
 
 	if tab.FilterActive {
-		// Active filter: only keep matching rows.
+		// Active filter: only keep rows that satisfy the pin+invert predicate.
 		var filteredRows []table.Row
 		var filteredMeta []rowMeta
 		var filteredCells [][]cell
 		for i := range tab.FullCellRows {
-			if matchesAllPins(tab.FullCellRows[i], tab.Pins, magMode) {
+			// XOR: when inverted, keep non-matching rows instead.
+			if matchesAllPins(tab.FullCellRows[i], tab.Pins, magMode) != tab.FilterInverted {
 				filteredRows = append(filteredRows, tab.FullRows[i])
 				filteredMeta = append(filteredMeta, tab.FullMeta[i])
 				filteredCells = append(filteredCells, tab.FullCellRows[i])
@@ -122,10 +125,11 @@ func applyRowFilter(tab *Tab, magMode bool) {
 		return
 	}
 
-	// Preview mode: keep all rows, mark non-matching as dimmed.
+	// Preview mode: keep all rows, dim those that would be filtered out.
 	meta := copyMeta(tab.FullMeta)
 	for i := range tab.FullCellRows {
-		if !matchesAllPins(tab.FullCellRows[i], tab.Pins, magMode) {
+		// XOR: when inverted, matching rows are dimmed instead.
+		if matchesAllPins(tab.FullCellRows[i], tab.Pins, magMode) == tab.FilterInverted {
 			meta[i].Dimmed = true
 		}
 	}
