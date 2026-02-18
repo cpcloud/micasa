@@ -407,6 +407,26 @@ func TestPinSummary(t *testing.T) {
 	assert.Contains(t, s, "plan")
 }
 
+func TestPinSummaryDeterministic(t *testing.T) {
+	tab := newFilterTab()
+	togglePin(tab, 1, "plan")
+	togglePin(tab, 1, "active")
+	togglePin(tab, 1, "done")
+
+	first := pinSummary(tab)
+	require.NotEmpty(t, first)
+
+	// With three values in a map, nondeterministic iteration will almost
+	// certainly produce a different ordering within 100 calls.
+	for range 100 {
+		assert.Equal(t, first, pinSummary(tab),
+			"pinSummary must be deterministic across calls")
+	}
+
+	// Verify the values are sorted lexicographically.
+	assert.Equal(t, "Status: active, done, plan", first)
+}
+
 func TestPinSummaryEmpty(t *testing.T) {
 	tab := newFilterTab()
 	assert.Equal(t, "", pinSummary(tab))

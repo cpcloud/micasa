@@ -4,6 +4,7 @@
 package app
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/table"
@@ -241,6 +242,7 @@ func pinSummary(tab *Tab) string {
 				vals = append(vals, v)
 			}
 		}
+		sort.Strings(vals)
 		parts = append(parts, colName+": "+strings.Join(vals, ", "))
 	}
 	return strings.Join(parts, " · ")
