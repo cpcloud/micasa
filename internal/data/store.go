@@ -642,8 +642,13 @@ func (s *Store) CreateProject(project *Project) error {
 	return s.db.Create(project).Error
 }
 
+// UpdateProject persists changes to a project. PreferredVendorID is omitted so
+// that form edits (which don't carry the FK) don't null the vendor association.
 func (s *Store) UpdateProject(project Project) error {
-	return s.updateByID(&Project{}, project.ID, project)
+	return s.db.Model(&Project{}).Where(ColID+" = ?", project.ID).
+		Select("*").
+		Omit(ColID, ColCreatedAt, ColDeletedAt, ColPreferredVendorID).
+		Updates(project).Error
 }
 
 func (s *Store) GetQuote(id uint) (Quote, error) {

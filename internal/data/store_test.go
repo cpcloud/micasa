@@ -129,6 +129,42 @@ func TestUpdateProject(t *testing.T) {
 	assert.Equal(t, ProjectStatusInProgress, fetched.Status)
 }
 
+func TestUpdateProjectPreservesPreferredVendorID(t *testing.T) {
+	store := newTestStore(t)
+	require.NoError(t, store.CreateVendor(&Vendor{Name: "Fix-It Pros"}))
+	vendors, err := store.ListVendors(false)
+	require.NoError(t, err)
+	require.Len(t, vendors, 1)
+	vendorID := vendors[0].ID
+
+	types, err := store.ProjectTypes()
+	require.NoError(t, err)
+	require.NoError(t, store.CreateProject(&Project{
+		Title: "Roof Repair", ProjectTypeID: types[0].ID,
+		Status: ProjectStatusPlanned, PreferredVendorID: &vendorID,
+	}))
+	projects, err := store.ListProjects(false)
+	require.NoError(t, err)
+	require.Len(t, projects, 1)
+	id := projects[0].ID
+
+	// Simulate a form edit that doesn't carry PreferredVendorID.
+	require.NoError(t, store.UpdateProject(Project{
+		ID: id, Title: "Roof Repair (updated)", ProjectTypeID: types[0].ID,
+		Status: ProjectStatusPlanned,
+	}))
+
+	fetched, err := store.GetProject(id)
+	require.NoError(t, err)
+	assert.Equal(t, "Roof Repair (updated)", fetched.Title)
+	require.NotNil(
+		t,
+		fetched.PreferredVendorID,
+		"PreferredVendorID should be preserved after update",
+	)
+	assert.Equal(t, vendorID, *fetched.PreferredVendorID)
+}
+
 func TestUpdateQuote(t *testing.T) {
 	store := newTestStore(t)
 	types, err := store.ProjectTypes()

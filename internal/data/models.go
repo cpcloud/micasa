@@ -49,6 +49,7 @@ const (
 	ColReceivedDate      = "received_date"
 	ColRestoredAt        = "restored_at"
 	ColVendorID          = "vendor_id"
+	ColPreferredVendorID = "preferred_vendor_id"
 	ColProjectID         = "project_id"
 	ColProjectTypeID     = "project_type_id"
 	ColApplianceID       = "appliance_id"
