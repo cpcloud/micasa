@@ -71,6 +71,8 @@ jobs:
           persist-credentials: false
 
       - uses: cachix/install-nix-action@4e002c8ec80594ecd40e759629461e26c8abed15 # v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check for dead code
         run: nix run '.#deadcode'
@@ -87,6 +89,8 @@ jobs:
           persist-credentials: false
 
       - uses: cachix/install-nix-action@4e002c8ec80594ecd40e759629461e26c8abed15 # v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run pre-commit hooks
         run: nix run '.#pre-commit'
@@ -112,6 +116,8 @@ jobs:
           git diff --exit-code go.mod go.sum
 
       - uses: cachix/install-nix-action@4e002c8ec80594ecd40e759629461e26c8abed15 # v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build with Nix
         run: nix build '.#micasa'
@@ -128,6 +134,8 @@ jobs:
           persist-credentials: false
 
       - uses: cachix/install-nix-action@4e002c8ec80594ecd40e759629461e26c8abed15 # v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build docs
         run: nix run '.#docs'
@@ -160,6 +168,8 @@ jobs:
           persist-credentials: false
 
       - uses: cachix/install-nix-action@4e002c8ec80594ecd40e759629461e26c8abed15 # v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run osv-scanner
         run: nix run '.#osv-scanner'

@@ -125,6 +125,8 @@ jobs:
           persist-credentials: false
 
       - uses: cachix/install-nix-action@4e002c8ec80594ecd40e759629461e26c8abed15 # v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build container image
         run: nix build '.#micasa-container'
