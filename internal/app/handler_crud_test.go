@@ -547,10 +547,20 @@ func TestApplianceMaintenanceHandlerLoad(t *testing.T) {
 // Regression: ctrl+s during add form must not create duplicates (#354)
 // ---------------------------------------------------------------------------
 
-// TestSaveFormInPlaceSetEditID verifies that after an initial create via
-// handleFormSubmit (the path saveFormInPlace uses), editID is set to the
-// new entity's ID so subsequent saves use the update path.
+// TestSaveFormInPlaceSetEditID exercises the real ctrl+s code path
+// (saveFormInPlace) for every entity type. Two consecutive saves with the
+// form data modified between them must produce exactly one row whose
+// contents match the second save (proving the update path ran).
 func TestSaveFormInPlaceSetEditID(t *testing.T) {
+	// Assert that saveFormInPlace didn't surface a status-bar error.
+	requireNoStatusError := func(t *testing.T, m *Model, ctx string) {
+		t.Helper()
+		require.NotEqualf(
+			t, statusError, m.status.Kind,
+			"%s: unexpected status error: %s", ctx, m.status.Text,
+		)
+	}
+
 	t.Run("project", func(t *testing.T) {
 		m := newTestModelWithStore(t)
 		m.formKind = formProject
@@ -560,33 +570,51 @@ func TestSaveFormInPlaceSetEditID(t *testing.T) {
 			Status:        data.ProjectStatusPlanned,
 		}
 
-		// First save (create).
-		require.Nil(t, m.editID, "editID should be nil before first save")
-		require.NoError(t, m.handleFormSubmit())
+		require.Nil(t, m.editID)
+		m.saveFormInPlace()
+		requireNoStatusError(t, m, "first save")
 		require.NotNil(t, m.editID, "editID should be set after create")
 		firstID := *m.editID
 
-		// Second save (should update, not create).
-		require.NoError(t, m.handleFormSubmit())
+		// Modify form data so the second save proves update, not a
+		// blocked duplicate create.
+		m.formData = &projectFormData{
+			Title:         "Deck Build v2",
+			ProjectTypeID: m.projectTypes[0].ID,
+			Status:        data.ProjectStatusInProgress,
+		}
+		m.status = statusMsg{}
+		m.saveFormInPlace()
+		requireNoStatusError(t, m, "second save")
 		assert.Equal(t, firstID, *m.editID, "editID must not change on update")
 
 		projects, err := m.store.ListProjects(false)
 		require.NoError(t, err)
-		assert.Len(t, projects, 1, "expected exactly 1 project, got duplicates")
+		require.Len(t, projects, 1, "expected exactly 1 project")
+		assert.Equal(t, "Deck Build v2", projects[0].Title)
 	})
 
 	t.Run("vendor", func(t *testing.T) {
 		m := newTestModelWithStore(t)
 		m.formKind = formVendor
-		m.formData = &vendorFormData{Name: "Test Plumber"}
+		m.formData = &vendorFormData{Name: "Test Plumber", Phone: "555-0001"}
 
-		require.NoError(t, m.handleFormSubmit())
+		m.saveFormInPlace()
+		requireNoStatusError(t, m, "first save")
 		require.NotNil(t, m.editID)
 
-		require.NoError(t, m.handleFormSubmit())
+		// Change phone — without the fix the old code would try to
+		// create a second vendor with the same name and hit a unique
+		// constraint error instead of updating.
+		m.formData = &vendorFormData{Name: "Test Plumber", Phone: "555-0002"}
+		m.status = statusMsg{}
+		m.saveFormInPlace()
+		requireNoStatusError(t, m, "second save")
+
 		vendors, err := m.store.ListVendors(false)
 		require.NoError(t, err)
-		assert.Len(t, vendors, 1)
+		require.Len(t, vendors, 1)
+		assert.Equal(t, "555-0002", vendors[0].Phone, "second save should update")
 	})
 
 	t.Run("appliance", func(t *testing.T) {
@@ -594,13 +622,19 @@ func TestSaveFormInPlaceSetEditID(t *testing.T) {
 		m.formKind = formAppliance
 		m.formData = &applianceFormData{Name: "Dishwasher"}
 
-		require.NoError(t, m.handleFormSubmit())
+		m.saveFormInPlace()
+		requireNoStatusError(t, m, "first save")
 		require.NotNil(t, m.editID)
 
-		require.NoError(t, m.handleFormSubmit())
+		m.formData = &applianceFormData{Name: "Dishwasher", Brand: "Bosch"}
+		m.status = statusMsg{}
+		m.saveFormInPlace()
+		requireNoStatusError(t, m, "second save")
+
 		apps, err := m.store.ListAppliances(false)
 		require.NoError(t, err)
-		assert.Len(t, apps, 1)
+		require.Len(t, apps, 1)
+		assert.Equal(t, "Bosch", apps[0].Brand, "second save should update")
 	})
 
 	t.Run("maintenance", func(t *testing.T) {
@@ -612,13 +646,23 @@ func TestSaveFormInPlaceSetEditID(t *testing.T) {
 			CategoryID: cats[0].ID,
 		}
 
-		require.NoError(t, m.handleFormSubmit())
+		m.saveFormInPlace()
+		requireNoStatusError(t, m, "first save")
 		require.NotNil(t, m.editID)
 
-		require.NoError(t, m.handleFormSubmit())
+		m.formData = &maintenanceFormData{
+			Name:           "Change Filter",
+			CategoryID:     cats[0].ID,
+			IntervalMonths: "6",
+		}
+		m.status = statusMsg{}
+		m.saveFormInPlace()
+		requireNoStatusError(t, m, "second save")
+
 		items, err := m.store.ListMaintenance(false)
 		require.NoError(t, err)
-		assert.Len(t, items, 1)
+		require.Len(t, items, 1)
+		assert.Equal(t, 6, items[0].IntervalMonths, "second save should update")
 	})
 
 	t.Run("quote", func(t *testing.T) {
@@ -638,13 +682,23 @@ func TestSaveFormInPlaceSetEditID(t *testing.T) {
 			Total:      "500.00",
 		}
 
-		require.NoError(t, m.handleFormSubmit())
+		m.saveFormInPlace()
+		requireNoStatusError(t, m, "first save")
 		require.NotNil(t, m.editID)
 
-		require.NoError(t, m.handleFormSubmit())
+		m.formData = &quoteFormData{
+			ProjectID:  projects[0].ID,
+			VendorName: "QuoteCo",
+			Total:      "750.00",
+		}
+		m.status = statusMsg{}
+		m.saveFormInPlace()
+		requireNoStatusError(t, m, "second save")
+
 		quotes, err := m.store.ListQuotes(false)
 		require.NoError(t, err)
-		assert.Len(t, quotes, 1)
+		require.Len(t, quotes, 1)
+		assert.Equal(t, int64(75000), quotes[0].TotalCents, "second save should update")
 	})
 
 	t.Run("serviceLog", func(t *testing.T) {
@@ -657,26 +711,33 @@ func TestSaveFormInPlaceSetEditID(t *testing.T) {
 		items, _ := m.store.ListMaintenance(false)
 		maintID := items[0].ID
 
+		// Use the real detail-stack setup path instead of manually
+		// wiring detailStack.
+		require.NoError(t, m.openServiceLogDetail(maintID, "HVAC Filter"))
+
 		m.formKind = formServiceLog
 		m.formData = &serviceLogFormData{
 			MaintenanceItemID: maintID,
 			ServicedAt:        "2026-01-15",
 		}
 
-		// handleFormSubmit dispatches through handlerForFormKind, which
-		// needs a tab with a matching handler on the detail stack.
-		h := serviceLogHandler{maintenanceItemID: maintID}
-		m.detailStack = []*detailContext{{
-			Tab: Tab{Kind: tabMaintenance, Handler: h},
-		}}
-
-		require.NoError(t, m.handleFormSubmit())
+		m.saveFormInPlace()
+		requireNoStatusError(t, m, "first save")
 		require.NotNil(t, m.editID)
 
-		require.NoError(t, m.handleFormSubmit())
+		m.formData = &serviceLogFormData{
+			MaintenanceItemID: maintID,
+			ServicedAt:        "2026-01-15",
+			Notes:             "replaced filter",
+		}
+		m.status = statusMsg{}
+		m.saveFormInPlace()
+		requireNoStatusError(t, m, "second save")
+
 		entries, err := m.store.ListServiceLog(maintID, false)
 		require.NoError(t, err)
-		assert.Len(t, entries, 1)
+		require.Len(t, entries, 1)
+		assert.Equal(t, "replaced filter", entries[0].Notes, "second save should update")
 	})
 
 	t.Run("document", func(t *testing.T) {
@@ -687,12 +748,21 @@ func TestSaveFormInPlaceSetEditID(t *testing.T) {
 			EntityKind: data.DocumentEntityProject,
 		}
 
-		require.NoError(t, m.handleFormSubmit())
+		m.saveFormInPlace()
+		requireNoStatusError(t, m, "first save")
 		require.NotNil(t, m.editID)
 
-		require.NoError(t, m.handleFormSubmit())
+		m.formData = &documentFormData{
+			Title:      "Test Doc (revised)",
+			EntityKind: data.DocumentEntityProject,
+		}
+		m.status = statusMsg{}
+		m.saveFormInPlace()
+		requireNoStatusError(t, m, "second save")
+
 		docs, err := m.store.ListDocuments(false)
 		require.NoError(t, err)
-		assert.Len(t, docs, 1)
+		require.Len(t, docs, 1)
+		assert.Equal(t, "Test Doc (revised)", docs[0].Title, "second save should update")
 	})
 }
