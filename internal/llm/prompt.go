@@ -177,9 +177,6 @@ Foreign key relationships between tables:
 - projects.project_type_id → project_types.id (many-to-one, RESTRICT on delete)
   Each project has one type; types are shared lookup values.
 
-- projects.preferred_vendor_id → vendors.id (many-to-one nullable, SET NULL on delete)
-  Projects can optionally specify a preferred vendor.
-
 - quotes.project_id → projects.id (many-to-one, RESTRICT on delete)
   Each quote belongs to one project; projects can have multiple quotes.
 
