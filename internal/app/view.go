@@ -323,23 +323,6 @@ func (m *Model) inlineInputStatusView() string {
 	return m.withStatusMessage(prompt)
 }
 
-// deletedStatusHint returns a statusHint for the deleted-rows toggle.
-// Only visually prominent when ShowDeleted is active.
-func (m *Model) deletedStatusHint(tab *Tab) statusHint {
-	if tab != nil && tab.ShowDeleted {
-		return statusHint{
-			id:       "deleted",
-			full:     m.keycap("x") + " " + m.styles.DeletedLabel.Render("deleted"),
-			priority: 1,
-		}
-	}
-	return statusHint{
-		id:       "deleted",
-		full:     m.helpItem("x", "deleted"),
-		priority: 4,
-	}
-}
-
 type statusHint struct {
 	id       string
 	full     string
@@ -424,7 +407,6 @@ func (m *Model) editModeStatusHelp(modeBadge string) string {
 			id: "open", full: m.helpItem("o", "open"), priority: 2,
 		})
 	}
-	hints = append(hints, m.deletedStatusHint(m.effectiveTab()))
 	hints = append(hints, statusHint{
 		id:       "exit",
 		full:     m.helpItem("esc", "nav"),
@@ -917,6 +899,18 @@ func (m *Model) tableView(tab *Tab) string {
 		label := fmt.Sprintf("%d rows", n)
 		if n == 1 {
 			label = "1 row"
+		}
+		if tab.ShowDeleted {
+			var nd int
+			for _, rm := range tab.Rows {
+				if rm.Deleted {
+					nd++
+				}
+			}
+			if nd > 0 {
+				suffix := fmt.Sprintf("%d deleted", nd)
+				label += " · " + m.styles.DeletedLabel.Render(suffix)
+			}
 		}
 		bodyParts = append(bodyParts, m.styles.Empty.Render(label))
 	}

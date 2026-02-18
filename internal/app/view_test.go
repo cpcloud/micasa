@@ -835,17 +835,19 @@ func TestHelpContentIncludesInvertFilter(t *testing.T) {
 	assert.Contains(t, help, "Invert filter")
 }
 
-func TestDeletedHintProminentWhenShowDeleted(t *testing.T) {
+func TestRowCountShowsDeletedCount(t *testing.T) {
 	m := newTestModel()
 	m.width = 200
 	m.height = 40
-	m.mode = modeEdit
 	tab := m.effectiveTab()
 	require.NotNil(t, tab)
 
+	// Mark the single row as deleted and enable ShowDeleted.
+	tab.Rows = []rowMeta{{ID: 1, Deleted: true}}
 	tab.ShowDeleted = true
-	status := m.statusView()
-	assert.Contains(t, status, "deleted")
+	view := m.tableView(tab)
+	assert.Contains(t, view, "1 deleted",
+		"row count should include deleted count when ShowDeleted is on")
 }
 
 func TestEmptyHintPerTab(t *testing.T) {
