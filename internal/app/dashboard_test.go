@@ -821,6 +821,37 @@ func TestDashboardSectionNavWithShiftJK(t *testing.T) {
 	assert.Equal(t, dashSectionOverdue, m.dashNav[m.dashCursor].Section)
 }
 
+// TestDashboardEnterKeyJumpsToIncidents verifies a user can navigate to an
+// incident row in the dashboard and press Enter to land on the Incidents tab
+// with that incident selected.
+func TestDashboardEnterKeyJumpsToIncidents(t *testing.T) {
+	m := newTestModel()
+	m.showDashboard = true
+	m.width = 120
+	m.height = 40
+
+	m.dashboard = dashboardData{
+		OpenIncidents: []data.Incident{{
+			Title:    "Burst pipe",
+			Severity: data.IncidentSeverityUrgent,
+		}},
+	}
+	m.dashboard.OpenIncidents[0].ID = 42
+	m.dashExpanded = map[string]bool{dashSectionIncidents: true}
+	m.buildDashNav()
+
+	// Cursor starts on Incidents header. Move down to the data row.
+	m.dashCursor = 0
+	sendKey(m, "j")
+	require.False(t, m.dashNav[m.dashCursor].IsHeader, "should be on a data row")
+	assert.Equal(t, uint(42), m.dashNav[m.dashCursor].ID)
+
+	// Press Enter to jump.
+	sendKey(m, "enter")
+	assert.False(t, m.showDashboard, "dashboard should close")
+	assert.Equal(t, tabIndex(tabIncidents), m.active, "should land on Incidents tab")
+}
+
 // TestDashboardEnterOnHeaderDoesNotJump verifies enter on a section header
 // does nothing (user should press e to expand instead).
 func TestDashboardEnterOnHeaderDoesNotJump(t *testing.T) {
