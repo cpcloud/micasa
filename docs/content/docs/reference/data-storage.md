@@ -25,9 +25,9 @@ which file you're working with.
 
 ## Schema
 
-micasa uses [GORM](https://gorm.io) for database access with automatic schema
-migration. The database is created and migrated on startup -- you never need to
-run migrations manually.
+micasa uses [GORM](https://gorm.io) for database access. The database is
+created on first run, and new tables or columns are added automatically on
+startup. See [Upgrades](#upgrades) for what this covers and what it doesn't.
 
 ### Tables
 
@@ -99,6 +99,41 @@ The database is a standard SQLite file. You can:
 
 The file uses a pure-Go SQLite driver (no CGO), so the binary has zero
 native dependencies.
+
+## Upgrades
+
+micasa does not yet have a schema migration system. New columns and tables
+added in future versions will appear automatically when you upgrade (GORM's
+`AutoMigrate` handles that), but some kinds of schema changes are not
+supported by this mechanism:
+
+- **Renaming** a column or table
+- **Dropping** a column that's no longer used
+- **Changing** a column's type or nullability
+- **Modifying** foreign key constraints
+
+If a future release requires one of these changes, we'll ship a migration
+tool or document the manual steps. Until then, upgrading micasa will never
+lose your data -- the worst case is a column that sticks around after it
+stops being used.
+
+### What you should do
+
+Back up before upgrading. The database is one file:
+
+```sh
+cp "$(micasa --print-path)" ~/backups/micasa-$(date +%F).db
+```
+
+If an upgrade goes wrong, restore from the copy and pin the previous version
+until a fix is released.
+
+### What we'll do
+
+If a future major version (2.0) requires breaking schema changes, it will
+include a migration tool that handles the upgrade automatically. The goal:
+you upgrade the binary, launch it, and everything just works -- or you get
+a clear error telling you what to do.
 
 ## A note on scale
 
