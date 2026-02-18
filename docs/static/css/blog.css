@@ -3,7 +3,7 @@
 
 /* micasa blog -- same palette and fonts as the main site, editorial layout */
 
-@import url("https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=JetBrains+Mono:wght@400;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap");
+@import url("fonts.css");
 
 *,
 *::before,
