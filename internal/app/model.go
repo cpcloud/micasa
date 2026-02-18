@@ -1022,10 +1022,29 @@ func (m *Model) closeDetail() {
 }
 
 // closeAllDetails collapses the entire drilldown stack back to the top-level tab.
+// Unlike calling closeDetail() in a loop, this pops the whole stack and only
+// reloads the final destination tab once, avoiding wasted intermediate reloads.
 func (m *Model) closeAllDetails() {
-	for len(m.detailStack) > 0 {
-		m.closeDetail()
+	if len(m.detailStack) == 0 {
+		return
 	}
+	// The bottom entry holds the original top-level tab that we're returning to.
+	bottom := m.detailStack[0]
+	m.detailStack = nil
+	m.active = bottom.ParentTabIndex
+	if m.store != nil {
+		tab := m.activeTab()
+		if tab != nil && tab.Stale {
+			m.surfaceError(m.reloadIfStale(tab))
+		} else {
+			m.surfaceError(m.reloadActiveTab())
+		}
+	}
+	if tab := m.activeTab(); tab != nil {
+		selectRowByID(tab, bottom.ParentRowID)
+	}
+	m.resizeTables()
+	m.status = statusMsg{}
 }
 
 func (m *Model) reloadDetailTab() error {
