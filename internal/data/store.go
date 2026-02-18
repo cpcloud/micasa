@@ -1113,6 +1113,16 @@ func (s *Store) DeleteMaintenance(id uint) error {
 }
 
 func (s *Store) DeleteAppliance(id uint) error {
+	n, err := s.countDependents(&MaintenanceItem{}, ColApplianceID, id)
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		return fmt.Errorf(
+			"appliance has %d active maintenance item(s) -- delete or reassign them first",
+			n,
+		)
+	}
 	dn, err := s.countDocumentDependents(DocumentEntityAppliance, id)
 	if err != nil {
 		return err
