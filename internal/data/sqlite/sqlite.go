@@ -11,7 +11,9 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"errors"
+	"fmt"
 	"strconv"
 
 	"gorm.io/gorm"
@@ -32,10 +34,57 @@ type Dialector struct {
 	DriverName string
 	DSN        string
 	Conn       gorm.ConnPool
+	Pragmas    []string // PRAGMA statements to run on each new connection
 }
 
-func Open(dsn string) gorm.Dialector {
-	return &Dialector{DSN: dsn}
+func Open(dsn string, pragmas ...string) gorm.Dialector {
+	return &Dialector{DSN: dsn, Pragmas: pragmas}
+}
+
+// pragmaConnector implements driver.Connector and runs PRAGMA statements
+// on every new connection, ensuring per-connection settings (foreign_keys,
+// synchronous, busy_timeout) survive connection pool recycling.
+type pragmaConnector struct {
+	dsn     string
+	driver  driver.Driver
+	pragmas []string
+}
+
+func (c *pragmaConnector) Connect(ctx context.Context) (driver.Conn, error) {
+	conn, err := c.driver.Open(c.dsn)
+	if err != nil {
+		return nil, err
+	}
+	for _, p := range c.pragmas {
+		if err := execPragma(ctx, conn, p); err != nil {
+			_ = conn.Close()
+			return nil, err
+		}
+	}
+	return conn, nil
+}
+
+// execPragma runs a single PRAGMA statement on a raw driver.Conn,
+// using StmtExecContext to avoid the deprecated Stmt.Exec path.
+func execPragma(ctx context.Context, conn driver.Conn, pragma string) error {
+	stmt, err := conn.Prepare(pragma)
+	if err != nil {
+		return fmt.Errorf("pragma %q: %w", pragma, err)
+	}
+	defer func() { _ = stmt.Close() }()
+
+	ec, ok := stmt.(driver.StmtExecContext)
+	if !ok {
+		return fmt.Errorf("pragma %q: driver does not support StmtExecContext", pragma)
+	}
+	if _, err := ec.ExecContext(ctx, nil); err != nil {
+		return fmt.Errorf("pragma %q: %w", pragma, err)
+	}
+	return nil
+}
+
+func (c *pragmaConnector) Driver() driver.Driver {
+	return c.driver
 }
 
 func (dialector Dialector) Name() string {
@@ -49,6 +98,22 @@ func (dialector Dialector) Initialize(db *gorm.DB) (err error) {
 
 	if dialector.Conn != nil {
 		db.ConnPool = dialector.Conn
+	} else if len(dialector.Pragmas) > 0 {
+		// Grab the registered driver, then use sql.OpenDB with a connector
+		// that runs pragmas on every new connection.
+		tmpDB, err := sql.Open(dialector.DriverName, "")
+		if err != nil {
+			return err
+		}
+		drv := tmpDB.Driver()
+		if err := tmpDB.Close(); err != nil {
+			return err
+		}
+		db.ConnPool = sql.OpenDB(&pragmaConnector{
+			dsn:     dialector.DSN,
+			driver:  drv,
+			pragmas: dialector.Pragmas,
+		})
 	} else {
 		conn, err := sql.Open(dialector.DriverName, dialector.DSN)
 		if err != nil {

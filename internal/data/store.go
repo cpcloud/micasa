@@ -31,27 +31,18 @@ func Open(path string) (*Store, error) {
 		return nil, err
 	}
 	db, err := gorm.Open(
-		sqlite.Open(path),
+		sqlite.Open(path,
+			"PRAGMA foreign_keys = ON",
+			"PRAGMA journal_mode = WAL",
+			"PRAGMA synchronous = NORMAL",
+			"PRAGMA busy_timeout = 5000",
+		),
 		&gorm.Config{
 			Logger: logger.Default.LogMode(logger.Silent),
 		},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("open db: %w", err)
-	}
-	pragmas := []struct {
-		sql  string
-		desc string
-	}{
-		{"PRAGMA foreign_keys = ON", "enable foreign keys"},
-		{"PRAGMA journal_mode = WAL", "enable WAL mode"},
-		{"PRAGMA synchronous = NORMAL", "set synchronous mode"},
-		{"PRAGMA busy_timeout = 5000", "set busy timeout"},
-	}
-	for _, p := range pragmas {
-		if err := db.Exec(p.sql).Error; err != nil {
-			return nil, fmt.Errorf("%s: %w", p.desc, err)
-		}
 	}
 	return &Store{db: db, maxDocumentSize: MaxDocumentSize}, nil
 }

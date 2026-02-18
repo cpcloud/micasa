@@ -4,6 +4,7 @@
 package data
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"os"
@@ -2126,4 +2127,30 @@ func TestEvictStaleCacheNonexistentDir(t *testing.T) {
 	removed, err := EvictStaleCache(filepath.Join(t.TempDir(), "nope"), 30)
 	require.NoError(t, err)
 	assert.Equal(t, 0, removed)
+}
+
+func TestPragmasSurvivePoolRecycling(t *testing.T) {
+	store := newTestStore(t)
+	sqlDB, err := store.db.DB()
+	require.NoError(t, err)
+
+	// Don't keep idle connections -- forces a fresh driver connection on
+	// each checkout, exercising the pragma connector hook.
+	sqlDB.SetMaxIdleConns(0)
+
+	ctx := context.Background()
+	for range 3 {
+		conn, err := sqlDB.Conn(ctx)
+		require.NoError(t, err)
+
+		var fkEnabled int
+		require.NoError(t, conn.QueryRowContext(ctx, "PRAGMA foreign_keys").Scan(&fkEnabled))
+		assert.Equal(t, 1, fkEnabled, "foreign_keys should be ON on fresh connection")
+
+		var journalMode string
+		require.NoError(t, conn.QueryRowContext(ctx, "PRAGMA journal_mode").Scan(&journalMode))
+		assert.Equal(t, "wal", journalMode, "journal_mode should be WAL")
+
+		require.NoError(t, conn.Close())
+	}
 }
