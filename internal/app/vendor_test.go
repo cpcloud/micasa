@@ -66,7 +66,7 @@ func TestVendorHandlerFormKind(t *testing.T) {
 func TestVendorHandlerDeleteRestore(t *testing.T) {
 	m := newTestModelWithStore(t)
 	h := vendorHandler{}
-	require.NoError(t, m.store.CreateVendor(data.Vendor{Name: "Test Co"}))
+	require.NoError(t, m.store.CreateVendor(&data.Vendor{Name: "Test Co"}))
 	vendors, _ := m.store.ListVendors(false)
 	id := vendors[0].ID
 

@@ -134,7 +134,7 @@ func TestProjectTabStatusFiltersRows(t *testing.T) {
 			Status:        data.ProjectStatusAbandoned,
 		},
 	} {
-		require.NoError(t, m.store.CreateProject(p), "CreateProject(%q)", p.Title)
+		require.NoError(t, m.store.CreateProject(&p), "CreateProject(%q)", p.Title)
 	}
 
 	m.active = tabIndex(tabProjects)
@@ -178,17 +178,17 @@ func TestProjectStatusFilterToggleKeysReloadRows(t *testing.T) {
 	m := newTestModelWithStore(t)
 	types, _ := m.store.ProjectTypes()
 
-	require.NoError(t, m.store.CreateProject(data.Project{
+	require.NoError(t, m.store.CreateProject(&data.Project{
 		Title:         "Done Project",
 		ProjectTypeID: types[0].ID,
 		Status:        data.ProjectStatusCompleted,
 	}), "CreateProject completed")
-	require.NoError(t, m.store.CreateProject(data.Project{
+	require.NoError(t, m.store.CreateProject(&data.Project{
 		Title:         "Live Project",
 		ProjectTypeID: types[0].ID,
 		Status:        data.ProjectStatusInProgress,
 	}), "CreateProject in-progress")
-	require.NoError(t, m.store.CreateProject(data.Project{
+	require.NoError(t, m.store.CreateProject(&data.Project{
 		Title:         "Abandoned Project",
 		ProjectTypeID: types[0].ID,
 		Status:        data.ProjectStatusAbandoned,
@@ -334,7 +334,7 @@ func TestQuoteHandlerRoundTrip(t *testing.T) {
 
 	// Need a project first.
 	types, _ := m.store.ProjectTypes()
-	require.NoError(t, m.store.CreateProject(data.Project{
+	require.NoError(t, m.store.CreateProject(&data.Project{
 		Title:         "Bathroom Reno",
 		ProjectTypeID: types[0].ID,
 		Status:        data.ProjectStatusQuoted,
@@ -370,7 +370,7 @@ func TestQuoteHandlerSnapshot(t *testing.T) {
 	h := quoteHandler{}
 
 	types, _ := m.store.ProjectTypes()
-	require.NoError(t, m.store.CreateProject(data.Project{
+	require.NoError(t, m.store.CreateProject(&data.Project{
 		Title:         "Garage Door",
 		ProjectTypeID: types[0].ID,
 		Status:        data.ProjectStatusQuoted,
@@ -400,7 +400,7 @@ func TestServiceLogHandlerRoundTrip(t *testing.T) {
 	cats, _ := m.store.MaintenanceCategories()
 
 	// Create a maintenance item to attach logs to.
-	require.NoError(t, m.store.CreateMaintenance(data.MaintenanceItem{
+	require.NoError(t, m.store.CreateMaintenance(&data.MaintenanceItem{
 		Name:       "Oil Furnace",
 		CategoryID: cats[0].ID,
 	}))
@@ -437,7 +437,7 @@ func TestServiceLogHandlerSnapshot(t *testing.T) {
 	m := newTestModelWithStore(t)
 	cats, _ := m.store.MaintenanceCategories()
 
-	require.NoError(t, m.store.CreateMaintenance(data.MaintenanceItem{
+	require.NoError(t, m.store.CreateMaintenance(&data.MaintenanceItem{
 		Name:       "Gutter Clean",
 		CategoryID: cats[0].ID,
 	}))
@@ -523,12 +523,12 @@ func TestApplianceMaintenanceHandlerLoad(t *testing.T) {
 	cats, _ := m.store.MaintenanceCategories()
 
 	// Create an appliance with maintenance items.
-	require.NoError(t, m.store.CreateAppliance(data.Appliance{Name: "HVAC"}))
+	require.NoError(t, m.store.CreateAppliance(&data.Appliance{Name: "HVAC"}))
 	apps, _ := m.store.ListAppliances(false)
 	appID := apps[0].ID
 
 	lastSrv := time.Now()
-	require.NoError(t, m.store.CreateMaintenance(data.MaintenanceItem{
+	require.NoError(t, m.store.CreateMaintenance(&data.MaintenanceItem{
 		Name:           "Replace Belt",
 		CategoryID:     cats[0].ID,
 		ApplianceID:    &appID,
@@ -541,4 +541,158 @@ func TestApplianceMaintenanceHandlerLoad(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, rows, 1)
 	assert.NotZero(t, meta[0].ID)
+}
+
+// ---------------------------------------------------------------------------
+// Regression: ctrl+s during add form must not create duplicates (#354)
+// ---------------------------------------------------------------------------
+
+// TestSaveFormInPlaceSetEditID verifies that after an initial create via
+// handleFormSubmit (the path saveFormInPlace uses), editID is set to the
+// new entity's ID so subsequent saves use the update path.
+func TestSaveFormInPlaceSetEditID(t *testing.T) {
+	t.Run("project", func(t *testing.T) {
+		m := newTestModelWithStore(t)
+		m.formKind = formProject
+		m.formData = &projectFormData{
+			Title:         "Deck Build",
+			ProjectTypeID: m.projectTypes[0].ID,
+			Status:        data.ProjectStatusPlanned,
+		}
+
+		// First save (create).
+		require.Nil(t, m.editID, "editID should be nil before first save")
+		require.NoError(t, m.handleFormSubmit())
+		require.NotNil(t, m.editID, "editID should be set after create")
+		firstID := *m.editID
+
+		// Second save (should update, not create).
+		require.NoError(t, m.handleFormSubmit())
+		assert.Equal(t, firstID, *m.editID, "editID must not change on update")
+
+		projects, err := m.store.ListProjects(false)
+		require.NoError(t, err)
+		assert.Len(t, projects, 1, "expected exactly 1 project, got duplicates")
+	})
+
+	t.Run("vendor", func(t *testing.T) {
+		m := newTestModelWithStore(t)
+		m.formKind = formVendor
+		m.formData = &vendorFormData{Name: "Test Plumber"}
+
+		require.NoError(t, m.handleFormSubmit())
+		require.NotNil(t, m.editID)
+
+		require.NoError(t, m.handleFormSubmit())
+		vendors, err := m.store.ListVendors(false)
+		require.NoError(t, err)
+		assert.Len(t, vendors, 1)
+	})
+
+	t.Run("appliance", func(t *testing.T) {
+		m := newTestModelWithStore(t)
+		m.formKind = formAppliance
+		m.formData = &applianceFormData{Name: "Dishwasher"}
+
+		require.NoError(t, m.handleFormSubmit())
+		require.NotNil(t, m.editID)
+
+		require.NoError(t, m.handleFormSubmit())
+		apps, err := m.store.ListAppliances(false)
+		require.NoError(t, err)
+		assert.Len(t, apps, 1)
+	})
+
+	t.Run("maintenance", func(t *testing.T) {
+		m := newTestModelWithStore(t)
+		cats, _ := m.store.MaintenanceCategories()
+		m.formKind = formMaintenance
+		m.formData = &maintenanceFormData{
+			Name:       "Change Filter",
+			CategoryID: cats[0].ID,
+		}
+
+		require.NoError(t, m.handleFormSubmit())
+		require.NotNil(t, m.editID)
+
+		require.NoError(t, m.handleFormSubmit())
+		items, err := m.store.ListMaintenance(false)
+		require.NoError(t, err)
+		assert.Len(t, items, 1)
+	})
+
+	t.Run("quote", func(t *testing.T) {
+		m := newTestModelWithStore(t)
+		types, _ := m.store.ProjectTypes()
+		require.NoError(t, m.store.CreateProject(&data.Project{
+			Title:         "Test Proj",
+			ProjectTypeID: types[0].ID,
+			Status:        data.ProjectStatusPlanned,
+		}))
+		projects, _ := m.store.ListProjects(false)
+
+		m.formKind = formQuote
+		m.formData = &quoteFormData{
+			ProjectID:  projects[0].ID,
+			VendorName: "QuoteCo",
+			Total:      "500.00",
+		}
+
+		require.NoError(t, m.handleFormSubmit())
+		require.NotNil(t, m.editID)
+
+		require.NoError(t, m.handleFormSubmit())
+		quotes, err := m.store.ListQuotes(false)
+		require.NoError(t, err)
+		assert.Len(t, quotes, 1)
+	})
+
+	t.Run("serviceLog", func(t *testing.T) {
+		m := newTestModelWithStore(t)
+		cats, _ := m.store.MaintenanceCategories()
+		require.NoError(t, m.store.CreateMaintenance(&data.MaintenanceItem{
+			Name:       "HVAC Filter",
+			CategoryID: cats[0].ID,
+		}))
+		items, _ := m.store.ListMaintenance(false)
+		maintID := items[0].ID
+
+		m.formKind = formServiceLog
+		m.formData = &serviceLogFormData{
+			MaintenanceItemID: maintID,
+			ServicedAt:        "2026-01-15",
+		}
+
+		// handleFormSubmit dispatches through handlerForFormKind, which
+		// needs a tab with a matching handler on the detail stack.
+		h := serviceLogHandler{maintenanceItemID: maintID}
+		m.detailStack = []*detailContext{{
+			Tab: Tab{Kind: tabMaintenance, Handler: h},
+		}}
+
+		require.NoError(t, m.handleFormSubmit())
+		require.NotNil(t, m.editID)
+
+		require.NoError(t, m.handleFormSubmit())
+		entries, err := m.store.ListServiceLog(maintID, false)
+		require.NoError(t, err)
+		assert.Len(t, entries, 1)
+	})
+
+	t.Run("document", func(t *testing.T) {
+		m := newTestModelWithStore(t)
+		m.formKind = formDocument
+		m.formData = &documentFormData{
+			Title:      "Test Doc",
+			EntityKind: data.DocumentEntityProject,
+		}
+
+		require.NoError(t, m.handleFormSubmit())
+		require.NotNil(t, m.editID)
+
+		require.NoError(t, m.handleFormSubmit())
+		docs, err := m.store.ListDocuments(false)
+		require.NoError(t, err)
+		assert.Len(t, docs, 1)
+	})
 }

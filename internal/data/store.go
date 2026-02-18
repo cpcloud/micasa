@@ -481,8 +481,8 @@ func (s *Store) GetVendor(id uint) (Vendor, error) {
 	return vendor, nil
 }
 
-func (s *Store) CreateVendor(vendor Vendor) error {
-	return s.db.Create(&vendor).Error
+func (s *Store) CreateVendor(vendor *Vendor) error {
+	return s.db.Create(vendor).Error
 }
 
 func (s *Store) UpdateVendor(vendor Vendor) error {
@@ -647,8 +647,8 @@ func (s *Store) GetProject(id uint) (Project, error) {
 	return project, err
 }
 
-func (s *Store) CreateProject(project Project) error {
-	return s.db.Create(&project).Error
+func (s *Store) CreateProject(project *Project) error {
+	return s.db.Create(project).Error
 }
 
 func (s *Store) UpdateProject(project Project) error {
@@ -666,17 +666,14 @@ func (s *Store) GetQuote(id uint) (Quote, error) {
 	return quote, err
 }
 
-func (s *Store) CreateQuote(quote Quote, vendor Vendor) error {
+func (s *Store) CreateQuote(quote *Quote, vendor Vendor) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		foundVendor, err := findOrCreateVendor(tx, vendor)
 		if err != nil {
 			return err
 		}
 		quote.VendorID = foundVendor.ID
-		if err := tx.Create(&quote).Error; err != nil {
-			return err
-		}
-		return nil
+		return tx.Create(quote).Error
 	})
 }
 
@@ -701,8 +698,8 @@ func (s *Store) GetMaintenance(id uint) (MaintenanceItem, error) {
 	return item, err
 }
 
-func (s *Store) CreateMaintenance(item MaintenanceItem) error {
-	return s.db.Create(&item).Error
+func (s *Store) CreateMaintenance(item *MaintenanceItem) error {
+	return s.db.Create(item).Error
 }
 
 func (s *Store) UpdateMaintenance(item MaintenanceItem) error {
@@ -727,8 +724,8 @@ func (s *Store) GetAppliance(id uint) (Appliance, error) {
 	return item, err
 }
 
-func (s *Store) CreateAppliance(item Appliance) error {
-	return s.db.Create(&item).Error
+func (s *Store) CreateAppliance(item *Appliance) error {
+	return s.db.Create(item).Error
 }
 
 func (s *Store) UpdateAppliance(item Appliance) error {
@@ -766,7 +763,7 @@ func (s *Store) GetServiceLog(id uint) (ServiceLogEntry, error) {
 	return entry, err
 }
 
-func (s *Store) CreateServiceLog(entry ServiceLogEntry, vendor Vendor) error {
+func (s *Store) CreateServiceLog(entry *ServiceLogEntry, vendor Vendor) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		if strings.TrimSpace(vendor.Name) != "" {
 			found, err := findOrCreateVendor(tx, vendor)
@@ -775,7 +772,7 @@ func (s *Store) CreateServiceLog(entry ServiceLogEntry, vendor Vendor) error {
 			}
 			entry.VendorID = &found.ID
 		}
-		return tx.Create(&entry).Error
+		return tx.Create(entry).Error
 	})
 }
 
@@ -915,14 +912,14 @@ func (s *Store) GetDocument(id uint) (Document, error) {
 	return doc, nil
 }
 
-func (s *Store) CreateDocument(doc Document) error {
+func (s *Store) CreateDocument(doc *Document) error {
 	if doc.SizeBytes > s.maxDocumentSize {
 		return fmt.Errorf(
 			"file is too large (%s) -- maximum allowed is %s",
 			formatBytes(doc.SizeBytes), formatBytes(s.maxDocumentSize),
 		)
 	}
-	return s.db.Create(&doc).Error
+	return s.db.Create(doc).Error
 }
 
 // formatBytes renders a byte count as a human-readable IEC string (KiB,

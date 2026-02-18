@@ -55,7 +55,7 @@ func TestSoftDeleteRestoreProject(t *testing.T) {
 	store := newTestStore(t)
 	types, err := store.ProjectTypes()
 	require.NoError(t, err)
-	require.NoError(t, store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(&Project{
 		Title: "Test Project", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
 	}))
 
@@ -84,7 +84,7 @@ func TestLastDeletionRecord(t *testing.T) {
 	store := newTestStore(t)
 	types, err := store.ProjectTypes()
 	require.NoError(t, err)
-	require.NoError(t, store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(&Project{
 		Title: "Test Project", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
 	}))
 	projects, err := store.ListProjects(false)
@@ -105,7 +105,7 @@ func TestUpdateProject(t *testing.T) {
 	store := newTestStore(t)
 	types, err := store.ProjectTypes()
 	require.NoError(t, err)
-	require.NoError(t, store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(&Project{
 		Title: "Original Title", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
 	}))
 	projects, err := store.ListProjects(false)
@@ -132,7 +132,7 @@ func TestUpdateQuote(t *testing.T) {
 	store := newTestStore(t)
 	types, err := store.ProjectTypes()
 	require.NoError(t, err)
-	require.NoError(t, store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(&Project{
 		Title: "Test Project", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
 	}))
 	projects, err := store.ListProjects(false)
@@ -140,7 +140,7 @@ func TestUpdateQuote(t *testing.T) {
 	require.Len(t, projects, 1)
 
 	require.NoError(t, store.CreateQuote(
-		Quote{ProjectID: projects[0].ID, TotalCents: 100000},
+		&Quote{ProjectID: projects[0].ID, TotalCents: 100000},
 		Vendor{Name: "Acme Corp"},
 	))
 	quotes, err := store.ListQuotes(false)
@@ -163,7 +163,7 @@ func TestUpdateMaintenance(t *testing.T) {
 	store := newTestStore(t)
 	categories, err := store.MaintenanceCategories()
 	require.NoError(t, err)
-	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
+	require.NoError(t, store.CreateMaintenance(&MaintenanceItem{
 		Name: "Filter Change", CategoryID: categories[0].ID,
 	}))
 	items, err := store.ListMaintenance(false)
@@ -189,7 +189,7 @@ func TestServiceLogCRUD(t *testing.T) {
 	store := newTestStore(t)
 	categories, err := store.MaintenanceCategories()
 	require.NoError(t, err)
-	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
+	require.NoError(t, store.CreateMaintenance(&MaintenanceItem{
 		Name: "Test Maintenance", CategoryID: categories[0].ID,
 	}))
 	items, err := store.ListMaintenance(false)
@@ -198,7 +198,7 @@ func TestServiceLogCRUD(t *testing.T) {
 	maintID := items[0].ID
 
 	// Create a service log entry (self-performed, no vendor).
-	require.NoError(t, store.CreateServiceLog(ServiceLogEntry{
+	require.NoError(t, store.CreateServiceLog(&ServiceLogEntry{
 		MaintenanceItemID: maintID,
 		ServicedAt:        time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
 		Notes:             "did it myself",
@@ -211,7 +211,7 @@ func TestServiceLogCRUD(t *testing.T) {
 	assert.Equal(t, "did it myself", entries[0].Notes)
 
 	// Create a vendor-performed entry.
-	require.NoError(t, store.CreateServiceLog(ServiceLogEntry{
+	require.NoError(t, store.CreateServiceLog(&ServiceLogEntry{
 		MaintenanceItemID: maintID,
 		ServicedAt:        time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC),
 		CostCents:         func() *int64 { v := int64(15000); return &v }(),
@@ -265,7 +265,7 @@ func TestSoftDeletePersistsAcrossRuns(t *testing.T) {
 	require.NoError(t, store1.AutoMigrate())
 	require.NoError(t, store1.SeedDefaults())
 	types, _ := store1.ProjectTypes()
-	require.NoError(t, store1.CreateProject(Project{
+	require.NoError(t, store1.CreateProject(&Project{
 		Title: "Persist Test", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
 	}))
 	projects, _ := store1.ListProjects(false)
@@ -324,7 +324,7 @@ func TestSoftDeletePersistsAcrossRuns(t *testing.T) {
 func TestVendorCRUD(t *testing.T) {
 	store := newTestStore(t)
 
-	require.NoError(t, store.CreateVendor(Vendor{
+	require.NoError(t, store.CreateVendor(&Vendor{
 		Name: "Test Vendor", ContactName: "Alice",
 		Email: "alice@example.com", Phone: "555-0001",
 	}))
@@ -351,12 +351,12 @@ func TestVendorCRUD(t *testing.T) {
 func TestCountQuotesByVendor(t *testing.T) {
 	store := newTestStore(t)
 
-	require.NoError(t, store.CreateVendor(Vendor{Name: "Quote Vendor"}))
+	require.NoError(t, store.CreateVendor(&Vendor{Name: "Quote Vendor"}))
 	vendors, _ := store.ListVendors(false)
 	vendorID := vendors[0].ID
 
 	types, _ := store.ProjectTypes()
-	require.NoError(t, store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(&Project{
 		Title: "Test", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
 	}))
 	projects, _ := store.ListProjects(false)
@@ -364,7 +364,7 @@ func TestCountQuotesByVendor(t *testing.T) {
 
 	for i := 0; i < 2; i++ {
 		require.NoError(t, store.CreateQuote(
-			Quote{ProjectID: projectID, TotalCents: 100000},
+			&Quote{ProjectID: projectID, TotalCents: 100000},
 			Vendor{Name: "Quote Vendor"},
 		))
 	}
@@ -381,20 +381,20 @@ func TestCountQuotesByVendor(t *testing.T) {
 func TestCountServiceLogsByVendor(t *testing.T) {
 	store := newTestStore(t)
 
-	require.NoError(t, store.CreateVendor(Vendor{Name: "Job Vendor"}))
+	require.NoError(t, store.CreateVendor(&Vendor{Name: "Job Vendor"}))
 	vendors, _ := store.ListVendors(false)
 	vendorID := vendors[0].ID
 
 	cats, _ := store.MaintenanceCategories()
 	require.NoError(
 		t,
-		store.CreateMaintenance(MaintenanceItem{Name: "Filter", CategoryID: cats[0].ID}),
+		store.CreateMaintenance(&MaintenanceItem{Name: "Filter", CategoryID: cats[0].ID}),
 	)
 	items, _ := store.ListMaintenance(false)
 	maintID := items[0].ID
 
 	require.NoError(t, store.CreateServiceLog(
-		ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: time.Now()},
+		&ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: time.Now()},
 		Vendor{Name: "Job Vendor"},
 	))
 
@@ -406,7 +406,7 @@ func TestCountServiceLogsByVendor(t *testing.T) {
 func TestDeleteProjectBlockedByQuotes(t *testing.T) {
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
-	require.NoError(t, store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(&Project{
 		Title: "Blocked Project", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
 	}))
 	projects, _ := store.ListProjects(false)
@@ -414,7 +414,7 @@ func TestDeleteProjectBlockedByQuotes(t *testing.T) {
 
 	require.NoError(
 		t,
-		store.CreateQuote(Quote{ProjectID: projID, TotalCents: 1000}, Vendor{Name: "V1"}),
+		store.CreateQuote(&Quote{ProjectID: projID, TotalCents: 1000}, Vendor{Name: "V1"}),
 	)
 
 	require.ErrorContains(t, store.DeleteProject(projID), "active quote")
@@ -427,7 +427,7 @@ func TestDeleteProjectBlockedByQuotes(t *testing.T) {
 func TestRestoreQuoteBlockedByDeletedProject(t *testing.T) {
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
-	require.NoError(t, store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(&Project{
 		Title: "Doomed Project", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
 	}))
 	projects, _ := store.ListProjects(false)
@@ -435,7 +435,7 @@ func TestRestoreQuoteBlockedByDeletedProject(t *testing.T) {
 
 	require.NoError(
 		t,
-		store.CreateQuote(Quote{ProjectID: projID, TotalCents: 500}, Vendor{Name: "V2"}),
+		store.CreateQuote(&Quote{ProjectID: projID, TotalCents: 500}, Vendor{Name: "V2"}),
 	)
 	quotes, _ := store.ListQuotes(false)
 	quoteID := quotes[0].ID
@@ -452,14 +452,14 @@ func TestRestoreQuoteBlockedByDeletedProject(t *testing.T) {
 func TestRestoreServiceLogBlockedByDeletedMaintenance(t *testing.T) {
 	store := newTestStore(t)
 	cats, _ := store.MaintenanceCategories()
-	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
+	require.NoError(t, store.CreateMaintenance(&MaintenanceItem{
 		Name: "Doomed Maint", CategoryID: cats[0].ID, IntervalMonths: 6,
 	}))
 	items, _ := store.ListMaintenance(false)
 	maintID := items[0].ID
 
 	require.NoError(t, store.CreateServiceLog(
-		ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: time.Now()},
+		&ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: time.Now()},
 		Vendor{Name: "SL2"},
 	))
 	logs, _ := store.ListServiceLog(maintID, false)
@@ -477,14 +477,14 @@ func TestRestoreServiceLogBlockedByDeletedMaintenance(t *testing.T) {
 func TestDeleteMaintenanceBlockedByServiceLogs(t *testing.T) {
 	store := newTestStore(t)
 	cats, _ := store.MaintenanceCategories()
-	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
+	require.NoError(t, store.CreateMaintenance(&MaintenanceItem{
 		Name: "Blocked Maint", CategoryID: cats[0].ID, IntervalMonths: 3,
 	}))
 	items, _ := store.ListMaintenance(false)
 	maintID := items[0].ID
 
 	require.NoError(t, store.CreateServiceLog(
-		ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: time.Now()},
+		&ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: time.Now()},
 		Vendor{Name: "SL Vendor"},
 	))
 
@@ -498,7 +498,7 @@ func TestDeleteMaintenanceBlockedByServiceLogs(t *testing.T) {
 func TestPartialQuoteDeletionStillBlocksProjectDelete(t *testing.T) {
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
-	require.NoError(t, store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(&Project{
 		Title: "Multi-Quote", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
 	}))
 	projects, _ := store.ListProjects(false)
@@ -507,7 +507,7 @@ func TestPartialQuoteDeletionStillBlocksProjectDelete(t *testing.T) {
 	for _, name := range []string{"Vendor A", "Vendor B"} {
 		require.NoError(
 			t,
-			store.CreateQuote(Quote{ProjectID: projID, TotalCents: 1000}, Vendor{Name: name}),
+			store.CreateQuote(&Quote{ProjectID: projID, TotalCents: 1000}, Vendor{Name: name}),
 		)
 	}
 	quotes, _ := store.ListQuotes(false)
@@ -522,12 +522,12 @@ func TestPartialQuoteDeletionStillBlocksProjectDelete(t *testing.T) {
 
 func TestRestoreMaintenanceBlockedByDeletedAppliance(t *testing.T) {
 	store := newTestStore(t)
-	require.NoError(t, store.CreateAppliance(Appliance{Name: "Doomed Fridge"}))
+	require.NoError(t, store.CreateAppliance(&Appliance{Name: "Doomed Fridge"}))
 	appliances, _ := store.ListAppliances(false)
 	appID := appliances[0].ID
 
 	cats, _ := store.MaintenanceCategories()
-	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
+	require.NoError(t, store.CreateMaintenance(&MaintenanceItem{
 		Name: "Coil Cleaning", CategoryID: cats[0].ID, IntervalMonths: 6, ApplianceID: &appID,
 	}))
 	items, _ := store.ListMaintenance(false)
@@ -545,7 +545,7 @@ func TestRestoreMaintenanceBlockedByDeletedAppliance(t *testing.T) {
 func TestRestoreMaintenanceAllowedWithoutAppliance(t *testing.T) {
 	store := newTestStore(t)
 	cats, _ := store.MaintenanceCategories()
-	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
+	require.NoError(t, store.CreateMaintenance(&MaintenanceItem{
 		Name: "Gutter Cleaning", CategoryID: cats[0].ID, IntervalMonths: 6,
 	}))
 	items, _ := store.ListMaintenance(false)
@@ -558,19 +558,19 @@ func TestRestoreMaintenanceAllowedWithoutAppliance(t *testing.T) {
 func TestThreeLevelDeleteRestoreChain(t *testing.T) {
 	store := newTestStore(t)
 
-	require.NoError(t, store.CreateAppliance(Appliance{Name: "HVAC Unit"}))
+	require.NoError(t, store.CreateAppliance(&Appliance{Name: "HVAC Unit"}))
 	appliances, _ := store.ListAppliances(false)
 	appID := appliances[0].ID
 
 	cats, _ := store.MaintenanceCategories()
-	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
+	require.NoError(t, store.CreateMaintenance(&MaintenanceItem{
 		Name: "Filter Change", CategoryID: cats[0].ID, IntervalMonths: 3, ApplianceID: &appID,
 	}))
 	items, _ := store.ListMaintenance(false)
 	maintID := items[0].ID
 
 	require.NoError(t, store.CreateServiceLog(
-		ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: time.Now()},
+		&ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: time.Now()},
 		Vendor{},
 	))
 	logs, _ := store.ListServiceLog(maintID, false)
@@ -604,12 +604,12 @@ func TestThreeLevelDeleteRestoreChain(t *testing.T) {
 
 func TestDeleteApplianceAllowedWithMaintenance(t *testing.T) {
 	store := newTestStore(t)
-	require.NoError(t, store.CreateAppliance(Appliance{Name: "Deletable Fridge"}))
+	require.NoError(t, store.CreateAppliance(&Appliance{Name: "Deletable Fridge"}))
 	appliances, _ := store.ListAppliances(false)
 	appID := appliances[0].ID
 
 	cats, _ := store.MaintenanceCategories()
-	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
+	require.NoError(t, store.CreateMaintenance(&MaintenanceItem{
 		Name: "Filter", CategoryID: cats[0].ID, IntervalMonths: 6, ApplianceID: &appID,
 	}))
 
@@ -618,7 +618,7 @@ func TestDeleteApplianceAllowedWithMaintenance(t *testing.T) {
 
 func TestGetAppliance(t *testing.T) {
 	store := newTestStore(t)
-	require.NoError(t, store.CreateAppliance(Appliance{Name: "Fridge"}))
+	require.NoError(t, store.CreateAppliance(&Appliance{Name: "Fridge"}))
 	got, err := store.GetAppliance(1)
 	require.NoError(t, err)
 	assert.Equal(t, "Fridge", got.Name)
@@ -632,7 +632,7 @@ func TestGetApplianceNotFound(t *testing.T) {
 
 func TestUpdateAppliance(t *testing.T) {
 	store := newTestStore(t)
-	require.NoError(t, store.CreateAppliance(Appliance{Name: "Fridge"}))
+	require.NoError(t, store.CreateAppliance(&Appliance{Name: "Fridge"}))
 	got, _ := store.GetAppliance(1)
 	got.Brand = "Samsung"
 	require.NoError(t, store.UpdateAppliance(got))
@@ -645,12 +645,12 @@ func TestListMaintenanceByAppliance(t *testing.T) {
 	categories, _ := store.MaintenanceCategories()
 	catID := categories[0].ID
 
-	require.NoError(t, store.CreateAppliance(Appliance{Name: "Fridge"}))
+	require.NoError(t, store.CreateAppliance(&Appliance{Name: "Fridge"}))
 	appID := uint(1)
-	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
+	require.NoError(t, store.CreateMaintenance(&MaintenanceItem{
 		Name: "Clean coils", CategoryID: catID, ApplianceID: &appID,
 	}))
-	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
+	require.NoError(t, store.CreateMaintenance(&MaintenanceItem{
 		Name: "Check smoke detectors", CategoryID: catID,
 	}))
 
@@ -665,10 +665,10 @@ func TestCountMaintenanceByAppliance(t *testing.T) {
 	categories, _ := store.MaintenanceCategories()
 	catID := categories[0].ID
 
-	require.NoError(t, store.CreateAppliance(Appliance{Name: "Fridge"}))
+	require.NoError(t, store.CreateAppliance(&Appliance{Name: "Fridge"}))
 	appID := uint(1)
 	for _, name := range []string{"Clean coils", "Replace filter"} {
-		require.NoError(t, store.CreateMaintenance(MaintenanceItem{
+		require.NoError(t, store.CreateMaintenance(&MaintenanceItem{
 			Name: name, CategoryID: catID, ApplianceID: &appID,
 		}))
 	}
@@ -685,10 +685,10 @@ func TestUpdateServiceLog(t *testing.T) {
 
 	require.NoError(
 		t,
-		store.CreateMaintenance(MaintenanceItem{Name: "HVAC filter", CategoryID: catID}),
+		store.CreateMaintenance(&MaintenanceItem{Name: "HVAC filter", CategoryID: catID}),
 	)
 	now := time.Now().Truncate(time.Second)
-	require.NoError(t, store.CreateServiceLog(ServiceLogEntry{
+	require.NoError(t, store.CreateServiceLog(&ServiceLogEntry{
 		MaintenanceItemID: 1, ServicedAt: now, Notes: "initial",
 	}, Vendor{}))
 
@@ -708,10 +708,10 @@ func TestUpdateServiceLogClearVendor(t *testing.T) {
 
 	require.NoError(
 		t,
-		store.CreateMaintenance(MaintenanceItem{Name: "HVAC filter", CategoryID: catID}),
+		store.CreateMaintenance(&MaintenanceItem{Name: "HVAC filter", CategoryID: catID}),
 	)
 	now := time.Now().Truncate(time.Second)
-	require.NoError(t, store.CreateServiceLog(ServiceLogEntry{
+	require.NoError(t, store.CreateServiceLog(&ServiceLogEntry{
 		MaintenanceItemID: 1, ServicedAt: now,
 	}, Vendor{Name: "HVAC Pros"}))
 
@@ -726,9 +726,9 @@ func TestListMaintenanceByApplianceIncludeDeleted(t *testing.T) {
 	categories, _ := store.MaintenanceCategories()
 	catID := categories[0].ID
 
-	require.NoError(t, store.CreateAppliance(Appliance{Name: "Fridge"}))
+	require.NoError(t, store.CreateAppliance(&Appliance{Name: "Fridge"}))
 	appID := uint(1)
-	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
+	require.NoError(t, store.CreateMaintenance(&MaintenanceItem{
 		Name: "Clean coils", CategoryID: catID, ApplianceID: &appID,
 	}))
 	require.NoError(t, store.DeleteMaintenance(1))
@@ -742,7 +742,7 @@ func TestListMaintenanceByApplianceIncludeDeleted(t *testing.T) {
 
 func TestSoftDeleteRestoreVendor(t *testing.T) {
 	store := newTestStore(t)
-	require.NoError(t, store.CreateVendor(Vendor{Name: "Test Vendor"}))
+	require.NoError(t, store.CreateVendor(&Vendor{Name: "Test Vendor"}))
 
 	vendors, _ := store.ListVendors(false)
 	require.Len(t, vendors, 1)
@@ -763,12 +763,12 @@ func TestSoftDeleteRestoreVendor(t *testing.T) {
 
 func TestDeleteVendorBlockedByQuotes(t *testing.T) {
 	store := newTestStore(t)
-	require.NoError(t, store.CreateVendor(Vendor{Name: "Blocked Vendor"}))
+	require.NoError(t, store.CreateVendor(&Vendor{Name: "Blocked Vendor"}))
 	vendors, _ := store.ListVendors(false)
 	vendorID := vendors[0].ID
 
 	types, _ := store.ProjectTypes()
-	require.NoError(t, store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(&Project{
 		Title: "Test", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
 	}))
 	projects, _ := store.ListProjects(false)
@@ -777,7 +777,7 @@ func TestDeleteVendorBlockedByQuotes(t *testing.T) {
 	require.NoError(
 		t,
 		store.CreateQuote(
-			Quote{ProjectID: projID, TotalCents: 1000},
+			&Quote{ProjectID: projID, TotalCents: 1000},
 			Vendor{Name: "Blocked Vendor"},
 		),
 	)
@@ -791,9 +791,9 @@ func TestDeleteVendorBlockedByQuotes(t *testing.T) {
 
 func TestRestoreQuoteBlockedByDeletedVendor(t *testing.T) {
 	store := newTestStore(t)
-	require.NoError(t, store.CreateVendor(Vendor{Name: "Doomed Vendor"}))
+	require.NoError(t, store.CreateVendor(&Vendor{Name: "Doomed Vendor"}))
 	types, _ := store.ProjectTypes()
-	require.NoError(t, store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(&Project{
 		Title: "Test", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
 	}))
 	projects, _ := store.ListProjects(false)
@@ -803,7 +803,10 @@ func TestRestoreQuoteBlockedByDeletedVendor(t *testing.T) {
 
 	require.NoError(
 		t,
-		store.CreateQuote(Quote{ProjectID: projID, TotalCents: 500}, Vendor{Name: "Doomed Vendor"}),
+		store.CreateQuote(
+			&Quote{ProjectID: projID, TotalCents: 500},
+			Vendor{Name: "Doomed Vendor"},
+		),
 	)
 	quotes, _ := store.ListQuotes(false)
 	quoteID := quotes[0].ID
@@ -819,20 +822,20 @@ func TestRestoreQuoteBlockedByDeletedVendor(t *testing.T) {
 
 func TestRestoreServiceLogBlockedByDeletedVendor(t *testing.T) {
 	store := newTestStore(t)
-	require.NoError(t, store.CreateVendor(Vendor{Name: "Doomed SL Vendor"}))
+	require.NoError(t, store.CreateVendor(&Vendor{Name: "Doomed SL Vendor"}))
 	vendors, _ := store.ListVendors(false)
 	vendorID := vendors[0].ID
 
 	cats, _ := store.MaintenanceCategories()
 	require.NoError(
 		t,
-		store.CreateMaintenance(MaintenanceItem{Name: "Test Maint", CategoryID: cats[0].ID}),
+		store.CreateMaintenance(&MaintenanceItem{Name: "Test Maint", CategoryID: cats[0].ID}),
 	)
 	items, _ := store.ListMaintenance(false)
 	maintID := items[0].ID
 
 	require.NoError(t, store.CreateServiceLog(
-		ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: time.Now()},
+		&ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: time.Now()},
 		Vendor{Name: "Doomed SL Vendor"},
 	))
 	logs, _ := store.ListServiceLog(maintID, false)
@@ -852,13 +855,13 @@ func TestRestoreServiceLogAllowedWithoutVendor(t *testing.T) {
 	cats, _ := store.MaintenanceCategories()
 	require.NoError(
 		t,
-		store.CreateMaintenance(MaintenanceItem{Name: "Self Maint", CategoryID: cats[0].ID}),
+		store.CreateMaintenance(&MaintenanceItem{Name: "Self Maint", CategoryID: cats[0].ID}),
 	)
 	items, _ := store.ListMaintenance(false)
 	maintID := items[0].ID
 
 	require.NoError(t, store.CreateServiceLog(
-		ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: time.Now()},
+		&ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: time.Now()},
 		Vendor{},
 	))
 	logs, _ := store.ListServiceLog(maintID, false)
@@ -870,12 +873,12 @@ func TestRestoreServiceLogAllowedWithoutVendor(t *testing.T) {
 
 func TestRestoreProjectBlockedByDeletedPreferredVendor(t *testing.T) {
 	store := newTestStore(t)
-	require.NoError(t, store.CreateVendor(Vendor{Name: "Preferred Vendor"}))
+	require.NoError(t, store.CreateVendor(&Vendor{Name: "Preferred Vendor"}))
 	vendors, _ := store.ListVendors(false)
 	vendorID := vendors[0].ID
 
 	types, _ := store.ProjectTypes()
-	require.NoError(t, store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(&Project{
 		Title: "Vendor Project", ProjectTypeID: types[0].ID,
 		Status: ProjectStatusPlanned, PreferredVendorID: &vendorID,
 	}))
@@ -894,7 +897,7 @@ func TestRestoreProjectBlockedByDeletedPreferredVendor(t *testing.T) {
 func TestRestoreProjectAllowedWithoutPreferredVendor(t *testing.T) {
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
-	require.NoError(t, store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(&Project{
 		Title: "No Vendor Project", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
 	}))
 	projects, _ := store.ListProjects(false)
@@ -907,12 +910,12 @@ func TestRestoreProjectAllowedWithoutPreferredVendor(t *testing.T) {
 func TestVendorQuoteProjectDeleteRestoreChain(t *testing.T) {
 	store := newTestStore(t)
 
-	require.NoError(t, store.CreateVendor(Vendor{Name: "Chain Vendor"}))
+	require.NoError(t, store.CreateVendor(&Vendor{Name: "Chain Vendor"}))
 	vendors, _ := store.ListVendors(false)
 	vendorID := vendors[0].ID
 
 	types, _ := store.ProjectTypes()
-	require.NoError(t, store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(&Project{
 		Title: "Chain Project", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
 	}))
 	projects, _ := store.ListProjects(false)
@@ -920,7 +923,10 @@ func TestVendorQuoteProjectDeleteRestoreChain(t *testing.T) {
 
 	require.NoError(
 		t,
-		store.CreateQuote(Quote{ProjectID: projID, TotalCents: 1000}, Vendor{Name: "Chain Vendor"}),
+		store.CreateQuote(
+			&Quote{ProjectID: projID, TotalCents: 1000},
+			Vendor{Name: "Chain Vendor"},
+		),
 	)
 	quotes, _ := store.ListQuotes(false)
 	quoteID := quotes[0].ID
@@ -952,7 +958,7 @@ func TestVendorQuoteProjectDeleteRestoreChain(t *testing.T) {
 func TestFindOrCreateVendorRestoresSoftDeleted(t *testing.T) {
 	store := newTestStore(t)
 
-	require.NoError(t, store.CreateVendor(Vendor{Name: "Revivable Vendor"}))
+	require.NoError(t, store.CreateVendor(&Vendor{Name: "Revivable Vendor"}))
 	vendors, _ := store.ListVendors(false)
 	vendorID := vendors[0].ID
 
@@ -961,12 +967,12 @@ func TestFindOrCreateVendorRestoresSoftDeleted(t *testing.T) {
 	assert.Empty(t, vendors)
 
 	types, _ := store.ProjectTypes()
-	require.NoError(t, store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(&Project{
 		Title: "Test", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
 	}))
 	projects, _ := store.ListProjects(false)
 	require.NoError(t, store.CreateQuote(
-		Quote{ProjectID: projects[0].ID, TotalCents: 500},
+		&Quote{ProjectID: projects[0].ID, TotalCents: 500},
 		Vendor{Name: "Revivable Vendor"},
 	))
 
@@ -977,7 +983,7 @@ func TestFindOrCreateVendorRestoresSoftDeleted(t *testing.T) {
 
 func TestVendorDeletionRecord(t *testing.T) {
 	store := newTestStore(t)
-	require.NoError(t, store.CreateVendor(Vendor{Name: "Record Vendor"}))
+	require.NoError(t, store.CreateVendor(&Vendor{Name: "Record Vendor"}))
 	vendors, _ := store.ListVendors(false)
 	vendorID := vendors[0].ID
 
@@ -1034,7 +1040,7 @@ func TestUnicodeRoundTripVendor(t *testing.T) {
 
 	for _, name := range names {
 		t.Run(name, func(t *testing.T) {
-			require.NoError(t, store.CreateVendor(Vendor{Name: name}))
+			require.NoError(t, store.CreateVendor(&Vendor{Name: name}))
 		})
 	}
 
@@ -1055,7 +1061,7 @@ func TestUnicodeRoundTripNotes(t *testing.T) {
 	require.NoError(t, err)
 
 	notes := "Technician Jos\u00e9 used \u00bd-inch fittings per \u00a75.2"
-	require.NoError(t, store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(&Project{
 		Title:         "Unicode notes test",
 		ProjectTypeID: types[0].ID,
 		Status:        ProjectStatusPlanned,
@@ -1071,7 +1077,7 @@ func TestUnicodeRoundTripNotes(t *testing.T) {
 func TestDocumentCRUDAndMetadata(t *testing.T) {
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
-	require.NoError(t, store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(&Project{
 		Title: "Doc Project", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
 	}))
 	projects, _ := store.ListProjects(false)
@@ -1081,7 +1087,7 @@ func TestDocumentCRUDAndMetadata(t *testing.T) {
 	checksum := fmt.Sprintf("%x", sha256.Sum256(content))
 
 	// User attaches a document to a project.
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title:          "Quote PDF",
 		FileName:       "invoice.pdf",
 		EntityKind:     DocumentEntityProject,
@@ -1121,13 +1127,13 @@ func TestDocumentCRUDAndMetadata(t *testing.T) {
 func TestRestoreDocumentBlockedByDeletedTarget(t *testing.T) {
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
-	require.NoError(t, store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(&Project{
 		Title: "Doc Restore Project", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
 	}))
 	projects, _ := store.ListProjects(false)
 	projectID := projects[0].ID
 
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title:      "Project Note",
 		EntityKind: DocumentEntityProject,
 		EntityID:   projectID,
@@ -1153,7 +1159,7 @@ func TestDocumentBLOBStorageAndExtract(t *testing.T) {
 	content := []byte("this is a test PDF")
 	checksum := fmt.Sprintf("%x", sha256.Sum256(content))
 
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title:          "Test Report",
 		FileName:       "report.pdf",
 		MIMEType:       "application/pdf",
@@ -1188,7 +1194,7 @@ func TestUpdateDocumentMetadataPreservesFile(t *testing.T) {
 	content := []byte("important contract text")
 	checksum := fmt.Sprintf("%x", sha256.Sum256(content))
 
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title:          "Contract",
 		FileName:       "contract.pdf",
 		MIMEType:       "application/pdf",
@@ -1234,7 +1240,7 @@ func TestUpdateDocumentReplacesFile(t *testing.T) {
 	oldChecksum := fmt.Sprintf("%x", sha256.Sum256(oldContent))
 
 	// User uploads an initial file.
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title:          "Contract",
 		FileName:       "draft.pdf",
 		MIMEType:       "application/pdf",
@@ -1285,7 +1291,7 @@ func TestReplaceFileThenViewServesNewContent(t *testing.T) {
 	v1Checksum := fmt.Sprintf("%x", sha256.Sum256(v1))
 
 	// User uploads v1 and views it.
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title:          "Report",
 		FileName:       "report.pdf",
 		SizeBytes:      int64(len(v1)),
@@ -1329,7 +1335,7 @@ func TestDeleteRestoreDocumentContentSurvives(t *testing.T) {
 	content := []byte("warranty certificate scan")
 	checksum := fmt.Sprintf("%x", sha256.Sum256(content))
 
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title:          "Warranty",
 		FileName:       "warranty.pdf",
 		SizeBytes:      int64(len(content)),
@@ -1378,7 +1384,7 @@ func TestUnlinkedDocumentFullLifecycle(t *testing.T) {
 	content := []byte("household inventory spreadsheet")
 
 	// User uploads a standalone document (not linked to any entity).
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title:     "Home Inventory",
 		FileName:  "inventory.csv",
 		SizeBytes: int64(len(content)),
@@ -1419,7 +1425,7 @@ func TestMultipleDocumentsListOrder(t *testing.T) {
 
 	// User uploads three documents in sequence.
 	for _, name := range []string{"Alpha", "Beta", "Gamma"} {
-		require.NoError(t, store.CreateDocument(Document{
+		require.NoError(t, store.CreateDocument(&Document{
 			Title: name,
 			Data:  []byte(name + " content"),
 		}))
@@ -1449,7 +1455,7 @@ func TestUpdateDocumentClearNotes(t *testing.T) {
 	store := newTestStore(t)
 
 	content := []byte("receipt data")
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title:     "Receipt",
 		FileName:  "receipt.pdf",
 		MIMEType:  "application/pdf",
@@ -1501,18 +1507,18 @@ func TestCountQuotesByProject(t *testing.T) {
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
 
-	require.NoError(t, store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(&Project{
 		Title: "P1", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
 	}))
 	projects, _ := store.ListProjects(false)
 	projectID := projects[0].ID
 
 	require.NoError(t, store.CreateQuote(
-		Quote{ProjectID: projectID, TotalCents: 5000},
+		&Quote{ProjectID: projectID, TotalCents: 5000},
 		Vendor{Name: "V1"},
 	))
 	require.NoError(t, store.CreateQuote(
-		Quote{ProjectID: projectID, TotalCents: 7500},
+		&Quote{ProjectID: projectID, TotalCents: 7500},
 		Vendor{Name: "V2"},
 	))
 
@@ -1529,22 +1535,22 @@ func TestListQuotesByVendor(t *testing.T) {
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
 
-	require.NoError(t, store.CreateVendor(Vendor{Name: "TestVendor"}))
+	require.NoError(t, store.CreateVendor(&Vendor{Name: "TestVendor"}))
 	vendors, _ := store.ListVendors(false)
 	vendorID := vendors[0].ID
 
-	require.NoError(t, store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(&Project{
 		Title: "P1", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
 	}))
 	projects, _ := store.ListProjects(false)
 	projectID := projects[0].ID
 
 	require.NoError(t, store.CreateQuote(
-		Quote{ProjectID: projectID, TotalCents: 1000},
+		&Quote{ProjectID: projectID, TotalCents: 1000},
 		Vendor{Name: "TestVendor"},
 	))
 	require.NoError(t, store.CreateQuote(
-		Quote{ProjectID: projectID, TotalCents: 2000},
+		&Quote{ProjectID: projectID, TotalCents: 2000},
 		Vendor{Name: "OtherVendor"},
 	))
 
@@ -1558,10 +1564,10 @@ func TestListQuotesByProject(t *testing.T) {
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
 
-	require.NoError(t, store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(&Project{
 		Title: "P1", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
 	}))
-	require.NoError(t, store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(&Project{
 		Title: "P2", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
 	}))
 	projects, _ := store.ListProjects(false)
@@ -1569,11 +1575,11 @@ func TestListQuotesByProject(t *testing.T) {
 	p2ID := projects[1].ID
 
 	require.NoError(t, store.CreateQuote(
-		Quote{ProjectID: p1ID, TotalCents: 1000},
+		&Quote{ProjectID: p1ID, TotalCents: 1000},
 		Vendor{Name: "V1"},
 	))
 	require.NoError(t, store.CreateQuote(
-		Quote{ProjectID: p2ID, TotalCents: 5000},
+		&Quote{ProjectID: p2ID, TotalCents: 5000},
 		Vendor{Name: "V1"},
 	))
 
@@ -1587,22 +1593,22 @@ func TestListServiceLogsByVendor(t *testing.T) {
 	store := newTestStore(t)
 	cats, _ := store.MaintenanceCategories()
 
-	require.NoError(t, store.CreateVendor(Vendor{Name: "LogVendor"}))
+	require.NoError(t, store.CreateVendor(&Vendor{Name: "LogVendor"}))
 	vendors, _ := store.ListVendors(false)
 	vendorID := vendors[0].ID
 
-	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
+	require.NoError(t, store.CreateMaintenance(&MaintenanceItem{
 		Name: "Filter", CategoryID: cats[0].ID,
 	}))
 	items, _ := store.ListMaintenance(false)
 	maintID := items[0].ID
 
 	require.NoError(t, store.CreateServiceLog(
-		ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: time.Now()},
+		&ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: time.Now()},
 		Vendor{Name: "LogVendor"},
 	))
 	require.NoError(t, store.CreateServiceLog(
-		ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: time.Now()},
+		&ServiceLogEntry{MaintenanceItemID: maintID, ServicedAt: time.Now()},
 		Vendor{Name: "OtherVendor"},
 	))
 
@@ -1616,7 +1622,7 @@ func TestListServiceLogsByVendor(t *testing.T) {
 func TestDocumentCRUD(t *testing.T) {
 	store := newTestStore(t)
 
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title: "Invoice", EntityKind: DocumentEntityProject, EntityID: 1,
 		MIMEType: "application/pdf", SizeBytes: 1024, Data: []byte("fake-pdf"),
 	}))
@@ -1641,13 +1647,13 @@ func TestDocumentCRUD(t *testing.T) {
 func TestCountDocumentsByEntity(t *testing.T) {
 	store := newTestStore(t)
 
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title: "Doc1", EntityKind: DocumentEntityProject, EntityID: 10,
 	}))
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title: "Doc2", EntityKind: DocumentEntityProject, EntityID: 10,
 	}))
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title: "Doc3", EntityKind: DocumentEntityAppliance, EntityID: 10,
 	}))
 
@@ -1668,10 +1674,10 @@ func TestCountDocumentsByEntity(t *testing.T) {
 func TestListDocumentsByEntity(t *testing.T) {
 	store := newTestStore(t)
 
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title: "ProjDoc", EntityKind: DocumentEntityProject, EntityID: 5,
 	}))
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title: "AppDoc", EntityKind: DocumentEntityAppliance, EntityID: 5,
 	}))
 
@@ -1685,10 +1691,10 @@ func TestListDocumentsByEntity(t *testing.T) {
 func TestListDocumentsByEntityIncludeDeleted(t *testing.T) {
 	store := newTestStore(t)
 
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title: "Active", EntityKind: DocumentEntityProject, EntityID: 1,
 	}))
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title: "ToDelete", EntityKind: DocumentEntityProject, EntityID: 1,
 	}))
 
@@ -1710,13 +1716,13 @@ func TestDeleteProjectBlockedByDocuments(t *testing.T) {
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
 
-	require.NoError(t, store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(&Project{
 		Title: "Doc Project", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
 	}))
 	projects, _ := store.ListProjects(false)
 	projID := projects[0].ID
 
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title: "ProjDoc", EntityKind: DocumentEntityProject, EntityID: projID,
 	}))
 
@@ -1729,11 +1735,11 @@ func TestDeleteProjectBlockedByDocuments(t *testing.T) {
 
 func TestDeleteApplianceBlockedByDocuments(t *testing.T) {
 	store := newTestStore(t)
-	require.NoError(t, store.CreateAppliance(Appliance{Name: "Doc Fridge"}))
+	require.NoError(t, store.CreateAppliance(&Appliance{Name: "Doc Fridge"}))
 	appliances, _ := store.ListAppliances(false)
 	appID := appliances[0].ID
 
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title: "Manual", EntityKind: DocumentEntityAppliance, EntityID: appID,
 	}))
 
@@ -1748,13 +1754,13 @@ func TestRestoreDocumentBlockedByDeletedProject(t *testing.T) {
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
 
-	require.NoError(t, store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(&Project{
 		Title: "Doomed", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
 	}))
 	projects, _ := store.ListProjects(false)
 	projID := projects[0].ID
 
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title: "Orphan", EntityKind: DocumentEntityProject, EntityID: projID,
 	}))
 	docs, _ := store.ListDocuments(false)
@@ -1772,11 +1778,11 @@ func TestRestoreDocumentBlockedByDeletedProject(t *testing.T) {
 func TestRestoreDocumentBlockedByDeletedAppliance(t *testing.T) {
 	store := newTestStore(t)
 
-	require.NoError(t, store.CreateAppliance(Appliance{Name: "Doomed Washer"}))
+	require.NoError(t, store.CreateAppliance(&Appliance{Name: "Doomed Washer"}))
 	appliances, _ := store.ListAppliances(false)
 	appID := appliances[0].ID
 
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title: "Warranty", EntityKind: DocumentEntityAppliance, EntityID: appID,
 	}))
 	docs, _ := store.ListDocuments(false)
@@ -1796,7 +1802,7 @@ func TestCreateDocumentRejectsOversized(t *testing.T) {
 
 	require.NoError(t, store.SetMaxDocumentSize(100))
 
-	err := store.CreateDocument(Document{
+	err := store.CreateDocument(&Document{
 		Title:     "Big File",
 		SizeBytes: 200,
 		Data:      make([]byte, 200),
@@ -1808,7 +1814,7 @@ func TestCreateDocumentRejectsOversized(t *testing.T) {
 	assert.NotContains(t, err.Error(), "200 bytes")
 
 	// Exactly at the limit should succeed.
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title:     "Just Right",
 		SizeBytes: 100,
 		Data:      make([]byte, 100),
@@ -1817,11 +1823,11 @@ func TestCreateDocumentRejectsOversized(t *testing.T) {
 
 func TestDeleteVendorBlockedByDocuments(t *testing.T) {
 	store := newTestStore(t)
-	require.NoError(t, store.CreateVendor(Vendor{Name: "Doc Vendor"}))
+	require.NoError(t, store.CreateVendor(&Vendor{Name: "Doc Vendor"}))
 	vendors, _ := store.ListVendors(false)
 	vendorID := vendors[0].ID
 
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title: "Invoice", EntityKind: DocumentEntityVendor, EntityID: vendorID,
 	}))
 
@@ -1835,20 +1841,20 @@ func TestDeleteVendorBlockedByDocuments(t *testing.T) {
 func TestDeleteQuoteBlockedByDocuments(t *testing.T) {
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
-	require.NoError(t, store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(&Project{
 		Title: "QP", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
 	}))
 	projects, _ := store.ListProjects(false)
 	projID := projects[0].ID
 
 	require.NoError(t, store.CreateQuote(
-		Quote{ProjectID: projID, TotalCents: 500},
+		&Quote{ProjectID: projID, TotalCents: 500},
 		Vendor{Name: "QV"},
 	))
 	quotes, _ := store.ListQuotes(false)
 	quoteID := quotes[0].ID
 
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title: "Quote PDF", EntityKind: DocumentEntityQuote, EntityID: quoteID,
 	}))
 
@@ -1864,13 +1870,13 @@ func TestDeleteMaintenanceBlockedByDocuments(t *testing.T) {
 	cat := MaintenanceCategory{Name: "DocMCat"}
 	require.NoError(t, store.db.Create(&cat).Error)
 
-	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
+	require.NoError(t, store.CreateMaintenance(&MaintenanceItem{
 		Name: "Documented Filter", CategoryID: cat.ID, IntervalMonths: 6,
 	}))
 	items, _ := store.ListMaintenance(false)
 	itemID := items[0].ID
 
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title: "Manual", EntityKind: DocumentEntityMaintenance, EntityID: itemID,
 	}))
 
@@ -1889,13 +1895,13 @@ func TestDeleteServiceLogBlockedByDocuments(t *testing.T) {
 	require.NoError(t, store.db.Create(&item).Error)
 
 	require.NoError(t, store.CreateServiceLog(
-		ServiceLogEntry{MaintenanceItemID: item.ID, ServicedAt: time.Now()},
+		&ServiceLogEntry{MaintenanceItemID: item.ID, ServicedAt: time.Now()},
 		Vendor{},
 	))
 	logs, _ := store.ListServiceLog(item.ID, false)
 	logID := logs[0].ID
 
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title: "Receipt", EntityKind: DocumentEntityServiceLog, EntityID: logID,
 	}))
 
@@ -1908,11 +1914,11 @@ func TestDeleteServiceLogBlockedByDocuments(t *testing.T) {
 
 func TestRestoreDocumentBlockedByDeletedVendor(t *testing.T) {
 	store := newTestStore(t)
-	require.NoError(t, store.CreateVendor(Vendor{Name: "Doomed Vendor"}))
+	require.NoError(t, store.CreateVendor(&Vendor{Name: "Doomed Vendor"}))
 	vendors, _ := store.ListVendors(false)
 	vendorID := vendors[0].ID
 
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title: "Vendor Doc", EntityKind: DocumentEntityVendor, EntityID: vendorID,
 	}))
 	docs, _ := store.ListDocuments(false)
@@ -1930,20 +1936,20 @@ func TestRestoreDocumentBlockedByDeletedVendor(t *testing.T) {
 func TestRestoreDocumentBlockedByDeletedQuote(t *testing.T) {
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
-	require.NoError(t, store.CreateProject(Project{
+	require.NoError(t, store.CreateProject(&Project{
 		Title: "RQP", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
 	}))
 	projects, _ := store.ListProjects(false)
 	projID := projects[0].ID
 
 	require.NoError(t, store.CreateQuote(
-		Quote{ProjectID: projID, TotalCents: 100},
+		&Quote{ProjectID: projID, TotalCents: 100},
 		Vendor{Name: "RQV"},
 	))
 	quotes, _ := store.ListQuotes(false)
 	quoteID := quotes[0].ID
 
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title: "Quote Receipt", EntityKind: DocumentEntityQuote, EntityID: quoteID,
 	}))
 	docs, _ := store.ListDocuments(false)
@@ -1963,13 +1969,13 @@ func TestRestoreDocumentBlockedByDeletedMaintenance(t *testing.T) {
 	cat := MaintenanceCategory{Name: "RMCat"}
 	require.NoError(t, store.db.Create(&cat).Error)
 
-	require.NoError(t, store.CreateMaintenance(MaintenanceItem{
+	require.NoError(t, store.CreateMaintenance(&MaintenanceItem{
 		Name: "Doomed Filter", CategoryID: cat.ID, IntervalMonths: 12,
 	}))
 	items, _ := store.ListMaintenance(false)
 	itemID := items[0].ID
 
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title: "Filter Manual", EntityKind: DocumentEntityMaintenance, EntityID: itemID,
 	}))
 	docs, _ := store.ListDocuments(false)
@@ -1992,13 +1998,13 @@ func TestRestoreDocumentBlockedByDeletedServiceLog(t *testing.T) {
 	require.NoError(t, store.db.Create(&item).Error)
 
 	require.NoError(t, store.CreateServiceLog(
-		ServiceLogEntry{MaintenanceItemID: item.ID, ServicedAt: time.Now()},
+		&ServiceLogEntry{MaintenanceItemID: item.ID, ServicedAt: time.Now()},
 		Vendor{},
 	))
 	logs, _ := store.ListServiceLog(item.ID, false)
 	logID := logs[0].ID
 
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title: "SL Receipt", EntityKind: DocumentEntityServiceLog, EntityID: logID,
 	}))
 	docs, _ := store.ListDocuments(false)
@@ -2016,7 +2022,7 @@ func TestRestoreDocumentBlockedByDeletedServiceLog(t *testing.T) {
 func TestSoftDeleteRestoreDocument(t *testing.T) {
 	store := newTestStore(t)
 
-	require.NoError(t, store.CreateDocument(Document{
+	require.NoError(t, store.CreateDocument(&Document{
 		Title: "Receipt", EntityKind: DocumentEntityProject, EntityID: 1,
 	}))
 

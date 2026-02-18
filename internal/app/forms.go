@@ -555,7 +555,11 @@ func (m *Model) submitApplianceForm() error {
 		item.ID = *m.editID
 		return m.store.UpdateAppliance(item)
 	}
-	return m.store.CreateAppliance(item)
+	if err := m.store.CreateAppliance(&item); err != nil {
+		return err
+	}
+	m.editID = &item.ID
+	return nil
 }
 
 func (m *Model) parseApplianceFormData() (data.Appliance, error) {
@@ -640,7 +644,11 @@ func (m *Model) submitVendorForm() error {
 		vendor.ID = *m.editID
 		return m.store.UpdateVendor(vendor)
 	}
-	return m.store.CreateVendor(vendor)
+	if err := m.store.CreateVendor(&vendor); err != nil {
+		return err
+	}
+	m.editID = &vendor.ID
+	return nil
 }
 
 func (m *Model) parseVendorFormData() (data.Vendor, error) {
@@ -987,7 +995,11 @@ func (m *Model) submitServiceLogForm() error {
 		entry.ID = *m.editID
 		return m.store.UpdateServiceLog(entry, vendor)
 	}
-	return m.store.CreateServiceLog(entry, vendor)
+	if err := m.store.CreateServiceLog(&entry, vendor); err != nil {
+		return err
+	}
+	m.editID = &entry.ID
+	return nil
 }
 
 func (m *Model) parseServiceLogFormData() (data.ServiceLogEntry, data.Vendor, error) {
@@ -1349,7 +1361,11 @@ func (m *Model) submitProjectForm() error {
 		project.ID = *m.editID
 		return m.store.UpdateProject(project)
 	}
-	return m.store.CreateProject(project)
+	if err := m.store.CreateProject(&project); err != nil {
+		return err
+	}
+	m.editID = &project.ID
+	return nil
 }
 
 func (m *Model) parseProjectFormData() (data.Project, error) {
@@ -1394,7 +1410,11 @@ func (m *Model) submitQuoteForm() error {
 		quote.ID = *m.editID
 		return m.store.UpdateQuote(quote, vendor)
 	}
-	return m.store.CreateQuote(quote, vendor)
+	if err := m.store.CreateQuote(&quote, vendor); err != nil {
+		return err
+	}
+	m.editID = &quote.ID
+	return nil
 }
 
 func (m *Model) parseQuoteFormData() (data.Quote, data.Vendor, error) {
@@ -1451,7 +1471,11 @@ func (m *Model) submitMaintenanceForm() error {
 		item.ID = *m.editID
 		return m.store.UpdateMaintenance(item)
 	}
-	return m.store.CreateMaintenance(item)
+	if err := m.store.CreateMaintenance(&item); err != nil {
+		return err
+	}
+	m.editID = &item.ID
+	return nil
 }
 
 func (m *Model) parseMaintenanceFormData() (data.MaintenanceItem, error) {
@@ -1801,7 +1825,11 @@ func (m *Model) submitDocumentForm() error {
 		doc.ID = *m.editID
 		return m.store.UpdateDocument(doc)
 	}
-	return m.store.CreateDocument(doc)
+	if err := m.store.CreateDocument(&doc); err != nil {
+		return err
+	}
+	m.editID = &doc.ID
+	return nil
 }
 
 // submitScopedDocumentForm creates a document with the given entity scope.
@@ -1816,7 +1844,11 @@ func (m *Model) submitScopedDocumentForm(entityKind string, entityID uint) error
 	}
 	doc.EntityKind = entityKind
 	doc.EntityID = entityID
-	return m.store.CreateDocument(doc)
+	if err := m.store.CreateDocument(&doc); err != nil {
+		return err
+	}
+	m.editID = &doc.ID
+	return nil
 }
 
 func (m *Model) parseDocumentFormData() (data.Document, error) {

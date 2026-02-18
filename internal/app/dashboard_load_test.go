@@ -16,7 +16,7 @@ func TestLoadDashboardAtClassifiesOverdueAndUpcoming(t *testing.T) {
 	m := newTestModelWithStore(t)
 
 	app := data.Appliance{Name: "Furnace"}
-	require.NoError(t, m.store.CreateAppliance(app))
+	require.NoError(t, m.store.CreateAppliance(&app))
 	apps, err := m.store.ListAppliances(false)
 	require.NoError(t, err)
 	appID := apps[0].ID
@@ -33,7 +33,7 @@ func TestLoadDashboardAtClassifiesOverdueAndUpcoming(t *testing.T) {
 		LastServicedAt: &fourMonthsAgo,
 		IntervalMonths: 3,
 	}
-	require.NoError(t, m.store.CreateMaintenance(overdue))
+	require.NoError(t, m.store.CreateMaintenance(&overdue))
 
 	// Item serviced 1 month ago, interval 3 months -> due in ~2 months (upcoming).
 	oneMonthAgo := time.Date(2025, 12, 15, 0, 0, 0, 0, time.UTC)
@@ -43,7 +43,7 @@ func TestLoadDashboardAtClassifiesOverdueAndUpcoming(t *testing.T) {
 		LastServicedAt: &oneMonthAgo,
 		IntervalMonths: 3,
 	}
-	require.NoError(t, m.store.CreateMaintenance(upcoming))
+	require.NoError(t, m.store.CreateMaintenance(&upcoming))
 
 	now := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
 	require.NoError(t, m.loadDashboardAt(now))
@@ -69,7 +69,7 @@ func TestLoadDashboardAtUpcomingWithin30Days(t *testing.T) {
 		LastServicedAt: &lastSrv,
 		IntervalMonths: 3,
 	}
-	require.NoError(t, m.store.CreateMaintenance(item))
+	require.NoError(t, m.store.CreateMaintenance(&item))
 
 	now := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
 	require.NoError(t, m.loadDashboardAt(now))
@@ -83,12 +83,12 @@ func TestLoadDashboardAtActiveProjects(t *testing.T) {
 	m := newTestModelWithStore(t)
 	types, _ := m.store.ProjectTypes()
 
-	require.NoError(t, m.store.CreateProject(data.Project{
+	require.NoError(t, m.store.CreateProject(&data.Project{
 		Title:         "Kitchen Remodel",
 		ProjectTypeID: types[0].ID,
 		Status:        data.ProjectStatusInProgress,
 	}))
-	require.NoError(t, m.store.CreateProject(data.Project{
+	require.NoError(t, m.store.CreateProject(&data.Project{
 		Title:         "Done Project",
 		ProjectTypeID: types[0].ID,
 		Status:        data.ProjectStatusCompleted,
@@ -106,7 +106,7 @@ func TestLoadDashboardAtExpiringWarranties(t *testing.T) {
 	m := newTestModelWithStore(t)
 
 	expiry := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
-	require.NoError(t, m.store.CreateAppliance(data.Appliance{
+	require.NoError(t, m.store.CreateAppliance(&data.Appliance{
 		Name:           "Dishwasher",
 		WarrantyExpiry: &expiry,
 	}))
@@ -158,7 +158,7 @@ func TestLoadDashboardAtSpending(t *testing.T) {
 		Name:       "Oil Change",
 		CategoryID: cats[0].ID,
 	}
-	require.NoError(t, m.store.CreateMaintenance(item))
+	require.NoError(t, m.store.CreateMaintenance(&item))
 	items, _ := m.store.ListMaintenance(false)
 	cost := int64(5000)
 	entry := data.ServiceLogEntry{
@@ -166,7 +166,7 @@ func TestLoadDashboardAtSpending(t *testing.T) {
 		ServicedAt:        time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
 		CostCents:         &cost,
 	}
-	require.NoError(t, m.store.CreateServiceLog(entry, data.Vendor{}))
+	require.NoError(t, m.store.CreateServiceLog(&entry, data.Vendor{}))
 
 	now := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
 	require.NoError(t, m.loadDashboardAt(now))
@@ -180,7 +180,7 @@ func TestLoadDashboardAtBuildsNav(t *testing.T) {
 
 	// Create an overdue item so nav has at least one entry.
 	fourMonthsAgo := time.Date(2025, 10, 1, 0, 0, 0, 0, time.UTC)
-	require.NoError(t, m.store.CreateMaintenance(data.MaintenanceItem{
+	require.NoError(t, m.store.CreateMaintenance(&data.MaintenanceItem{
 		Name:           "Check Gutters",
 		CategoryID:     cats[0].ID,
 		LastServicedAt: &fourMonthsAgo,
@@ -199,11 +199,11 @@ func TestLoadDashboardExcludesAppliancesWithoutWarranty(t *testing.T) {
 
 	// One appliance with warranty in range, one without any warranty.
 	expiry := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
-	require.NoError(t, m.store.CreateAppliance(data.Appliance{
+	require.NoError(t, m.store.CreateAppliance(&data.Appliance{
 		Name:           "Fridge",
 		WarrantyExpiry: &expiry,
 	}))
-	require.NoError(t, m.store.CreateAppliance(data.Appliance{
+	require.NoError(t, m.store.CreateAppliance(&data.Appliance{
 		Name: "Toaster",
 	}))
 
