@@ -6,6 +6,7 @@ package app
 import (
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -326,4 +327,71 @@ func TestSavedFormExitsImmediatelyOnEsc(t *testing.T) {
 	// Saved data should persist.
 	require.NoError(t, m.loadHouse())
 	assert.Equal(t, "Saved Edit", m.house.Nickname)
+}
+
+func TestCtrlQDirtyFormShowsConfirmation(t *testing.T) {
+	m := newTestModelWithStore(t)
+	openHouseForm(m)
+
+	values, ok := m.formData.(*houseFormData)
+	require.True(t, ok)
+	values.Nickname = "Unsaved Quit"
+	m.checkFormDirty()
+	require.True(t, m.formDirty)
+
+	// ctrl+q on a dirty form should show confirmation, not quit.
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlQ})
+	assert.Nil(t, cmd, "should not quit immediately")
+	assert.True(t, m.confirmDiscard, "confirm dialog should be active")
+	assert.Equal(t, modeForm, m.mode, "should still be in form mode")
+}
+
+func TestCtrlQDirtyFormConfirmQuits(t *testing.T) {
+	m := newTestModelWithStore(t)
+	openHouseForm(m)
+
+	values, ok := m.formData.(*houseFormData)
+	require.True(t, ok)
+	values.Nickname = "Will Quit"
+	m.checkFormDirty()
+
+	// ctrl+q triggers confirmation, y quits.
+	m.Update(tea.KeyMsg{Type: tea.KeyCtrlQ})
+	require.True(t, m.confirmDiscard)
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")})
+	assert.NotNil(t, cmd, "y after ctrl+q should return quit command")
+
+	// Database should have the original value, not the unsaved edit.
+	require.NoError(t, m.loadHouse())
+	assert.Equal(t, "Test House", m.house.Nickname)
+}
+
+func TestCtrlQDirtyFormCancelStaysInForm(t *testing.T) {
+	m := newTestModelWithStore(t)
+	openHouseForm(m)
+
+	values, ok := m.formData.(*houseFormData)
+	require.True(t, ok)
+	values.Nickname = "Keep Editing"
+	m.checkFormDirty()
+
+	// ctrl+q triggers confirmation, n cancels.
+	m.Update(tea.KeyMsg{Type: tea.KeyCtrlQ})
+	require.True(t, m.confirmDiscard)
+	sendKey(m, "n")
+	assert.False(t, m.confirmDiscard, "confirm should be dismissed")
+	assert.False(t, m.confirmQuit, "quit flag should be cleared")
+	assert.Equal(t, modeForm, m.mode, "should remain in form mode")
+	assert.NotNil(t, m.form, "form should still be open")
+}
+
+func TestCtrlQCleanFormQuitsImmediately(t *testing.T) {
+	m := newTestModelWithStore(t)
+	openHouseForm(m)
+	require.False(t, m.formDirty)
+
+	// ctrl+q on a clean form should quit immediately.
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlQ})
+	assert.NotNil(t, cmd, "clean form ctrl+q should quit immediately")
+	assert.False(t, m.confirmDiscard, "no confirm needed for clean form")
 }

@@ -70,6 +70,7 @@ type Model struct {
 	formSnapshot          any
 	formDirty             bool
 	confirmDiscard        bool // true when showing "discard unsaved changes?" prompt
+	confirmQuit           bool // true when discard was triggered by ctrl+q (quit after confirm)
 	formHasRequired       bool
 	editID                *uint
 	inlineInput           *inlineInputState
@@ -151,6 +152,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.updateAllViewports()
 	case tea.KeyMsg:
 		if typed.String() == "ctrl+q" {
+			if m.mode == modeForm && m.formDirty {
+				m.confirmDiscard = true
+				m.confirmQuit = true
+				return m, nil
+			}
 			m.cancelChatOperations()
 			return m, tea.Quit
 		}
@@ -364,9 +370,15 @@ func (m *Model) handleConfirmDiscard(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch key.String() {
 	case "y":
 		m.confirmDiscard = false
+		if m.confirmQuit {
+			m.confirmQuit = false
+			m.cancelChatOperations()
+			return m, tea.Quit
+		}
 		m.exitForm()
 	case "n", keyEsc:
 		m.confirmDiscard = false
+		m.confirmQuit = false
 	}
 	return m, nil
 }
