@@ -765,4 +765,42 @@ func TestSaveFormInPlaceSetEditID(t *testing.T) {
 		require.Len(t, docs, 1)
 		assert.Equal(t, "Test Doc (revised)", docs[0].Title, "second save should update")
 	})
+
+	t.Run("scopedDocument", func(t *testing.T) {
+		m := newTestModelWithStore(t)
+		types, _ := m.store.ProjectTypes()
+		require.NoError(t, m.store.CreateProject(&data.Project{
+			Title:         "Scoped Doc Proj",
+			ProjectTypeID: types[0].ID,
+			Status:        data.ProjectStatusPlanned,
+		}))
+		projects, _ := m.store.ListProjects(false)
+		projID := projects[0].ID
+
+		// Use the real project-document detail view.
+		require.NoError(t, m.openProjectDocumentDetail(projID, "Scoped Doc Proj"))
+
+		m.formKind = formDocument
+		m.formData = &documentFormData{
+			Title:      "Permit",
+			EntityKind: data.DocumentEntityProject,
+		}
+
+		m.saveFormInPlace()
+		requireNoStatusError(t, m, "first save")
+		require.NotNil(t, m.editID)
+
+		m.formData = &documentFormData{
+			Title:      "Permit (final)",
+			EntityKind: data.DocumentEntityProject,
+		}
+		m.status = statusMsg{}
+		m.saveFormInPlace()
+		requireNoStatusError(t, m, "second save")
+
+		docs, err := m.store.ListDocuments(false)
+		require.NoError(t, err)
+		require.Len(t, docs, 1)
+		assert.Equal(t, "Permit (final)", docs[0].Title, "second save should update")
+	})
 }
