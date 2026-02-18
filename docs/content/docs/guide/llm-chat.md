@@ -12,7 +12,7 @@ does it have AI?" so here we are. You're
 welcome. I'm sorry.
 
 micasa includes a built-in chat interface that lets you ask questions about
-your home data in plain English. A local LLM translates your question into
+your home data. A local LLM translates your question into
 SQL, runs it against your database, and summarizes the results. Everything
 runs locally -- your data never leaves your machine.
 
@@ -58,7 +58,7 @@ micasa translates your question through a two-stage pipeline:
 
 1. **SQL generation** -- the LLM writes a SQL query against your schema
 2. **Result interpretation** -- the query runs, and the LLM summarizes the
-   results in plain English
+   results
 
 The model has access to your full database schema, including table
 relationships, column types, and the actual distinct values stored in key

@@ -280,6 +280,19 @@ section + section {
   color: var(--charcoal) !important;
 }
 
+.hero-repo {
+  display: block;
+  margin-top: 1.1rem;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.78rem;
+  color: var(--warm-gray);
+  text-decoration: none;
+}
+
+.hero-repo:hover {
+  color: var(--terracotta);
+}
+
 /* --- Demo GIF --- */
 .demo-container {
   text-align: center;

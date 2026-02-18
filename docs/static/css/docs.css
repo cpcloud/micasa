@@ -115,19 +115,16 @@ body {
   font-size: 0.88rem;
   color: var(--charcoal-soft);
   text-decoration: none;
-  transition: color 0.1s, background 0.1s;
+  transition: color 0.1s;
 }
 
 .sidebar-nav a:hover {
   color: var(--terracotta);
-  background: rgba(192, 94, 60, 0.05);
 }
 
 .sidebar-nav a.active {
   color: var(--terracotta);
   font-weight: 600;
-  background: rgba(192, 94, 60, 0.08);
-  border-right: 3px solid var(--terracotta);
 }
 
 /* ── Main content ──────────────────────────────────────────── */
