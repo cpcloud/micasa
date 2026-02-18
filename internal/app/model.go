@@ -1835,11 +1835,6 @@ func (m *Model) toggleFilterInvert() {
 		applySorts(tab)
 		m.updateTabViewport(tab)
 	}
-	if tab.FilterInverted {
-		m.setStatusInfo("Filter inverted.")
-	} else {
-		m.setStatusInfo("Filter normal.")
-	}
 }
 
 func (m *Model) hideCurrentColumn() {
