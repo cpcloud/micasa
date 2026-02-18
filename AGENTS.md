@@ -301,13 +301,23 @@ These have been repeatedly requested. Violating them wastes the user's time.
 - **PR conventions**: Use `/create-pr` when creating pull requests. It
   covers `--body-file`, no test plans, description maintenance, and merge
   strategy.
-- **Tests simulate user behavior**: Every user-facing change must have at
-  least one test written from the user's perspective -- complete journeys,
-  not isolated function calls. Exercise the public API with realistic
-  inputs; assert on observable outputs and side effects. Do not reach into
-  unexported fields or mock internal helpers. Structural tests (compile
-  guards, invariant checks) are additions, never replacements. Existing
-  tests that violate this are tech debt, not precedent.
+- **Tests hit real code paths, not wrappers**: Every test must exercise
+  the same code path a real user would trigger. If the user sees a
+  rendered header, the test must call the real rendering pipeline
+  (`naturalWidths` → `columnWidths` → `renderHeaderRow`), not call an
+  internal helper in isolation with hand-picked widths. A test that
+  passes by construction (because you fed it the "right" inputs) is
+  worthless -- it proves the helper works, not that the feature works.
+  Structural/unit tests on internals are welcome as ADDITIONS but never
+  as REPLACEMENTS for pipeline-level tests.
+- **Regression tests MUST fail without the fix**: When fixing a bug,
+  write the test FIRST, run it against the unfixed code, and confirm it
+  fails. Only then apply the fix and confirm it passes. If you can't
+  run the test against unfixed code (e.g. you already changed it), at
+  minimum verify that reverting or commenting out the key fix line would
+  make the test fail. A test that would pass on the old code is not a
+  regression test -- it's decoration. If you're unsure how to reproduce
+  the bug as a test, ask the user before guessing.
 - **Prefer tools over shell commands**: Use the dedicated Read, Write,
   StrReplace, Grep, and Glob tools instead of shell equivalents (`cat`,
   `sed`, `grep`, `find`, `echo >`, etc.). Only use Shell for commands that
