@@ -75,9 +75,9 @@ detector, with "security" questions like "What were you eating on the first
 Tuesday of your last month of high school?", I decided that it was time to get
 back to basics and build micasa without a bunch of annoying crap.
 
-No cloud sync. No account. No subscription. No API that gets deprecated while
-you're not looking. The database is a regular file on your filesystem that you
-can copy, move, or put in Dropbox. Or not.
+Here's what I wanted: no cloud sync. No account. No subscription. No API that
+gets deprecated while I'm not looking. The database is a regular file on
+my filesystem that I can copy, move, or put in Dropbox. Or not.
 
 This is deliberate. Home data is personal, low-volume, and long-lived. You'll
 want to know when the roof was last inspected in 2032. The tool that stores
@@ -85,7 +85,7 @@ that answer needs to still be around in 2032, and "a file on your computer"
 has a better survival rate than most startups.
 
 Plus, when people ask you "Why do you know the BTUs of your water heater
-*off-hand*?", you can answer them in cryptic Spanish: "micasa."
+*off-hand*?", you can answer them in what you pretend is cryptic Spanish: "micasa."
 
 ## What it actually tracks
 
@@ -111,12 +111,8 @@ the quotes you're collecting. The contractor's invoice gets attached as a
 [document](/docs/guide/documents/), stored right in the database alongside the
 appliance manual and the warranty PDF.
 
-That's one thread through the data, coming from a realistic problem. These
-"threads" (though they're not called that in the code) are represented by links
-in the data -- themselves represented by foreign key constraints.
-
-Those links provide a lot of the raw [data
-modeling](/docs/development/data-model/) power of micasa, and they back the
+That's one thread through the data, starting from a weird noise. Everything
+links together, and those links back the
 dashboard that gives you the big picture on startup: overdue maintenance,
 active projects, expiring warranties, and year-to-date spending. If nothing
 needs attention, it's empty. Silence means your house is behaving itself.
@@ -128,7 +124,8 @@ Needless to say, the demo house is not behaving itself.
 There's also an optional [LLM chat](/docs/guide/llm-chat/) feature that can
 answer questions about your data, powered by a local model via Ollama or any
 OpenAI-compatible API. It's fun to poke at, but it's not load-bearing -- every
-feature works fully without it.
+feature works fully without it. It's also the only part that phones home, and
+only to servers [you configure](/docs/reference/configuration/#llm-section).
 
 ## Try it
 
