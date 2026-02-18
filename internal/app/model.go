@@ -60,6 +60,9 @@ type Model struct {
 	dashboard             dashboardData
 	dashCursor            int
 	dashNav               []dashNavEntry
+	dashExpanded          map[string]bool
+	dashScrollOffset      int
+	dashTotalLines        int
 	hasHouse              bool
 	house                 data.HouseProfile
 	mode                  Mode
@@ -394,11 +397,23 @@ func (m *Model) handleDashboardKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 	case "k", "up":
 		m.dashUp()
 		return nil, true
+	case "J", "shift+down":
+		m.dashNextSection()
+		return nil, true
+	case "K", "shift+up":
+		m.dashPrevSection()
+		return nil, true
 	case "g":
 		m.dashTop()
 		return nil, true
 	case "G":
 		m.dashBottom()
+		return nil, true
+	case "e":
+		m.dashToggleCurrent()
+		return nil, true
+	case "E":
+		m.dashToggleAll()
 		return nil, true
 	case keyEnter:
 		m.dashJump()
@@ -877,6 +892,14 @@ var (
 		breadcrumb: stdBreadcrumb("Projects", tabDocuments.String()),
 		getName:    getProjectTitle,
 	}
+	incidentDocumentDef = detailDef{
+		tabKind:    tabIncidents,
+		subName:    tabDocuments.String(),
+		specs:      entityDocumentColumnSpecs,
+		handler:    func(id uint) TabHandler { return newEntityDocumentHandler(data.DocumentEntityIncident, id) },
+		breadcrumb: stdBreadcrumb("Incidents", tabDocuments.String()),
+		getName:    getIncidentTitle,
+	}
 	applianceDocumentDef = detailDef{
 		tabKind:    tabAppliances,
 		subName:    tabDocuments.String(),
@@ -900,6 +923,14 @@ func getVendorName(s *data.Store, id uint) (string, error) {
 		return "", fmt.Errorf("load vendor: %w", err)
 	}
 	return v.Name, nil
+}
+
+func getIncidentTitle(s *data.Store, id uint) (string, error) {
+	inc, err := s.GetIncident(id)
+	if err != nil {
+		return "", fmt.Errorf("load incident: %w", err)
+	}
+	return inc.Title, nil
 }
 
 func getProjectTitle(s *data.Store, id uint) (string, error) {
@@ -969,6 +1000,7 @@ var detailRoutes = []detailRoute{
 	{[]TabKind{tabVendors}, "Jobs", vendorJobsDef},
 	{[]TabKind{tabProjects}, tabQuotes.String(), projectQuoteDef},
 	{[]TabKind{tabProjects}, tabDocuments.String(), projectDocumentDef},
+	{[]TabKind{tabIncidents}, tabDocuments.String(), incidentDocumentDef},
 	{[]TabKind{tabAppliances}, tabDocuments.String(), applianceDocumentDef},
 }
 

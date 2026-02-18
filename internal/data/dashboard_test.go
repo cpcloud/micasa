@@ -75,6 +75,34 @@ func TestListActiveProjects(t *testing.T) {
 	assert.True(t, names["A"] && names["B"], "expected projects A and B, got %v", names)
 }
 
+func TestListOpenIncidents(t *testing.T) {
+	store := newTestStore(t)
+
+	require.NoError(t, store.CreateIncident(Incident{
+		Title: "Urgent leak", Status: IncidentStatusOpen, Severity: IncidentSeverityUrgent,
+	}))
+	require.NoError(t, store.CreateIncident(Incident{
+		Title: "Cracked tile", Status: IncidentStatusInProgress, Severity: IncidentSeverityWhenever,
+	}))
+	// Resolved (soft-deleted) -- should NOT appear.
+	require.NoError(t, store.CreateIncident(Incident{
+		Title: "Fixed fence", Status: IncidentStatusOpen, Severity: IncidentSeveritySoon,
+	}))
+	items, _ := store.ListIncidents(false)
+	for _, inc := range items {
+		if inc.Title == "Fixed fence" {
+			require.NoError(t, store.DeleteIncident(inc.ID))
+		}
+	}
+
+	incidents, err := store.ListOpenIncidents()
+	require.NoError(t, err)
+	require.Len(t, incidents, 2)
+	// Urgent should come first (severity ordering).
+	assert.Equal(t, "Urgent leak", incidents[0].Title)
+	assert.Equal(t, "Cracked tile", incidents[1].Title)
+}
+
 func TestListExpiringWarranties(t *testing.T) {
 	store := newTestStore(t)
 	now := time.Date(2026, 2, 8, 0, 0, 0, 0, time.UTC)

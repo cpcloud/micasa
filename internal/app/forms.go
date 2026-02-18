@@ -113,6 +113,19 @@ type documentFormData struct {
 	Notes      string
 }
 
+type incidentFormData struct {
+	Title       string
+	Description string
+	Status      string
+	Severity    string
+	DateNoticed string
+	Location    string
+	Cost        string
+	ApplianceID uint // 0 means none
+	VendorID    uint // 0 means none (self)
+	Notes       string
+}
+
 type applianceFormData struct {
 	Name           string
 	Brand          string
@@ -486,6 +499,295 @@ func (m *Model) openMaintenanceForm(
 		).Title("Details"),
 	)
 	m.activateForm(formMaintenance, form, values)
+}
+
+func (m *Model) startIncidentForm() {
+	values := &incidentFormData{
+		Status:      data.IncidentStatusOpen,
+		Severity:    data.IncidentSeveritySoon,
+		DateNoticed: time.Now().Format(data.DateLayout),
+	}
+	appliances, _ := m.store.ListAppliances(false)
+	appOpts := applianceOptions(appliances)
+	vendorOpts := optionalVendorOptions(m.vendors)
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title(requiredTitle("Title")).
+				Value(&values.Title).
+				Validate(requiredText("title")),
+			huh.NewSelect[string]().
+				Title("Severity").
+				Options(incidentSeverityOptions()...).
+				Value(&values.Severity),
+			huh.NewInput().
+				Title(requiredTitle("Date noticed")+" (YYYY-MM-DD)").
+				Value(&values.DateNoticed).
+				Validate(requiredDate("date noticed")),
+			huh.NewInput().
+				Title("Location").
+				Placeholder("Kitchen").
+				Value(&values.Location),
+		).Title("Details"),
+		huh.NewGroup(
+			huh.NewSelect[uint]().
+				Title("Appliance").
+				Options(appOpts...).
+				Value(&values.ApplianceID),
+			huh.NewSelect[uint]().
+				Title("Vendor").
+				Options(vendorOpts...).
+				Value(&values.VendorID),
+		).Title("Links"),
+	)
+	m.activateForm(formIncident, form, values)
+}
+
+func (m *Model) startEditIncidentForm(id uint) error {
+	item, err := m.store.GetIncident(id)
+	if err != nil {
+		return fmt.Errorf("load incident: %w", err)
+	}
+	values := incidentFormValues(item)
+	appliances, _ := m.store.ListAppliances(false)
+	appOpts := applianceOptions(appliances)
+	vendorOpts := optionalVendorOptions(m.vendors)
+	m.editID = &id
+	m.openIncidentForm(values, appOpts, vendorOpts)
+	return nil
+}
+
+func (m *Model) openIncidentForm(
+	values *incidentFormData,
+	appOptions []huh.Option[uint],
+	vendorOptions []huh.Option[uint],
+) {
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title(requiredTitle("Title")).
+				Value(&values.Title).
+				Validate(requiredText("title")),
+			huh.NewSelect[string]().
+				Title("Status").
+				Options(incidentStatusOptions()...).
+				Value(&values.Status),
+			huh.NewSelect[string]().
+				Title("Severity").
+				Options(incidentSeverityOptions()...).
+				Value(&values.Severity),
+			huh.NewInput().
+				Title(requiredTitle("Date noticed")+" (YYYY-MM-DD)").
+				Value(&values.DateNoticed).
+				Validate(requiredDate("date noticed")),
+			huh.NewInput().
+				Title("Location").
+				Placeholder("Kitchen").
+				Value(&values.Location),
+		).Title("Details"),
+		huh.NewGroup(
+			huh.NewSelect[uint]().
+				Title("Appliance").
+				Options(appOptions...).
+				Value(&values.ApplianceID),
+			huh.NewSelect[uint]().
+				Title("Vendor").
+				Options(vendorOptions...).
+				Value(&values.VendorID),
+			huh.NewInput().
+				Title("Cost").
+				Placeholder("250.00").
+				Value(&values.Cost).
+				Validate(optionalMoney("cost")),
+			huh.NewText().Title("Description").Value(&values.Description),
+			huh.NewText().Title("Notes").Value(&values.Notes),
+		).Title("Context"),
+	)
+	m.activateForm(formIncident, form, values)
+}
+
+func (m *Model) submitIncidentForm() error {
+	item, err := m.parseIncidentFormData()
+	if err != nil {
+		return err
+	}
+	if m.editID != nil {
+		item.ID = *m.editID
+		return m.store.UpdateIncident(item)
+	}
+	return m.store.CreateIncident(item)
+}
+
+func (m *Model) parseIncidentFormData() (data.Incident, error) {
+	values, ok := m.formData.(*incidentFormData)
+	if !ok {
+		return data.Incident{}, fmt.Errorf("unexpected incident form data")
+	}
+	noticed, err := data.ParseRequiredDate(values.DateNoticed)
+	if err != nil {
+		return data.Incident{}, err
+	}
+	cost, err := data.ParseOptionalCents(values.Cost)
+	if err != nil {
+		return data.Incident{}, err
+	}
+	var appID *uint
+	if values.ApplianceID > 0 {
+		appID = &values.ApplianceID
+	}
+	var vendorID *uint
+	if values.VendorID > 0 {
+		vendorID = &values.VendorID
+	}
+	return data.Incident{
+		Title:       strings.TrimSpace(values.Title),
+		Description: strings.TrimSpace(values.Description),
+		Status:      values.Status,
+		Severity:    values.Severity,
+		DateNoticed: noticed,
+		Location:    strings.TrimSpace(values.Location),
+		CostCents:   cost,
+		ApplianceID: appID,
+		VendorID:    vendorID,
+		Notes:       strings.TrimSpace(values.Notes),
+	}, nil
+}
+
+func (m *Model) inlineEditIncident(id uint, col incidentCol) error {
+	item, err := m.store.GetIncident(id)
+	if err != nil {
+		return fmt.Errorf("load incident: %w", err)
+	}
+	values := incidentFormValues(item)
+	switch col {
+	case incidentColTitle:
+		m.openInlineInput(
+			id,
+			formIncident,
+			"Title",
+			"",
+			&values.Title,
+			requiredText("title"),
+			values,
+		)
+	case incidentColStatus:
+		field := huh.NewSelect[string]().Title("Status").
+			Options(incidentStatusOptions()...).
+			Value(&values.Status)
+		m.openInlineEdit(id, formIncident, field, values)
+	case incidentColSeverity:
+		field := huh.NewSelect[string]().Title("Severity").
+			Options(incidentSeverityOptions()...).
+			Value(&values.Severity)
+		m.openInlineEdit(id, formIncident, field, values)
+	case incidentColLocation:
+		m.openInlineInput(id, formIncident, "Location", "Kitchen", &values.Location, nil, values)
+	case incidentColAppliance:
+		appliances, loadErr := m.store.ListAppliances(false)
+		if loadErr != nil {
+			return loadErr
+		}
+		appOpts := applianceOptions(appliances)
+		field := huh.NewSelect[uint]().Title("Appliance").
+			Options(appOpts...).
+			Value(&values.ApplianceID)
+		m.openInlineEdit(id, formIncident, field, values)
+	case incidentColVendor:
+		vendorOpts := optionalVendorOptions(m.vendors)
+		field := huh.NewSelect[uint]().Title("Vendor").
+			Options(vendorOpts...).
+			Value(&values.VendorID)
+		m.openInlineEdit(id, formIncident, field, values)
+	case incidentColNoticed:
+		m.openDatePicker(id, formIncident, &values.DateNoticed, values)
+	case incidentColCost:
+		m.openInlineInput(
+			id,
+			formIncident,
+			"Cost",
+			"250.00",
+			&values.Cost,
+			optionalMoney("cost"),
+			values,
+		)
+	case incidentColID, incidentColDocs:
+		return m.startEditIncidentForm(id)
+	}
+	return nil
+}
+
+func incidentFormValues(item data.Incident) *incidentFormData {
+	var appID uint
+	if item.ApplianceID != nil {
+		appID = *item.ApplianceID
+	}
+	var vendorID uint
+	if item.VendorID != nil {
+		vendorID = *item.VendorID
+	}
+	return &incidentFormData{
+		Title:       item.Title,
+		Description: item.Description,
+		Status:      item.Status,
+		Severity:    item.Severity,
+		DateNoticed: item.DateNoticed.Format(data.DateLayout),
+		Location:    item.Location,
+		Cost:        data.FormatOptionalCents(item.CostCents),
+		ApplianceID: appID,
+		VendorID:    vendorID,
+		Notes:       item.Notes,
+	}
+}
+
+func incidentStatusOptions() []huh.Option[string] {
+	type entry struct {
+		value string
+		color lipgloss.AdaptiveColor
+	}
+	statuses := []entry{
+		{data.IncidentStatusOpen, accent},
+		{data.IncidentStatusInProgress, success},
+	}
+	opts := make([]huh.Option[string], len(statuses))
+	for i, s := range statuses {
+		label := statusLabel(s.value)
+		colored := lipgloss.NewStyle().Foreground(s.color).Render(label)
+		opts[i] = huh.NewOption(colored, s.value)
+	}
+	return withOrdinals(opts)
+}
+
+func incidentSeverityOptions() []huh.Option[string] {
+	type entry struct {
+		value string
+		color lipgloss.AdaptiveColor
+	}
+	severities := []entry{
+		{data.IncidentSeverityUrgent, danger},
+		{data.IncidentSeveritySoon, warning},
+		{data.IncidentSeverityWhenever, textDim},
+	}
+	opts := make([]huh.Option[string], len(severities))
+	for i, s := range severities {
+		label := statusLabel(s.value)
+		colored := lipgloss.NewStyle().Foreground(s.color).Render(label)
+		opts[i] = huh.NewOption(colored, s.value)
+	}
+	return withOrdinals(opts)
+}
+
+// optionalVendorOptions is like vendorOptions but with "(none)" instead of "Self".
+func optionalVendorOptions(vendors []data.Vendor) []huh.Option[uint] {
+	options := make([]huh.Option[uint], 0, len(vendors)+1)
+	options = append(options, huh.NewOption("(none)", uint(0)))
+	for _, v := range vendors {
+		label := v.Name
+		if v.ContactName != "" {
+			label = fmt.Sprintf("%s (%s)", v.Name, v.ContactName)
+		}
+		options = append(options, huh.NewOption(label, v.ID))
+	}
+	return withOrdinals(options)
 }
 
 func (m *Model) startApplianceForm() {

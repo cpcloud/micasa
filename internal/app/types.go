@@ -27,6 +27,7 @@ const (
 	formQuote
 	formMaintenance
 	formAppliance
+	formIncident
 	formServiceLog
 	formVendor
 	formDocument
@@ -38,6 +39,7 @@ const (
 	tabProjects TabKind = iota
 	tabQuotes
 	tabMaintenance
+	tabIncidents
 	tabAppliances
 	tabVendors
 	tabDocuments
@@ -51,6 +53,8 @@ func (k TabKind) String() string {
 		return "Quotes"
 	case tabMaintenance:
 		return "Maintenance"
+	case tabIncidents:
+		return "Incidents"
 	case tabAppliances:
 		return "Appliances"
 	case tabVendors:

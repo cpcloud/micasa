@@ -359,6 +359,86 @@ func (applianceHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
 func (applianceHandler) SyncFixedValues(_ *Model, _ []columnSpec) {}
 
 // ---------------------------------------------------------------------------
+// incidentHandler
+// ---------------------------------------------------------------------------
+
+type incidentHandler struct{}
+
+func (incidentHandler) FormKind() FormKind { return formIncident }
+
+func (incidentHandler) Load(
+	store *data.Store,
+	showDeleted bool,
+) ([]table.Row, []rowMeta, [][]cell, error) {
+	items, err := store.ListIncidents(showDeleted)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	ids := make([]uint, len(items))
+	for i, inc := range items {
+		ids[i] = inc.ID
+	}
+	docCounts, err := store.CountDocumentsByEntity(data.DocumentEntityIncident, ids)
+	if err != nil {
+		docCounts = map[uint]int{}
+	}
+	rows, meta, cellRows := incidentRows(items, docCounts)
+	return rows, meta, cellRows, nil
+}
+
+func (incidentHandler) Delete(store *data.Store, id uint) error {
+	return store.DeleteIncident(id)
+}
+
+func (incidentHandler) Restore(store *data.Store, id uint) error {
+	return store.RestoreIncident(id)
+}
+
+func (incidentHandler) StartAddForm(m *Model) error {
+	m.startIncidentForm()
+	return nil
+}
+
+func (incidentHandler) StartEditForm(m *Model, id uint) error {
+	return m.startEditIncidentForm(id)
+}
+
+func (incidentHandler) InlineEdit(m *Model, id uint, col int) error {
+	return m.inlineEditIncident(id, incidentCol(col))
+}
+
+func (incidentHandler) SubmitForm(m *Model) error {
+	return m.submitIncidentForm()
+}
+
+func (incidentHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
+	item, err := store.GetIncident(id)
+	if err != nil {
+		return undoEntry{}, false
+	}
+	return undoEntry{
+		Description: fmt.Sprintf("incident %q", item.Title),
+		FormKind:    formIncident,
+		EntityID:    id,
+		Restore: func() error {
+			return store.UpdateIncident(item)
+		},
+	}, true
+}
+
+func (incidentHandler) SyncFixedValues(_ *Model, specs []columnSpec) {
+	setFixedValues(specs, "Status", []string{
+		data.IncidentStatusOpen,
+		data.IncidentStatusInProgress,
+	})
+	setFixedValues(specs, "Severity", []string{
+		data.IncidentSeverityUrgent,
+		data.IncidentSeveritySoon,
+		data.IncidentSeverityWhenever,
+	})
+}
+
+// ---------------------------------------------------------------------------
 // scopedHandler wraps a parent TabHandler for detail-view sub-tables.
 // The embedded TabHandler provides default implementations for all interface
 // methods; only Load, InlineEdit, StartAddForm, and SubmitForm are overridden

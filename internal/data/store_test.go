@@ -1731,7 +1731,7 @@ func TestListDocumentsByEntityIncludeDeleted(t *testing.T) {
 	assert.Len(t, all, 2)
 }
 
-func TestDeleteProjectBlockedByDocuments(t *testing.T) {
+func TestDeleteProjectAllowedWithDocuments(t *testing.T) {
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
 
@@ -1745,14 +1745,14 @@ func TestDeleteProjectBlockedByDocuments(t *testing.T) {
 		Title: "ProjDoc", EntityKind: DocumentEntityProject, EntityID: projID,
 	}))
 
-	require.ErrorContains(t, store.DeleteProject(projID), "active document")
+	// Documents don't block entity deletion -- they survive their parent.
+	require.NoError(t, store.DeleteProject(projID))
 
 	docs, _ := store.ListDocumentsByEntity(DocumentEntityProject, projID, false)
-	require.NoError(t, store.DeleteDocument(docs[0].ID))
-	require.NoError(t, store.DeleteProject(projID))
+	assert.Len(t, docs, 1, "document should survive parent deletion")
 }
 
-func TestDeleteApplianceBlockedByDocuments(t *testing.T) {
+func TestDeleteApplianceAllowedWithDocuments(t *testing.T) {
 	store := newTestStore(t)
 	require.NoError(t, store.CreateAppliance(&Appliance{Name: "Doc Fridge"}))
 	appliances, _ := store.ListAppliances(false)
@@ -1762,11 +1762,10 @@ func TestDeleteApplianceBlockedByDocuments(t *testing.T) {
 		Title: "Manual", EntityKind: DocumentEntityAppliance, EntityID: appID,
 	}))
 
-	require.ErrorContains(t, store.DeleteAppliance(appID), "active document")
+	require.NoError(t, store.DeleteAppliance(appID))
 
 	docs, _ := store.ListDocumentsByEntity(DocumentEntityAppliance, appID, false)
-	require.NoError(t, store.DeleteDocument(docs[0].ID))
-	require.NoError(t, store.DeleteAppliance(appID))
+	assert.Len(t, docs, 1, "document should survive parent deletion")
 }
 
 func TestRestoreDocumentBlockedByDeletedProject(t *testing.T) {
@@ -1840,7 +1839,7 @@ func TestCreateDocumentRejectsOversized(t *testing.T) {
 	}))
 }
 
-func TestDeleteVendorBlockedByDocuments(t *testing.T) {
+func TestDeleteVendorAllowedWithDocuments(t *testing.T) {
 	store := newTestStore(t)
 	require.NoError(t, store.CreateVendor(&Vendor{Name: "Doc Vendor"}))
 	vendors, _ := store.ListVendors(false)
@@ -1850,14 +1849,13 @@ func TestDeleteVendorBlockedByDocuments(t *testing.T) {
 		Title: "Invoice", EntityKind: DocumentEntityVendor, EntityID: vendorID,
 	}))
 
-	require.ErrorContains(t, store.DeleteVendor(vendorID), "active document")
+	require.NoError(t, store.DeleteVendor(vendorID))
 
 	docs, _ := store.ListDocumentsByEntity(DocumentEntityVendor, vendorID, false)
-	require.NoError(t, store.DeleteDocument(docs[0].ID))
-	require.NoError(t, store.DeleteVendor(vendorID))
+	assert.Len(t, docs, 1, "document should survive parent deletion")
 }
 
-func TestDeleteQuoteBlockedByDocuments(t *testing.T) {
+func TestDeleteQuoteAllowedWithDocuments(t *testing.T) {
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
 	require.NoError(t, store.CreateProject(&Project{
@@ -1877,14 +1875,13 @@ func TestDeleteQuoteBlockedByDocuments(t *testing.T) {
 		Title: "Quote PDF", EntityKind: DocumentEntityQuote, EntityID: quoteID,
 	}))
 
-	require.ErrorContains(t, store.DeleteQuote(quoteID), "active document")
+	require.NoError(t, store.DeleteQuote(quoteID))
 
 	docs, _ := store.ListDocumentsByEntity(DocumentEntityQuote, quoteID, false)
-	require.NoError(t, store.DeleteDocument(docs[0].ID))
-	require.NoError(t, store.DeleteQuote(quoteID))
+	assert.Len(t, docs, 1, "document should survive parent deletion")
 }
 
-func TestDeleteMaintenanceBlockedByDocuments(t *testing.T) {
+func TestDeleteMaintenanceAllowedWithDocuments(t *testing.T) {
 	store := newTestStore(t)
 	cat := MaintenanceCategory{Name: "DocMCat"}
 	require.NoError(t, store.db.Create(&cat).Error)
@@ -1899,14 +1896,13 @@ func TestDeleteMaintenanceBlockedByDocuments(t *testing.T) {
 		Title: "Manual", EntityKind: DocumentEntityMaintenance, EntityID: itemID,
 	}))
 
-	require.ErrorContains(t, store.DeleteMaintenance(itemID), "active document")
+	require.NoError(t, store.DeleteMaintenance(itemID))
 
 	docs, _ := store.ListDocumentsByEntity(DocumentEntityMaintenance, itemID, false)
-	require.NoError(t, store.DeleteDocument(docs[0].ID))
-	require.NoError(t, store.DeleteMaintenance(itemID))
+	assert.Len(t, docs, 1, "document should survive parent deletion")
 }
 
-func TestDeleteServiceLogBlockedByDocuments(t *testing.T) {
+func TestDeleteServiceLogAllowedWithDocuments(t *testing.T) {
 	store := newTestStore(t)
 	cat := MaintenanceCategory{Name: "SLDocCat"}
 	require.NoError(t, store.db.Create(&cat).Error)
@@ -1924,11 +1920,10 @@ func TestDeleteServiceLogBlockedByDocuments(t *testing.T) {
 		Title: "Receipt", EntityKind: DocumentEntityServiceLog, EntityID: logID,
 	}))
 
-	require.ErrorContains(t, store.DeleteServiceLog(logID), "active document")
+	require.NoError(t, store.DeleteServiceLog(logID))
 
 	docs, _ := store.ListDocumentsByEntity(DocumentEntityServiceLog, logID, false)
-	require.NoError(t, store.DeleteDocument(docs[0].ID))
-	require.NoError(t, store.DeleteServiceLog(logID))
+	assert.Len(t, docs, 1, "document should survive parent deletion")
 }
 
 func TestRestoreDocumentBlockedByDeletedVendor(t *testing.T) {
@@ -2171,4 +2166,190 @@ func TestPragmasSurvivePoolRecycling(t *testing.T) {
 
 		require.NoError(t, conn.Close())
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Incident CRUD
+// ---------------------------------------------------------------------------
+
+func TestIncidentCRUDRoundTrip(t *testing.T) {
+	store := newTestStore(t)
+
+	require.NoError(t, store.CreateIncident(Incident{
+		Title:    "Ant infestation",
+		Status:   IncidentStatusOpen,
+		Severity: IncidentSeverityUrgent,
+	}))
+
+	items, err := store.ListIncidents(false)
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	id := items[0].ID
+	assert.Equal(t, "Ant infestation", items[0].Title)
+	assert.Equal(t, IncidentStatusOpen, items[0].Status)
+
+	fetched, err := store.GetIncident(id)
+	require.NoError(t, err)
+	assert.Equal(t, "Ant infestation", fetched.Title)
+
+	require.NoError(t, store.UpdateIncident(Incident{
+		ID:       id,
+		Title:    "Ant infestation (resolved)",
+		Status:   IncidentStatusInProgress,
+		Severity: IncidentSeverityUrgent,
+	}))
+	updated, err := store.GetIncident(id)
+	require.NoError(t, err)
+	assert.Equal(t, "Ant infestation (resolved)", updated.Title)
+	assert.Equal(t, IncidentStatusInProgress, updated.Status)
+
+	// Soft delete.
+	require.NoError(t, store.DeleteIncident(id))
+	items, err = store.ListIncidents(false)
+	require.NoError(t, err)
+	assert.Empty(t, items)
+
+	items, err = store.ListIncidents(true)
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	assert.True(t, items[0].DeletedAt.Valid)
+
+	// Restore.
+	require.NoError(t, store.RestoreIncident(id))
+	items, err = store.ListIncidents(false)
+	require.NoError(t, err)
+	assert.Len(t, items, 1)
+}
+
+func TestDeleteIncidentAllowedWithDocuments(t *testing.T) {
+	store := newTestStore(t)
+	require.NoError(t, store.CreateIncident(Incident{
+		Title: "Leaky pipe", Status: IncidentStatusOpen, Severity: IncidentSeveritySoon,
+	}))
+	items, _ := store.ListIncidents(false)
+	incID := items[0].ID
+
+	require.NoError(t, store.CreateDocument(&Document{
+		Title: "Pipe photo", EntityKind: DocumentEntityIncident, EntityID: incID,
+	}))
+
+	require.NoError(t, store.DeleteIncident(incID))
+
+	docs, _ := store.ListDocumentsByEntity(DocumentEntityIncident, incID, false)
+	assert.Len(t, docs, 1, "document should survive parent deletion")
+}
+
+func TestRestoreIncidentBlockedByDeletedAppliance(t *testing.T) {
+	store := newTestStore(t)
+	require.NoError(t, store.CreateAppliance(&Appliance{Name: "Doomed Washer"}))
+	appliances, _ := store.ListAppliances(false)
+	appID := appliances[0].ID
+
+	require.NoError(t, store.CreateIncident(Incident{
+		Title: "Washer leak", Status: IncidentStatusOpen,
+		Severity: IncidentSeverityUrgent, ApplianceID: &appID,
+	}))
+	items, _ := store.ListIncidents(false)
+	incID := items[0].ID
+
+	require.NoError(t, store.DeleteIncident(incID))
+	require.NoError(t, store.DeleteAppliance(appID))
+
+	require.ErrorContains(t, store.RestoreIncident(incID), "appliance is deleted")
+
+	require.NoError(t, store.RestoreAppliance(appID))
+	require.NoError(t, store.RestoreIncident(incID))
+}
+
+func TestRestoreIncidentBlockedByDeletedVendor(t *testing.T) {
+	store := newTestStore(t)
+	require.NoError(t, store.CreateVendor(&Vendor{Name: "Doomed Exterminator"}))
+	vendors, _ := store.ListVendors(false)
+	vendorID := vendors[0].ID
+
+	require.NoError(t, store.CreateIncident(Incident{
+		Title: "Termites", Status: IncidentStatusOpen,
+		Severity: IncidentSeverityUrgent, VendorID: &vendorID,
+	}))
+	items, _ := store.ListIncidents(false)
+	incID := items[0].ID
+
+	require.NoError(t, store.DeleteIncident(incID))
+	require.NoError(t, store.DeleteVendor(vendorID))
+
+	require.ErrorContains(t, store.RestoreIncident(incID), "vendor is deleted")
+
+	require.NoError(t, store.RestoreVendor(vendorID))
+	require.NoError(t, store.RestoreIncident(incID))
+}
+
+func TestRestoreIncidentAllowedWithoutAppliance(t *testing.T) {
+	store := newTestStore(t)
+	require.NoError(t, store.CreateIncident(Incident{
+		Title: "Loose trim", Status: IncidentStatusOpen, Severity: IncidentSeverityWhenever,
+	}))
+	items, _ := store.ListIncidents(false)
+	incID := items[0].ID
+
+	require.NoError(t, store.DeleteIncident(incID))
+	require.NoError(t, store.RestoreIncident(incID))
+}
+
+func TestDeleteVendorBlockedByIncident(t *testing.T) {
+	store := newTestStore(t)
+	require.NoError(t, store.CreateVendor(&Vendor{Name: "Busy Vendor"}))
+	vendors, _ := store.ListVendors(false)
+	vendorID := vendors[0].ID
+
+	require.NoError(t, store.CreateIncident(Incident{
+		Title: "Clogged drain", Status: IncidentStatusOpen,
+		Severity: IncidentSeveritySoon, VendorID: &vendorID,
+	}))
+
+	require.ErrorContains(t, store.DeleteVendor(vendorID), "active incident")
+
+	items, _ := store.ListIncidents(false)
+	require.NoError(t, store.DeleteIncident(items[0].ID))
+	require.NoError(t, store.DeleteVendor(vendorID))
+}
+
+func TestDeleteApplianceBlockedByIncident(t *testing.T) {
+	store := newTestStore(t)
+	require.NoError(t, store.CreateAppliance(&Appliance{Name: "Busy Fridge"}))
+	appliances, _ := store.ListAppliances(false)
+	appID := appliances[0].ID
+
+	require.NoError(t, store.CreateIncident(Incident{
+		Title: "Fridge leaking", Status: IncidentStatusOpen,
+		Severity: IncidentSeverityUrgent, ApplianceID: &appID,
+	}))
+
+	require.ErrorContains(t, store.DeleteAppliance(appID), "active incident")
+
+	items, _ := store.ListIncidents(false)
+	require.NoError(t, store.DeleteIncident(items[0].ID))
+	require.NoError(t, store.DeleteAppliance(appID))
+}
+
+func TestRestoreDocumentBlockedByDeletedIncident(t *testing.T) {
+	store := newTestStore(t)
+	require.NoError(t, store.CreateIncident(Incident{
+		Title: "Doomed incident", Status: IncidentStatusOpen, Severity: IncidentSeveritySoon,
+	}))
+	items, _ := store.ListIncidents(false)
+	incID := items[0].ID
+
+	require.NoError(t, store.CreateDocument(&Document{
+		Title: "Evidence", EntityKind: DocumentEntityIncident, EntityID: incID,
+	}))
+	docs, _ := store.ListDocuments(false)
+	docID := docs[0].ID
+
+	require.NoError(t, store.DeleteDocument(docID))
+	require.NoError(t, store.DeleteIncident(incID))
+
+	require.ErrorContains(t, store.RestoreDocument(docID), "incident is deleted")
+
+	require.NoError(t, store.RestoreIncident(incID))
+	require.NoError(t, store.RestoreDocument(docID))
 }

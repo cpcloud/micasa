@@ -52,6 +52,7 @@ func NewTabs(styles Styles) []Tab {
 	projectSpecs := projectColumnSpecs()
 	quoteSpecs := quoteColumnSpecs()
 	maintenanceSpecs := maintenanceColumnSpecs()
+	incidentSpecs := incidentColumnSpecs()
 	applianceSpecs := applianceColumnSpecs()
 	vendorSpecs := vendorColumnSpecs()
 	documentSpecs := documentColumnSpecs()
@@ -76,6 +77,14 @@ func NewTabs(styles Styles) []Tab {
 			Handler: maintenanceHandler{},
 			Specs:   maintenanceSpecs,
 			Table:   newTable(specsToColumns(maintenanceSpecs), styles),
+		},
+		{
+			Kind:        tabIncidents,
+			Name:        tabIncidents.String(),
+			Handler:     incidentHandler{},
+			Specs:       incidentSpecs,
+			Table:       newTable(specsToColumns(incidentSpecs), styles),
+			ShowDeleted: true,
 		},
 		{
 			Kind:    tabAppliances,
@@ -199,6 +208,88 @@ func maintenanceColumnSpecs() []columnSpec {
 		{Title: "Every", Min: 6, Max: 10},
 		{Title: "Log", Min: 4, Max: 6, Align: alignRight, Kind: cellDrilldown},
 	}
+}
+
+type incidentCol int
+
+const (
+	incidentColID incidentCol = iota
+	incidentColTitle
+	incidentColStatus
+	incidentColSeverity
+	incidentColLocation
+	incidentColAppliance
+	incidentColVendor
+	incidentColNoticed
+	incidentColCost
+	incidentColDocs
+)
+
+func incidentColumnSpecs() []columnSpec {
+	return []columnSpec{
+		{Title: "ID", Min: 4, Max: 6, Align: alignRight, Kind: cellReadonly},
+		{Title: "Title", Min: 14, Max: 32, Flex: true},
+		{Title: "Status", Min: 6, Max: 12, Kind: cellStatus},
+		{Title: "Severity", Min: 6, Max: 10, Kind: cellStatus},
+		{Title: "Location", Min: 8, Max: 16, Flex: true},
+		{
+			Title: "Appliance",
+			Min:   10,
+			Max:   18,
+			Flex:  true,
+			Link:  &columnLink{TargetTab: tabAppliances},
+		},
+		{
+			Title: "Vendor",
+			Min:   10,
+			Max:   18,
+			Flex:  true,
+			Link:  &columnLink{TargetTab: tabVendors},
+		},
+		{Title: "Noticed", Min: 10, Max: 12, Kind: cellDate},
+		{Title: "Cost", Min: 8, Max: 12, Align: alignRight, Kind: cellMoney},
+		{Title: tabDocuments.String(), Min: 5, Max: 6, Align: alignRight, Kind: cellDrilldown},
+	}
+}
+
+func incidentRows(
+	items []data.Incident,
+	docCounts map[uint]int,
+) ([]table.Row, []rowMeta, [][]cell) {
+	return buildRows(items, func(inc data.Incident) rowSpec {
+		var appCell cell
+		if inc.ApplianceID != nil {
+			appCell = cell{Value: inc.Appliance.Name, Kind: cellText, LinkID: *inc.ApplianceID}
+		} else {
+			appCell = cell{Kind: cellText, Null: true}
+		}
+		var vendorCell cell
+		if inc.VendorID != nil {
+			vendorCell = cell{Value: inc.Vendor.Name, Kind: cellText, LinkID: *inc.VendorID}
+		} else {
+			vendorCell = cell{Kind: cellText, Null: true}
+		}
+		docCount := "0"
+		if n := docCounts[inc.ID]; n > 0 {
+			docCount = fmt.Sprintf("%d", n)
+		}
+		return rowSpec{
+			ID:      inc.ID,
+			Deleted: inc.DeletedAt.Valid,
+			Cells: []cell{
+				{Value: fmt.Sprintf("%d", inc.ID), Kind: cellReadonly},
+				{Value: inc.Title, Kind: cellText},
+				{Value: inc.Status, Kind: cellStatus},
+				{Value: inc.Severity, Kind: cellStatus},
+				{Value: inc.Location, Kind: cellText},
+				appCell,
+				vendorCell,
+				{Value: inc.DateNoticed.Format(data.DateLayout), Kind: cellDate},
+				centsCell(inc.CostCents),
+				{Value: docCount, Kind: cellDrilldown},
+			},
+		}
+	})
 }
 
 type applianceCol int

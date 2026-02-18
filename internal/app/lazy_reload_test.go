@@ -112,9 +112,19 @@ func TestDashJumpClearsStaleFlag(t *testing.T) {
 		m.tabs[i].Stale = true
 	}
 
-	// Jump to the first dashboard entry via enter key.
-	m.dashCursor = 0
-	targetTab := m.dashNav[0].Tab
+	// Find the first non-header nav entry to jump to.
+	jumpIdx := -1
+	for i, entry := range m.dashNav {
+		if !entry.IsHeader {
+			jumpIdx = i
+			break
+		}
+	}
+	if jumpIdx < 0 {
+		t.Skip("no data nav entries in demo data")
+	}
+	m.dashCursor = jumpIdx
+	targetTab := m.dashNav[jumpIdx].Tab
 	sendKey(m, "enter")
 
 	// The target tab should be fresh after the jump.

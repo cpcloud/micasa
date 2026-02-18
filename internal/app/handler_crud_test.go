@@ -505,6 +505,7 @@ func TestHandlerSnapshotNonExistent(t *testing.T) {
 		{"appliance", applianceHandler{}},
 		{"vendor", vendorHandler{}},
 		{"serviceLog", serviceLogHandler{maintenanceItemID: 1}},
+		{"incident", incidentHandler{}},
 	}
 	for _, tc := range handlers {
 		t.Run(tc.name, func(t *testing.T) {
@@ -518,7 +519,6 @@ func TestHandlerSnapshotNonExistent(t *testing.T) {
 // applianceMaintenanceHandler (detail view)
 // ---------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------------
 // vendorJobsHandler inline edit
 // ---------------------------------------------------------------------------
 
@@ -592,6 +592,161 @@ func TestVendorJobsInlineEditItemShowsStatusMessage(t *testing.T) {
 	assert.Nil(t, m.inlineInput, "Item column should not open inline input")
 	assert.Contains(t, m.status.Text, "Maintenance")
 }
+
+// ---------------------------------------------------------------------------
+// incidentHandler CRUD
+// ---------------------------------------------------------------------------
+
+func TestIncidentHandlerLoadDeleteRestoreRoundTrip(t *testing.T) {
+	m := newTestModelWithStore(t)
+	h := incidentHandler{}
+
+	m.formData = &incidentFormData{
+		Title:       "Broken window",
+		Status:      data.IncidentStatusOpen,
+		Severity:    data.IncidentSeverityUrgent,
+		DateNoticed: time.Now().Format("2006-01-02"),
+	}
+	require.NoError(t, h.SubmitForm(m))
+
+	rows, meta, cells, err := h.Load(m.store, false)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	require.Len(t, meta, 1)
+	require.Len(t, cells, 1)
+	id := meta[0].ID
+
+	// Delete.
+	require.NoError(t, h.Delete(m.store, id))
+	rows, _, _, err = h.Load(m.store, false)
+	require.NoError(t, err)
+	assert.Empty(t, rows)
+
+	// Load with deleted should show it.
+	rows, _, _, err = h.Load(m.store, true)
+	require.NoError(t, err)
+	assert.Len(t, rows, 1)
+
+	// Restore.
+	require.NoError(t, h.Restore(m.store, id))
+	rows, _, _, _ = h.Load(m.store, false)
+	assert.Len(t, rows, 1)
+}
+
+func TestIncidentHandlerEditRoundTrip(t *testing.T) {
+	m := newTestModelWithStore(t)
+	h := incidentHandler{}
+
+	m.formData = &incidentFormData{
+		Title:       "Water stain",
+		Status:      data.IncidentStatusOpen,
+		Severity:    data.IncidentSeveritySoon,
+		DateNoticed: "2026-02-01",
+	}
+	require.NoError(t, h.SubmitForm(m))
+	_, meta, _, _ := h.Load(m.store, false)
+	id := meta[0].ID
+
+	editID := id
+	m.editID = &editID
+	m.formData = &incidentFormData{
+		Title:       "Water stain on ceiling",
+		Status:      data.IncidentStatusInProgress,
+		Severity:    data.IncidentSeverityUrgent,
+		DateNoticed: "2026-02-01",
+		Cost:        "250.00",
+	}
+	require.NoError(t, h.SubmitForm(m))
+	m.editID = nil
+
+	inc, err := m.store.GetIncident(id)
+	require.NoError(t, err)
+	assert.Equal(t, "Water stain on ceiling", inc.Title)
+	assert.Equal(t, data.IncidentStatusInProgress, inc.Status)
+	require.NotNil(t, inc.CostCents)
+	assert.Equal(t, int64(25000), *inc.CostCents)
+}
+
+func TestIncidentHandlerSnapshot(t *testing.T) {
+	m := newTestModelWithStore(t)
+	h := incidentHandler{}
+
+	m.formData = &incidentFormData{
+		Title:       "Cracked tile",
+		Status:      data.IncidentStatusOpen,
+		Severity:    data.IncidentSeverityWhenever,
+		DateNoticed: "2026-01-10",
+	}
+	require.NoError(t, h.SubmitForm(m))
+	_, meta, _, _ := h.Load(m.store, false)
+	id := meta[0].ID
+
+	entry, ok := h.Snapshot(m.store, id)
+	require.True(t, ok)
+	assert.Equal(t, formIncident, entry.FormKind)
+	assert.Equal(t, id, entry.EntityID)
+}
+
+func TestIncidentHandlerSyncFixedValues(t *testing.T) {
+	m := newTestModelWithStore(t)
+	h := incidentHandler{}
+	specs := []columnSpec{
+		{Title: "ID"},
+		{Title: "Title"},
+		{Title: "Status"},
+		{Title: "Severity"},
+	}
+	h.SyncFixedValues(m, specs)
+
+	assert.NotEmpty(t, specs[2].FixedValues, "expected FixedValues for Status column")
+	assert.NotEmpty(t, specs[3].FixedValues, "expected FixedValues for Severity column")
+}
+
+// ---------------------------------------------------------------------------
+// Incident tab: Model-level user journey
+// ---------------------------------------------------------------------------
+
+func TestIncidentTabShowsDeletedByDefault(t *testing.T) {
+	m := newTestModelWithStore(t)
+
+	// User creates two incidents.
+	for _, inc := range []data.Incident{
+		{Title: "Broken pipe", Status: data.IncidentStatusOpen, Severity: data.IncidentSeverityUrgent},
+		{Title: "Cracked tile", Status: data.IncidentStatusOpen, Severity: data.IncidentSeverityWhenever},
+	} {
+		require.NoError(t, m.store.CreateIncident(inc))
+	}
+
+	// User navigates to the Incidents tab and sees both.
+	m.active = tabIndex(tabIncidents)
+	require.NoError(t, m.reloadActiveTab())
+	tab := m.activeTab()
+	require.NotNil(t, tab)
+	require.Len(t, tab.Rows, 2, "both incidents visible")
+	assert.True(t, tab.ShowDeleted, "incidents tab defaults to ShowDeleted")
+
+	// User resolves (soft-deletes) one incident.
+	items, _ := m.store.ListIncidents(false)
+	require.NoError(t, m.store.DeleteIncident(items[0].ID))
+
+	// Reload: resolved incident still visible because ShowDeleted is true.
+	require.NoError(t, m.reloadActiveTab())
+	assert.Len(t, tab.Rows, 2, "resolved incident still visible with ShowDeleted")
+
+	// Verify the deleted row has Deleted flag set (visible as strikethrough).
+	found := false
+	for _, meta := range tab.Rows {
+		if meta.ID == items[0].ID {
+			assert.True(t, meta.Deleted, "resolved row should be marked deleted")
+			found = true
+		}
+	}
+	assert.True(t, found, "expected to find the resolved incident in tab rows")
+}
+
+// ---------------------------------------------------------------------------
+// applianceMaintenanceHandler (detail view)
+// ---------------------------------------------------------------------------
 
 func TestApplianceMaintenanceHandlerLoad(t *testing.T) {
 	m := newTestModelWithStore(t)

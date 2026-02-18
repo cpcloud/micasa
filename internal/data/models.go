@@ -27,6 +27,7 @@ const (
 	DeletionEntityServiceLog  = "service_log"
 	DeletionEntityVendor      = "vendor"
 	DeletionEntityDocument    = "document"
+	DeletionEntityIncident    = "incident"
 )
 
 // Column name constants for use in raw SQL queries. Centralising these
@@ -68,6 +69,22 @@ const (
 	ColSizeBytes         = "size_bytes"
 	ColChecksum          = "sha256"
 	ColData              = "data"
+	ColSeverity          = "severity"
+	ColDescription       = "description"
+	ColDateNoticed       = "date_noticed"
+	ColLocation          = "location"
+	ColIncidentID        = "incident_id"
+)
+
+const (
+	IncidentStatusOpen       = "open"
+	IncidentStatusInProgress = "in_progress"
+)
+
+const (
+	IncidentSeverityUrgent   = "urgent"
+	IncidentSeveritySoon     = "soon"
+	IncidentSeverityWhenever = "whenever"
 )
 
 // MaxDocumentSize is the largest file that can be imported as a document
@@ -84,6 +101,7 @@ const (
 	DocumentEntityAppliance   = "appliance"
 	DocumentEntityServiceLog  = "service_log"
 	DocumentEntityVendor      = "vendor"
+	DocumentEntityIncident    = "incident"
 )
 
 type HouseProfile struct {
@@ -211,6 +229,25 @@ type MaintenanceItem struct {
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	DeletedAt      gorm.DeletedAt `gorm:"index"`
+}
+
+type Incident struct {
+	ID          uint `gorm:"primaryKey"`
+	Title       string
+	Description string
+	Status      string
+	Severity    string
+	DateNoticed time.Time
+	Location    string
+	CostCents   *int64
+	ApplianceID *uint     `gorm:"index"`
+	Appliance   Appliance `gorm:"constraint:OnDelete:SET NULL;"`
+	VendorID    *uint     `gorm:"index"`
+	Vendor      Vendor    `gorm:"constraint:OnDelete:SET NULL;"`
+	Notes       string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	DeletedAt   gorm.DeletedAt `gorm:"index"`
 }
 
 type ServiceLogEntry struct {

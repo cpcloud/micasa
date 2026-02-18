@@ -18,6 +18,7 @@ type SeedSummary struct {
 	Quotes      int
 	Appliances  int
 	Maintenance int
+	Incidents   int
 	ServiceLogs int
 	Documents   int
 }
@@ -198,6 +199,32 @@ func (s *Store) SeedScaledDataFrom(h *fake.HomeFaker, years int) (SeedSummary, e
 	}
 	summary.Maintenance = len(maintItems)
 
+	// Base incidents.
+	incidents := make([]Incident, 0, 3)
+	for i := 0; i < 3; i++ {
+		fi := h.Incident()
+		inc := Incident{
+			Title:       fi.Title,
+			Description: fi.Description,
+			Status:      fi.Status,
+			Severity:    fi.Severity,
+			DateNoticed: fi.DateNoticed,
+			Location:    fi.Location,
+			CostCents:   fi.CostCents,
+		}
+		if len(appliances) > 0 && h.IntN(2) == 0 {
+			inc.ApplianceID = &appliances[h.IntN(len(appliances))].ID
+		}
+		if len(vendors) > 0 && h.IntN(2) == 0 {
+			inc.VendorID = &vendors[h.IntN(len(vendors))].ID
+		}
+		if err := s.db.Create(&inc).Error; err != nil {
+			return summary, fmt.Errorf("seed incident %s: %w", inc.Title, err)
+		}
+		incidents = append(incidents, inc)
+	}
+	summary.Incidents = len(incidents)
+
 	// Base quotes for eligible year-0 projects.
 	quotes := seedQuotesForProjects(h, projects, vendors)
 	for i := range quotes {
@@ -208,7 +235,7 @@ func (s *Store) SeedScaledDataFrom(h *fake.HomeFaker, years int) (SeedSummary, e
 	summary.Quotes = len(quotes)
 
 	// Base documents for year-0 entities.
-	docs := seedBaseDocuments(projects, appliances)
+	docs := seedBaseDocuments(projects, appliances, incidents)
 	for i := range docs {
 		if err := s.db.Create(&docs[i]).Error; err != nil {
 			return summary, fmt.Errorf("seed document %s: %w", docs[i].Title, err)
@@ -331,10 +358,36 @@ func (s *Store) SeedScaledDataFrom(h *fake.HomeFaker, years int) (SeedSummary, e
 			}
 		}
 
+		// Add 1-2 incidents per year.
+		nNewIncidents := 1 + h.IntN(2)
+		for i := 0; i < nNewIncidents; i++ {
+			fi := h.Incident()
+			inc := Incident{
+				Title:       fi.Title,
+				Description: fi.Description,
+				Status:      fi.Status,
+				Severity:    fi.Severity,
+				DateNoticed: fi.DateNoticed,
+				Location:    fi.Location,
+				CostCents:   fi.CostCents,
+			}
+			if len(appliances) > 0 && h.IntN(3) == 0 {
+				inc.ApplianceID = &appliances[h.IntN(len(appliances))].ID
+			}
+			if len(vendors) > 0 && h.IntN(3) == 0 {
+				inc.VendorID = &vendors[h.IntN(len(vendors))].ID
+			}
+			if err := s.db.Create(&inc).Error; err != nil {
+				return summary, fmt.Errorf("seed incident %s: %w", inc.Title, err)
+			}
+			incidents = append(incidents, inc)
+			summary.Incidents++
+		}
+
 		// Add 5-10 documents per year across various entity types.
 		nNewDocs := 5 + h.IntN(6)
 		for i := 0; i < nNewDocs; i++ {
-			doc := randomDocument(h, projects, appliances, maintItems, vendors)
+			doc := randomDocument(h, projects, appliances, maintItems, vendors, incidents)
 			if err := s.db.Create(&doc).Error; err != nil {
 				return summary, fmt.Errorf("seed document %s: %w", doc.Title, err)
 			}
@@ -473,8 +526,12 @@ func seedQuotesForProjects(
 	return quotes
 }
 
-// seedBaseDocuments creates initial documents for the first projects and appliances.
-func seedBaseDocuments(projects []Project, appliances []Appliance) []Document {
+// seedBaseDocuments creates initial documents for the first projects, appliances, and incidents.
+func seedBaseDocuments(
+	projects []Project,
+	appliances []Appliance,
+	incidents []Incident,
+) []Document {
 	type docSeed struct {
 		title, fileName, mime, kind string
 		entityID                    uint
@@ -516,6 +573,18 @@ func seedBaseDocuments(projects []Project, appliances []Appliance) []Document {
 				"application/pdf",
 				DocumentEntityAppliance,
 				appliances[1].ID,
+			},
+		)
+	}
+	if len(incidents) >= 1 {
+		seeds = append(
+			seeds,
+			docSeed{
+				"Incident Photo",
+				"incident-photo.jpg",
+				"image/jpeg",
+				DocumentEntityIncident,
+				incidents[0].ID,
 			},
 		)
 	}
@@ -561,6 +630,7 @@ func randomDocument(
 	appliances []Appliance,
 	maintItems []MaintenanceItem,
 	vendors []Vendor,
+	incidents []Incident,
 ) Document {
 	tmpl := documentTemplates[h.IntN(len(documentTemplates))]
 	content := []byte(tmpl.title + " placeholder content")
@@ -575,7 +645,7 @@ func randomDocument(
 	}
 
 	// Link to a random entity type.
-	switch h.IntN(4) {
+	switch h.IntN(5) {
 	case 0:
 		if len(projects) > 0 {
 			doc.EntityKind = DocumentEntityProject
@@ -595,6 +665,11 @@ func randomDocument(
 		if len(vendors) > 0 {
 			doc.EntityKind = DocumentEntityVendor
 			doc.EntityID = vendors[h.IntN(len(vendors))].ID
+		}
+	case 4:
+		if len(incidents) > 0 {
+			doc.EntityKind = DocumentEntityIncident
+			doc.EntityID = incidents[h.IntN(len(incidents))].ID
 		}
 	}
 

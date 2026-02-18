@@ -6,58 +6,60 @@ package app
 import "github.com/charmbracelet/lipgloss"
 
 type Styles struct {
-	Header          lipgloss.Style
-	HeaderBox       lipgloss.Style
-	HeaderTitle     lipgloss.Style
-	HeaderHint      lipgloss.Style
-	HeaderBadge     lipgloss.Style
-	HeaderSection   lipgloss.Style
-	HeaderLabel     lipgloss.Style
-	HeaderValue     lipgloss.Style
-	Keycap          lipgloss.Style
-	TabActive       lipgloss.Style
-	TabInactive     lipgloss.Style
-	TabLocked       lipgloss.Style
-	TabUnderline    lipgloss.Style
-	TableHeader     lipgloss.Style
-	TableSelected   lipgloss.Style
-	TableSeparator  lipgloss.Style
-	ColActiveHeader lipgloss.Style
-	FormClean       lipgloss.Style
-	FormDirty       lipgloss.Style
-	ModeNormal      lipgloss.Style
-	ModeEdit        lipgloss.Style
-	Money           lipgloss.Style
-	Readonly        lipgloss.Style
-	Drilldown       lipgloss.Style
-	Empty           lipgloss.Style
-	Null            lipgloss.Style
-	Error           lipgloss.Style
-	Info            lipgloss.Style
-	DeletedLabel    lipgloss.Style
-	Pinned          lipgloss.Style
-	LinkIndicator   lipgloss.Style
-	Breadcrumb      lipgloss.Style
-	BreadcrumbArrow lipgloss.Style
-	FilterMark      lipgloss.Style // dot between tabs when filter is active
-	HiddenLeft      lipgloss.Style // hidden cols to the left of cursor
-	HiddenRight     lipgloss.Style // hidden cols to the right of cursor
-	DashSubtitle    lipgloss.Style // dashboard subtitle (house name, date)
-	DashSection     lipgloss.Style // dashboard section header
-	DashSectionWarn lipgloss.Style // dashboard section header (overdue/warning)
-	DashRule        lipgloss.Style // dashboard horizontal rule
-	DashLabel       lipgloss.Style // dashboard dim label text
-	DashValue       lipgloss.Style // dashboard bright value text
-	DashOverdue     lipgloss.Style // overdue maintenance item
-	DashUpcoming    lipgloss.Style // upcoming maintenance (within 30 days)
-	CalCursor       lipgloss.Style // calendar: cursor day
-	CalSelected     lipgloss.Style // calendar: previously selected day
-	CalToday        lipgloss.Style // calendar: today marker
-	ChatUser        lipgloss.Style // chat: user message label
-	ChatAssistant   lipgloss.Style // chat: assistant message label
-	ChatNotice      lipgloss.Style // chat: system notice (model switch, pull progress)
-	ChatInterrupted lipgloss.Style // chat: user-initiated cancellation
-	StatusStyles    map[string]lipgloss.Style
+	Header           lipgloss.Style
+	HeaderBox        lipgloss.Style
+	HeaderTitle      lipgloss.Style
+	HeaderHint       lipgloss.Style
+	HeaderBadge      lipgloss.Style
+	HeaderSection    lipgloss.Style
+	HeaderLabel      lipgloss.Style
+	HeaderValue      lipgloss.Style
+	Keycap           lipgloss.Style
+	TabActive        lipgloss.Style
+	TabInactive      lipgloss.Style
+	TabLocked        lipgloss.Style
+	TabUnderline     lipgloss.Style
+	TableHeader      lipgloss.Style
+	TableSelected    lipgloss.Style
+	TableSeparator   lipgloss.Style
+	ColActiveHeader  lipgloss.Style
+	FormClean        lipgloss.Style
+	FormDirty        lipgloss.Style
+	ModeNormal       lipgloss.Style
+	ModeEdit         lipgloss.Style
+	Money            lipgloss.Style
+	Readonly         lipgloss.Style
+	Drilldown        lipgloss.Style
+	Empty            lipgloss.Style
+	Null             lipgloss.Style
+	Error            lipgloss.Style
+	Info             lipgloss.Style
+	DeletedLabel     lipgloss.Style
+	Pinned           lipgloss.Style
+	LinkIndicator    lipgloss.Style
+	Breadcrumb       lipgloss.Style
+	BreadcrumbArrow  lipgloss.Style
+	FilterMark       lipgloss.Style // dot between tabs when filter is active
+	HiddenLeft       lipgloss.Style // hidden cols to the left of cursor
+	HiddenRight      lipgloss.Style // hidden cols to the right of cursor
+	DashSubtitle     lipgloss.Style // dashboard subtitle (house name, date)
+	DashSection      lipgloss.Style // dashboard section header
+	DashSectionWarn  lipgloss.Style // dashboard section header (overdue/warning)
+	DashSectionAlert lipgloss.Style // dashboard section header (incidents/attention)
+	DashSectionDim   lipgloss.Style // dashboard section header (unfocused)
+	DashRule         lipgloss.Style // dashboard horizontal rule
+	DashLabel        lipgloss.Style // dashboard dim label text
+	DashValue        lipgloss.Style // dashboard bright value text
+	DashOverdue      lipgloss.Style // overdue maintenance item
+	DashUpcoming     lipgloss.Style // upcoming maintenance (within 30 days)
+	CalCursor        lipgloss.Style // calendar: cursor day
+	CalSelected      lipgloss.Style // calendar: previously selected day
+	CalToday         lipgloss.Style // calendar: today marker
+	ChatUser         lipgloss.Style // chat: user message label
+	ChatAssistant    lipgloss.Style // chat: assistant message label
+	ChatNotice       lipgloss.Style // chat: system notice (model switch, pull progress)
+	ChatInterrupted  lipgloss.Style // chat: user-initiated cancellation
+	StatusStyles     map[string]lipgloss.Style
 }
 
 // Colorblind-safe palette (Wong) with adaptive light/dark variants.
@@ -223,6 +225,14 @@ func DefaultStyles() Styles {
 			Background(danger).
 			Padding(0, 1).
 			Bold(true),
+		DashSectionAlert: lipgloss.NewStyle().
+			Foreground(onAccent).
+			Background(warning).
+			Padding(0, 1).
+			Bold(true),
+		DashSectionDim: lipgloss.NewStyle().
+			Foreground(textDim).
+			Padding(0, 1),
 		DashRule: lipgloss.NewStyle().
 			Foreground(border),
 		DashLabel: lipgloss.NewStyle().
@@ -255,6 +265,7 @@ func DefaultStyles() Styles {
 			Foreground(secondary).
 			Italic(true),
 		StatusStyles: map[string]lipgloss.Style{
+			// Project statuses.
 			"ideating":  lipgloss.NewStyle().Foreground(muted),
 			"planned":   lipgloss.NewStyle().Foreground(accent),
 			"quoted":    lipgloss.NewStyle().Foreground(secondary),
@@ -262,6 +273,14 @@ func DefaultStyles() Styles {
 			"delayed":   lipgloss.NewStyle().Foreground(warning),
 			"completed": lipgloss.NewStyle().Foreground(textDim),
 			"abandoned": lipgloss.NewStyle().Foreground(danger),
+			// Incident statuses.
+			"open":        lipgloss.NewStyle().Foreground(accent),
+			"in_progress": lipgloss.NewStyle().Foreground(success),
+			"resolved":    lipgloss.NewStyle().Foreground(textDim),
+			// Incident severities.
+			"urgent":   lipgloss.NewStyle().Foreground(danger),
+			"soon":     lipgloss.NewStyle().Foreground(warning),
+			"whenever": lipgloss.NewStyle().Foreground(textDim),
 		},
 	}
 }

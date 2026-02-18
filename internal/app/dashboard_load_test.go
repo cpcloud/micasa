@@ -149,31 +149,6 @@ func TestLoadDashboardAtInsuranceRenewalOutOfRange(t *testing.T) {
 	assert.Nil(t, m.dashboard.InsuranceRenewal)
 }
 
-func TestLoadDashboardAtSpending(t *testing.T) {
-	m := newTestModelWithStore(t)
-	cats, _ := m.store.MaintenanceCategories()
-
-	// Create a maintenance item + service log with a cost.
-	item := data.MaintenanceItem{
-		Name:       "Oil Change",
-		CategoryID: cats[0].ID,
-	}
-	require.NoError(t, m.store.CreateMaintenance(&item))
-	items, _ := m.store.ListMaintenance(false)
-	cost := int64(5000)
-	entry := data.ServiceLogEntry{
-		MaintenanceItemID: items[0].ID,
-		ServicedAt:        time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
-		CostCents:         &cost,
-	}
-	require.NoError(t, m.store.CreateServiceLog(&entry, data.Vendor{}))
-
-	now := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
-	require.NoError(t, m.loadDashboardAt(now))
-
-	assert.Equal(t, int64(5000), m.dashboard.ServiceSpendCents)
-}
-
 func TestLoadDashboardAtBuildsNav(t *testing.T) {
 	m := newTestModelWithStore(t)
 	cats, _ := m.store.MaintenanceCategories()
@@ -191,7 +166,54 @@ func TestLoadDashboardAtBuildsNav(t *testing.T) {
 	require.NoError(t, m.loadDashboardAt(now))
 
 	assert.NotEmpty(t, m.dashNav)
-	assert.Equal(t, tabMaintenance, m.dashNav[0].Tab)
+	// First entry is the section header for Overdue.
+	assert.True(t, m.dashNav[0].IsHeader)
+	assert.Equal(t, dashSectionOverdue, m.dashNav[0].Section)
+}
+
+func TestLoadDashboardAtOpenIncidents(t *testing.T) {
+	m := newTestModelWithStore(t)
+
+	require.NoError(t, m.store.CreateIncident(data.Incident{
+		Title:    "Burst pipe",
+		Status:   data.IncidentStatusOpen,
+		Severity: data.IncidentSeverityUrgent,
+	}))
+	require.NoError(t, m.store.CreateIncident(data.Incident{
+		Title:    "Cracked window",
+		Status:   data.IncidentStatusInProgress,
+		Severity: data.IncidentSeverityWhenever,
+	}))
+	// Resolved (soft-deleted) should NOT appear.
+	require.NoError(t, m.store.CreateIncident(data.Incident{
+		Title:    "Fixed gutter",
+		Status:   data.IncidentStatusOpen,
+		Severity: data.IncidentSeveritySoon,
+	}))
+	items, _ := m.store.ListIncidents(false)
+	for _, inc := range items {
+		if inc.Title == "Fixed gutter" {
+			require.NoError(t, m.store.DeleteIncident(inc.ID))
+		}
+	}
+
+	now := time.Now()
+	require.NoError(t, m.loadDashboardAt(now))
+
+	require.Len(t, m.dashboard.OpenIncidents, 2)
+	// Urgent should come first (severity ordering).
+	assert.Equal(t, "Burst pipe", m.dashboard.OpenIncidents[0].Title)
+	assert.Equal(t, "Cracked window", m.dashboard.OpenIncidents[1].Title)
+
+	// Nav should include incident entries.
+	hasIncidentNav := false
+	for _, entry := range m.dashNav {
+		if entry.Tab == tabIncidents {
+			hasIncidentNav = true
+			break
+		}
+	}
+	assert.True(t, hasIncidentNav, "dashboard nav should include incident entries")
 }
 
 func TestLoadDashboardExcludesAppliancesWithoutWarranty(t *testing.T) {

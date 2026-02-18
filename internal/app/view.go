@@ -139,47 +139,40 @@ func (m *Model) buildBaseView() string {
 func (m *Model) buildDashboardOverlay() string {
 	contentW := m.overlayContentWidth()
 	innerW := contentW - 4 // exclude box padding (2 each side)
-	header := m.dashboardHeader(innerW)
+	header := m.dashboardHeader()
 
-	// Navigation hints inside the overlay.
-	items := []string{m.helpItem("j/k", "navigate")}
-	if m.dashNavCount() > 0 {
-		items = append(items, m.helpItem("enter", "jump to"))
-	}
-	items = append(items,
+	// Minimal hints inside the overlay.
+	hints := joinWithSeparator(m.helpSeparator(),
 		m.helpItem("D", "close"),
 		m.helpItem("?", "help"),
 	)
-	hints := joinWithSeparator(m.helpSeparator(), items...)
 
 	// Budget for dashboardView content: outer box height minus chrome.
-	// Chrome: border (2) + padding (2) + title (1) + header (1) + blank (1)
-	// + blank (1) + hints (1) = 9 lines.
+	// Chrome: border (2) + padding (2) + header (1) + rule (1) + blank (1)
+	// + hints (1) = 8 lines.
 	maxH := m.effectiveHeight() - 4
 	if maxH < 10 {
 		maxH = 10
 	}
-	contentBudget := maxH - 9
+	contentBudget := maxH - 8
 	if contentBudget < 3 {
 		contentBudget = 3
 	}
 	content := m.dashboardView(contentBudget, innerW)
 
-	// Title: "Dashboard" left-aligned, header (nickname · date) right-aligned.
-	title := m.styles.HeaderTitle.Render(" Dashboard ")
-
 	rule := m.styles.DashRule.Render(strings.Repeat("─", innerW))
 	boxContent := lipgloss.JoinVertical(
-		lipgloss.Left, title, header, rule, content, "", hints,
+		lipgloss.Left, header, rule, content, "", hints,
 	)
 
-	return lipgloss.NewStyle().
+	box := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(accent).
 		Padding(1, 2).
 		Width(contentW).
-		MaxHeight(maxH).
-		Render(boxContent)
+		MaxHeight(maxH)
+
+	return box.Render(boxContent)
 }
 
 func (m *Model) tabsView() string {
@@ -1100,6 +1093,8 @@ func emptyHint(kind TabKind) string {
 		return "No quotes yet. Create a project first, then drill in and add a quote."
 	case tabMaintenance:
 		return "No maintenance items yet. Press i for edit mode, then a to add one. ? for help."
+	case tabIncidents:
+		return "No incidents yet. Press i for edit mode, then a to add one. ? for help."
 	case tabAppliances:
 		return "No appliances yet. Press i for edit mode, then a to add one. ? for help."
 	case tabVendors:

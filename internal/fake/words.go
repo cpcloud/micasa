@@ -339,6 +339,48 @@ var insuranceCarriers = []string{
 }
 
 // ---------------------------------------------------------------------------
+// Incidents
+// ---------------------------------------------------------------------------
+
+var incidentTitles = []string{
+	"Found ants under trim",
+	"Water stain on ceiling",
+	"Garage door won't open",
+	"Gutter pulling away from fascia",
+	"Sump pump alarm went off",
+	"Cracked window in bedroom",
+	"Toilet running constantly",
+	"Outlet sparking when used",
+	"Dryer vent clogged",
+	"Deck board rotting through",
+	"Roof leak after storm",
+	"Pipe burst in crawlspace",
+	"AC unit making grinding noise",
+	"Smoke detector beeping",
+	"Tree limb fell on fence",
+	"Basement flooding",
+	"Mold found in bathroom",
+	"Furnace won't ignite",
+	"Dishwasher leaking",
+	"Front step crumbling",
+}
+
+var incidentLocations = []string{
+	"Kitchen",
+	"Bathroom",
+	"Basement",
+	"Garage",
+	"Attic",
+	"Master Bedroom",
+	"Living Room",
+	"Laundry Room",
+	"Exterior",
+	"Crawlspace",
+	"Roof",
+	"Yard",
+}
+
+// ---------------------------------------------------------------------------
 // Service log
 // ---------------------------------------------------------------------------
 

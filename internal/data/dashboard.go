@@ -37,6 +37,28 @@ func (s *Store) ListActiveProjects() ([]Project, error) {
 	return projects, err
 }
 
+// ListOpenIncidents returns non-deleted incidents (open or in-progress),
+// preloading Appliance and Vendor. Ordered by severity (urgent first) then
+// most recently updated.
+func (s *Store) ListOpenIncidents() ([]Incident, error) {
+	var incidents []Incident
+	err := s.db.
+		Where(ColStatus+" IN ?", []string{IncidentStatusOpen, IncidentStatusInProgress}).
+		Preload("Appliance", func(q *gorm.DB) *gorm.DB {
+			return q.Unscoped()
+		}).
+		Preload("Vendor", func(q *gorm.DB) *gorm.DB {
+			return q.Unscoped()
+		}).
+		Order("CASE " + ColSeverity +
+			" WHEN 'urgent' THEN 0" +
+			" WHEN 'soon' THEN 1" +
+			" WHEN 'whenever' THEN 2" +
+			" ELSE 3 END, " + ColUpdatedAt + " desc").
+		Find(&incidents).Error
+	return incidents, err
+}
+
 // ListExpiringWarranties returns non-deleted appliances whose warranty expires
 // between (now - lookBack) and (now + horizon).
 func (s *Store) ListExpiringWarranties(

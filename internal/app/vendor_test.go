@@ -25,7 +25,7 @@ func TestVendorTabExists(t *testing.T) {
 }
 
 func TestVendorTabIndex(t *testing.T) {
-	assert.Equal(t, 4, tabIndex(tabVendors))
+	assert.Equal(t, 5, tabIndex(tabVendors))
 }
 
 func TestVendorTabKindString(t *testing.T) {

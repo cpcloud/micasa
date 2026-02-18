@@ -13,7 +13,7 @@ import (
 func TestStatusBarHiddenWhenDashboardActive(t *testing.T) {
 	m := newTestModel()
 	m.showDashboard = true
-	m.dashboard = dashboardData{ServiceSpendCents: 1}
+	m.dashboard = nonEmptyDashboard()
 
 	status := m.statusView()
 

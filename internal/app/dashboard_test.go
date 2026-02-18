@@ -15,6 +15,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// nonEmptyDashboard returns a minimal dashboardData that is not empty,
+// for tests that just need the dashboard overlay to render.
+func nonEmptyDashboard() dashboardData {
+	return dashboardData{
+		OpenIncidents: []data.Incident{{Title: "stub"}},
+	}
+}
+
 func TestDaysUntil(t *testing.T) {
 	now := time.Date(2026, 2, 8, 14, 0, 0, 0, time.UTC)
 	tests := []struct {
@@ -37,20 +45,20 @@ func TestDaysUntil(t *testing.T) {
 
 func TestDaysText(t *testing.T) {
 	tests := []struct {
-		days    int
-		overdue bool
-		want    string
+		days int
+		want string
 	}{
-		{0, true, "today"},
-		{0, false, "today"},
-		{-5, true, "5 days overdue"},
-		{-1, true, "1 day overdue"},
-		{3, false, "in 3 days"},
-		{1, false, "in 1 day"},
+		{0, "today"},
+		{-5, "5d"},
+		{-1, "1d"},
+		{3, "3d"},
+		{1, "1d"},
+		{-45, "1mo"},
+		{400, "1y"},
 	}
 	for _, tt := range tests {
-		assert.Equalf(t, tt.want, daysText(tt.days, tt.overdue),
-			"daysText(%d, %v)", tt.days, tt.overdue)
+		assert.Equalf(t, tt.want, daysText(tt.days),
+			"daysText(%d)", tt.days)
 	}
 }
 
@@ -99,7 +107,7 @@ func TestDashboardDismissedByTabSwitch(t *testing.T) {
 func TestDashboardNavigation(t *testing.T) {
 	m := newTestModel()
 	m.showDashboard = true
-	m.dashboard = dashboardData{ServiceSpendCents: 1}
+	m.dashboard = nonEmptyDashboard()
 	// Populate nav with 5 entries.
 	m.dashNav = []dashNavEntry{
 		{Tab: tabMaintenance, ID: 1},
@@ -133,7 +141,7 @@ func TestDashboardNavigation(t *testing.T) {
 func TestDashboardEnterKeyJumps(t *testing.T) {
 	m := newTestModel()
 	m.showDashboard = true
-	m.dashboard = dashboardData{ServiceSpendCents: 1}
+	m.dashboard = nonEmptyDashboard()
 	m.dashNav = []dashNavEntry{
 		{Tab: tabMaintenance, ID: 1},
 		{Tab: tabProjects, ID: 42},
@@ -148,7 +156,7 @@ func TestDashboardEnterKeyJumps(t *testing.T) {
 func TestDashboardBlocksTableKeys(t *testing.T) {
 	m := newTestModel()
 	m.showDashboard = true
-	m.dashboard = dashboardData{ServiceSpendCents: 1}
+	m.dashboard = nonEmptyDashboard()
 	m.dashNav = []dashNavEntry{{Tab: tabMaintenance, ID: 1}}
 	m.dashCursor = 0
 	startTab := m.active
@@ -213,8 +221,11 @@ func TestDashboardViewWithData(t *testing.T) {
 			Title:  "Kitchen Remodel",
 			Status: data.ProjectStatusInProgress,
 		}},
-		ServiceSpendCents: 50000,
-		ProjectSpendCents: 100000,
+	}
+	// Expand all sections so data rows are visible.
+	m.dashExpanded = map[string]bool{
+		dashSectionOverdue:  true,
+		dashSectionProjects: true,
 	}
 	m.buildDashNav()
 
@@ -222,7 +233,52 @@ func TestDashboardViewWithData(t *testing.T) {
 	assert.Contains(t, view, "HVAC Filter")
 	assert.Contains(t, view, "Kitchen Remodel")
 	assert.Contains(t, view, "overdue")
-	assert.Contains(t, view, "$500.00")
+}
+
+func TestDashboardViewIncidentsFirst(t *testing.T) {
+	m := newTestModel()
+	m.width = 120
+	m.height = 40
+	now := time.Date(2026, 2, 8, 0, 0, 0, 0, time.UTC)
+	overdueDue := time.Date(2026, 1, 25, 0, 0, 0, 0, time.UTC)
+
+	m.dashboard = dashboardData{
+		OpenIncidents: []data.Incident{{
+			Title:    "Burst pipe",
+			Status:   data.IncidentStatusOpen,
+			Severity: data.IncidentSeverityUrgent,
+		}},
+		Overdue: []maintenanceUrgency{{
+			Item:        data.MaintenanceItem{Name: "HVAC Filter"},
+			NextDue:     overdueDue,
+			DaysFromNow: daysUntil(now, overdueDue),
+		}},
+		ActiveProjects: []data.Project{{
+			Title:  "Kitchen Remodel",
+			Status: data.ProjectStatusInProgress,
+		}},
+	}
+	// Expand all sections so data rows are visible for ordering check.
+	m.dashExpanded = map[string]bool{
+		dashSectionIncidents: true,
+		dashSectionOverdue:   true,
+		dashSectionProjects:  true,
+	}
+	m.buildDashNav()
+
+	view := m.dashboardView(50, 120)
+	incIdx := strings.Index(view, "Burst pipe")
+	overdueIdx := strings.Index(view, "HVAC Filter")
+	projIdx := strings.Index(view, "Kitchen Remodel")
+
+	require.NotEqual(t, -1, incIdx, "incidents should appear in view")
+	require.NotEqual(t, -1, overdueIdx, "overdue items should appear in view")
+	require.NotEqual(t, -1, projIdx, "projects should appear in view")
+
+	assert.Less(t, incIdx, overdueIdx,
+		"incidents should appear before overdue items")
+	assert.Less(t, overdueIdx, projIdx,
+		"overdue items should appear before projects")
 }
 
 func TestDashboardViewFitsOverlayWidth(t *testing.T) {
@@ -304,10 +360,8 @@ func TestDashboardOverlayFitsHeight(t *testing.T) {
 		projects[i].ID = uint(100 + i) //nolint:gosec // i bounded by slice length (≤8)
 	}
 	m.dashboard = dashboardData{
-		Overdue:           overdue,
-		ActiveProjects:    projects,
-		ServiceSpendCents: 50000,
-		ProjectSpendCents: 100000,
+		Overdue:        overdue,
+		ActiveProjects: projects,
 	}
 	m.buildDashNav()
 
@@ -324,7 +378,7 @@ func TestDashboardOverlayDimsSurroundingContent(t *testing.T) {
 	m.height = 40
 	m.showDashboard = true
 	// Populate dashboard with data so the overlay actually renders.
-	m.dashboard = dashboardData{ServiceSpendCents: 100}
+	m.dashboard = nonEmptyDashboard()
 
 	view := m.buildView()
 	// Every line of the composited view that contains background content
@@ -361,7 +415,7 @@ func TestDashboardStatusBarShowsNormal(t *testing.T) {
 	m.width = 120
 	m.height = 40
 	m.showDashboard = true
-	m.dashboard = dashboardData{ServiceSpendCents: 1}
+	m.dashboard = nonEmptyDashboard()
 	status := m.statusView()
 	// With overlay active, main tab keybindings should be hidden.
 	assert.NotContains(t, status, "NAV")
@@ -373,6 +427,9 @@ func TestBuildDashNav(t *testing.T) {
 	overdueDue := time.Date(2026, 1, 25, 0, 0, 0, 0, time.UTC)
 
 	m.dashboard = dashboardData{
+		OpenIncidents: []data.Incident{
+			{Title: "Burst pipe", Severity: data.IncidentSeverityUrgent},
+		},
 		Overdue: []maintenanceUrgency{{
 			Item:        data.MaintenanceItem{ID: 10, Name: "Filter"},
 			NextDue:     overdueDue,
@@ -384,15 +441,37 @@ func TestBuildDashNav(t *testing.T) {
 			DaysFromNow: 45,
 		}},
 	}
+	m.dashboard.OpenIncidents[0].ID = 5
+	// Expand incidents (default) so its data rows appear in nav.
+	m.dashExpanded = map[string]bool{
+		dashSectionIncidents: true,
+	}
 	m.buildDashNav()
 
-	require.Len(t, m.dashNav, 3)
-	assert.Equal(t, tabMaintenance, m.dashNav[0].Tab)
-	assert.Equal(t, uint(10), m.dashNav[0].ID)
-	assert.Equal(t, tabProjects, m.dashNav[1].Tab)
-	assert.Equal(t, uint(20), m.dashNav[1].ID)
-	assert.Equal(t, tabAppliances, m.dashNav[2].Tab)
-	assert.Equal(t, uint(30), m.dashNav[2].ID)
+	// Nav has: incidents header + 1 row, overdue header, projects header,
+	// expiring header = 5 entries. Only incidents is expanded.
+	require.Len(t, m.dashNav, 5)
+
+	// Incidents header first, then data row.
+	assert.True(t, m.dashNav[0].IsHeader)
+	assert.Equal(t, dashSectionIncidents, m.dashNav[0].Section)
+	assert.Equal(t, tabIncidents, m.dashNav[1].Tab)
+	assert.Equal(t, uint(5), m.dashNav[1].ID)
+
+	// Collapsed sections: just headers.
+	assert.True(t, m.dashNav[2].IsHeader)
+	assert.Equal(t, dashSectionOverdue, m.dashNav[2].Section)
+	assert.True(t, m.dashNav[3].IsHeader)
+	assert.Equal(t, dashSectionProjects, m.dashNav[3].Section)
+	assert.True(t, m.dashNav[4].IsHeader)
+	assert.Equal(t, dashSectionExpiring, m.dashNav[4].Section)
+
+	// Expand overdue, verify its data rows appear.
+	m.dashExpanded[dashSectionOverdue] = true
+	m.buildDashNav()
+	require.Len(t, m.dashNav, 6) // +1 data row
+	assert.Equal(t, tabMaintenance, m.dashNav[3].Tab)
+	assert.Equal(t, uint(10), m.dashNav[3].ID)
 }
 
 func TestRenderMiniTable(t *testing.T) {
@@ -406,7 +485,7 @@ func TestRenderMiniTable(t *testing.T) {
 			{Text: "7", Style: lipgloss.NewStyle(), Align: alignRight},
 		}},
 	}
-	lines := renderMiniTable(rows, 3, 0, -1, lipgloss.NewStyle())
+	lines := renderMiniTable(nil, rows, 3, 0, -1, lipgloss.NewStyle(), lipgloss.NewStyle())
 	require.Len(t, lines, 2)
 	// Both lines should have the same visible width due to column alignment.
 	assert.Equal(t, lipgloss.Width(lines[0]), lipgloss.Width(lines[1]))
@@ -426,7 +505,7 @@ func TestRenderMiniTableUnicode(t *testing.T) {
 				{Text: "in 14 days", Style: plain, Align: alignRight},
 			}},
 		}
-		lines := renderMiniTable(rows, 3, 0, -1, plain)
+		lines := renderMiniTable(nil, rows, 3, 0, -1, plain, plain)
 		require.Len(t, lines, 2)
 		assert.Equal(t, lipgloss.Width(lines[0]), lipgloss.Width(lines[1]),
 			"rows with accented characters should align")
@@ -444,7 +523,7 @@ func TestRenderMiniTableUnicode(t *testing.T) {
 				{Text: "$1,000", Style: plain, Align: alignRight},
 			}},
 		}
-		lines := renderMiniTable(rows, 3, 0, -1, plain)
+		lines := renderMiniTable(nil, rows, 3, 0, -1, plain, plain)
 		require.Len(t, lines, 2)
 		assert.Equal(t, lipgloss.Width(lines[0]), lipgloss.Width(lines[1]),
 			"rows with CJK characters should align")
@@ -461,7 +540,7 @@ func TestRenderMiniTableUnicode(t *testing.T) {
 				{Text: "pending", Style: plain},
 			}},
 		}
-		lines := renderMiniTable(rows, 3, 0, -1, plain)
+		lines := renderMiniTable(nil, rows, 3, 0, -1, plain, plain)
 		require.Len(t, lines, 2)
 		assert.Equal(t, lipgloss.Width(lines[0]), lipgloss.Width(lines[1]),
 			"rows with emoji should align")
@@ -482,12 +561,12 @@ func TestRenderMiniTableTruncatesOnNarrowWidth(t *testing.T) {
 	}
 
 	// Without width cap, rows are as wide as content demands.
-	uncapped := renderMiniTable(rows, 3, 0, -1, plain)
+	uncapped := renderMiniTable(nil, rows, 3, 0, -1, plain, plain)
 	require.Len(t, uncapped, 2)
 	uncappedWidth := lipgloss.Width(uncapped[0])
 
 	// With a tight width cap, rows should be truncated.
-	capped := renderMiniTable(rows, 3, 40, -1, plain)
+	capped := renderMiniTable(nil, rows, 3, 40, -1, plain, plain)
 	require.Len(t, capped, 2)
 	for i, line := range capped {
 		w := lipgloss.Width(line)
@@ -561,97 +640,11 @@ func TestTruncateToWidth(t *testing.T) {
 	}
 }
 
-func TestDistributeProportional(t *testing.T) {
-	t.Run("everything fits", func(t *testing.T) {
-		got := distributeProportional([]int{3, 5}, 20)
-		assert.Equal(t, []int{3, 5}, got)
-	})
-
-	t.Run("proportional trimming", func(t *testing.T) {
-		got := distributeProportional([]int{10, 2}, 6)
-		assert.Equal(t, 6, got[0]+got[1])
-		assert.Greater(t, got[0], got[1])
-	})
-
-	t.Run("minimum 1 per bucket", func(t *testing.T) {
-		got := distributeProportional([]int{10, 10, 10}, 3)
-		for i, g := range got {
-			assert.GreaterOrEqualf(t, g, 1, "bucket %d got %d", i, g)
-		}
-	})
-
-	t.Run("empty input", func(t *testing.T) {
-		assert.Nil(t, distributeProportional(nil, 10))
-		assert.Nil(t, distributeProportional([]int{}, 10))
-	})
-
-	t.Run("single bucket", func(t *testing.T) {
-		got := distributeProportional([]int{8}, 3)
-		assert.Equal(t, []int{3}, got)
-	})
-
-	t.Run("never exceeds counts", func(t *testing.T) {
-		got := distributeProportional([]int{2, 3}, 100)
-		assert.Equal(t, []int{2, 3}, got)
-	})
-}
-
-func TestDistributeDashRows(t *testing.T) {
-	t.Run("everything fits", func(t *testing.T) {
-		sections := []dashSection{
-			{rows: make([]dashRow, 3)},
-			{rows: make([]dashRow, 5)},
-		}
-		got := distributeDashRows(sections, 20)
-		assert.Equal(t, 3, got[0])
-		assert.Equal(t, 5, got[1])
-	})
-
-	t.Run("proportional trimming", func(t *testing.T) {
-		sections := []dashSection{
-			{rows: make([]dashRow, 10)},
-			{rows: make([]dashRow, 2)},
-		}
-		got := distributeDashRows(sections, 6)
-		assert.Equal(t, 6, got[0]+got[1])
-		assert.Greater(t, got[0], got[1])
-	})
-
-	t.Run("minimum 1 per section", func(t *testing.T) {
-		sections := []dashSection{
-			{rows: make([]dashRow, 10)},
-			{rows: make([]dashRow, 10)},
-			{rows: make([]dashRow, 10)},
-		}
-		got := distributeDashRows(sections, 3)
-		for i, g := range got {
-			assert.GreaterOrEqualf(t, g, 1, "section %d got %d rows", i, g)
-		}
-	})
-}
-
-func TestDashboardViewSkipsEmptySections(t *testing.T) {
-	m := newTestModel()
-	m.width = 120
-	m.height = 40
-	// Only spending data, no navigable sections.
-	m.dashboard = dashboardData{
-		ServiceSpendCents: 10000,
-	}
-	m.buildDashNav()
-
-	view := m.dashboardView(50, 120)
-	assert.Contains(t, view, "Spending")
-	assert.NotContains(t, view, "Overdue")
-	assert.NotContains(t, view, "Active Projects")
-}
-
-func TestDashboardViewTrimRows(t *testing.T) {
+func TestDashboardViewScrollsWithSmallBudget(t *testing.T) {
 	m := newTestModel()
 	m.width = 120
 	m.height = 40
 
-	// Create enough data to exceed a small budget.
 	overdue := make([]maintenanceUrgency, 8)
 	for i := range overdue {
 		overdue[i] = maintenanceUrgency{
@@ -664,12 +657,19 @@ func TestDashboardViewTrimRows(t *testing.T) {
 	}
 	projects := make([]data.Project, 5)
 	for i := range projects {
-		projects[i] = data.Project{Title: fmt.Sprintf("Proj %d", i+1), Status: "underway"}
+		projects[i] = data.Project{
+			Title:  fmt.Sprintf("Proj %d", i+1),
+			Status: "underway",
+		}
 		projects[i].ID = uint(100 + i) //nolint:gosec // i bounded by slice length (≤5)
 	}
 	m.dashboard = dashboardData{
 		Overdue:        overdue,
 		ActiveProjects: projects,
+	}
+	m.dashExpanded = map[string]bool{
+		dashSectionOverdue:  true,
+		dashSectionProjects: true,
 	}
 	m.buildDashNav()
 
@@ -685,16 +685,23 @@ func TestDashboardViewTrimRows(t *testing.T) {
 		)
 	}
 
-	// With a tiny budget, rows are trimmed but at least 1 per section.
+	// Nav: 2 headers + 8 overdue rows + 5 project rows = 15.
+	assert.Equal(t, 15, len(m.dashNav), "nav should have all entries")
+
+	// With a tiny budget the view is scrolled, not trimmed.
+	m.dashExpanded = map[string]bool{
+		dashSectionOverdue:  true,
+		dashSectionProjects: true,
+	}
 	m.buildDashNav()
 	m.dashCursor = 0
 	smallView := m.dashboardView(6, 120)
-	assert.Contains(t, smallView, "Task")
-	assert.Contains(t, smallView, "Proj")
-	assert.Less(t, len(m.dashNav), 13, "expected nav trimmed")
+	lines := strings.Split(smallView, "\n")
+	assert.LessOrEqual(t, len(lines), 6, "scrolled view should fit budget")
+	assert.Greater(t, m.dashTotalLines, 6, "total lines should exceed budget")
 }
 
-func TestDashboardNavRebuiltFromTrimmedView(t *testing.T) {
+func TestDashboardScrollFollowsCursor(t *testing.T) {
 	m := newTestModel()
 	m.width = 120
 	m.height = 40
@@ -710,14 +717,156 @@ func TestDashboardNavRebuiltFromTrimmedView(t *testing.T) {
 		}
 	}
 	m.dashboard = dashboardData{Overdue: overdue}
+	m.dashExpanded = map[string]bool{dashSectionOverdue: true}
 	m.buildDashNav()
-	m.dashCursor = 9 // at the end
 
-	// Render with a tiny budget: forces trimming.
-	_ = m.dashboardView(5, 120)
+	// Nav: 1 header + 10 rows = 11. Budget must fit pill + col header + tail.
+	m.dashCursor = 10
+	view := m.dashboardView(8, 120)
+	assert.Contains(t, view, "Item 10", "cursor item should be visible")
+	assert.Greater(t, m.dashScrollOffset, 0, "should have scrolled down")
 
-	assert.LessOrEqual(t, len(m.dashNav), 5)
-	assert.Less(t, m.dashCursor, len(m.dashNav))
+	// All nav entries are preserved (header + 10 rows).
+	assert.Equal(t, 11, len(m.dashNav), "nav should have all entries")
+}
+
+// TestDashboardExpandCollapseWithEKey verifies a user can toggle section
+// expand/collapse with e and bulk-toggle with E, as they would in a real
+// session.
+func TestDashboardExpandCollapseWithEKey(t *testing.T) {
+	m := newTestModel()
+	m.showDashboard = true
+	m.width = 120
+	m.height = 40
+
+	now := time.Date(2026, 2, 8, 0, 0, 0, 0, time.UTC)
+	overdueDue := time.Date(2026, 1, 25, 0, 0, 0, 0, time.UTC)
+	m.dashboard = dashboardData{
+		OpenIncidents: []data.Incident{{
+			Title:    "Burst pipe",
+			Severity: data.IncidentSeverityUrgent,
+		}},
+		Overdue: []maintenanceUrgency{{
+			Item:        data.MaintenanceItem{ID: 10, Name: "Filter"},
+			NextDue:     overdueDue,
+			DaysFromNow: daysUntil(now, overdueDue),
+		}},
+	}
+	m.dashboard.OpenIncidents[0].ID = 5
+	m.dashExpanded = map[string]bool{dashSectionIncidents: true}
+	m.buildDashNav()
+
+	// Incidents is expanded by default — data row should be in nav.
+	view := m.dashboardView(50, 120)
+	assert.Contains(t, view, "Burst pipe")
+
+	// Cursor on Incidents header. Press e to collapse it.
+	m.dashCursor = 0
+	sendKey(m, "e")
+	assert.False(t, m.dashExpanded[dashSectionIncidents], "e should collapse current section")
+
+	// Press E to expand all.
+	sendKey(m, "E")
+	assert.True(t, m.dashExpanded[dashSectionIncidents])
+	assert.True(t, m.dashExpanded[dashSectionOverdue])
+
+	// Press E again to collapse all.
+	sendKey(m, "E")
+	assert.False(t, m.dashExpanded[dashSectionIncidents])
+	assert.False(t, m.dashExpanded[dashSectionOverdue])
+}
+
+// TestDashboardSectionNavWithShiftJK verifies J/K jump between section
+// headers, simulating how a user skips through sections.
+func TestDashboardSectionNavWithShiftJK(t *testing.T) {
+	m := newTestModel()
+	m.showDashboard = true
+	m.width = 120
+	m.height = 40
+
+	now := time.Date(2026, 2, 8, 0, 0, 0, 0, time.UTC)
+	overdueDue := time.Date(2026, 1, 25, 0, 0, 0, 0, time.UTC)
+	m.dashboard = dashboardData{
+		OpenIncidents: []data.Incident{{
+			Title:    "Burst pipe",
+			Severity: data.IncidentSeverityUrgent,
+		}},
+		Overdue: []maintenanceUrgency{{
+			Item:        data.MaintenanceItem{ID: 10, Name: "Filter"},
+			DaysFromNow: daysUntil(now, overdueDue),
+		}},
+		ActiveProjects: []data.Project{{ID: 20, Title: "Deck"}},
+	}
+	m.dashboard.OpenIncidents[0].ID = 5
+	m.dashExpanded = map[string]bool{dashSectionIncidents: true}
+	m.buildDashNav()
+
+	// Start on Incidents header.
+	m.dashCursor = 0
+	assert.True(t, m.dashNav[0].IsHeader)
+	assert.Equal(t, dashSectionIncidents, m.dashNav[0].Section)
+
+	// J jumps to the next section header (Overdue).
+	sendKey(m, "J")
+	assert.True(t, m.dashNav[m.dashCursor].IsHeader)
+	assert.Equal(t, dashSectionOverdue, m.dashNav[m.dashCursor].Section)
+
+	// Another J jumps to Projects header.
+	sendKey(m, "J")
+	assert.True(t, m.dashNav[m.dashCursor].IsHeader)
+	assert.Equal(t, dashSectionProjects, m.dashNav[m.dashCursor].Section)
+
+	// K jumps back to Overdue.
+	sendKey(m, "K")
+	assert.Equal(t, dashSectionOverdue, m.dashNav[m.dashCursor].Section)
+}
+
+// TestDashboardEnterOnHeaderDoesNotJump verifies enter on a section header
+// does nothing (user should press e to expand instead).
+func TestDashboardEnterOnHeaderDoesNotJump(t *testing.T) {
+	m := newTestModel()
+	m.showDashboard = true
+	m.dashboard = nonEmptyDashboard()
+	m.dashExpanded = map[string]bool{dashSectionIncidents: true}
+	m.buildDashNav()
+	m.dashCursor = 0
+
+	require.True(t, m.dashNav[0].IsHeader)
+	sendKey(m, "enter")
+	assert.True(t, m.showDashboard, "enter on header should not dismiss dashboard")
+}
+
+// TestDashboardGoTopResetsScroll verifies that g (go to top) after scrolling
+// down makes the first section header fully visible.
+func TestDashboardGoTopResetsScroll(t *testing.T) {
+	m := newTestModel()
+	m.width = 120
+	m.height = 40
+	m.showDashboard = true
+
+	overdue := make([]maintenanceUrgency, 10)
+	for i := range overdue {
+		overdue[i] = maintenanceUrgency{
+			Item: data.MaintenanceItem{
+				ID:   uint(i + 1), //nolint:gosec // i bounded by slice length (≤10)
+				Name: fmt.Sprintf("Task %d", i+1),
+			},
+			DaysFromNow: -(i + 1),
+		}
+	}
+	m.dashboard = dashboardData{Overdue: overdue}
+	m.dashExpanded = map[string]bool{dashSectionOverdue: true}
+	m.buildDashNav()
+
+	// Go to bottom, then back to top.
+	sendKey(m, "G")
+	require.Greater(t, m.dashCursor, 0)
+	m.dashboardView(6, 120) // render to set scroll offset
+	require.Greater(t, m.dashScrollOffset, 0, "should have scrolled down")
+
+	sendKey(m, "g")
+	assert.Equal(t, 0, m.dashCursor)
+	assert.Equal(t, 0, m.dashScrollOffset, "g should reset scroll to top")
 }
 
 func TestOverlayContentWidth(t *testing.T) {

@@ -136,6 +136,7 @@ func (s *Store) AutoMigrate() error {
 		&Appliance{},
 		&MaintenanceItem{},
 		&ServiceLogEntry{},
+		&Incident{},
 		&Document{},
 		&DeletionRecord{},
 		&Setting{},
@@ -362,7 +363,32 @@ func (s *Store) SeedDemoDataFrom(h *fake.HomeFaker) error {
 		}
 	}
 
-	// Documents: attach a couple to projects and appliances.
+	// Incidents: 2-3 items linked to appliances/vendors.
+	incidents := make([]Incident, 0, 3)
+	for i := 0; i < 3; i++ {
+		fi := h.Incident()
+		inc := Incident{
+			Title:       fi.Title,
+			Description: fi.Description,
+			Status:      fi.Status,
+			Severity:    fi.Severity,
+			DateNoticed: fi.DateNoticed,
+			Location:    fi.Location,
+			CostCents:   fi.CostCents,
+		}
+		if i < len(appliances) {
+			inc.ApplianceID = &appliances[i].ID
+		}
+		if i < len(vendors) {
+			inc.VendorID = &vendors[i].ID
+		}
+		if err := s.db.Create(&inc).Error; err != nil {
+			return fmt.Errorf("seed incident %s: %w", inc.Title, err)
+		}
+		incidents = append(incidents, inc)
+	}
+
+	// Documents: attach a couple to projects, appliances, and an incident.
 	type docSeed struct {
 		title, fileName, mime, kind string
 		entityID                    uint
@@ -383,6 +409,13 @@ func (s *Store) SeedDemoDataFrom(h *fake.HomeFaker) error {
 			"application/pdf",
 			DocumentEntityAppliance,
 			appliances[1].ID,
+		},
+		{
+			"Incident Photo",
+			"incident-photo.jpg",
+			"image/jpeg",
+			DocumentEntityIncident,
+			incidents[0].ID,
 		},
 	}
 	for _, ds := range docSeeds {
@@ -778,13 +811,6 @@ func (s *Store) UpdateServiceLog(entry ServiceLogEntry, vendor Vendor) error {
 }
 
 func (s *Store) DeleteServiceLog(id uint) error {
-	dn, err := s.countDocumentDependents(DocumentEntityServiceLog, id)
-	if err != nil {
-		return err
-	}
-	if dn > 0 {
-		return fmt.Errorf("service log has %d active document(s) -- delete them first", dn)
-	}
 	return s.softDelete(&ServiceLogEntry{}, DeletionEntityServiceLog, id)
 }
 
@@ -814,6 +840,66 @@ func (s *Store) CountServiceLogs(itemIDs []uint) (map[uint]int, error) {
 // items for each appliance ID.
 func (s *Store) CountMaintenanceByAppliance(applianceIDs []uint) (map[uint]int, error) {
 	return s.countByFK(&MaintenanceItem{}, ColApplianceID, applianceIDs)
+}
+
+// ---------------------------------------------------------------------------
+// Incident CRUD
+// ---------------------------------------------------------------------------
+
+func (s *Store) ListIncidents(includeDeleted bool) ([]Incident, error) {
+	var items []Incident
+	db := s.db.
+		Preload("Appliance", func(db *gorm.DB) *gorm.DB { return db.Unscoped() }).
+		Preload("Vendor", func(db *gorm.DB) *gorm.DB { return db.Unscoped() }).
+		Order(ColUpdatedAt + " desc")
+	if includeDeleted {
+		db = db.Unscoped()
+	}
+	return items, db.Find(&items).Error
+}
+
+func (s *Store) GetIncident(id uint) (Incident, error) {
+	var item Incident
+	err := s.db.Preload("Appliance").Preload("Vendor").First(&item, id).Error
+	return item, err
+}
+
+func (s *Store) CreateIncident(item Incident) error {
+	return s.db.Create(&item).Error
+}
+
+func (s *Store) UpdateIncident(item Incident) error {
+	return s.updateByID(&Incident{}, item.ID, item)
+}
+
+func (s *Store) DeleteIncident(id uint) error {
+	return s.softDelete(&Incident{}, DeletionEntityIncident, id)
+}
+
+func (s *Store) RestoreIncident(id uint) error {
+	var item Incident
+	if err := s.db.Unscoped().First(&item, id).Error; err != nil {
+		return err
+	}
+	if item.ApplianceID != nil {
+		if err := s.requireParentAlive(&Appliance{}, *item.ApplianceID); err != nil {
+			return parentRestoreError("appliance", err)
+		}
+	}
+	if item.VendorID != nil {
+		if err := s.requireParentAlive(&Vendor{}, *item.VendorID); err != nil {
+			return parentRestoreError("vendor", err)
+		}
+	}
+	return s.restoreEntity(&Incident{}, DeletionEntityIncident, id)
+}
+
+func (s *Store) CountIncidentsByAppliance(applianceIDs []uint) (map[uint]int, error) {
+	return s.countByFK(&Incident{}, ColApplianceID, applianceIDs)
+}
+
+func (s *Store) CountIncidentsByVendor(vendorIDs []uint) (map[uint]int, error) {
+	return s.countByFK(&Incident{}, ColVendorID, vendorIDs)
 }
 
 // ---------------------------------------------------------------------------
@@ -977,6 +1063,10 @@ func (s *Store) validateDocumentParent(doc Document) error {
 		if err := s.requireParentAlive(&ServiceLogEntry{}, doc.EntityID); err != nil {
 			return parentRestoreError("service log", err)
 		}
+	case DocumentEntityIncident:
+		if err := s.requireParentAlive(&Incident{}, doc.EntityID); err != nil {
+			return parentRestoreError("incident", err)
+		}
 	}
 	return nil
 }
@@ -1026,16 +1116,6 @@ func TitleFromFilename(name string) string {
 	return string(runes)
 }
 
-// countDocumentDependents counts non-deleted documents linked to the given
-// entity. Uses a polymorphic WHERE clause unlike countDependents.
-func (s *Store) countDocumentDependents(entityKind string, entityID uint) (int64, error) {
-	var count int64
-	err := s.db.Model(&Document{}).
-		Where(ColEntityKind+" = ? AND "+ColEntityID+" = ?", entityKind, entityID).
-		Count(&count).Error
-	return count, err
-}
-
 func (s *Store) DeleteVendor(id uint) error {
 	n, err := s.countDependents(&Quote{}, ColVendorID, id)
 	if err != nil {
@@ -1044,12 +1124,12 @@ func (s *Store) DeleteVendor(id uint) error {
 	if n > 0 {
 		return fmt.Errorf("vendor has %d active quote(s) -- delete them first", n)
 	}
-	dn, err := s.countDocumentDependents(DocumentEntityVendor, id)
+	ni, err := s.countDependents(&Incident{}, ColVendorID, id)
 	if err != nil {
 		return err
 	}
-	if dn > 0 {
-		return fmt.Errorf("vendor has %d active document(s) -- delete them first", dn)
+	if ni > 0 {
+		return fmt.Errorf("vendor has %d active incident(s) -- delete them first", ni)
 	}
 	return s.softDelete(&Vendor{}, DeletionEntityVendor, id)
 }
@@ -1066,24 +1146,10 @@ func (s *Store) DeleteProject(id uint) error {
 	if n > 0 {
 		return fmt.Errorf("project has %d active quote(s) -- delete them first", n)
 	}
-	dn, err := s.countDocumentDependents(DocumentEntityProject, id)
-	if err != nil {
-		return err
-	}
-	if dn > 0 {
-		return fmt.Errorf("project has %d active document(s) -- delete them first", dn)
-	}
 	return s.softDelete(&Project{}, DeletionEntityProject, id)
 }
 
 func (s *Store) DeleteQuote(id uint) error {
-	dn, err := s.countDocumentDependents(DocumentEntityQuote, id)
-	if err != nil {
-		return err
-	}
-	if dn > 0 {
-		return fmt.Errorf("quote has %d active document(s) -- delete them first", dn)
-	}
 	return s.softDelete(&Quote{}, DeletionEntityQuote, id)
 }
 
@@ -1094,16 +1160,6 @@ func (s *Store) DeleteMaintenance(id uint) error {
 	}
 	if n > 0 {
 		return fmt.Errorf("maintenance item has %d service log(s) -- delete them first", n)
-	}
-	dn, err := s.countDocumentDependents(DocumentEntityMaintenance, id)
-	if err != nil {
-		return err
-	}
-	if dn > 0 {
-		return fmt.Errorf(
-			"maintenance item has %d active document(s) -- delete them first",
-			dn,
-		)
 	}
 	return s.softDelete(&MaintenanceItem{}, DeletionEntityMaintenance, id)
 }
@@ -1119,12 +1175,12 @@ func (s *Store) DeleteAppliance(id uint) error {
 			n,
 		)
 	}
-	dn, err := s.countDocumentDependents(DocumentEntityAppliance, id)
+	ni, err := s.countDependents(&Incident{}, ColApplianceID, id)
 	if err != nil {
 		return err
 	}
-	if dn > 0 {
-		return fmt.Errorf("appliance has %d active document(s) -- delete them first", dn)
+	if ni > 0 {
+		return fmt.Errorf("appliance has %d active incident(s) -- delete them first", ni)
 	}
 	return s.softDelete(&Appliance{}, DeletionEntityAppliance, id)
 }

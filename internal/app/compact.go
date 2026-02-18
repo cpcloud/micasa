@@ -11,6 +11,7 @@ import (
 
 // statusLabels maps full status names to short display labels.
 var statusLabels = map[string]string{
+	// Project statuses.
 	"ideating":  "idea",
 	"planned":   "plan",
 	"quoted":    "bid",
@@ -18,6 +19,14 @@ var statusLabels = map[string]string{
 	"delayed":   "hold",
 	"completed": "done",
 	"abandoned": "drop",
+	// Incident statuses.
+	"open":        "open",
+	"in_progress": "act",
+	"resolved":    "res",
+	// Incident severities.
+	"urgent":   "urg",
+	"soon":     "soon",
+	"whenever": "low",
 }
 
 // statusLabel returns the short display label for a status value.

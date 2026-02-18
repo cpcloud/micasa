@@ -16,19 +16,22 @@ import (
 	"github.com/cpcloud/micasa/internal/data"
 )
 
+// Dashboard section title constants.
+const (
+	dashSectionIncidents = "Incidents"
+	dashSectionOverdue   = "Overdue"
+	dashSectionUpcoming  = "Upcoming"
+	dashSectionMaint     = "Maintenance"
+	dashSectionProjects  = "Active Projects"
+	dashSectionExpiring  = "Expiring Soon"
+)
+
 // ---------------------------------------------------------------------------
 // Dashboard header
 // ---------------------------------------------------------------------------
 
-func (m *Model) dashboardHeader(width int) string {
-	var parts []string
-	if m.hasHouse && m.house.Nickname != "" {
-		parts = append(parts, m.house.Nickname)
-	}
-	parts = append(parts, time.Now().Format("Monday, Jan 2"))
-
-	text := m.styles.DashSubtitle.Render(strings.Join(parts, " \u00b7 "))
-	return lipgloss.NewStyle().Width(width).Align(lipgloss.Right).Render(text)
+func (m *Model) dashboardHeader() string {
+	return m.styles.DashSubtitle.Render(time.Now().Format("Monday, Jan 2, 2006"))
 }
 
 // ---------------------------------------------------------------------------
@@ -41,20 +44,18 @@ type dashboardData struct {
 	Overdue            []maintenanceUrgency
 	Upcoming           []maintenanceUrgency
 	ActiveProjects     []data.Project
+	OpenIncidents      []data.Incident
 	ExpiringWarranties []warrantyStatus
 	InsuranceRenewal   *insuranceStatus
-	ServiceSpendCents  int64
-	ProjectSpendCents  int64
 }
 
 func (d dashboardData) empty() bool {
 	return len(d.Overdue) == 0 &&
 		len(d.Upcoming) == 0 &&
 		len(d.ActiveProjects) == 0 &&
+		len(d.OpenIncidents) == 0 &&
 		len(d.ExpiringWarranties) == 0 &&
-		d.InsuranceRenewal == nil &&
-		d.ServiceSpendCents == 0 &&
-		d.ProjectSpendCents == 0
+		d.InsuranceRenewal == nil
 }
 
 type maintenanceUrgency struct {
@@ -75,10 +76,13 @@ type insuranceStatus struct {
 	DaysFromNow int
 }
 
-// dashNavEntry maps a dashboard cursor position to a target row in a tab.
+// dashNavEntry maps a dashboard cursor position to either a section header
+// (toggle expand/collapse on Enter) or a data row (jump to tab on Enter).
 type dashNavEntry struct {
-	Tab TabKind
-	ID  uint
+	Tab      TabKind
+	ID       uint
+	Section  string // section title this entry belongs to
+	IsHeader bool   // true = section header, not a data row
 }
 
 // ---------------------------------------------------------------------------
@@ -101,9 +105,12 @@ type dashRow struct {
 // renderMiniTable renders rows with aligned columns and returns the rendered
 // lines. colGap is the space between columns. maxWidth caps the total line
 // width; the first column is truncated with an ellipsis when rows would
-// otherwise wrap. Pass 0 to disable width capping.
+// otherwise wrap. Pass 0 to disable width capping. When headers is non-nil
+// and contains at least one non-empty label, a dim header row is prepended.
 func renderMiniTable(
-	rows []dashRow, colGap, maxWidth, cursor int, selected lipgloss.Style,
+	headers []string, rows []dashRow,
+	colGap, maxWidth, cursor int,
+	selected, headerStyle lipgloss.Style,
 ) []string {
 	if len(rows) == 0 {
 		return nil
@@ -120,6 +127,14 @@ func renderMiniTable(
 	for _, r := range rows {
 		for i, c := range r.Cells {
 			if w := lipgloss.Width(c.Text); w > widths[i] {
+				widths[i] = w
+			}
+		}
+	}
+	// Include header labels in width calculation.
+	for i, h := range headers {
+		if i < nCols {
+			if w := lipgloss.Width(h); w > widths[i] {
 				widths[i] = w
 			}
 		}
@@ -146,7 +161,43 @@ func renderMiniTable(
 	}
 
 	gap := strings.Repeat(" ", colGap)
-	lines := make([]string, 0, len(rows))
+	lines := make([]string, 0, len(rows)+1)
+
+	// Render column header row if any labels are non-empty.
+	hasHeaders := false
+	for _, h := range headers {
+		if h != "" {
+			hasHeaders = true
+			break
+		}
+	}
+	if hasHeaders {
+		parts := make([]string, nCols)
+		for i := range nCols {
+			label := ""
+			if i < len(headers) {
+				label = headers[i]
+			}
+			styled := headerStyle.Render(label)
+			pad := widths[i] - lipgloss.Width(label)
+			if pad < 0 {
+				pad = 0
+			}
+			parts[i] = styled + strings.Repeat(" ", pad)
+		}
+		lines = append(lines, "  "+strings.Join(parts, gap))
+
+		// Thin separator under column labels.
+		totalW := 0
+		for i, w := range widths {
+			totalW += w
+			if i > 0 {
+				totalW += colGap
+			}
+		}
+		lines = append(lines, "  "+headerStyle.Render(strings.Repeat("─", totalW)))
+	}
+
 	for rowIdx, r := range rows {
 		parts := make([]string, len(r.Cells))
 		for i, c := range r.Cells {
@@ -167,13 +218,11 @@ func renderMiniTable(
 				parts[i] = styled + strings.Repeat(" ", pad)
 			}
 		}
-		prefix := "  "
+		line := strings.Join(parts, gap)
 		if rowIdx == cursor {
-			prefix = "\u25b8 "
-		}
-		line := prefix + strings.Join(parts, gap)
-		if rowIdx == cursor {
-			line = selected.Render(line)
+			line = "  " + selected.Render(line)
+		} else {
+			line = "  " + line
 		}
 		lines = append(lines, line)
 	}
@@ -239,6 +288,12 @@ func (m *Model) loadDashboardAt(now time.Time) error {
 		return fmt.Errorf("load active projects: %w", err)
 	}
 
+	// Open incidents.
+	d.OpenIncidents, err = m.store.ListOpenIncidents()
+	if err != nil {
+		return fmt.Errorf("load open incidents: %w", err)
+	}
+
 	// Expiring warranties (expired within 30 days or expiring within 90).
 	appliances, err := m.store.ListExpiringWarranties(
 		now, 30*24*time.Hour, 90*24*time.Hour,
@@ -269,18 +324,13 @@ func (m *Model) loadDashboardAt(now time.Time) error {
 		}
 	}
 
-	// Spending snapshot (YTD).
-	yearStart := time.Date(now.Year(), 1, 1, 0, 0, 0, 0, now.Location())
-	d.ServiceSpendCents, err = m.store.YTDServiceSpendCents(yearStart)
-	if err != nil {
-		return fmt.Errorf("load service spend: %w", err)
-	}
-	d.ProjectSpendCents, err = m.store.TotalProjectSpendCents()
-	if err != nil {
-		return fmt.Errorf("load project spend: %w", err)
-	}
-
 	m.dashboard = d
+	m.dashScrollOffset = 0
+	if m.dashExpanded == nil {
+		m.dashExpanded = map[string]bool{
+			dashSectionIncidents: true,
+		}
+	}
 	m.buildDashNav()
 	return nil
 }
@@ -292,20 +342,73 @@ func (m *Model) loadDashboardAt(now time.Time) error {
 // buildDashNav builds the flat navigation list from dashboard data. Each
 // navigable item maps cursor position -> (tab, id).
 func (m *Model) buildDashNav() {
+	type sectionData struct {
+		title   string
+		entries []dashNavEntry
+	}
+	var groups []sectionData
+
+	if n := len(m.dashboard.OpenIncidents); n > 0 {
+		entries := make([]dashNavEntry, 0, n)
+		for _, inc := range m.dashboard.OpenIncidents {
+			entries = append(entries, dashNavEntry{
+				Tab: tabIncidents, ID: inc.ID,
+				Section: dashSectionIncidents,
+			})
+		}
+		groups = append(groups, sectionData{dashSectionIncidents, entries})
+	}
+	if n := len(m.dashboard.Overdue); n > 0 {
+		entries := make([]dashNavEntry, 0, n)
+		for _, e := range m.dashboard.Overdue {
+			entries = append(entries, dashNavEntry{
+				Tab: tabMaintenance, ID: e.Item.ID,
+				Section: dashSectionOverdue,
+			})
+		}
+		groups = append(groups, sectionData{dashSectionOverdue, entries})
+	}
+	if n := len(m.dashboard.Upcoming); n > 0 {
+		entries := make([]dashNavEntry, 0, n)
+		for _, e := range m.dashboard.Upcoming {
+			entries = append(entries, dashNavEntry{
+				Tab: tabMaintenance, ID: e.Item.ID,
+				Section: dashSectionUpcoming,
+			})
+		}
+		groups = append(groups, sectionData{dashSectionUpcoming, entries})
+	}
+	if n := len(m.dashboard.ActiveProjects); n > 0 {
+		entries := make([]dashNavEntry, 0, n)
+		for _, p := range m.dashboard.ActiveProjects {
+			entries = append(entries, dashNavEntry{
+				Tab: tabProjects, ID: p.ID,
+				Section: dashSectionProjects,
+			})
+		}
+		groups = append(groups, sectionData{dashSectionProjects, entries})
+	}
+	if n := len(m.dashboard.ExpiringWarranties); n > 0 {
+		entries := make([]dashNavEntry, 0, n)
+		for _, w := range m.dashboard.ExpiringWarranties {
+			entries = append(entries, dashNavEntry{
+				Tab: tabAppliances, ID: w.Appliance.ID,
+				Section: dashSectionExpiring,
+			})
+		}
+		groups = append(groups, sectionData{dashSectionExpiring, entries})
+	}
+
 	var nav []dashNavEntry
-	for _, e := range m.dashboard.Overdue {
-		nav = append(nav, dashNavEntry{Tab: tabMaintenance, ID: e.Item.ID})
+	for _, g := range groups {
+		nav = append(nav, dashNavEntry{
+			Section: g.title, IsHeader: true,
+		})
+		if m.dashExpanded[g.title] {
+			nav = append(nav, g.entries...)
+		}
 	}
-	for _, e := range m.dashboard.Upcoming {
-		nav = append(nav, dashNavEntry{Tab: tabMaintenance, ID: e.Item.ID})
-	}
-	for _, p := range m.dashboard.ActiveProjects {
-		nav = append(nav, dashNavEntry{Tab: tabProjects, ID: p.ID})
-	}
-	for _, w := range m.dashboard.ExpiringWarranties {
-		nav = append(nav, dashNavEntry{Tab: tabAppliances, ID: w.Appliance.ID})
-	}
-	// Insurance renewal is not navigable (it's in the house profile).
+
 	m.dashNav = nav
 	if m.dashCursor >= len(nav) {
 		m.dashCursor = max(0, len(nav)-1)
@@ -320,319 +423,197 @@ func (m *Model) dashNavCount() int {
 // Dashboard view (main entry)
 // ---------------------------------------------------------------------------
 
-// dashSection holds one dashboard section's data for height budgeting.
+// dashSection holds one dashboard section's data.
 type dashSection struct {
-	title string
-	rows  []dashRow
-	// Maintenance uses sub-sections (Overdue / Upcoming), adding extra header
-	// lines. Other sections have subCounts == nil.
-	subTitles []string
-	subCounts []int // rows per sub-section (sum == len(rows))
-}
-
-// overhead returns the number of non-data lines this section occupies
-// (headers, blanks between sub-sections).
-func (s dashSection) overhead() int {
-	if len(s.subCounts) <= 1 {
-		return 1 // just the section header
-	}
-	// N sub-headers + (N-1) blanks between them.
-	n := 0
-	for _, c := range s.subCounts {
-		if c > 0 {
-			n++
-		}
-	}
-	if n <= 1 {
-		return 1
-	}
-	return n + (n - 1) // sub-headers + separator blanks
+	title   string
+	headers []string // optional column labels (rendered dim above data)
+	rows    []dashRow
 }
 
 // dashboardView renders the dashboard content, fitting within budget content
-// lines and maxWidth display columns. Empty sections are skipped; rows are
-// trimmed proportionally when the terminal is short. maxWidth prevents rows
-// from exceeding the overlay's inner width (which would cause wrapping and
-// eat vertical space).
+// lines and maxWidth display columns. Empty sections are skipped. Sections
+// are collapsible — collapsed ones show only a header with item count.
+// Scroll windowing keeps the cursor visible when content exceeds budget.
 func (m *Model) dashboardView(budget, maxWidth int) string {
-	d := m.dashboard
-
-	// Collect non-empty sections.
+	// Collect non-empty sections. Incidents first — they're urgent reactive
+	// issues that need immediate attention. Overdue and upcoming are separate
+	// sections so they can be independently collapsed.
 	var sections []dashSection
 
-	// Maintenance: split into overdue / upcoming sub-sections.
-	if nO, nU := len(d.Overdue), len(d.Upcoming); nO+nU > 0 {
-		allRows := m.dashMaintRows()
-		var subTitles []string
-		var subCounts []int
-		if nO > 0 {
-			subTitles = append(subTitles, "Overdue")
-			subCounts = append(subCounts, nO)
-		}
-		if nU > 0 {
-			subTitles = append(subTitles, "Upcoming")
-			subCounts = append(subCounts, nU)
-		}
+	if incRows := m.dashIncidentRows(); len(incRows) > 0 {
 		sections = append(sections, dashSection{
-			title:     "Maintenance",
-			rows:      allRows,
-			subTitles: subTitles,
-			subCounts: subCounts,
+			title:   dashSectionIncidents,
+			headers: []string{"", "prio", "reported"},
+			rows:    incRows,
+		})
+	}
+
+	overdueRows, upcomingRows := m.dashMaintSplitRows()
+	if len(overdueRows) > 0 {
+		sections = append(sections, dashSection{
+			title:   dashSectionOverdue,
+			headers: []string{"", "overdue"},
+			rows:    overdueRows,
+		})
+	}
+	if len(upcomingRows) > 0 {
+		sections = append(sections, dashSection{
+			title:   dashSectionUpcoming,
+			headers: []string{"", "due"},
+			rows:    upcomingRows,
 		})
 	}
 
 	if projRows := m.dashProjectRows(); len(projRows) > 0 {
 		sections = append(sections, dashSection{
-			title: "Active Projects", rows: projRows,
+			title:   dashSectionProjects,
+			headers: []string{"", "status", "started"},
+			rows:    projRows,
 		})
 	}
 
 	if expRows := m.dashExpiringRows(); len(expRows) > 0 {
 		sections = append(sections, dashSection{
-			title: "Expiring Soon", rows: expRows,
+			title:   dashSectionExpiring,
+			headers: []string{"", "expires"},
+			rows:    expRows,
 		})
 	}
 
-	spendLine := m.dashSpendingLine()
-
-	if len(sections) == 0 && spendLine == "" {
+	if len(sections) == 0 {
 		return ""
 	}
 
-	// Compute fixed overhead: section headers, sub-headers, inter-section
-	// blanks, and the spending footer.
-	fixedLines := 0
-	for i, s := range sections {
-		fixedLines += s.overhead()
-		if i > 0 {
-			fixedLines++ // blank between sections
-		}
-	}
-	if spendLine != "" {
-		if len(sections) > 0 {
-			fixedLines++ // blank before spending
-		}
-		fixedLines += 3 // rule + header + data
-	}
-
-	// Distribute remaining budget among data rows.
-	totalRaw := 0
-	for _, s := range sections {
-		totalRaw += len(s.rows)
-	}
-	avail := budget - fixedLines
-	if avail < len(sections) {
-		avail = len(sections) // at least 1 row per section
-	}
-
-	limits := distributeDashRows(sections, avail)
-
-	// Trim section rows and sub-counts to limits, then render.
+	// Render sections. Collapsed ones show only a header with count.
 	sel := m.styles.TableSelected
 	colGap := 3
-	cursor := m.dashCursor
 	var nav []dashNavEntry
-	var allLines []string
+	var lines []string
+	cursorLine := 0
+
+	// Find which section the cursor belongs to so we can dim the rest.
+	cursorSection := ""
+	if m.dashCursor >= 0 && m.dashCursor < len(m.dashNav) {
+		cursorSection = m.dashNav[m.dashCursor].Section
+	}
 
 	for i, s := range sections {
-		limit := limits[i]
-		rows := capSlice(s.rows, limit)
+		expanded := m.dashExpanded[s.title]
 
-		var sLines []string
-		if len(s.subCounts) > 0 {
-			sLines = m.renderMaintSection(s, limit, cursor, colGap, maxWidth, sel)
-		} else {
-			hdr := m.styles.DashSection.Render(s.title)
-			localCursor := -1
-			if cursor >= 0 && cursor < len(rows) {
-				localCursor = cursor
-			}
-			sLines = append([]string{hdr},
-				renderMiniTable(rows, colGap, maxWidth, localCursor, sel)...)
+		if i > 0 {
+			lines = append(lines, "") // blank between sections
 		}
-		cursor -= len(rows)
 
-		// Collect nav entries from the rendered rows.
-		for _, r := range rows {
+		// Section header is always a nav stop. Dim if cursor is in another section.
+		isHeaderCursor := len(nav) == m.dashCursor
+		dimmed := cursorSection != "" && cursorSection != s.title
+		hdr := m.dashSectionHeader(s.title, len(s.rows), dimmed)
+		if isHeaderCursor {
+			cursorLine = len(lines)
+		}
+		nav = append(nav, dashNavEntry{
+			Section: s.title, IsHeader: true,
+		})
+		lines = append(lines, hdr)
+
+		if !expanded {
+			continue
+		}
+
+		// Expanded: render data rows below the header.
+		localCursor := m.dashCursor - len(nav)
+		tbl := renderMiniTable(
+			s.headers, s.rows, colGap, maxWidth, localCursor, sel, m.styles.DashLabel,
+		)
+		// Column header row (if present) offsets data rows by 1.
+		headerOffset := len(tbl) - len(s.rows)
+		for j, row := range tbl {
+			if j-headerOffset == localCursor {
+				cursorLine = len(lines)
+			}
+			lines = append(lines, row)
+		}
+
+		for _, r := range s.rows {
 			if r.Target != nil {
-				nav = append(nav, *r.Target)
+				entry := *r.Target
+				entry.Section = s.title
+				nav = append(nav, entry)
 			}
 		}
-
-		allLines = append(allLines, strings.Join(sLines, "\n"))
 	}
 
-	if spendLine != "" {
-		rule := m.styles.DashRule.Render(strings.Repeat("─", maxWidth))
-		header := m.styles.DashSection.Render("Spending")
-		allLines = append(allLines, rule+"\n"+header+"\n  "+spendLine)
-	}
-
-	// Update nav to match the trimmed view.
 	m.dashNav = nav
 	if m.dashCursor >= len(nav) {
 		m.dashCursor = max(0, len(nav)-1)
 	}
 
-	return strings.Join(allLines, "\n\n")
+	// Scroll windowing: show only `budget` lines, following the cursor.
+	m.dashTotalLines = len(lines)
+	if budget > 0 && len(lines) > budget {
+		m.scrollDashTo(cursorLine, budget, len(lines))
+
+		end := m.dashScrollOffset + budget
+		if end > len(lines) {
+			end = len(lines)
+		}
+		lines = lines[m.dashScrollOffset:end]
+	} else {
+		m.dashScrollOffset = 0
+	}
+
+	return strings.Join(lines, "\n")
 }
 
-// renderMaintSection renders the maintenance section with Overdue/Upcoming
-// sub-headers, distributing limit rows across sub-sections proportionally.
-func (m *Model) renderMaintSection(
-	s dashSection, limit, cursor, colGap, maxWidth int, sel lipgloss.Style,
-) []string {
-	// Distribute limit among sub-sections proportionally.
-	subLimits := distributeSubLimits(s.subCounts, limit)
-
-	var lines []string
-	offset := 0
-	rendered := 0
-	for si, subTitle := range s.subTitles {
-		subN := subLimits[si]
-		if subN == 0 {
-			offset += s.subCounts[si]
-			continue
-		}
-		if rendered > 0 {
-			lines = append(lines, "")
-		}
-		sectionStyle := m.styles.DashSection
-		if subTitle == "Overdue" {
-			sectionStyle = m.styles.DashSectionWarn
-		}
-		lines = append(lines, sectionStyle.Render(subTitle))
-		subRows := capSlice(s.rows[offset:offset+s.subCounts[si]], subN)
-		localCursor := -1
-		if cursor >= 0 && cursor < subN {
-			localCursor = cursor
-		}
-		lines = append(lines,
-			renderMiniTable(subRows, colGap, maxWidth, localCursor, sel)...)
-		cursor -= subN
-		offset += s.subCounts[si]
-		rendered++
+// dashSectionHeader renders a section header badge with a dim item count.
+// When dimmed is true, the pill flattens to colored text using the pill's
+// background as foreground — so the section color is still visible but the
+// full pill only appears on the active section.
+func (m *Model) dashSectionHeader(
+	title string, count int, dimmed bool,
+) string {
+	style := m.styles.DashSection
+	switch title {
+	case dashSectionIncidents:
+		style = m.styles.DashSectionWarn
+	case dashSectionOverdue:
+		style = m.styles.DashSectionAlert
 	}
-	return lines
-}
-
-// distributeProportional allocates avail slots across buckets proportionally,
-// giving each non-empty bucket at least 1. Used for both section-level and
-// sub-section-level row budgeting.
-func distributeProportional(counts []int, avail int) []int {
-	n := len(counts)
-	if n == 0 {
-		return nil
+	if dimmed {
+		style = lipgloss.NewStyle().
+			Foreground(style.GetBackground()).
+			Padding(0, 1)
 	}
-	result := make([]int, n)
-	total := 0
-	for _, c := range counts {
-		total += c
-	}
-	if avail >= total {
-		copy(result, counts)
-		return result
-	}
-
-	// Give each non-empty bucket at least 1.
-	nonEmpty := 0
-	remaining := avail
-	for i, c := range counts {
-		if c > 0 && remaining > 0 {
-			result[i] = 1
-			remaining--
-			nonEmpty++
-		}
-	}
-
-	// Distribute the rest proportionally to each bucket's raw count.
-	excess := total - nonEmpty
-	if excess > 0 && remaining > 0 {
-		for i, c := range counts {
-			extra := c - 1
-			if extra <= 0 {
-				continue
-			}
-			share := extra * remaining / excess
-			result[i] += share
-		}
-	}
-
-	// Rounding may leave us short; give leftover to largest buckets first.
-	allocated := 0
-	for _, r := range result {
-		allocated += r
-	}
-	for allocated < avail {
-		best := -1
-		bestGap := 0
-		for i, c := range counts {
-			gap := c - result[i]
-			if gap > bestGap {
-				bestGap = gap
-				best = i
-			}
-		}
-		if best < 0 {
-			break
-		}
-		result[best]++
-		allocated++
-	}
-	return result
-}
-
-// distributeDashRows allocates avail row slots across sections proportionally.
-func distributeDashRows(sections []dashSection, avail int) []int {
-	counts := make([]int, len(sections))
-	for i, s := range sections {
-		counts[i] = len(s.rows)
-	}
-	return distributeProportional(counts, avail)
-}
-
-// distributeSubLimits splits limit rows across sub-sections proportionally.
-func distributeSubLimits(subCounts []int, limit int) []int {
-	return distributeProportional(subCounts, limit)
+	badge := style.Render(title)
+	dim := m.styles.DashLabel.Render(fmt.Sprintf(" %d", count))
+	return badge + dim
 }
 
 // ---------------------------------------------------------------------------
 // Row builders (produce dashRow slices for mini-table rendering)
 // ---------------------------------------------------------------------------
 
-func (m *Model) dashMaintRows() []dashRow {
-	d := m.dashboard
-	all := make([]maintenanceUrgency, 0, len(d.Overdue)+len(d.Upcoming))
-	all = append(all, d.Overdue...)
-	all = append(all, d.Upcoming...)
-	if len(all) == 0 {
+// dashMaintSplitRows returns overdue and upcoming rows as separate slices.
+// Duration cells use the section's accent color: warning for overdue,
+// upcoming style for due-soon.
+func (m *Model) dashMaintSplitRows() (overdue, upcoming []dashRow) {
+	overdue = m.maintUrgencyRows(m.dashboard.Overdue, m.styles.DashUpcoming)
+	upcoming = m.maintUrgencyRows(m.dashboard.Upcoming, m.styles.DashUpcoming)
+	return overdue, upcoming
+}
+
+func (m *Model) maintUrgencyRows(
+	items []maintenanceUrgency, durStyle lipgloss.Style,
+) []dashRow {
+	if len(items) == 0 {
 		return nil
 	}
-	rows := make([]dashRow, 0, len(all))
-	for _, e := range all {
-		overdue := e.DaysFromNow < 0
-		nameStyle := m.styles.DashUpcoming
-		if overdue {
-			nameStyle = m.styles.DashOverdue
-		}
-		appliance := ""
-		if e.ApplianceName != "" {
-			appliance = e.ApplianceName
-		}
-		lastSrv := ""
-		if e.Item.LastServicedAt != nil {
-			lastSrv = e.Item.LastServicedAt.Format(data.DateLayout)
-		}
+	rows := make([]dashRow, 0, len(items))
+	for _, e := range items {
 		rows = append(rows, dashRow{
 			Cells: []dashCell{
-				{Text: e.Item.Name, Style: nameStyle},
-				{Text: appliance, Style: m.styles.DashLabel},
-				{
-					Text:  daysText(e.DaysFromNow, overdue),
-					Style: m.daysStyle(e.DaysFromNow, overdue),
-					Align: alignRight,
-				},
-				{Text: lastSrv, Style: m.styles.DashLabel, Align: alignRight},
+				{Text: e.Item.Name, Style: m.styles.DashValue},
+				{Text: daysText(e.DaysFromNow), Style: durStyle, Align: alignRight},
 			},
 			Target: &dashNavEntry{Tab: tabMaintenance, ID: e.Item.ID},
 		})
@@ -642,37 +623,42 @@ func (m *Model) dashMaintRows() []dashRow {
 
 func (m *Model) dashProjectRows() []dashRow {
 	d := m.dashboard
+	now := time.Now()
 	rows := make([]dashRow, 0, len(d.ActiveProjects))
 	for _, p := range d.ActiveProjects {
 		statusStyle := m.styles.StatusStyles[p.Status]
 		statusText := statusLabel(p.Status)
-		budgetText := ""
-		budgetStyle := m.styles.Money
-		if p.BudgetCents != nil {
-			fmtCents := data.FormatCompactCents
-			fmtOpt := data.FormatCompactOptionalCents
-			if m.magMode {
-				fmtCents = magCents
-				fmtOpt = magOptionalCents
-			}
-			act := fmtOpt(p.ActualCents)
-			bud := fmtCents(*p.BudgetCents)
-			if act != "" {
-				budgetText = act + " / " + bud
-				if p.ActualCents != nil && *p.ActualCents > *p.BudgetCents {
-					budgetStyle = m.styles.DashOverdue
-				}
-			} else {
-				budgetText = bud
-			}
-		}
+		started := pastDur(now.Sub(p.CreatedAt))
 		rows = append(rows, dashRow{
 			Cells: []dashCell{
 				{Text: p.Title, Style: m.styles.DashValue},
 				{Text: statusText, Style: statusStyle},
-				{Text: budgetText, Style: budgetStyle, Align: alignRight},
+				{Text: started, Style: m.styles.DashLabel, Align: alignRight},
 			},
 			Target: &dashNavEntry{Tab: tabProjects, ID: p.ID},
+		})
+	}
+	return rows
+}
+
+func (m *Model) dashIncidentRows() []dashRow {
+	d := m.dashboard
+	now := time.Now()
+	rows := make([]dashRow, 0, len(d.OpenIncidents))
+	for _, inc := range d.OpenIncidents {
+		sevStyle := m.styles.StatusStyles[inc.Severity]
+		sevText := statusLabel(inc.Severity)
+		rows = append(rows, dashRow{
+			Cells: []dashCell{
+				{Text: inc.Title, Style: m.styles.DashValue},
+				{Text: sevText, Style: sevStyle},
+				{
+					Text:  pastDur(now.Sub(inc.DateNoticed)),
+					Style: m.styles.DashOverdue,
+					Align: alignRight,
+				},
+			},
+			Target: &dashNavEntry{Tab: tabIncidents, ID: inc.ID},
 		})
 	}
 	return rows
@@ -686,20 +672,11 @@ func (m *Model) dashExpiringRows() []dashRow {
 	// before populating ExpiringWarranties.
 	for _, w := range d.ExpiringWarranties {
 		overdue := w.DaysFromNow < 0
-		nameStyle := m.styles.DashUpcoming
-		if overdue {
-			nameStyle = m.styles.DashOverdue
-		}
 		rows = append(rows, dashRow{
 			Cells: []dashCell{
-				{Text: w.Appliance.Name + " warranty", Style: nameStyle},
+				{Text: w.Appliance.Name + " warranty", Style: m.styles.DashValue},
 				{
-					Text:  w.Appliance.WarrantyExpiry.Format(data.DateLayout),
-					Style: m.styles.DashLabel,
-					Align: alignRight,
-				},
-				{
-					Text:  daysText(w.DaysFromNow, overdue),
+					Text:  daysText(w.DaysFromNow),
 					Style: m.daysStyle(w.DaysFromNow, overdue),
 					Align: alignRight,
 				},
@@ -711,24 +688,15 @@ func (m *Model) dashExpiringRows() []dashRow {
 	if d.InsuranceRenewal != nil {
 		ins := d.InsuranceRenewal
 		overdue := ins.DaysFromNow < 0
-		nameStyle := m.styles.DashUpcoming
-		if overdue {
-			nameStyle = m.styles.DashOverdue
-		}
 		label := "Insurance renewal"
 		if ins.Carrier != "" {
 			label += " (" + ins.Carrier + ")"
 		}
 		rows = append(rows, dashRow{
 			Cells: []dashCell{
-				{Text: label, Style: nameStyle},
+				{Text: label, Style: m.styles.DashValue},
 				{
-					Text:  ins.RenewalDate.Format(data.DateLayout),
-					Style: m.styles.DashLabel,
-					Align: alignRight,
-				},
-				{
-					Text:  daysText(ins.DaysFromNow, overdue),
+					Text:  daysText(ins.DaysFromNow),
 					Style: m.daysStyle(ins.DaysFromNow, overdue),
 					Align: alignRight,
 				},
@@ -737,36 +705,6 @@ func (m *Model) dashExpiringRows() []dashRow {
 		})
 	}
 	return rows
-}
-
-func (m *Model) dashSpendingLine() string {
-	d := m.dashboard
-	total := d.ServiceSpendCents + d.ProjectSpendCents
-	if total == 0 {
-		return ""
-	}
-	fmtCents := data.FormatCompactCents
-	if m.magMode {
-		fmtCents = magCents
-	}
-	var parts []string
-	if d.ServiceSpendCents > 0 {
-		parts = append(parts,
-			m.styles.DashLabel.Render("Maintenance ")+
-				m.styles.Money.Render(fmtCents(d.ServiceSpendCents)))
-	}
-	if d.ProjectSpendCents > 0 {
-		parts = append(parts,
-			m.styles.DashLabel.Render("Projects ")+
-				m.styles.Money.Render(fmtCents(d.ProjectSpendCents)))
-	}
-	sep := m.styles.DashLabel.Render(" \u00b7 ")
-	line := strings.Join(parts, sep)
-	if d.ServiceSpendCents > 0 && d.ProjectSpendCents > 0 {
-		line += sep + m.styles.DashLabel.Render("Total ") +
-			m.styles.Money.Render(fmtCents(total))
-	}
-	return line
 }
 
 // ---------------------------------------------------------------------------
@@ -793,6 +731,7 @@ func (m *Model) dashUp() {
 
 func (m *Model) dashTop() {
 	m.dashCursor = 0
+	m.dashScrollOffset = 0
 }
 
 func (m *Model) dashBottom() {
@@ -803,12 +742,36 @@ func (m *Model) dashBottom() {
 	m.dashCursor = n - 1
 }
 
+// dashNextSection jumps the cursor to the next section header.
+func (m *Model) dashNextSection() {
+	n := len(m.dashNav)
+	for i := m.dashCursor + 1; i < n; i++ {
+		if m.dashNav[i].IsHeader {
+			m.dashCursor = i
+			return
+		}
+	}
+}
+
+// dashPrevSection jumps the cursor to the previous section header.
+func (m *Model) dashPrevSection() {
+	for i := m.dashCursor - 1; i >= 0; i-- {
+		if m.dashNav[i].IsHeader {
+			m.dashCursor = i
+			return
+		}
+	}
+}
+
 func (m *Model) dashJump() {
 	nav := m.dashNav
 	if m.dashCursor < 0 || m.dashCursor >= len(nav) {
 		return
 	}
 	entry := nav[m.dashCursor]
+	if entry.IsHeader {
+		return // use 'e' to expand/collapse
+	}
 	m.showDashboard = false
 	m.switchToTab(tabIndex(entry.Tab))
 	if tab := m.activeTab(); tab != nil {
@@ -816,12 +779,52 @@ func (m *Model) dashJump() {
 	}
 }
 
+func (m *Model) dashToggleSection(section string) {
+	if m.dashExpanded == nil {
+		m.dashExpanded = make(map[string]bool)
+	}
+	m.dashExpanded[section] = !m.dashExpanded[section]
+}
+
+// dashToggleCurrent toggles expand/collapse for the section the cursor is in.
+func (m *Model) dashToggleCurrent() {
+	nav := m.dashNav
+	if m.dashCursor < 0 || m.dashCursor >= len(nav) {
+		return
+	}
+	section := nav[m.dashCursor].Section
+	if section == "" {
+		return
+	}
+	m.dashToggleSection(section)
+}
+
+// dashToggleAll expands all sections if any are collapsed, otherwise
+// collapses all.
+func (m *Model) dashToggleAll() {
+	if m.dashExpanded == nil {
+		m.dashExpanded = make(map[string]bool)
+	}
+	allExpanded := true
+	for _, entry := range m.dashNav {
+		if entry.IsHeader && !m.dashExpanded[entry.Section] {
+			allExpanded = false
+			break
+		}
+	}
+	for _, entry := range m.dashNav {
+		if entry.IsHeader {
+			m.dashExpanded[entry.Section] = !allExpanded
+		}
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Utility helpers
 // ---------------------------------------------------------------------------
 
-// daysText returns the human-readable timing string without ANSI styling.
-func daysText(days int, overdue bool) string {
+// daysText returns a bare compressed duration like "5d" or "today".
+func daysText(days int) string {
 	if days == 0 {
 		return "today"
 	}
@@ -829,14 +832,7 @@ func daysText(days int, overdue bool) string {
 	if abs < 0 {
 		abs = -abs
 	}
-	unit := "days"
-	if abs == 1 {
-		unit = "day"
-	}
-	if overdue {
-		return fmt.Sprintf("%d %s overdue", abs, unit)
-	}
-	return fmt.Sprintf("in %d %s", abs, unit)
+	return shortDur(time.Duration(abs) * 24 * time.Hour)
 }
 
 // daysStyle returns the appropriate style for a timing label, using the
@@ -846,6 +842,36 @@ func (m *Model) daysStyle(days int, overdue bool) lipgloss.Style {
 		return m.styles.DashOverdue
 	}
 	return m.styles.DashUpcoming
+}
+
+// pastDur returns a compressed past-duration string. Sub-minute is "<1m".
+func pastDur(d time.Duration) string {
+	s := shortDur(d)
+	if s == "now" {
+		return "<1m"
+	}
+	return s
+}
+
+// shortDur returns a compressed duration string like "3d", "2mo", "1y".
+func shortDur(d time.Duration) string {
+	if d < 0 {
+		d = -d
+	}
+	switch {
+	case d < time.Minute:
+		return "now"
+	case d < time.Hour:
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%dh", int(d.Hours()))
+	case d < 30*24*time.Hour:
+		return fmt.Sprintf("%dd", int(d.Hours()/24))
+	case d < 365*24*time.Hour:
+		return fmt.Sprintf("%dmo", int(d.Hours()/(24*30)))
+	default:
+		return fmt.Sprintf("%dy", int(d.Hours()/(24*365)))
+	}
 }
 
 // daysUntil returns the number of whole days from now to target. Negative
@@ -872,4 +898,24 @@ func capSlice[T any](s []T, maxLen int) []T {
 		return s
 	}
 	return s[:maxLen]
+}
+
+// scrollDashTo adjusts dashScrollOffset so that targetLine is visible within
+// a window of viewportH lines out of totalLines.
+func (m *Model) scrollDashTo(targetLine, viewportH, totalLines int) {
+	if targetLine < m.dashScrollOffset {
+		m.dashScrollOffset = targetLine
+	} else if targetLine >= m.dashScrollOffset+viewportH {
+		m.dashScrollOffset = targetLine - viewportH + 1
+	}
+	maxOffset := totalLines - viewportH
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if m.dashScrollOffset > maxOffset {
+		m.dashScrollOffset = maxOffset
+	}
+	if m.dashScrollOffset < 0 {
+		m.dashScrollOffset = 0
+	}
 }

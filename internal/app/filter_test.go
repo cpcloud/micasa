@@ -338,7 +338,7 @@ func TestCtrlNNoopWithoutPins(t *testing.T) {
 func TestPinOnDashboardBlocked(t *testing.T) {
 	m := newTestModel()
 	m.showDashboard = true
-	m.dashboard = dashboardData{ServiceSpendCents: 1}
+	m.dashboard = nonEmptyDashboard()
 	startPins := len(m.effectiveTab().Pins)
 
 	sendKey(m, "n")
@@ -662,7 +662,7 @@ func TestInvertedPinContextPassedToRenderer(t *testing.T) {
 func TestInvertBlockedOnDashboard(t *testing.T) {
 	m := newTestModel()
 	m.showDashboard = true
-	m.dashboard = dashboardData{ServiceSpendCents: 1}
+	m.dashboard = nonEmptyDashboard()
 	tab := m.effectiveTab()
 
 	sendKey(m, "!")

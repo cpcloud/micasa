@@ -29,6 +29,28 @@ const (
 	StatusAbandoned  = "abandoned"
 )
 
+// Incident statuses (mirrors data.IncidentStatus* constants).
+const (
+	IncidentStatusOpen       = "open"
+	IncidentStatusInProgress = "in_progress"
+)
+
+// Incident severities (mirrors data.IncidentSeverity* constants).
+const (
+	IncidentSeverityUrgent   = "urgent"
+	IncidentSeveritySoon     = "soon"
+	IncidentSeverityWhenever = "whenever"
+)
+
+var (
+	allIncidentStatuses   = []string{IncidentStatusOpen, IncidentStatusInProgress}
+	allIncidentSeverities = []string{
+		IncidentSeverityUrgent,
+		IncidentSeveritySoon,
+		IncidentSeverityWhenever,
+	}
+)
+
 var allStatuses = []string{
 	StatusIdeating, StatusPlanned, StatusQuoted, StatusInProgress,
 	StatusDelayed, StatusCompleted, StatusAbandoned,
@@ -138,6 +160,17 @@ type ServiceLogEntry struct {
 	ServicedAt time.Time
 	CostCents  *int64
 	Notes      string
+}
+
+// Incident holds generated incident data.
+type Incident struct {
+	Title       string
+	Description string
+	Status      string
+	Severity    string
+	DateNoticed time.Time
+	Location    string
+	CostCents   *int64
 }
 
 // Quote holds generated quote data.
@@ -368,6 +401,33 @@ func (h *HomeFaker) Quote() Quote {
 		ReceivedDate:   &received,
 		Notes:          h.f.Sentence(h.f.IntRange(5, 15)),
 	}
+}
+
+// Incident generates a random incident.
+func (h *HomeFaker) Incident() Incident {
+	title := h.pick(incidentTitles)
+	severity := h.pick(allIncidentSeverities)
+	status := h.pick(allIncidentStatuses)
+	noticed := h.f.DateRange(
+		time.Now().AddDate(-1, 0, 0),
+		time.Now(),
+	)
+
+	inc := Incident{
+		Title:       title,
+		Description: h.f.Sentence(h.f.IntRange(8, 20)),
+		Status:      status,
+		Severity:    severity,
+		DateNoticed: noticed,
+		Location:    h.pick(incidentLocations),
+	}
+
+	if h.f.IntRange(1, 10) <= 5 {
+		cost := int64(h.f.IntRange(2000, 300000))
+		inc.CostCents = &cost
+	}
+
+	return inc
 }
 
 // DateInYear returns a random date within the given calendar year.
