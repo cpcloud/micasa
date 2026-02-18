@@ -8,6 +8,8 @@
   <title>{{ .Title }} &mdash; micasa</title>
   <meta name="description" content="{{ with .Params.description }}{{ . }}{{ else }}{{ site.Params.description }}{{ end }}">
   <link rel="icon" type="image/svg+xml" href="/images/favicon.svg">
+  <link rel="preload" as="font" type="font/woff2" href="{{ "fonts/source-serif-4-latin.woff2" | relURL }}" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" href="{{ "fonts/dm-serif-display-latin-400.woff2" | relURL }}" crossorigin>
   <link rel="stylesheet" href="{{ "css/docs.css" | relURL }}">
   <script type="importmap">
   {
