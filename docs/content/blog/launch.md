@@ -107,7 +107,7 @@ links back to the same vendor, so next time you don't have to ask your neighbor
 Maybe the dishwasher is dying and this becomes a kitchen
 [project](/docs/guide/projects/) -- new dishwasher, maybe redo the countertops
 while you're at it. The project tracks the budget, the status, and links to all
-the quotes you're collecting. The contractors's invoice gets attached as a
+the quotes you're collecting. The contractor's invoice gets attached as a
 [document](/docs/guide/documents/), stored right in the database alongside the
 appliance manual and the warranty PDF.
 
@@ -120,6 +120,10 @@ modeling](/docs/development/data-model/) power of micasa, and they back the
 dashboard that gives you the big picture on startup: overdue maintenance,
 active projects, expiring warranties, and year-to-date spending. If nothing
 needs attention, it's empty. Silence means your house is behaving itself.
+
+Needless to say, the demo house is not behaving itself.
+
+![dashboard](/images/dashboard.webp)
 
 There's also an optional [LLM chat](/docs/guide/llm-chat/) feature that can
 answer questions about your data, powered by a local model via Ollama or any
