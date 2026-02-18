@@ -610,11 +610,16 @@ func newVendorJobsHandler(vendorID uint) scopedHandler {
 		},
 		inlineEditFn: func(m *Model, id uint, col int) error {
 			switch vendorJobsCol(col) {
+			case vendorJobsColItem:
+				m.setStatusInfo("Edit item from the Maintenance tab.")
+				return nil
 			case vendorJobsColDate:
 				return m.inlineEditServiceLog(id, serviceLogColDate)
 			case vendorJobsColCost:
 				return m.inlineEditServiceLog(id, serviceLogColCost)
-			case vendorJobsColID, vendorJobsColItem, vendorJobsColNotes:
+			case vendorJobsColNotes:
+				return m.inlineEditServiceLog(id, serviceLogColNotes)
+			case vendorJobsColID:
 				return nil
 			}
 			return nil

@@ -518,6 +518,81 @@ func TestHandlerSnapshotNonExistent(t *testing.T) {
 // applianceMaintenanceHandler (detail view)
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// vendorJobsHandler inline edit
+// ---------------------------------------------------------------------------
+
+func TestVendorJobsInlineEditNotesOpensInlineInput(t *testing.T) {
+	m := newTestModelWithStore(t)
+	cats, _ := m.store.MaintenanceCategories()
+
+	// Create a vendor.
+	require.NoError(t, m.store.CreateVendor(&data.Vendor{Name: "Fix-It Co"}))
+	vendors, _ := m.store.ListVendors(false)
+	vendorID := vendors[0].ID
+
+	// Create a maintenance item.
+	require.NoError(t, m.store.CreateMaintenance(&data.MaintenanceItem{
+		Name:       "Replace Filter",
+		CategoryID: cats[0].ID,
+	}))
+	items, _ := m.store.ListMaintenance(false)
+	maintID := items[0].ID
+
+	// Create a service log entry assigned to the vendor.
+	require.NoError(t, m.store.CreateServiceLog(
+		&data.ServiceLogEntry{
+			MaintenanceItemID: maintID,
+			ServicedAt:        time.Date(2026, 1, 10, 0, 0, 0, 0, time.UTC),
+			Notes:             "initial notes",
+		},
+		data.Vendor{Name: "Fix-It Co"},
+	))
+
+	h := newVendorJobsHandler(vendorID)
+	rows, meta, _, err := h.Load(m.store, false)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+
+	// Notes column should open inline input.
+	require.NoError(t, h.InlineEdit(m, meta[0].ID, int(vendorJobsColNotes)))
+	require.NotNil(t, m.inlineInput, "Notes column should open inline input")
+	assert.Equal(t, "Notes", m.inlineInput.Title)
+}
+
+func TestVendorJobsInlineEditItemShowsStatusMessage(t *testing.T) {
+	m := newTestModelWithStore(t)
+	cats, _ := m.store.MaintenanceCategories()
+
+	require.NoError(t, m.store.CreateVendor(&data.Vendor{Name: "Fix-It Co"}))
+	vendors, _ := m.store.ListVendors(false)
+	vendorID := vendors[0].ID
+
+	require.NoError(t, m.store.CreateMaintenance(&data.MaintenanceItem{
+		Name:       "Replace Filter",
+		CategoryID: cats[0].ID,
+	}))
+	items, _ := m.store.ListMaintenance(false)
+	maintID := items[0].ID
+
+	require.NoError(t, m.store.CreateServiceLog(
+		&data.ServiceLogEntry{
+			MaintenanceItemID: maintID,
+			ServicedAt:        time.Date(2026, 1, 10, 0, 0, 0, 0, time.UTC),
+		},
+		data.Vendor{Name: "Fix-It Co"},
+	))
+
+	h := newVendorJobsHandler(vendorID)
+	_, meta, _, err := h.Load(m.store, false)
+	require.NoError(t, err)
+
+	// Item is a FK reference; should set a status message.
+	require.NoError(t, h.InlineEdit(m, meta[0].ID, int(vendorJobsColItem)))
+	assert.Nil(t, m.inlineInput, "Item column should not open inline input")
+	assert.Contains(t, m.status.Text, "Maintenance")
+}
+
 func TestApplianceMaintenanceHandlerLoad(t *testing.T) {
 	m := newTestModelWithStore(t)
 	cats, _ := m.store.MaintenanceCategories()
