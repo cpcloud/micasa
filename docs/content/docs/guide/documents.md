@@ -46,8 +46,8 @@ automatically linked to that record.
 
 ## Entity linking
 
-Documents can be linked to any record type: projects, appliances, quotes,
-maintenance items, vendors, or service log entries. The link is set
+Documents can be linked to any record type: projects, incidents, appliances,
+quotes, maintenance items, vendors, or service log entries. The link is set
 automatically when adding from a drill view, or can be left empty for
 standalone documents.
 

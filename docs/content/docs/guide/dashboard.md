@@ -17,6 +17,12 @@ The dashboard shows what needs attention right now.
 
 ## Sections
 
+### Incidents
+
+Open incidents, ordered by severity (urgent first). Each row shows title,
+severity, location, and how long ago it was noticed. This section appears first
+so urgent issues are immediately visible.
+
 ### Overdue
 
 Maintenance items whose computed next-due date is in the past. Sorted by most
@@ -47,11 +53,6 @@ Shows item name, expiry date, and days until/since expiry.
 
 The last 5 service log entries across all maintenance items. Shows date,
 maintenance item name, who performed it (Self or vendor), and cost.
-
-### Spending (YTD)
-
-Year-to-date spending summary: maintenance service costs + project actual
-costs, with a total. Only shown if there's spending to report.
 
 ## Navigation
 

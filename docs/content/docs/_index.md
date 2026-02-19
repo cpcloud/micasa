@@ -7,9 +7,9 @@ Your house is quietly plotting to break while you sleep -- and you're dreaming
 about redoing the kitchen. micasa tracks both from your terminal.
 
 micasa is a keyboard-driven terminal UI for managing everything about your home:
-maintenance schedules, projects, vendor quotes, appliances, warranties,
-service history, and file attachments. It stores all data in a single SQLite
-file on your machine.
+maintenance schedules, projects, incidents, vendor quotes, appliances,
+warranties, service history, and file attachments. It stores all data in a
+single SQLite file on your machine.
 No cloud. No account. No subscriptions.
 
 ## What it does
@@ -19,10 +19,12 @@ No cloud. No account. No subscriptions.
 - **[Project management]({{< ref "/docs/guide/projects" >}})** from ideating through completion (or graceful
   abandonment), with budget tracking
 - **[Quote comparison]({{< ref "/docs/guide/quotes" >}})** across vendors, with cost breakdowns
+- **[Incident logging]({{< ref "/docs/guide/incidents" >}})** with severity, location, and optional links to
+  appliances and vendors
 - **[Appliance inventory]({{< ref "/docs/guide/appliances" >}})** with warranty windows, purchase dates, and
   maintenance history tied to each one
-- **[Dashboard]({{< ref "/docs/guide/dashboard" >}})** showing overdue maintenance, active projects, expiring
-  warranties, and YTD spending at a glance
+- **[Dashboard]({{< ref "/docs/guide/dashboard" >}})** showing open incidents, overdue maintenance, active projects,
+  and expiring warranties at a glance
 - **[Vim-style modal navigation]({{< ref "/docs/using/navigation" >}})** with Nav and Edit modes, multi-column
   sorting, column hiding, and cross-tab FK links
 - **[Document attachments]({{< ref "/docs/guide/documents" >}})** -- attach files (manuals, invoices,

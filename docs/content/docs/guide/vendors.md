@@ -54,8 +54,14 @@ The edit form includes a `Notes` textarea for free-text annotations about the
 vendor. Notes are stored on the vendor record but don't appear as a table
 column.
 
+## Incidents
+
+[Incidents]({{< ref "/docs/guide/incidents" >}}) can optionally link to a
+vendor via the `Vendor` column, tracking who you've called or hired for a
+particular issue.
+
 ## Deletion
 
-Vendors with active quotes or service log entries cannot be deleted -- remove
-the referencing records first. Once a vendor has no active references, it can
-be soft-deleted like any other entity.
+Vendors with active quotes, service log entries, or incidents cannot be
+deleted -- remove the referencing records first. Once a vendor has no active
+references, it can be soft-deleted like any other entity.

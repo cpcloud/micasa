@@ -8,23 +8,22 @@ linkTitle = "Data Model"
 micasa stores everything in a single SQLite database. This page explains the
 entities, how they connect, and why the model is shaped the way it is.
 
-> **Reading the diagram** -- `||` means "exactly one", `o|` means "zero or one",
-> `o{` means "zero or many". Read each line left to right: `Project ||--o{ Quote`
-> means one project has zero or many quotes.
-
 ```mermaid
 erDiagram
-    HouseProfile ||--o{ Project : has
-    HouseProfile ||--o{ MaintenanceItem : has
-    Project ||--o{ Quote : has
-    Project }o--|| ProjectType : "categorized by"
-    Quote }o--|| Vendor : "from"
-    MaintenanceItem }o--|| MaintenanceCategory : "categorized by"
-    MaintenanceItem }o--o| Appliance : "linked to"
-    MaintenanceItem ||--o{ ServiceLogEntry : has
-    ServiceLogEntry }o--o| Vendor : "performed by"
-    Document }o--o| Project : "attached to"
-    Document }o--o| Appliance : "attached to"
+    HouseProfile ||--o{ Project : "has many"
+    HouseProfile ||--o{ MaintenanceItem : "has many"
+    Project ||--o{ Quote : "has many"
+    Project }o--|| ProjectType : "has one"
+    Quote }o--|| Vendor : "has one"
+    MaintenanceItem }o--|| MaintenanceCategory : "has one"
+    MaintenanceItem }o--o| Appliance : "optionally has one"
+    MaintenanceItem ||--o{ ServiceLogEntry : "has many"
+    ServiceLogEntry }o--o| Vendor : "optionally has one"
+    Incident }o--o| Appliance : "optionally has one"
+    Incident }o--o| Vendor : "optionally has one"
+    Document }o--o| Project : "optionally attached to one"
+    Document }o--o| Appliance : "optionally attached to one"
+    Document }o--o| Incident : "optionally attached to one"
 ```
 
 ## House Profile
@@ -91,9 +90,24 @@ Physical equipment in your home.
 
 ### Why this matters
 
-- Appliances are referenced *by* maintenance items, not the other way around.
-  The `Maint` drill column provides the reverse view: from any appliance,
-  see everything you're doing to keep it running.
+- Appliances are referenced *by* maintenance items and incidents, not the other
+  way around. The `Maint` drill column provides the reverse view: from any
+  appliance, see everything you're doing to keep it running.
+
+## Incidents
+
+Household issues and repairs -- things that go wrong and need attention.
+
+### Why this matters
+
+- Incidents track reactive work (something broke), complementing maintenance
+  (scheduled upkeep) and projects (planned improvements).
+- **Severity levels** (urgent, soon, whenever) drive dashboard ordering so the
+  most pressing issues surface first.
+- Optional **appliance and vendor links** connect an incident to the equipment
+  involved and the person you've called to fix it.
+- Resolving an incident is a soft delete: the row stays visible (strikethrough)
+  so you keep a history of what went wrong.
 
 ## Documents
 
@@ -102,8 +116,9 @@ File attachments stored as BLOBs inside the database.
 ### Why this matters
 
 - Documents use a **polymorphic FK** (`EntityKind` + `EntityID`) to link to
-  any entity type -- projects, appliances, quotes, maintenance items, vendors,
-  or service log entries. This avoids a separate join table per entity.
+  any entity type -- projects, incidents, appliances, quotes, maintenance
+  items, vendors, or service log entries. This avoids a separate join table
+  per entity.
 - File data lives inside SQLite, so `cp micasa.db backup.db` is a complete
   backup with no sidecar files.
 - Drill columns on the Projects and Appliances tabs give direct access to
@@ -111,7 +126,8 @@ File attachments stored as BLOBs inside the database.
 
 ## Vendors
 
-People and companies you hire. Shared across quotes and service log entries.
+People and companies you hire. Shared across quotes, service log entries, and
+incidents.
 
 ### Why this matters
 

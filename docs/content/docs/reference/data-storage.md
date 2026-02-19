@@ -87,8 +87,8 @@ Soft deletion respects foreign key relationships:
   deleted. For example, restoring a quote whose project is deleted is refused
   ("restore the project first").
 - These guards apply at every FK level: projects/quotes,
-  maintenance/service logs, and appliances/maintenance (including nullable
-  links where a value was set).
+  maintenance/service logs, appliances/maintenance, and appliances/incidents
+  (including nullable links where a value was set).
 
 ## Portability
 

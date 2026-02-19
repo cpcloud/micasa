@@ -50,6 +50,13 @@ column, since it's redundant).
 From the detail view you can add, edit, or delete maintenance items. Press
 `esc` to return to the Appliances table.
 
+## Incidents
+
+[Incidents]({{< ref "/docs/guide/incidents" >}}) can optionally link to an
+appliance via the `Appliance` column. This lets you track which equipment is
+involved in a household issue. Appliances with active incidents cannot be
+deleted -- resolve or unlink the incidents first.
+
 ## Notes
 
 The edit form includes a `Notes` textarea for free-text annotations. Notes are
