@@ -196,6 +196,12 @@ Foreign key relationships between tables:
 - service_log_entries.vendor_id → vendors.id (many-to-one nullable, SET NULL on delete)
   Service logs can optionally record which vendor performed the work.
 
+- incidents.appliance_id → appliances.id (many-to-one nullable, SET NULL on delete)
+  Incidents can optionally link to the appliance involved.
+
+- incidents.vendor_id → vendors.id (many-to-one nullable, SET NULL on delete)
+  Incidents can optionally record which vendor is handling the issue.
+
 Note: There is NO direct FK between projects and appliances. To find projects
 related to appliances, use text search (LIKE) on project.title or project.description
 for appliance names/types.
@@ -266,6 +272,8 @@ Notes:
 - Maintenance scheduling: next_due = date(` + data.ColLastServicedAt + `, '+' || ` + data.ColIntervalMonths + ` || ' months')
 - The UI shows abbreviated status labels: idea=ideating, plan=planned, bid=quoted, wip=underway, hold=delayed, done=completed, drop=abandoned. Map user terms to the stored value.
 - Warranty expiry is in the ` + data.ColWarrantyExpiry + ` column (date string)
+- Incident statuses: open, in_progress. Resolved incidents are soft-deleted (deleted_at IS NOT NULL).
+- Incident severities: urgent, soon, whenever. The UI shows abbreviated labels: urg=urgent, soon=soon, low=whenever.
 - ALWAYS use case-insensitive matching for user-facing text (names, titles, descriptions, categories, vendor names). Use LOWER() on both sides for = and LIKE: WHERE LOWER(name) = LOWER('flooring'), WHERE LOWER(title) LIKE LOWER('%hvac%'). The only exception is enum columns with known exact values (status, interval unit).
 - When available, use the exact spellings from the database for statuses, type names, vendor names, etc.`
 
@@ -301,6 +309,12 @@ SQL: SELECT v.name, COUNT(q.id) AS quote_count FROM vendors v JOIN quotes q ON v
 User: What's the average quote amount for each project type?
 SQL: SELECT pt.name AS project_type, AVG(q.total_cents) / 100.0 AS avg_quote_dollars FROM project_types pt JOIN projects p ON pt.id = p.project_type_id JOIN quotes q ON p.id = q.project_id WHERE p.deleted_at IS NULL AND q.deleted_at IS NULL GROUP BY pt.id, pt.name ORDER BY avg_quote_dollars DESC
 
+User: What open incidents do I have?
+SQL: SELECT title, severity, date_noticed, location FROM incidents WHERE status IN ('open', 'in_progress') AND deleted_at IS NULL ORDER BY CASE severity WHEN 'urgent' THEN 0 WHEN 'soon' THEN 1 WHEN 'whenever' THEN 2 ELSE 3 END
+
+User: How much have I spent on incidents this year?
+SQL: SELECT SUM(cost_cents) / 100.0 AS total_dollars FROM incidents WHERE deleted_at IS NULL AND date_noticed >= date('now', 'start of year')
+
 Now generate SQL for the user's question.`
 
 // ---------- Stage 2: Results → English ----------
@@ -332,7 +346,9 @@ const fallbackSchemaNotes = `
 Schema notes:
 - Soft-deleted rows have a non-NULL deleted_at and should be treated as removed.
 - Maintenance scheduling: next_due = last_serviced + interval_months.
-- Project statuses: ideating, planned, quoted, underway, delayed, completed, abandoned (UI abbreviations: idea, plan, bid, wip, hold, done, drop).`
+- Project statuses: ideating, planned, quoted, underway, delayed, completed, abandoned (UI abbreviations: idea, plan, bid, wip, hold, done, drop).
+- Incident statuses: open, in_progress. Resolved incidents have deleted_at set.
+- Incident severities: urgent, soon, whenever.`
 
 const fallbackGuidelines = `## How to answer
 Look at the data above, find the relevant rows, and answer the question directly.
