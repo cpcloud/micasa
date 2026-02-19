@@ -194,6 +194,7 @@ func TestDashboardViewEmptySections(t *testing.T) {
 	m.dashboard = dashboardData{}
 	m.dashNav = nil
 	m.dashCursor = 0
+	m.prepareDashboardView()
 
 	view := m.dashboardView(50, 120)
 	// Empty dashboard returns empty string -- silence is success.
@@ -227,7 +228,7 @@ func TestDashboardViewWithData(t *testing.T) {
 		dashSectionOverdue:  true,
 		dashSectionProjects: true,
 	}
-	m.buildDashNav()
+	m.prepareDashboardView()
 
 	view := m.dashboardView(50, 120)
 	assert.Contains(t, view, "HVAC Filter")
@@ -264,7 +265,7 @@ func TestDashboardViewIncidentsFirst(t *testing.T) {
 		dashSectionOverdue:   true,
 		dashSectionProjects:  true,
 	}
-	m.buildDashNav()
+	m.prepareDashboardView()
 
 	view := m.dashboardView(50, 120)
 	incIdx := strings.Index(view, "Burst pipe")
@@ -306,7 +307,7 @@ func TestDashboardViewFitsOverlayWidth(t *testing.T) {
 			Status: data.ProjectStatusInProgress,
 		}},
 	}
-	m.buildDashNav()
+	m.prepareDashboardView()
 
 	innerW := m.overlayContentWidth() - 4
 
@@ -671,7 +672,7 @@ func TestDashboardViewScrollsWithSmallBudget(t *testing.T) {
 		dashSectionOverdue:  true,
 		dashSectionProjects: true,
 	}
-	m.buildDashNav()
+	m.prepareDashboardView()
 
 	// With a generous budget, all rows appear.
 	bigView := m.dashboardView(100, 120)
@@ -693,7 +694,7 @@ func TestDashboardViewScrollsWithSmallBudget(t *testing.T) {
 		dashSectionOverdue:  true,
 		dashSectionProjects: true,
 	}
-	m.buildDashNav()
+	m.prepareDashboardView()
 	m.dashCursor = 0
 	smallView := m.dashboardView(6, 120)
 	lines := strings.Split(smallView, "\n")
@@ -718,7 +719,7 @@ func TestDashboardScrollFollowsCursor(t *testing.T) {
 	}
 	m.dashboard = dashboardData{Overdue: overdue}
 	m.dashExpanded = map[string]bool{dashSectionOverdue: true}
-	m.buildDashNav()
+	m.prepareDashboardView()
 
 	// Nav: 1 header + 10 rows = 11. Budget must fit pill + col header + tail.
 	m.dashCursor = 10
@@ -754,7 +755,7 @@ func TestDashboardExpandCollapseWithEKey(t *testing.T) {
 	}
 	m.dashboard.OpenIncidents[0].ID = 5
 	m.dashExpanded = map[string]bool{dashSectionIncidents: true}
-	m.buildDashNav()
+	m.prepareDashboardView()
 
 	// Incidents is expanded by default — data row should be in nav.
 	view := m.dashboardView(50, 120)
@@ -887,11 +888,12 @@ func TestDashboardGoTopResetsScroll(t *testing.T) {
 	}
 	m.dashboard = dashboardData{Overdue: overdue}
 	m.dashExpanded = map[string]bool{dashSectionOverdue: true}
-	m.buildDashNav()
+	m.prepareDashboardView()
 
 	// Go to bottom, then back to top.
 	sendKey(m, "G")
 	require.Greater(t, m.dashCursor, 0)
+	m.prepareDashboardView()
 	m.dashboardView(6, 120) // render to set scroll offset
 	require.Greater(t, m.dashScrollOffset, 0, "should have scrolled down")
 
