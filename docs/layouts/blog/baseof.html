@@ -7,7 +7,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ .Title }} &mdash; micasa</title>
   <meta name="description" content="{{ with .Params.description }}{{ . }}{{ else }}{{ site.Params.description }}{{ end }}">
+  <meta property="og:title" content="{{ .Title }}">
+  <meta property="og:description" content="{{ with .Params.description }}{{ . }}{{ else }}{{ site.Params.description }}{{ end }}">
+  <meta property="og:type" content="{{ if .IsPage }}article{{ else }}website{{ end }}">
+  <meta property="og:url" content="{{ .Permalink }}">
+  <meta property="og:image" content="{{ "images/dashboard.webp" | absURL }}">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" type="image/svg+xml" href="{{ "images/favicon.svg" | relURL }}">
+  <link rel="alternate" type="application/rss+xml" title="micasa blog" href="{{ "blog/index.xml" | relURL }}">
   <link rel="stylesheet" href="{{ "css/blog.css" | relURL }}">
 </head>
 <body>
