@@ -423,6 +423,15 @@ These have been repeatedly requested. Violating them wastes the user's time.
   `ErrorIndicator` theme, because both communicate "this field is
   required" and users see them together.
 
+- **Deterministic ordering requires tiebreakers**: Every `ORDER BY` clause
+  that could produce ties (e.g. `updated_at DESC`, `created_at DESC`) MUST
+  include a tiebreaker column (typically `id DESC`). Without one, rows with
+  identical timestamps appear in random order, causing flaky tests and
+  non-deterministic UI. Windows has especially coarse timestamp resolution,
+  but this applies everywhere. Before writing any query with `ORDER BY`,
+  ask: "Can two rows have the same value for this column?" If yes, add a
+  tiebreaker.
+
 If the user asks you to learn something, add behavioral constraints to this
 "Hard rules" section, or create a skill in `.claude/commands/` for workflows.
 
