@@ -72,6 +72,7 @@ const (
 	ColSeverity          = "severity"
 	ColDescription       = "description"
 	ColDateNoticed       = "date_noticed"
+	ColDateResolved      = "date_resolved"
 	ColLocation          = "location"
 	ColIncidentID        = "incident_id"
 )
@@ -232,22 +233,23 @@ type MaintenanceItem struct {
 }
 
 type Incident struct {
-	ID          uint `gorm:"primaryKey"`
-	Title       string
-	Description string
-	Status      string
-	Severity    string
-	DateNoticed time.Time
-	Location    string
-	CostCents   *int64
-	ApplianceID *uint     `gorm:"index"`
-	Appliance   Appliance `gorm:"constraint:OnDelete:SET NULL;"`
-	VendorID    *uint     `gorm:"index"`
-	Vendor      Vendor    `gorm:"constraint:OnDelete:SET NULL;"`
-	Notes       string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	DeletedAt   gorm.DeletedAt `gorm:"index"`
+	ID           uint `gorm:"primaryKey"`
+	Title        string
+	Description  string
+	Status       string
+	Severity     string
+	DateNoticed  time.Time
+	DateResolved *time.Time
+	Location     string
+	CostCents    *int64
+	ApplianceID  *uint     `gorm:"index"`
+	Appliance    Appliance `gorm:"constraint:OnDelete:SET NULL;"`
+	VendorID     *uint     `gorm:"index"`
+	Vendor       Vendor    `gorm:"constraint:OnDelete:SET NULL;"`
+	Notes        string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	DeletedAt    gorm.DeletedAt `gorm:"index"`
 }
 
 type ServiceLogEntry struct {

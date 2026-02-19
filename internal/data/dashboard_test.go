@@ -78,14 +78,14 @@ func TestListActiveProjects(t *testing.T) {
 func TestListOpenIncidents(t *testing.T) {
 	store := newTestStore(t)
 
-	require.NoError(t, store.CreateIncident(Incident{
+	require.NoError(t, store.CreateIncident(&Incident{
 		Title: "Urgent leak", Status: IncidentStatusOpen, Severity: IncidentSeverityUrgent,
 	}))
-	require.NoError(t, store.CreateIncident(Incident{
+	require.NoError(t, store.CreateIncident(&Incident{
 		Title: "Cracked tile", Status: IncidentStatusInProgress, Severity: IncidentSeverityWhenever,
 	}))
 	// Resolved (soft-deleted) -- should NOT appear.
-	require.NoError(t, store.CreateIncident(Incident{
+	require.NoError(t, store.CreateIncident(&Incident{
 		Title: "Fixed fence", Status: IncidentStatusOpen, Severity: IncidentSeveritySoon,
 	}))
 	items, _ := store.ListIncidents(false)
