@@ -32,6 +32,8 @@ Sleep 0.5s
 Type "f"
 Sleep 0.5s
 Type "f"
+Sleep 0.5s
+Type "f"
 Sleep 1s
 Show
 

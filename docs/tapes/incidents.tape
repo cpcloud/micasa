@@ -1,6 +1,6 @@
 Require micasa
 
-Output docs/static/images/appliances.gif
+Output docs/static/images/incidents.gif
 
 Set Shell bash
 Set FontFamily "Hack Nerd Font"
@@ -22,8 +22,6 @@ Type "micasa --demo"
 Enter
 Sleep 4s
 Type "D"
-Sleep 0.5s
-Type "f"
 Sleep 0.5s
 Type "f"
 Sleep 0.5s

@@ -40,6 +40,7 @@ startup. See [Upgrades](#upgrades) for what this covers and what it doesn't.
 | `vendors`              | Shared vendor records |
 | `maintenance_items`    | Recurring maintenance tasks |
 | `maintenance_categories` | Pre-seeded maintenance categories |
+| `incidents`            | Household issues and repairs |
 | `appliances`           | Physical equipment |
 | `service_log_entries`  | Service history per maintenance item |
 | `documents`            | File metadata + attachments linked to records |

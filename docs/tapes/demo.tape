@@ -75,6 +75,16 @@ Sleep 3s
 Escape
 Sleep 1.5s
 
+# Incidents tab
+Type "f"
+Sleep 2s
+Type "j"
+Sleep 0.5s
+Type "j"
+Sleep 0.5s
+Type "j"
+Sleep 1s
+
 # Appliances tab
 Type "f"
 Sleep 2s

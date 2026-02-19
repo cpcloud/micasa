@@ -1,6 +1,6 @@
 +++
 title = "LLM Chat"
-weight = 8
+weight = 10
 description = "Ask questions about your home data using a local LLM."
 linkTitle = "LLM Chat"
 +++

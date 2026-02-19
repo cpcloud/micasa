@@ -1,6 +1,6 @@
 +++
 title = "Documents"
-weight = 8
+weight = 9
 description = "Attach files to projects, appliances, and other records."
 linkTitle = "Documents"
 +++
