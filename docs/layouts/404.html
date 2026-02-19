@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+{{- /* Copyright 2026 Phillip Cloud */ -}}
+{{- /* Licensed under the Apache License, Version 2.0 */ -}}
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>404 &mdash; house not found</title>
+  <link rel="icon" type="image/svg+xml" href="{{ "images/favicon.svg" | relURL }}">
+  <link rel="preload" as="font" type="font/woff2" href="{{ "fonts/source-serif-4-latin.woff2" | relURL }}" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" href="{{ "fonts/dm-serif-display-latin-400.woff2" | relURL }}" crossorigin>
+  <link rel="stylesheet" href="{{ "css/fonts.css" | relURL }}">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --cream: #faf6f1;
+      --linen: #f0ebe4;
+      --charcoal: #2d2a26;
+      --charcoal-soft: #4a4640;
+      --terracotta: #c05e3c;
+      --terracotta-dark: #a04e30;
+      --warm-gray: #9e958a;
+      --rule: #d9d2c9;
+    }
+    html { font-size: 18px; }
+    body {
+      font-family: "Source Serif 4", "Georgia", "Times New Roman", serif;
+      color: var(--charcoal);
+      background: var(--cream);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+    }
+    .scene {
+      position: relative;
+      display: inline-block;
+      cursor: pointer;
+      margin-bottom: 2rem;
+    }
+    .house {
+      position: relative;
+      display: inline-block;
+      font-family: "JetBrains Mono", monospace;
+      font-size: clamp(1.8rem, 5vw, 3rem);
+      line-height: 1;
+      color: var(--terracotta);
+      user-select: none;
+    }
+    .crumble-block {
+      position: absolute;
+      font-family: "JetBrains Mono", monospace;
+      font-size: clamp(1.8rem, 5vw, 3rem);
+      line-height: 1;
+      color: var(--terracotta);
+      cursor: pointer;
+      z-index: 10;
+      will-change: transform, opacity;
+    }
+    .caption {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 0.8s ease-out;
+      pointer-events: none;
+    }
+    .caption.visible { opacity: 1; }
+    .caption-code {
+      font-family: "DM Serif Display", "Georgia", serif;
+      font-size: clamp(3rem, 10vw, 5.5rem);
+      line-height: 1;
+      color: var(--charcoal);
+      letter-spacing: -0.03em;
+      display: block;
+      margin-top: -0.5em;
+      margin-bottom: 0.6rem;
+    }
+    .caption-code .dot { color: var(--terracotta); }
+    .caption-text {
+      font-family: "JetBrains Mono", monospace;
+      font-size: clamp(0.8rem, 2vw, 1.1rem);
+      color: var(--warm-gray);
+      display: block;
+      margin-top: 0.4rem;
+    }
+    .chimney { color: var(--terracotta-dark); }
+    .chimney-anchor { position: relative; }
+    .smoke-particle {
+      position: absolute;
+      color: var(--warm-gray);
+      font-family: "JetBrains Mono", monospace;
+      font-size: clamp(1.8rem, 5vw, 3rem);
+      line-height: 1;
+      opacity: 0;
+      pointer-events: none;
+      will-change: transform, opacity;
+    }
+    .home-link {
+      display: inline-block;
+      width: 2.5rem;
+      height: 2.5rem;
+      opacity: 0;
+      transition: opacity 0.8s ease-out;
+    }
+    .home-link.visible {
+      opacity: 0.5;
+    }
+    .home-link:hover {
+      opacity: 1;
+    }
+    @media (max-width: 600px) {
+      html { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="scene" id="house-scene">
+  <div class="house" id="hero-house" aria-hidden="true">&nbsp;&nbsp;&nbsp;&nbsp;&#x2584;&#x2593;&#x2584;<span class="chimney-anchor chimney">&#x2588;</span>&nbsp;&nbsp;&nbsp;<br>&#x2584;&#x2593;&#x2593;&#x2593;&#x2593;&#x2593;&#x2584;<br>&#x2584;&#x2593;&#x2593;&#x2593;&#x2593;&#x2593;&#x2593;&#x2593;&#x2593;&#x2593;&#x2584;<br>&#x2588;&#x2588; &#x2591;&#x2591; &#x2591;&#x2591; &#x2588;&#x2588;<br>&#x2588;&#x2588; &nbsp;&#x2588;&#x2588;&#x2588;&#x2588; &#x2588;&#x2588;<br>&#x2588;&#x2588; &nbsp;&#x2588;&nbsp;&nbsp;&#x2588; &#x2588;&#x2588;<br>&#x2580;&#x2580;&#x2580;&#x2580;&#x2580;&#x2580;&#x2580;&#x2580;&#x2580;&#x2580;&#x2580;</div>
+  <div class="caption" id="crumble-caption">
+    <span class="caption-code">4<span class="dot">0</span>4</span>
+    <span class="caption-text">this page doesn't exist. maybe it was load-bearing.</span>
+  </div>
+</div>
+
+<a class="home-link" id="home-link" href="{{ "/" | relURL }}" aria-label="Go home"><img src="{{ "images/favicon.svg" | relURL }}" alt="Home" width="40" height="40"></a>
+
+<script>
+(function () {
+  var scene = document.getElementById('house-scene');
+  var house = document.getElementById('hero-house');
+  var caption = document.getElementById('crumble-caption');
+  var homeLink = document.getElementById('home-link');
+  if (!scene || !house) return;
+
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var GRAVITY       = 2400;
+  var RESTITUTION   = 0.2;
+  var BOUNCE_DRAG   = 0.4;
+  var MAX_BOUNCES   = 2;
+  var BLAST_SPEED   = 450;
+  var STAGGER_SEC   = 0.1;
+  var SETTLE_FADE   = 0.3;
+
+  var ROW_DELAY_MS      = 100;
+  var FLIGHT_SEC        = 0.6;
+  var DISSOLVE_MS       = 200;
+  var REBUILD_EASING    = 'cubic-bezier(0.0, 0.0, 0.2, 1.0)';
+
+  var EMBER_BASE     = '#a04e30';
+  var EMBER_COLORS   = ['#e07040', '#d4783c', '#c05e3c'];
+  var EMBER_CHANCE   = 0.15;
+  var SMOKE_GLYPHS   = ['\u2591', '\u2591', '\u2592', '\u2592', '\u2593'];
+  var MAX_RUBBLE_SMOKE = 10;
+
+  var animating = false;
+  var destroyed = false;
+  var rubbleEls = [];
+  var originalHTML = house.innerHTML;
+
+  var emberTimer = 0;
+  var rubbleSmokeAnimId = 0;
+  var rubbleSmokeSpawnTimer = 0;
+  var rubbleSmokeParticles = [];
+
+  function rand(lo, hi) { return lo + Math.random() * (hi - lo); }
+
+  function dist(ax, ay, bx, by) {
+    var dx = ax - bx, dy = ay - by;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  var BLOCK_RE = /[\u2580-\u259F]/;
+  function wrapBlockChars(root) {
+    var spans = [];
+    var row = 0;
+
+    function walk(node) {
+      if (node.nodeType === 3) {
+        var text = node.textContent;
+        if (!text) return;
+        var frag = document.createDocumentFragment();
+        for (var i = 0; i < text.length; i++) {
+          if (BLOCK_RE.test(text[i])) {
+            var s = document.createElement('span');
+            s.textContent = text[i];
+            s._row = row;
+            frag.appendChild(s);
+            spans.push(s);
+          } else {
+            frag.appendChild(document.createTextNode(text[i]));
+          }
+        }
+        node.parentNode.replaceChild(frag, node);
+      } else if (node.nodeType === 1) {
+        if (node.tagName === 'BR') { row++; return; }
+        if (node.style && node.style.display === 'none') return;
+        var kids = [].slice.call(node.childNodes);
+        for (var j = 0; j < kids.length; j++) walk(kids[j]);
+      }
+    }
+
+    var kids = [].slice.call(root.childNodes);
+    for (var i = 0; i < kids.length; i++) walk(kids[i]);
+    return spans;
+  }
+
+  function measureAndHide(sceneRect) {
+    var spans = wrapBlockChars(house);
+    var blocks = [];
+    var groundY = 0;
+    for (var i = 0; i < spans.length; i++) {
+      var r = spans[i].getBoundingClientRect();
+      var b = {
+        ch: spans[i].textContent,
+        x: r.left - sceneRect.left,
+        y: r.top - sceneRect.top,
+        row: spans[i]._row
+      };
+      if (b.y > groundY) groundY = b.y;
+      blocks.push(b);
+    }
+    house.innerHTML = originalHTML;
+    house.style.visibility = 'hidden';
+    return { blocks: blocks, groundY: groundY };
+  }
+
+  function createBlockEls(blocks) {
+    var items = [];
+    for (var i = 0; i < blocks.length; i++) {
+      var el = document.createElement('span');
+      el.className = 'crumble-block';
+      el.textContent = blocks[i].ch;
+      el.style.left = blocks[i].x + 'px';
+      el.style.top = blocks[i].y + 'px';
+      scene.appendChild(el);
+      items.push({
+        el: el, b: blocks[i],
+        x: 0, y: 0, angle: 0,
+        vx: 0, vy: 0, va: 0,
+        active: false, settled: false, bounces: 0
+      });
+    }
+    return items;
+  }
+
+  function blockDistances(items, clickX, clickY) {
+    var dists = [];
+    var max = 0;
+    for (var i = 0; i < items.length; i++) {
+      var d = dist(items[i].b.x, items[i].b.y, clickX, clickY);
+      dists.push(d);
+      if (d > max) max = d;
+    }
+    return { dists: dists, max: max };
+  }
+
+  function initBlastVelocity(item, clickX, clickY, d, blastRadius) {
+    var proximity = 1 - Math.min(d / blastRadius, 1);
+    var force = 0.3 + proximity * 0.7;
+    var len = Math.max(d, 1);
+    var nx = (item.b.x - clickX) / len;
+    var ny = (item.b.y - clickY) / len;
+    var speed = BLAST_SPEED * force;
+    item.vx = nx * speed + rand(-50, 50);
+    item.vy = ny * speed - rand(0, 300) * force;
+    item.va = rand(-450, 450) * force;
+    item.active = true;
+  }
+
+  function stepBlock(item, dt, groundY) {
+    if (item.settled) return false;
+    item.vy += GRAVITY * dt;
+    item.x += item.vx * dt;
+    item.y += item.vy * dt;
+    item.angle += item.va * dt;
+
+    if (item.b.y + item.y >= groundY) {
+      item.y = groundY - item.b.y;
+      if (Math.abs(item.vy) < 50 || item.bounces >= MAX_BOUNCES) {
+        item.settled = true;
+      } else {
+        item.vy = -Math.abs(item.vy) * RESTITUTION;
+        item.vx *= BOUNCE_DRAG;
+        item.va *= 0.3;
+        item.bounces++;
+      }
+    }
+    return !item.settled;
+  }
+
+  function stepScatteredSmoke(sp, dt) {
+    sp.age += dt;
+    if (sp.age >= sp.maxLife) { sp.el.remove(); return false; }
+    sp.x += sp.vx * dt;
+    sp.y += sp.vy * dt;
+    sp.vx *= (1 - 1.5 * dt);
+    sp.vy *= (1 - 1.5 * dt);
+    var fade = 1 - sp.age / sp.maxLife;
+    sp.el.style.transform = 'translate(' + sp.x.toFixed(1) + 'px,' + sp.y.toFixed(1) + 'px)';
+    sp.el.style.opacity = (sp.startAlpha * fade).toFixed(2);
+    return true;
+  }
+
+  function startSmolder(houseRect, groundY) {
+    for (var i = 0; i < rubbleEls.length; i++) {
+      rubbleEls[i].el.style.transition = 'opacity 0.8s, color 0.8s';
+      rubbleEls[i].el.style.opacity = '0.5';
+      rubbleEls[i].el.style.color = EMBER_BASE;
+    }
+
+    emberTimer = setInterval(function () {
+      for (var i = 0; i < rubbleEls.length; i++) {
+        if (Math.random() < EMBER_CHANCE) {
+          var el = rubbleEls[i].el;
+          el.style.color = EMBER_COLORS[Math.floor(Math.random() * EMBER_COLORS.length)];
+          el.style.opacity = rand(0.5, 0.9).toFixed(2);
+          setTimeout((function (ref) {
+            return function () { ref.style.color = EMBER_BASE; ref.style.opacity = '0.35'; };
+          })(el), rand(200, 700));
+        }
+      }
+    }, 100);
+
+    var centerX = houseRect.width / 2;
+    rubbleSmokeSpawnTimer = setInterval(function () {
+      if (rubbleSmokeParticles.length >= MAX_RUBBLE_SMOKE) return;
+      var el = document.createElement('span');
+      el.className = 'smoke-particle';
+      el.textContent = SMOKE_GLYPHS[Math.floor(Math.random() * SMOKE_GLYPHS.length)];
+      el.style.position = 'absolute';
+      el.style.left = (centerX + rand(-0.6, 0.6) * houseRect.width) + 'px';
+      el.style.top = groundY + 'px';
+      el.style.color = '#9e958a';
+      el.style.opacity = '0';
+      scene.appendChild(el);
+      rubbleSmokeParticles.push({
+        el: el, age: 0,
+        lifetime: rand(2000, 5000),
+        drift: rand(-25, 25),
+        rise: rand(40, 80)
+      });
+    }, 250);
+
+    var lastT = 0;
+    function tickSmoke(now) {
+      if (!lastT) lastT = now;
+      var dt = Math.min((now - lastT) / 1000, 0.1);
+      lastT = now;
+      for (var i = rubbleSmokeParticles.length - 1; i >= 0; i--) {
+        var p = rubbleSmokeParticles[i];
+        p.age += dt * 1000;
+        var t = p.age / p.lifetime;
+        if (t >= 1) { p.el.remove(); rubbleSmokeParticles.splice(i, 1); continue; }
+        var alpha = t < 0.15 ? (t / 0.15) * 0.4 : 0.4 * (1 - (t - 0.15) / 0.85);
+        p.el.style.transform = 'translate(' + (p.drift * t).toFixed(1) + 'px, -' + (p.rise * t).toFixed(1) + 'px)';
+        p.el.style.opacity = alpha.toFixed(3);
+      }
+      rubbleSmokeAnimId = requestAnimationFrame(tickSmoke);
+    }
+    rubbleSmokeAnimId = requestAnimationFrame(tickSmoke);
+  }
+
+  function stopSmolder() {
+    clearInterval(emberTimer);    emberTimer = 0;
+    clearInterval(rubbleSmokeSpawnTimer); rubbleSmokeSpawnTimer = 0;
+    cancelAnimationFrame(rubbleSmokeAnimId); rubbleSmokeAnimId = 0;
+    for (var i = 0; i < rubbleSmokeParticles.length; i++) rubbleSmokeParticles[i].el.remove();
+    rubbleSmokeParticles = [];
+  }
+
+  function destroyHouse(clickX, clickY) {
+    animating = true;
+    var fadeStarted = false;
+
+    var sceneRect = scene.getBoundingClientRect();
+    var houseRect = house.getBoundingClientRect();
+
+    var scattered = [];
+    var measured = measureAndHide(sceneRect);
+    var items = createBlockEls(measured.blocks);
+    var bd = blockDistances(items, clickX, clickY);
+    var blastRadius = Math.sqrt(houseRect.width * houseRect.width + houseRect.height * houseRect.height);
+
+    var started = performance.now();
+    var lastTime = started;
+
+    function tick(now) {
+      var dt = Math.min((now - lastTime) / 1000, 0.05);
+      lastTime = now;
+      var elapsed = (now - started) / 1000;
+      var allDone = true;
+
+      for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        if (item.settled) continue;
+
+        var delay = (bd.max > 0 ? bd.dists[i] / bd.max : 0) * STAGGER_SEC;
+        if (elapsed < delay) { allDone = false; continue; }
+
+        if (!item.active) initBlastVelocity(item, clickX, clickY, bd.dists[i], blastRadius);
+        var wasFalling = !item.settled;
+        if (stepBlock(item, dt, measured.groundY)) allDone = false;
+
+        // Start fading in the caption when the first block lands.
+        if (wasFalling && item.settled && !fadeStarted) {
+          fadeStarted = true;
+          if (caption) caption.classList.add('visible');
+          if (homeLink) homeLink.classList.add('visible');
+        }
+
+        var alpha = Math.max(0.4, 1 - (elapsed - delay) * SETTLE_FADE);
+        item.el.style.transform =
+          'translate(' + item.x.toFixed(1) + 'px,' + item.y.toFixed(1) + 'px) rotate(' + item.angle.toFixed(0) + 'deg)';
+        item.el.style.opacity = alpha.toFixed(2);
+      }
+
+      for (var j = scattered.length - 1; j >= 0; j--) {
+        if (!stepScatteredSmoke(scattered[j], dt)) scattered.splice(j, 1);
+      }
+
+      if (!allDone || scattered.length > 0) {
+        requestAnimationFrame(tick);
+        return;
+      }
+
+      setTimeout(function () {
+        rubbleEls = items;
+        startSmolder(houseRect, measured.groundY);
+
+        var onClick = function (e) { e.stopPropagation(); if (!animating && destroyed) rebuildHouse(); };
+        for (var i = 0; i < items.length; i++) items[i].el.addEventListener('click', onClick);
+
+        destroyed = true;
+        animating = false;
+      }, 50);
+    }
+
+    requestAnimationFrame(tick);
+  }
+
+  function rebuildHouse() {
+    animating = true;
+    stopSmolder();
+    if (caption) caption.classList.remove('visible');
+    if (homeLink) homeLink.classList.remove('visible');
+
+    var maxRow = 0;
+    for (var i = 0; i < rubbleEls.length; i++) {
+      if (rubbleEls[i].b.row > maxRow) maxRow = rubbleEls[i].b.row;
+    }
+
+    for (var i = 0; i < rubbleEls.length; i++) {
+      var delay = (maxRow - rubbleEls[i].b.row) * ROW_DELAY_MS;
+      rubbleEls[i].el.style.transition =
+        'transform ' + FLIGHT_SEC + 's ' + REBUILD_EASING + ' ' + delay + 'ms, ' +
+        'opacity 0.3s ease ' + delay + 'ms, color 0.3s ease ' + delay + 'ms';
+      rubbleEls[i].el.style.opacity = '1';
+      rubbleEls[i].el.style.color = '';
+      rubbleEls[i].el.style.transform = 'translate(0,0) rotate(0deg)';
+    }
+
+    var flightEnd = maxRow * ROW_DELAY_MS + FLIGHT_SEC * 1000 + 50;
+
+    setTimeout(function () {
+      house.innerHTML = originalHTML;
+      house.style.visibility = 'visible';
+      house.style.opacity = '1';
+      house.style.transition = 'none';
+      void house.offsetHeight;
+
+      for (var i = 0; i < rubbleEls.length; i++) {
+        rubbleEls[i].el.style.transition = 'opacity ' + DISSOLVE_MS + 'ms ease';
+        rubbleEls[i].el.style.opacity = '0';
+      }
+
+      setTimeout(function () {
+        for (var i = 0; i < rubbleEls.length; i++) rubbleEls[i].el.remove();
+        rubbleEls = [];
+        destroyed = false;
+        animating = false;
+        if (homeLink) window.location.href = homeLink.href;
+      }, DISSOLVE_MS + 50);
+    }, flightEnd);
+  }
+
+  // Click to toggle destroy/rebuild.
+  scene.addEventListener('click', function (evt) {
+    if (animating) return;
+    if (destroyed) {
+      rebuildHouse();
+    } else {
+      var sceneRect = scene.getBoundingClientRect();
+      destroyHouse(evt.clientX - sceneRect.left, evt.clientY - sceneRect.top);
+    }
+  });
+
+  // Auto-explode as soon as layout is ready.
+  if (!reduced) {
+    requestAnimationFrame(function () {
+      if (animating || destroyed) return;
+      var sceneRect = scene.getBoundingClientRect();
+      var houseRect = house.getBoundingClientRect();
+      var cx = houseRect.left - sceneRect.left + houseRect.width / 2;
+      var cy = houseRect.top - sceneRect.top + houseRect.height / 2;
+      destroyHouse(cx, cy);
+    });
+  } else {
+    // Reduced motion: show the caption immediately.
+    house.style.visibility = 'hidden';
+    if (caption) caption.classList.add('visible');
+    if (homeLink) homeLink.classList.add('visible');
+    destroyed = true;
+  }
+})();
+</script>
+
+</body>
+</html>
