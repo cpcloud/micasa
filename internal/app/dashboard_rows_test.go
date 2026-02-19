@@ -39,11 +39,23 @@ func TestDashMaintSplitRows(t *testing.T) {
 
 	assert.Equal(t, "Replace Filter", overdueRows[0].Cells[0].Text)
 	assert.Equal(t, "14d", overdueRows[0].Cells[1].Text)
+	assert.Equal(
+		t,
+		m.styles.DashOverdue,
+		overdueRows[0].Cells[1].Style,
+		"overdue duration uses DashOverdue style",
+	)
 	require.NotNil(t, overdueRows[0].Target)
 	assert.Equal(t, tabMaintenance, overdueRows[0].Target.Tab)
 
 	assert.Equal(t, "Check Pump", upcomingRows[0].Cells[0].Text)
 	assert.Equal(t, "10d", upcomingRows[0].Cells[1].Text)
+	assert.Equal(
+		t,
+		m.styles.DashUpcoming,
+		upcomingRows[0].Cells[1].Style,
+		"upcoming duration uses DashUpcoming style",
+	)
 }
 
 func TestDashMaintSplitRowsEmpty(t *testing.T) {
@@ -68,6 +80,12 @@ func TestDashMaintRowsRelativeDuration(t *testing.T) {
 	rows, _ := m.dashMaintSplitRows()
 	require.Len(t, rows, 1)
 	assert.Equal(t, "5d", rows[0].Cells[1].Text)
+	assert.Equal(
+		t,
+		m.styles.DashOverdue,
+		rows[0].Cells[1].Style,
+		"overdue duration uses DashOverdue style",
+	)
 }
 
 func TestDashProjectRowsColumns(t *testing.T) {
