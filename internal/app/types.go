@@ -228,6 +228,7 @@ type Options struct {
 type llmConfig struct {
 	BaseURL      string
 	Model        string
+	APIKey       string
 	ExtraContext string
 	Timeout      time.Duration
 	Thinking     *bool // nil = don't send; non-nil = send enable_thinking
@@ -258,7 +259,7 @@ func (o *Options) SetExtraction(
 // SetLLM configures the LLM backend on the Options. Pass empty strings to
 // disable the LLM feature.
 func (o *Options) SetLLM(
-	baseURL, model, extraContext string,
+	baseURL, model, apiKey, extraContext string,
 	timeout time.Duration,
 	thinking *bool,
 ) {
@@ -269,6 +270,7 @@ func (o *Options) SetLLM(
 	o.LLMConfig = &llmConfig{
 		BaseURL:      baseURL,
 		Model:        model,
+		APIKey:       apiKey,
 		ExtraContext: extraContext,
 		Timeout:      timeout,
 		Thinking:     thinking,

@@ -30,7 +30,7 @@ func newTestLLMServer(t *testing.T, responseContent string) (*httptest.Server, *
 		)
 	}))
 	t.Cleanup(srv.Close)
-	client := llm.NewClient(srv.URL+"/v1", "test-model", 5*time.Second)
+	client := llm.NewClient(srv.URL+"/v1", "test-model", "", 5*time.Second)
 	return srv, client
 }
 
@@ -81,7 +81,7 @@ func TestPipeline_LLMExtractsOperationsFromText(t *testing.T) {
 // from being saved.
 func TestPipeline_LLMServerDown(t *testing.T) {
 	// Point at a port that's not listening.
-	client := llm.NewClient("http://127.0.0.1:1/v1", "test-model", time.Second)
+	client := llm.NewClient("http://127.0.0.1:1/v1", "test-model", "", time.Second)
 
 	p := &Pipeline{LLMClient: client}
 	r := p.Run(context.Background(), []byte("Some invoice text"), "invoice.txt", "text/plain")
@@ -104,7 +104,7 @@ func TestPipeline_LLMGarbageResponse(t *testing.T) {
 		)
 	}))
 	t.Cleanup(srv.Close)
-	client := llm.NewClient(srv.URL+"/v1", "test-model", 5*time.Second)
+	client := llm.NewClient(srv.URL+"/v1", "test-model", "", 5*time.Second)
 
 	p := &Pipeline{LLMClient: client}
 	r := p.Run(context.Background(), []byte("invoice text"), "doc.txt", "text/plain")
@@ -125,7 +125,7 @@ func TestPipeline_LLMSkippedWithoutText(t *testing.T) {
 		_, _ = fmt.Fprint(w, `{"choices":[{"message":{"content":"[]"}}]}`)
 	}))
 	t.Cleanup(srv.Close)
-	client := llm.NewClient(srv.URL+"/v1", "test-model", 5*time.Second)
+	client := llm.NewClient(srv.URL+"/v1", "test-model", "", 5*time.Second)
 
 	p := &Pipeline{LLMClient: client}
 	r := p.Run(context.Background(), []byte{0xFF, 0xD8}, "photo.bin", "application/octet-stream")
