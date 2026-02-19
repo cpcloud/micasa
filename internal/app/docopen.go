@@ -52,8 +52,10 @@ func openFileCmd(path string) tea.Cmd {
 			cmd = exec.Command("open", path) //nolint:gosec // path from trusted cache directory
 		case "windows":
 			cmd = exec.Command(
-				"rundll32",
-				"url.dll,FileProtocolHandler",
+				"cmd",
+				"/c",
+				"start",
+				"",
 				path,
 			) //nolint:gosec // path from trusted cache directory
 		default:
