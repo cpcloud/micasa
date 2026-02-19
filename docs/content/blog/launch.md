@@ -1,6 +1,6 @@
 +++
 title = "Your house is quietly plotting against you"
-date = 2026-02-18
+date = 2026-02-19
 description = "Why I built a terminal app to track everything about my home, and why a single SQLite file is the right answer."
 +++
 

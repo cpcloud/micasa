@@ -3,6 +3,7 @@
 
 /* micasa docs -- same palette, fonts, and feel as the main website */
 
+@import url("variables.css");
 @import url("fonts.css");
 
 *,
@@ -11,19 +12,6 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-}
-
-:root {
-  --cream: #faf6f1;
-  --linen: #f0ebe4;
-  --charcoal: #2d2a26;
-  --charcoal-soft: #4a4640;
-  --terracotta: #c05e3c;
-  --terracotta-dark: #a04e30;
-  --sage: #6b8f71;
-  --sage-light: #8aab8f;
-  --warm-gray: #9e958a;
-  --rule: #d9d2c9;
 }
 
 html {

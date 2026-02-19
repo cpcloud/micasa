@@ -1,0 +1,17 @@
+/* Copyright 2026 Phillip Cloud */
+/* Licensed under the Apache License, Version 2.0 */
+
+/* Shared palette -- imported by website.css, docs.css, and blog.css */
+
+:root {
+  --cream: #faf6f1;
+  --linen: #f0ebe4;
+  --charcoal: #2d2a26;
+  --charcoal-soft: #4a4640;
+  --terracotta: #c05e3c;
+  --terracotta-dark: #a04e30;
+  --sage: #6b8f71;
+  --sage-light: #8aab8f;
+  --warm-gray: #9e958a;
+  --rule: #d9d2c9;
+}
