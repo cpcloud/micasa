@@ -186,6 +186,8 @@ func TestBuildSQLPromptIncludesEntityRelationships(t *testing.T) {
 	assert.Contains(t, prompt, "Foreign key relationships")
 	assert.Contains(t, prompt, "projects.project_type_id")
 	assert.Contains(t, prompt, "maintenance_items.appliance_id")
+	assert.Contains(t, prompt, "incidents.appliance_id")
+	assert.Contains(t, prompt, "incidents.vendor_id")
 	assert.Contains(t, prompt, "NO direct FK between projects and appliances")
 }
 
@@ -195,6 +197,8 @@ func TestBuildSystemPromptIncludesEntityRelationships(t *testing.T) {
 	assert.Contains(t, prompt, "Foreign key relationships")
 	assert.Contains(t, prompt, "projects.project_type_id")
 	assert.Contains(t, prompt, "maintenance_items.appliance_id")
+	assert.Contains(t, prompt, "incidents.appliance_id")
+	assert.Contains(t, prompt, "incidents.vendor_id")
 	assert.Contains(t, prompt, "NO direct FK between projects and appliances")
 }
 
@@ -222,4 +226,24 @@ func TestBuildSQLPromptIncludesGroupByExamples(t *testing.T) {
 	assert.Contains(t, prompt, "total spending by project status")
 	assert.Contains(t, prompt, "vendors have given me the most quotes")
 	assert.Contains(t, prompt, "average quote amount")
+}
+
+func TestBuildSQLPromptIncludesIncidentExamples(t *testing.T) {
+	prompt := BuildSQLPrompt(testTables, testNow, "", "")
+	assert.Contains(t, prompt, "What open incidents do I have?")
+	assert.Contains(t, prompt, "FROM incidents WHERE status IN ('open', 'in_progress')")
+	assert.Contains(t, prompt, "How much have I spent on incidents this year?")
+	assert.Contains(t, prompt, "SUM(cost_cents) / 100.0")
+}
+
+func TestBuildSQLPromptIncludesIncidentSchemaNotes(t *testing.T) {
+	prompt := BuildSQLPrompt(testTables, testNow, "", "")
+	assert.Contains(t, prompt, "Incident statuses: open, in_progress")
+	assert.Contains(t, prompt, "Incident severities: urgent, soon, whenever")
+}
+
+func TestBuildSystemPromptIncludesIncidentFallbackNotes(t *testing.T) {
+	prompt := BuildSystemPrompt(testTables, "", testNow, "")
+	assert.Contains(t, prompt, "Incident statuses: open, in_progress")
+	assert.Contains(t, prompt, "Incident severities: urgent, soon, whenever")
 }
