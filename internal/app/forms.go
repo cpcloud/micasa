@@ -114,16 +114,17 @@ type documentFormData struct {
 }
 
 type incidentFormData struct {
-	Title       string
-	Description string
-	Status      string
-	Severity    string
-	DateNoticed string
-	Location    string
-	Cost        string
-	ApplianceID uint // 0 means none
-	VendorID    uint // 0 means none (self)
-	Notes       string
+	Title        string
+	Description  string
+	Status       string
+	Severity     string
+	DateNoticed  string
+	DateResolved string
+	Location     string
+	Cost         string
+	ApplianceID  uint // 0 means none
+	VendorID     uint // 0 means none (self)
+	Notes        string
 }
 
 type applianceFormData struct {
@@ -581,6 +582,10 @@ func (m *Model) openIncidentForm(
 				Value(&values.DateNoticed).
 				Validate(requiredDate("date noticed")),
 			huh.NewInput().
+				Title("Date resolved (YYYY-MM-DD)").
+				Value(&values.DateResolved).
+				Validate(optionalDate("date resolved")),
+			huh.NewInput().
 				Title("Location").
 				Placeholder("Kitchen").
 				Value(&values.Location),
@@ -615,7 +620,7 @@ func (m *Model) submitIncidentForm() error {
 		item.ID = *m.editID
 		return m.store.UpdateIncident(item)
 	}
-	return m.store.CreateIncident(item)
+	return m.store.CreateIncident(&item)
 }
 
 func (m *Model) parseIncidentFormData() (data.Incident, error) {
@@ -624,6 +629,10 @@ func (m *Model) parseIncidentFormData() (data.Incident, error) {
 		return data.Incident{}, fmt.Errorf("unexpected incident form data")
 	}
 	noticed, err := data.ParseRequiredDate(values.DateNoticed)
+	if err != nil {
+		return data.Incident{}, err
+	}
+	resolved, err := data.ParseOptionalDate(values.DateResolved)
 	if err != nil {
 		return data.Incident{}, err
 	}
@@ -640,16 +649,17 @@ func (m *Model) parseIncidentFormData() (data.Incident, error) {
 		vendorID = &values.VendorID
 	}
 	return data.Incident{
-		Title:       strings.TrimSpace(values.Title),
-		Description: strings.TrimSpace(values.Description),
-		Status:      values.Status,
-		Severity:    values.Severity,
-		DateNoticed: noticed,
-		Location:    strings.TrimSpace(values.Location),
-		CostCents:   cost,
-		ApplianceID: appID,
-		VendorID:    vendorID,
-		Notes:       strings.TrimSpace(values.Notes),
+		Title:        strings.TrimSpace(values.Title),
+		Description:  strings.TrimSpace(values.Description),
+		Status:       values.Status,
+		Severity:     values.Severity,
+		DateNoticed:  noticed,
+		DateResolved: resolved,
+		Location:     strings.TrimSpace(values.Location),
+		CostCents:    cost,
+		ApplianceID:  appID,
+		VendorID:     vendorID,
+		Notes:        strings.TrimSpace(values.Notes),
 	}, nil
 }
 
@@ -700,6 +710,8 @@ func (m *Model) inlineEditIncident(id uint, col incidentCol) error {
 		m.openInlineEdit(id, formIncident, field, values)
 	case incidentColNoticed:
 		m.openDatePicker(id, formIncident, &values.DateNoticed, values)
+	case incidentColResolved:
+		m.openDatePicker(id, formIncident, &values.DateResolved, values)
 	case incidentColCost:
 		m.openInlineInput(
 			id,
@@ -726,16 +738,17 @@ func incidentFormValues(item data.Incident) *incidentFormData {
 		vendorID = *item.VendorID
 	}
 	return &incidentFormData{
-		Title:       item.Title,
-		Description: item.Description,
-		Status:      item.Status,
-		Severity:    item.Severity,
-		DateNoticed: item.DateNoticed.Format(data.DateLayout),
-		Location:    item.Location,
-		Cost:        data.FormatOptionalCents(item.CostCents),
-		ApplianceID: appID,
-		VendorID:    vendorID,
-		Notes:       item.Notes,
+		Title:        item.Title,
+		Description:  item.Description,
+		Status:       item.Status,
+		Severity:     item.Severity,
+		DateNoticed:  item.DateNoticed.Format(data.DateLayout),
+		DateResolved: data.FormatDate(item.DateResolved),
+		Location:     item.Location,
+		Cost:         data.FormatOptionalCents(item.CostCents),
+		ApplianceID:  appID,
+		VendorID:     vendorID,
+		Notes:        item.Notes,
 	}
 }
 

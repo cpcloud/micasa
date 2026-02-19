@@ -2175,7 +2175,7 @@ func TestPragmasSurvivePoolRecycling(t *testing.T) {
 func TestIncidentCRUDRoundTrip(t *testing.T) {
 	store := newTestStore(t)
 
-	require.NoError(t, store.CreateIncident(Incident{
+	require.NoError(t, store.CreateIncident(&Incident{
 		Title:    "Ant infestation",
 		Status:   IncidentStatusOpen,
 		Severity: IncidentSeverityUrgent,
@@ -2223,7 +2223,7 @@ func TestIncidentCRUDRoundTrip(t *testing.T) {
 
 func TestDeleteIncidentAllowedWithDocuments(t *testing.T) {
 	store := newTestStore(t)
-	require.NoError(t, store.CreateIncident(Incident{
+	require.NoError(t, store.CreateIncident(&Incident{
 		Title: "Leaky pipe", Status: IncidentStatusOpen, Severity: IncidentSeveritySoon,
 	}))
 	items, _ := store.ListIncidents(false)
@@ -2245,7 +2245,7 @@ func TestRestoreIncidentBlockedByDeletedAppliance(t *testing.T) {
 	appliances, _ := store.ListAppliances(false)
 	appID := appliances[0].ID
 
-	require.NoError(t, store.CreateIncident(Incident{
+	require.NoError(t, store.CreateIncident(&Incident{
 		Title: "Washer leak", Status: IncidentStatusOpen,
 		Severity: IncidentSeverityUrgent, ApplianceID: &appID,
 	}))
@@ -2267,7 +2267,7 @@ func TestRestoreIncidentBlockedByDeletedVendor(t *testing.T) {
 	vendors, _ := store.ListVendors(false)
 	vendorID := vendors[0].ID
 
-	require.NoError(t, store.CreateIncident(Incident{
+	require.NoError(t, store.CreateIncident(&Incident{
 		Title: "Termites", Status: IncidentStatusOpen,
 		Severity: IncidentSeverityUrgent, VendorID: &vendorID,
 	}))
@@ -2285,7 +2285,7 @@ func TestRestoreIncidentBlockedByDeletedVendor(t *testing.T) {
 
 func TestRestoreIncidentAllowedWithoutAppliance(t *testing.T) {
 	store := newTestStore(t)
-	require.NoError(t, store.CreateIncident(Incident{
+	require.NoError(t, store.CreateIncident(&Incident{
 		Title: "Loose trim", Status: IncidentStatusOpen, Severity: IncidentSeverityWhenever,
 	}))
 	items, _ := store.ListIncidents(false)
@@ -2301,7 +2301,7 @@ func TestDeleteVendorBlockedByIncident(t *testing.T) {
 	vendors, _ := store.ListVendors(false)
 	vendorID := vendors[0].ID
 
-	require.NoError(t, store.CreateIncident(Incident{
+	require.NoError(t, store.CreateIncident(&Incident{
 		Title: "Clogged drain", Status: IncidentStatusOpen,
 		Severity: IncidentSeveritySoon, VendorID: &vendorID,
 	}))
@@ -2319,7 +2319,7 @@ func TestDeleteApplianceBlockedByIncident(t *testing.T) {
 	appliances, _ := store.ListAppliances(false)
 	appID := appliances[0].ID
 
-	require.NoError(t, store.CreateIncident(Incident{
+	require.NoError(t, store.CreateIncident(&Incident{
 		Title: "Fridge leaking", Status: IncidentStatusOpen,
 		Severity: IncidentSeverityUrgent, ApplianceID: &appID,
 	}))
@@ -2333,7 +2333,7 @@ func TestDeleteApplianceBlockedByIncident(t *testing.T) {
 
 func TestRestoreDocumentBlockedByDeletedIncident(t *testing.T) {
 	store := newTestStore(t)
-	require.NoError(t, store.CreateIncident(Incident{
+	require.NoError(t, store.CreateIncident(&Incident{
 		Title: "Doomed incident", Status: IncidentStatusOpen, Severity: IncidentSeveritySoon,
 	}))
 	items, _ := store.ListIncidents(false)

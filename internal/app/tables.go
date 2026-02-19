@@ -221,6 +221,7 @@ const (
 	incidentColAppliance
 	incidentColVendor
 	incidentColNoticed
+	incidentColResolved
 	incidentColCost
 	incidentColDocs
 )
@@ -247,6 +248,7 @@ func incidentColumnSpecs() []columnSpec {
 			Link:  &columnLink{TargetTab: tabVendors},
 		},
 		{Title: "Noticed", Min: 10, Max: 12, Kind: cellDate},
+		{Title: "Resolved", Min: 10, Max: 12, Kind: cellDate},
 		{Title: "Cost", Min: 8, Max: 12, Align: alignRight, Kind: cellMoney},
 		{Title: tabDocuments.String(), Min: 5, Max: 6, Align: alignRight, Kind: cellDrilldown},
 	}
@@ -285,6 +287,7 @@ func incidentRows(
 				appCell,
 				vendorCell,
 				{Value: inc.DateNoticed.Format(data.DateLayout), Kind: cellDate},
+				dateCell(inc.DateResolved, cellDate),
 				centsCell(inc.CostCents),
 				{Value: docCount, Kind: cellDrilldown},
 			},

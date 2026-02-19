@@ -30,12 +30,16 @@ const (
 )
 
 // Incident statuses (mirrors data.IncidentStatus* constants).
+// Duplicated here because data imports fake, so fake cannot import data
+// without creating a circular dependency.
 const (
 	IncidentStatusOpen       = "open"
 	IncidentStatusInProgress = "in_progress"
 )
 
 // Incident severities (mirrors data.IncidentSeverity* constants).
+// Duplicated here because data imports fake, so fake cannot import data
+// without creating a circular dependency.
 const (
 	IncidentSeverityUrgent   = "urgent"
 	IncidentSeveritySoon     = "soon"
