@@ -429,10 +429,22 @@ type dashSection struct {
 	rows    []dashRow
 }
 
+// prepareDashboardView rebuilds the dashboard navigation index and clamps
+// the cursor. Call this before dashboardView so the view method stays
+// read-only with respect to nav state.
+func (m *Model) prepareDashboardView() {
+	m.buildDashNav()
+}
+
 // dashboardView renders the dashboard content, fitting within budget content
 // lines and maxWidth display columns. Empty sections are skipped. Sections
 // are collapsible — collapsed ones show only a header with item count.
 // Scroll windowing keeps the cursor visible when content exceeds budget.
+//
+// prepareDashboardView must be called before this method to rebuild the nav
+// index. The only mutations remaining here are dashTotalLines and
+// dashScrollOffset, which depend on rendered line positions and cannot be
+// cleanly separated from the render pass.
 func (m *Model) dashboardView(budget, maxWidth int) string {
 	// Collect non-empty sections. Incidents first — they're urgent reactive
 	// issues that need immediate attention. Overdue and upcoming are separate
@@ -486,7 +498,7 @@ func (m *Model) dashboardView(budget, maxWidth int) string {
 	// Render sections. Collapsed ones show only a header with count.
 	sel := m.styles.TableSelected
 	colGap := 3
-	var nav []dashNavEntry
+	navIdx := 0
 	var lines []string
 	cursorLine := 0
 
@@ -504,15 +516,13 @@ func (m *Model) dashboardView(budget, maxWidth int) string {
 		}
 
 		// Section header is always a nav stop. Dim if cursor is in another section.
-		isHeaderCursor := len(nav) == m.dashCursor
+		isHeaderCursor := navIdx == m.dashCursor
 		dimmed := cursorSection != "" && cursorSection != s.title
 		hdr := m.dashSectionHeader(s.title, len(s.rows), dimmed)
 		if isHeaderCursor {
 			cursorLine = len(lines)
 		}
-		nav = append(nav, dashNavEntry{
-			Section: s.title, IsHeader: true,
-		})
+		navIdx++
 		lines = append(lines, hdr)
 
 		if !expanded {
@@ -520,7 +530,7 @@ func (m *Model) dashboardView(budget, maxWidth int) string {
 		}
 
 		// Expanded: render data rows below the header.
-		localCursor := m.dashCursor - len(nav)
+		localCursor := m.dashCursor - navIdx
 		tbl := renderMiniTable(
 			s.headers, s.rows, colGap, maxWidth, localCursor, sel, m.styles.DashLabel,
 		)
@@ -535,19 +545,13 @@ func (m *Model) dashboardView(budget, maxWidth int) string {
 
 		for _, r := range s.rows {
 			if r.Target != nil {
-				entry := *r.Target
-				entry.Section = s.title
-				nav = append(nav, entry)
+				navIdx++
 			}
 		}
 	}
 
-	m.dashNav = nav
-	if m.dashCursor >= len(nav) {
-		m.dashCursor = max(0, len(nav)-1)
-	}
-
 	// Scroll windowing: show only `budget` lines, following the cursor.
+	// These mutations depend on rendered line positions and stay here.
 	m.dashTotalLines = len(lines)
 	if budget > 0 && len(lines) > budget {
 		m.scrollDashTo(cursorLine, budget, len(lines))
@@ -596,7 +600,7 @@ func (m *Model) dashSectionHeader(
 // Duration cells use the section's accent color: warning for overdue,
 // upcoming style for due-soon.
 func (m *Model) dashMaintSplitRows() (overdue, upcoming []dashRow) {
-	overdue = m.maintUrgencyRows(m.dashboard.Overdue, m.styles.DashUpcoming)
+	overdue = m.maintUrgencyRows(m.dashboard.Overdue, m.styles.DashOverdue)
 	upcoming = m.maintUrgencyRows(m.dashboard.Upcoming, m.styles.DashUpcoming)
 	return overdue, upcoming
 }

@@ -158,6 +158,7 @@ func (m *Model) buildDashboardOverlay() string {
 	if contentBudget < 3 {
 		contentBudget = 3
 	}
+	m.prepareDashboardView()
 	content := m.dashboardView(contentBudget, innerW)
 
 	rule := m.styles.DashRule.Render(strings.Repeat("─", innerW))
