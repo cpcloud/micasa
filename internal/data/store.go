@@ -864,8 +864,8 @@ func (s *Store) GetIncident(id uint) (Incident, error) {
 	return item, err
 }
 
-func (s *Store) CreateIncident(item Incident) error {
-	return s.db.Create(&item).Error
+func (s *Store) CreateIncident(item *Incident) error {
+	return s.db.Create(item).Error
 }
 
 func (s *Store) UpdateIncident(item Incident) error {

@@ -174,18 +174,18 @@ func TestLoadDashboardAtBuildsNav(t *testing.T) {
 func TestLoadDashboardAtOpenIncidents(t *testing.T) {
 	m := newTestModelWithStore(t)
 
-	require.NoError(t, m.store.CreateIncident(data.Incident{
+	require.NoError(t, m.store.CreateIncident(&data.Incident{
 		Title:    "Burst pipe",
 		Status:   data.IncidentStatusOpen,
 		Severity: data.IncidentSeverityUrgent,
 	}))
-	require.NoError(t, m.store.CreateIncident(data.Incident{
+	require.NoError(t, m.store.CreateIncident(&data.Incident{
 		Title:    "Cracked window",
 		Status:   data.IncidentStatusInProgress,
 		Severity: data.IncidentSeverityWhenever,
 	}))
 	// Resolved (soft-deleted) should NOT appear.
-	require.NoError(t, m.store.CreateIncident(data.Incident{
+	require.NoError(t, m.store.CreateIncident(&data.Incident{
 		Title:    "Fixed gutter",
 		Status:   data.IncidentStatusOpen,
 		Severity: data.IncidentSeveritySoon,

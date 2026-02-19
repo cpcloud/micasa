@@ -714,7 +714,7 @@ func TestIncidentTabShowsDeletedByDefault(t *testing.T) {
 		{Title: "Broken pipe", Status: data.IncidentStatusOpen, Severity: data.IncidentSeverityUrgent},
 		{Title: "Cracked tile", Status: data.IncidentStatusOpen, Severity: data.IncidentSeverityWhenever},
 	} {
-		require.NoError(t, m.store.CreateIncident(inc))
+		require.NoError(t, m.store.CreateIncident(&inc))
 	}
 
 	// User navigates to the Incidents tab and sees both.
