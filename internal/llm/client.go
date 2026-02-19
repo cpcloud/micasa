@@ -16,10 +16,11 @@ import (
 )
 
 // Client talks to an OpenAI-compatible API endpoint (Ollama, llama.cpp,
-// LM Studio, etc.) for local LLM inference.
+// LM Studio, Anthropic, OpenAI, OpenRouter, etc.).
 type Client struct {
 	baseURL  string // e.g. "http://localhost:11434/v1"
 	model    string
+	apiKey   string // Bearer token; empty for local servers
 	timeout  time.Duration
 	thinking *bool // nil = don't send; non-nil = send enable_thinking
 	http     *http.Client
@@ -101,15 +102,28 @@ type modelsResponse struct {
 }
 
 // NewClient creates an LLM client targeting the given OpenAI-compatible
-// endpoint and model. The timeout controls quick operations like ping and
-// model listing.
-func NewClient(baseURL, model string, timeout time.Duration) *Client {
+// endpoint and model. Pass an empty apiKey for local servers that don't
+// require authentication. The timeout controls quick operations like ping
+// and model listing.
+func NewClient(baseURL, model, apiKey string, timeout time.Duration) *Client {
 	return &Client{
 		baseURL: strings.TrimRight(baseURL, "/"),
 		model:   model,
+		apiKey:  apiKey,
 		timeout: timeout,
 		http:    &http.Client{},
 	}
+}
+
+// IsLocalServer returns true when no API key is configured, indicating a local
+// server like Ollama. Used to gate Ollama-specific features like model pulling.
+func (c *Client) IsLocalServer() bool {
+	return c.apiKey == ""
+}
+
+// APIKey returns the configured API key.
+func (c *Client) APIKey() string {
+	return c.apiKey
 }
 
 // Model returns the configured model name.
@@ -146,6 +160,13 @@ func (c *Client) Timeout() time.Duration {
 	return c.timeout
 }
 
+// setAuth adds the Authorization header when an API key is configured.
+func (c *Client) setAuth(req *http.Request) {
+	if c.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	}
+}
+
 // ListModels fetches the available model IDs from the inference server.
 func (c *Client) ListModels(ctx context.Context) ([]string, error) {
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
@@ -157,13 +178,11 @@ func (c *Client) ListModels(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("build request: %w", err)
 	}
+	c.setAuth(req)
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf(
-			"cannot reach %s -- start it with `ollama serve`",
-			c.baseURL,
-		)
+		return nil, c.unreachableError()
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -245,10 +264,7 @@ func (c *Client) PullModel(ctx context.Context, model string) (*PullScanner, err
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf(
-			"cannot reach %s -- start it with `ollama serve`",
-			ollamaBase,
-		)
+		return nil, c.unreachableError()
 	}
 	if resp.StatusCode != http.StatusOK {
 		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
@@ -274,13 +290,11 @@ func (c *Client) Ping(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("build request: %w", err)
 	}
+	c.setAuth(req)
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return fmt.Errorf(
-			"cannot reach %s -- start it with `ollama serve`",
-			c.baseURL,
-		)
+		return c.unreachableError()
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -300,9 +314,15 @@ func (c *Client) Ping(ctx context.Context) error {
 			return nil
 		}
 	}
+	if c.IsLocalServer() {
+		return fmt.Errorf(
+			"model %q not found -- pull it with `ollama pull %s`",
+			c.model, c.model,
+		)
+	}
 	return fmt.Errorf(
-		"model %q not found -- pull it with `ollama pull %s`",
-		c.model, c.model,
+		"model %q not available at %s -- check the model name in your config",
+		c.model, c.baseURL,
 	)
 }
 
@@ -339,13 +359,11 @@ func (c *Client) ChatComplete(
 		return "", fmt.Errorf("build request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	c.setAuth(req)
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return "", fmt.Errorf(
-			"cannot reach %s -- start it with `ollama serve`",
-			c.baseURL,
-		)
+		return "", c.unreachableError()
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -397,13 +415,11 @@ func (c *Client) ChatStream(
 		return nil, fmt.Errorf("build request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	c.setAuth(req)
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf(
-			"cannot reach %s -- start it with `ollama serve`",
-			c.baseURL,
-		)
+		return nil, c.unreachableError()
 	}
 	if resp.StatusCode != http.StatusOK {
 		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
@@ -475,6 +491,22 @@ func sseReader(ctx context.Context, body io.ReadCloser, ch chan<- StreamChunk) {
 		case <-ctx.Done():
 		}
 	}
+}
+
+// unreachableError returns a user-friendly error when the server can't be
+// reached. For local servers it suggests starting Ollama; for cloud providers
+// it suggests checking the URL.
+func (c *Client) unreachableError() error {
+	if c.IsLocalServer() {
+		return fmt.Errorf(
+			"cannot reach %s -- start it with `ollama serve`",
+			c.baseURL,
+		)
+	}
+	return fmt.Errorf(
+		"cannot reach %s -- check your base_url and network connection",
+		c.baseURL,
+	)
 }
 
 // cleanErrorResponse tries to extract a human-readable message from an HTTP

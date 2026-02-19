@@ -50,6 +50,11 @@ type LLM struct {
 	// Default: qwen3
 	Model string `toml:"model" env:"MICASA_LLM_MODEL"`
 
+	// APIKey is the Bearer token sent with every request. Required for cloud
+	// providers (Anthropic, OpenAI, OpenRouter, etc.). Leave empty for local
+	// servers like Ollama that don't require authentication.
+	APIKey string `toml:"api_key" env:"MICASA_LLM_API_KEY"`
+
 	// ExtraContext is custom text appended to all system prompts.
 	// Useful for domain-specific details: house style, location, etc.
 	// Currency is handled by [locale] section. Optional; defaults to empty.
@@ -634,6 +639,10 @@ base_url = "` + DefaultBaseURL + `"
 
 # Model name passed in chat requests.
 model = "` + DefaultModel + `"
+
+# API key (Bearer token) for cloud providers.
+# Not needed for local servers like Ollama.
+# api_key = ""
 
 # Optional: custom context appended to all system prompts.
 # Use this to inject domain-specific details about your house, region, etc.

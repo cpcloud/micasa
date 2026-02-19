@@ -147,6 +147,7 @@ func (cmd *runCmd) Run() error {
 	opts.SetLLM(
 		cfg.LLM.BaseURL,
 		cfg.LLM.Model,
+		cfg.LLM.APIKey,
 		cfg.LLM.ExtraContext,
 		cfg.LLM.TimeoutDuration(),
 		cfg.LLM.Thinking,
