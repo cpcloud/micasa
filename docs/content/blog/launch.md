@@ -47,8 +47,8 @@ day in a terminal, and I need things to be keyboard-driven or I just won't use
 them.
 
 `micasa` is a keyboard-driven terminal UI that tracks maintenance schedules,
-projects, vendor quotes, appliances, warranties, service history, and file
-attachments.
+projects, incidents, vendor quotes, appliances, warranties, service history,
+and file attachments.
 
 ![micasa demo](/images/demo.webp)
 
@@ -111,11 +111,19 @@ the quotes you're collecting. The contractor's invoice gets attached as a
 [document](/docs/guide/documents/), stored right in the database alongside the
 appliance manual and the warranty PDF.
 
-That's one thread through the data, starting from a weird noise. Everything
-links together, and those links back the
-dashboard that gives you the big picture on startup: overdue maintenance,
-active projects, expiring warranties, and year-to-date spending. If nothing
-needs attention, it's empty. Silence means your house is behaving itself.
+Or maybe it's not the dishwasher at all. You pull off a piece of trim and
+discover ants -- not a recurring maintenance task, not a multi-month project,
+just an urgent thing that needs handling *now*. That's an
+[incident](/docs/guide/incidents/). You log the severity, the date you noticed
+it, and optionally link it to the appliance or vendor involved. When the
+exterminator resolves it, you mark it done and the record stays for next time
+something crawls out of the woodwork.
+
+Those are two threads through the data, starting from a weird noise and an
+unwelcome discovery. Everything links together, and those links feed the
+dashboard that gives you the big picture on startup: open incidents, overdue
+maintenance, active projects, and expiring warranties. If nothing needs
+attention, it's empty. Silence means your house is behaving itself.
 
 Needless to say, the demo house is not behaving itself.
 
