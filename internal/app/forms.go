@@ -2152,6 +2152,11 @@ func (m *Model) openEditDocumentForm(values *documentFormData) {
 				Title(requiredTitle("Title")).
 				Value(&values.Title).
 				Validate(requiredText("title")),
+			huh.NewInput().
+				Title("File path").
+				Description("Local path to a replacement file").
+				Value(&values.FilePath).
+				Validate(optionalFilePath()),
 			huh.NewText().Title("Notes").Value(&values.Notes),
 		),
 	)
