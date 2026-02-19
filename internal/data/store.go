@@ -599,7 +599,7 @@ func (s *Store) ListServiceLogsByVendor(
 
 func (s *Store) ListProjects(includeDeleted bool) ([]Project, error) {
 	var projects []Project
-	db := s.db.Preload("ProjectType").Order(ColUpdatedAt + " desc")
+	db := s.db.Preload("ProjectType").Order(ColUpdatedAt + " desc, " + ColID + " desc")
 	if includeDeleted {
 		db = db.Unscoped()
 	}
@@ -617,7 +617,7 @@ func (s *Store) ListQuotes(includeDeleted bool) ([]Quote, error) {
 	db = db.Preload("Project", func(q *gorm.DB) *gorm.DB {
 		return q.Unscoped().Preload("ProjectType")
 	})
-	db = db.Order(ColUpdatedAt + " desc")
+	db = db.Order(ColUpdatedAt + " desc, " + ColID + " desc")
 	if includeDeleted {
 		db = db.Unscoped()
 	}
@@ -633,7 +633,7 @@ func (s *Store) ListMaintenance(includeDeleted bool) ([]MaintenanceItem, error) 
 	db = db.Preload("Appliance", func(q *gorm.DB) *gorm.DB {
 		return q.Unscoped()
 	})
-	db = db.Order(ColUpdatedAt + " desc")
+	db = db.Order(ColUpdatedAt + " desc, " + ColID + " desc")
 	if includeDeleted {
 		db = db.Unscoped()
 	}
@@ -650,7 +650,7 @@ func (s *Store) ListMaintenanceByAppliance(
 	var items []MaintenanceItem
 	db := s.db.Preload("Category").
 		Where(ColApplianceID+" = ?", applianceID).
-		Order(ColUpdatedAt + " desc")
+		Order(ColUpdatedAt + " desc, " + ColID + " desc")
 	if includeDeleted {
 		db = db.Unscoped()
 	}
@@ -727,7 +727,7 @@ func (s *Store) UpdateMaintenance(item MaintenanceItem) error {
 
 func (s *Store) ListAppliances(includeDeleted bool) ([]Appliance, error) {
 	var items []Appliance
-	db := s.db.Order(ColUpdatedAt + " desc")
+	db := s.db.Order(ColUpdatedAt + " desc, " + ColID + " desc")
 	if includeDeleted {
 		db = db.Unscoped()
 	}
@@ -851,7 +851,7 @@ func (s *Store) ListIncidents(includeDeleted bool) ([]Incident, error) {
 	db := s.db.
 		Preload("Appliance", func(db *gorm.DB) *gorm.DB { return db.Unscoped() }).
 		Preload("Vendor", func(db *gorm.DB) *gorm.DB { return db.Unscoped() }).
-		Order(ColUpdatedAt + " desc")
+		Order(ColUpdatedAt + " desc, " + ColID + " desc")
 	if includeDeleted {
 		db = db.Unscoped()
 	}
@@ -916,7 +916,7 @@ var listDocumentColumns = []string{
 
 func (s *Store) ListDocuments(includeDeleted bool) ([]Document, error) {
 	var docs []Document
-	db := s.db.Select(listDocumentColumns).Order(ColUpdatedAt + " desc")
+	db := s.db.Select(listDocumentColumns).Order(ColUpdatedAt + " desc, " + ColID + " desc")
 	if includeDeleted {
 		db = db.Unscoped()
 	}
@@ -936,7 +936,7 @@ func (s *Store) ListDocumentsByEntity(
 	var docs []Document
 	db := s.db.Select(listDocumentColumns).
 		Where(ColEntityKind+" = ? AND "+ColEntityID+" = ?", entityKind, entityID).
-		Order(ColUpdatedAt + " desc")
+		Order(ColUpdatedAt + " desc, " + ColID + " desc")
 	if includeDeleted {
 		db = db.Unscoped()
 	}
