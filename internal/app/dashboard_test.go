@@ -853,6 +853,107 @@ func TestDashboardEnterKeyJumpsToIncidents(t *testing.T) {
 	assert.Equal(t, tabIndex(tabIncidents), m.active, "should land on Incidents tab")
 }
 
+// TestDashboardEnterKeyJumpsToExpiring verifies a user can navigate to the
+// Expiring Soon section, expand it, select a warranty row, and press Enter
+// to land on the Appliances tab with that appliance selected.
+func TestDashboardEnterKeyJumpsToExpiring(t *testing.T) {
+	m := newTestModel()
+	m.showDashboard = true
+	m.width = 120
+	m.height = 40
+
+	now := time.Date(2026, 2, 8, 0, 0, 0, 0, time.UTC)
+	expiry := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+
+	m.dashboard = dashboardData{
+		OpenIncidents: []data.Incident{{
+			Title:    "Burst pipe",
+			Severity: data.IncidentSeverityUrgent,
+		}},
+		ExpiringWarranties: []warrantyStatus{{
+			Appliance:   data.Appliance{Name: "Dishwasher", WarrantyExpiry: &expiry},
+			DaysFromNow: daysUntil(now, expiry),
+		}},
+	}
+	m.dashboard.OpenIncidents[0].ID = 5
+	m.dashboard.ExpiringWarranties[0].Appliance.ID = 99
+	m.dashExpanded = map[string]bool{dashSectionIncidents: true}
+	m.buildDashNav()
+
+	// Use J to jump to the Expiring section header.
+	m.dashCursor = 0
+	sendKey(m, "J") // → Expiring header
+	require.True(t, m.dashNav[m.dashCursor].IsHeader)
+	assert.Equal(t, dashSectionExpiring, m.dashNav[m.dashCursor].Section,
+		"J should land on Expiring Soon header")
+
+	// Expand the section and rebuild nav (simulates the View cycle).
+	sendKey(m, "e")
+	m.buildDashNav()
+
+	// Move down into the data row.
+	sendKey(m, "j")
+	require.False(t, m.dashNav[m.dashCursor].IsHeader, "should be on a data row")
+	assert.Equal(t, uint(99), m.dashNav[m.dashCursor].ID)
+
+	// Press Enter to jump to the Appliances tab.
+	sendKey(m, "enter")
+	assert.False(t, m.showDashboard, "dashboard should close")
+	assert.Equal(t, tabIndex(tabAppliances), m.active, "should land on Appliances tab")
+}
+
+// TestDashboardExpiringNavWithInsuranceOnly verifies the Expiring Soon section
+// is navigable when the only expiring item is an insurance renewal (no
+// warranties). Before the fix, buildDashNav only included the section when
+// ExpiringWarranties was non-empty, making the visible section unreachable.
+func TestDashboardExpiringNavWithInsuranceOnly(t *testing.T) {
+	m := newTestModel()
+	m.showDashboard = true
+	m.width = 120
+	m.height = 40
+
+	renewal := time.Date(2026, 4, 15, 0, 0, 0, 0, time.UTC)
+	m.dashboard = dashboardData{
+		OpenIncidents: []data.Incident{{
+			Title:    "Burst pipe",
+			Severity: data.IncidentSeverityUrgent,
+		}},
+		InsuranceRenewal: &insuranceStatus{
+			Carrier:     "Acme Insurance",
+			RenewalDate: renewal,
+			DaysFromNow: 60,
+		},
+	}
+	m.dashboard.OpenIncidents[0].ID = 5
+	m.dashExpanded = map[string]bool{dashSectionIncidents: true}
+	m.buildDashNav()
+
+	// The Expiring section should be in the nav even with only insurance.
+	var found bool
+	for _, entry := range m.dashNav {
+		if entry.IsHeader && entry.Section == dashSectionExpiring {
+			found = true
+			break
+		}
+	}
+	require.True(t, found,
+		"Expiring Soon header should be in nav with insurance-only data")
+
+	// User can J-jump to the Expiring header.
+	m.dashCursor = 0
+	sendKey(m, "J") // → Expiring header
+	assert.Equal(t, dashSectionExpiring, m.dashNav[m.dashCursor].Section,
+		"J should reach Expiring Soon header")
+
+	// Expand and rebuild nav to verify the section expands without crashing.
+	sendKey(m, "e")
+	m.buildDashNav()
+	m.prepareDashboardView()
+	view := m.dashboardView(50, 120)
+	assert.Contains(t, view, "Acme Insurance",
+		"expanded section should show insurance renewal")
+}
+
 // TestDashboardEnterOnHeaderDoesNotJump verifies enter on a section header
 // does nothing (user should press e to expand instead).
 func TestDashboardEnterOnHeaderDoesNotJump(t *testing.T) {

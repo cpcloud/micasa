@@ -387,7 +387,9 @@ func (m *Model) buildDashNav() {
 		}
 		groups = append(groups, sectionData{dashSectionProjects, entries})
 	}
-	if n := len(m.dashboard.ExpiringWarranties); n > 0 {
+	// Include the Expiring section when there are warranties OR an insurance
+	// renewal. dashExpiringRows() renders both, so the nav must match.
+	if n := len(m.dashboard.ExpiringWarranties); n > 0 || m.dashboard.InsuranceRenewal != nil {
 		entries := make([]dashNavEntry, 0, n)
 		for _, w := range m.dashboard.ExpiringWarranties {
 			entries = append(entries, dashNavEntry{
