@@ -989,16 +989,13 @@ func (s *Store) CreateDocument(doc *Document) error {
 		uint64(doc.SizeBytes) > s.maxDocumentSize { //nolint:gosec // SizeBytes is non-negative here
 		return fmt.Errorf(
 			"file is too large (%s) -- maximum allowed is %s",
-			formatBytes(uint64(doc.SizeBytes)), //nolint:gosec // SizeBytes checked positive above
-			formatBytes(s.maxDocumentSize),
+			humanize.IBytes(
+				uint64(doc.SizeBytes), //nolint:gosec // SizeBytes checked positive above
+			),
+			humanize.IBytes(s.maxDocumentSize),
 		)
 	}
 	return s.db.Create(doc).Error
-}
-
-// formatBytes renders a byte count as a human-readable IEC string (KiB, MiB, etc.).
-func formatBytes(n uint64) string {
-	return humanize.IBytes(n)
 }
 
 // UpdateDocument persists changes to a document. Entity linkage (EntityID,
