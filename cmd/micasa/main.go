@@ -116,7 +116,7 @@ func (cmd *runCmd) Run() error {
 			Light: "#B8860B", Dark: "#F0E442", // Wong yellow
 		})
 		for _, w := range cfg.Warnings {
-			fmt.Fprintln(os.Stderr, warnStyle.Render("warning: "+w))
+			fmt.Fprintln(os.Stderr, warnStyle.Render("warning:")+" "+w)
 		}
 	}
 	if err := store.SetMaxDocumentSize(cfg.Documents.MaxFileSize.Bytes()); err != nil {
