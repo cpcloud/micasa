@@ -16,4 +16,3 @@ reason = "minor TLS 1.3 info disclosure requiring network-local attacker; defaul
 [[IgnoredVulns]]
 id = "GO-2026-4342"
 reason = "archive/zip DoS via crafted ZIP filenames; micasa never opens or processes ZIP archives"
-

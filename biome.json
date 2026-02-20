@@ -1,0 +1,18 @@
+{
+  "files": {
+    "includes": [
+      "docs/static/css/*.css",
+      "docs/static/js/*.js",
+      "*.json"
+    ]
+  },
+  "formatter": {
+    "enabled": false
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true
+    }
+  }
+}
