@@ -157,6 +157,12 @@ func (cmd *backupCmd) Run() error {
 	if sourcePath == ":memory:" {
 		return fmt.Errorf("cannot back up an in-memory database")
 	}
+	if _, err := os.Stat(sourcePath); err != nil {
+		return fmt.Errorf(
+			"source database %q not found -- check the path or set MICASA_DB_PATH",
+			sourcePath,
+		)
+	}
 
 	destPath := cmd.Dest
 	if destPath == "" {
@@ -178,6 +184,17 @@ func (cmd *backupCmd) Run() error {
 		return fmt.Errorf("open database: %w", err)
 	}
 	defer func() { _ = store.Close() }()
+
+	ok, err := store.IsMicasaDB()
+	if err != nil {
+		return fmt.Errorf("check database schema: %w", err)
+	}
+	if !ok {
+		return fmt.Errorf(
+			"%q is not a micasa database -- it must contain vendors, projects, and appliances tables",
+			sourcePath,
+		)
+	}
 
 	if err := store.Backup(context.Background(), destPath); err != nil {
 		return err

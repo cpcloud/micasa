@@ -234,6 +234,20 @@ func TestBackupCmd(t *testing.T) {
 		)
 		out, err := cmd.CombinedOutput()
 		require.Error(t, err)
-		assert.NotEmpty(t, string(out), "should produce an error message")
+		assert.Contains(t, string(out), "not found")
+	})
+
+	t.Run("SourceNotMicasaDB", func(t *testing.T) {
+		// Create a valid SQLite database that isn't a micasa database.
+		src := filepath.Join(t.TempDir(), "other.db")
+		otherStore, err := data.Open(src)
+		require.NoError(t, err)
+		require.NoError(t, otherStore.Close())
+
+		dest := filepath.Join(t.TempDir(), "backup.db")
+		cmd := exec.Command(bin, "backup", "--source", src, dest) //nolint:gosec // test binary
+		out, err := cmd.CombinedOutput()
+		require.Error(t, err)
+		assert.Contains(t, string(out), "not a micasa database")
 	})
 }

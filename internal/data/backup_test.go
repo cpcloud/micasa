@@ -92,3 +92,21 @@ func TestBackupMemoryDB(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, projects, "backup of in-memory DB should contain projects")
 }
+
+func TestIsMicasaDB_True(t *testing.T) {
+	store := newTestStore(t)
+	ok, err := store.IsMicasaDB()
+	require.NoError(t, err)
+	assert.True(t, ok)
+}
+
+func TestIsMicasaDB_False(t *testing.T) {
+	// A freshly opened database with no migrations has no micasa tables.
+	store, err := Open(":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = store.Close() })
+
+	ok, err := store.IsMicasaDB()
+	require.NoError(t, err)
+	assert.False(t, ok)
+}

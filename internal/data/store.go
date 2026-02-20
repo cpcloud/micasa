@@ -125,6 +125,19 @@ func (s *Store) Close() error {
 	return sqlDB.Close()
 }
 
+// IsMicasaDB returns true if the database contains the core micasa tables.
+func (s *Store) IsMicasaDB() (bool, error) {
+	var count int64
+	err := s.db.Raw(
+		`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name IN (?, ?, ?)`,
+		"vendors", "projects", "appliances",
+	).Scan(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count == 3, nil
+}
+
 func (s *Store) AutoMigrate() error {
 	return s.db.AutoMigrate(
 		&HouseProfile{},

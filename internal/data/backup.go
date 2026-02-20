@@ -18,6 +18,8 @@ type backuper interface {
 
 // Backup creates a consistent snapshot of the database at destPath using
 // SQLite's Online Backup API. The destination must not already exist.
+// After copying, it runs PRAGMA integrity_check on the backup to verify
+// internal consistency.
 func (s *Store) Backup(ctx context.Context, destPath string) error {
 	sqlDB, err := s.db.DB()
 	if err != nil {
@@ -30,7 +32,7 @@ func (s *Store) Backup(ctx context.Context, destPath string) error {
 	}
 	defer func() { _ = conn.Close() }()
 
-	return conn.Raw(func(driverConn any) error {
+	if err := conn.Raw(func(driverConn any) error {
 		b, ok := driverConn.(backuper)
 		if !ok {
 			return fmt.Errorf(
@@ -57,5 +59,28 @@ func (s *Store) Backup(ctx context.Context, destPath string) error {
 			return fmt.Errorf("finish backup: %w", err)
 		}
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+
+	return verifyBackup(destPath)
+}
+
+// verifyBackup opens the backup and runs PRAGMA integrity_check to confirm
+// the database is internally consistent.
+func verifyBackup(path string) error {
+	backup, err := Open(path)
+	if err != nil {
+		return fmt.Errorf("open backup for verification: %w", err)
+	}
+	defer func() { _ = backup.Close() }()
+
+	var result string
+	if err := backup.db.Raw("PRAGMA integrity_check").Scan(&result).Error; err != nil {
+		return fmt.Errorf("integrity check failed: %w", err)
+	}
+	if result != "ok" {
+		return fmt.Errorf("backup integrity check failed: %s", result)
+	}
+	return nil
 }
