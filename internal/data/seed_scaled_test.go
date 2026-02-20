@@ -97,7 +97,7 @@ func TestSeedScaledDataServiceLogDateSpread(t *testing.T) {
 		}
 	}
 
-	currentYear := time.Now().Year()
+	currentYear := time.Now().UTC().Year()
 	// With 5 years of data, we expect at least 3 distinct years to have logs
 	// (some years may have all services skipped due to the 15% miss rate).
 	assert.GreaterOrEqual(t, len(yearsSeen), 3,

@@ -281,15 +281,15 @@ func (h *HomeFaker) Project(typeName string) Project {
 
 	if status != StatusIdeating && status != StatusAbandoned {
 		start := h.f.DateRange(
-			time.Now().AddDate(-2, 0, 0),
-			time.Now(),
+			time.Now().UTC().UTC().AddDate(-2, 0, 0),
+			time.Now().UTC(),
 		)
 		p.StartDate = &start
 		budgetCents := int64(h.f.IntRange(5000, 1500000))
 		p.BudgetCents = &budgetCents
 	}
 	if status == StatusCompleted {
-		end := h.f.DateRange(*p.StartDate, time.Now())
+		end := h.f.DateRange(*p.StartDate, time.Now().UTC())
 		p.EndDate = &end
 		budget := *p.BudgetCents
 		variance := int64(float64(budget) * (h.f.Float64Range(-0.2, 0.2)))
@@ -306,8 +306,8 @@ func (h *HomeFaker) Appliance() Appliance {
 	brand := h.pick(applianceBrands)
 	prefix := brandPrefix(brand)
 	purchDate := h.f.DateRange(
-		time.Now().AddDate(-10, 0, 0),
-		time.Now().AddDate(-1, 0, 0),
+		time.Now().UTC().UTC().AddDate(-10, 0, 0),
+		time.Now().UTC().UTC().AddDate(-1, 0, 0),
 	)
 	costCents := int64(h.f.IntRange(15000, 800000))
 
@@ -357,8 +357,8 @@ func (h *HomeFaker) MaintenanceItem(categoryName string) MaintenanceItem {
 
 	if h.f.IntRange(1, 10) <= 7 {
 		lastSrv := h.f.DateRange(
-			time.Now().AddDate(0, -item.Interval*2, 0),
-			time.Now(),
+			time.Now().UTC().UTC().AddDate(0, -item.Interval*2, 0),
+			time.Now().UTC(),
 		)
 		m.LastServicedAt = &lastSrv
 	}
@@ -374,8 +374,8 @@ func (h *HomeFaker) MaintenanceItem(categoryName string) MaintenanceItem {
 // ServiceLogEntry generates a service log entry.
 func (h *HomeFaker) ServiceLogEntry() ServiceLogEntry {
 	servicedAt := h.f.DateRange(
-		time.Now().AddDate(-2, 0, 0),
-		time.Now(),
+		time.Now().UTC().UTC().AddDate(-2, 0, 0),
+		time.Now().UTC(),
 	)
 	costCents := int64(h.f.IntRange(1000, 60000))
 
@@ -394,8 +394,8 @@ func (h *HomeFaker) Quote() Quote {
 	materialsCents := totalCents - laborCents
 
 	received := h.f.DateRange(
-		time.Now().AddDate(-1, 0, 0),
-		time.Now(),
+		time.Now().UTC().UTC().AddDate(-1, 0, 0),
+		time.Now().UTC(),
 	)
 
 	return Quote{
@@ -413,8 +413,8 @@ func (h *HomeFaker) Incident() Incident {
 	severity := h.pick(allIncidentSeverities)
 	status := h.pick(allIncidentStatuses)
 	noticed := h.f.DateRange(
-		time.Now().AddDate(-1, 0, 0),
-		time.Now(),
+		time.Now().UTC().UTC().AddDate(-1, 0, 0),
+		time.Now().UTC(),
 	)
 
 	inc := Incident{

@@ -630,6 +630,10 @@ var (
 // (upcoming) to red (overdue) based on the number of days until a date.
 // Thresholds: >60 days = green, 30-60 = yellow, 0-30 = orange, <0 = red.
 func urgencyStyle(dateStr string) lipgloss.Style {
+	return urgencyStyleAt(dateStr, time.Now())
+}
+
+func urgencyStyleAt(dateStr string, now time.Time) lipgloss.Style {
 	if dateStr == "" {
 		return defaultStyle
 	}
@@ -637,7 +641,7 @@ func urgencyStyle(dateStr string) lipgloss.Style {
 	if err != nil {
 		return defaultStyle
 	}
-	days := int(time.Until(t).Hours() / 24)
+	days := dateDiffDays(now, t)
 	switch {
 	case days < 0:
 		return urgencyOverdue
@@ -652,6 +656,10 @@ func urgencyStyle(dateStr string) lipgloss.Style {
 
 // warrantyStyle returns green if the warranty is still active, red if expired.
 func warrantyStyle(dateStr string) lipgloss.Style {
+	return warrantyStyleAt(dateStr, time.Now())
+}
+
+func warrantyStyleAt(dateStr string, now time.Time) lipgloss.Style {
 	if dateStr == "" {
 		return defaultStyle
 	}
@@ -659,10 +667,24 @@ func warrantyStyle(dateStr string) lipgloss.Style {
 	if err != nil {
 		return defaultStyle
 	}
-	if time.Now().After(t) {
+	if dateDiffDays(now, t) < 0 {
 		return warrantyExpired
 	}
 	return warrantyActive
+}
+
+// dateDiffDays returns the number of calendar days from now to target,
+// using each time's local Y/M/D. Positive means target is in the future.
+func dateDiffDays(now, target time.Time) int {
+	nowDate := time.Date(
+		now.Year(), now.Month(), now.Day(),
+		0, 0, 0, 0, time.UTC,
+	)
+	tgtDate := time.Date(
+		target.Year(), target.Month(), target.Day(),
+		0, 0, 0, 0, time.UTC,
+	)
+	return int(math.Round(tgtDate.Sub(nowDate).Hours() / 24))
 }
 
 func formatCell(value string, width int, align alignKind) string {

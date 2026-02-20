@@ -6,7 +6,6 @@ package app
 import (
 	"cmp"
 	"fmt"
-	"math"
 	"slices"
 	"strings"
 	"time"
@@ -879,14 +878,10 @@ func shortDur(d time.Duration) string {
 	}
 }
 
-// daysUntil returns the number of whole days from now to target. Negative
-// means target is in the past.
+// daysUntil returns the number of calendar days from now to target using
+// each time's local Y/M/D. Negative means target is in the past.
 func daysUntil(now, target time.Time) int {
-	nowDate := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
-	tgtDate := time.Date(
-		target.Year(), target.Month(), target.Day(), 0, 0, 0, 0, time.UTC,
-	)
-	return int(math.Round(tgtDate.Sub(nowDate).Hours() / 24))
+	return dateDiffDays(now, target)
 }
 
 func sortByDays(items []maintenanceUrgency) {

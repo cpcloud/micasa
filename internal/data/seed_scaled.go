@@ -245,7 +245,7 @@ func (s *Store) SeedScaledDataFrom(h *fake.HomeFaker, years int) (SeedSummary, e
 
 	// Phase 3: year-by-year growth loop.
 	// Simulate from (currentYear - years + 1) through currentYear.
-	currentYear := time.Now().Year()
+	currentYear := time.Now().UTC().Year()
 	startYear := currentYear - years + 1
 
 	var allServiceLogs []ServiceLogEntry
