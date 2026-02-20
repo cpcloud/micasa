@@ -49,6 +49,9 @@ website/
 docs/static/images/favicon.svg
 docs/static/images/demo.webp
 
+# Pagefind search index (generated at build time)
+docs/static/pagefind/
+
 # Env / local
 .env
 .pre-commit-config.yaml

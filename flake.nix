@@ -180,22 +180,32 @@
           default = micasa;
           docs = pkgs.writeShellApplication {
             name = "micasa-docs";
-            runtimeInputs = [ pkgs.hugo ];
+            runtimeInputs = [ pkgs.hugo pkgs.pagefind ];
             text = ''
               mkdir -p docs/static/images
               cp images/favicon.svg docs/static/images/favicon.svg
               cp images/demo.webp docs/static/images/demo.webp
               rm -rf website
               hugo --source docs --destination ../website --minify
+              pagefind --site website --quiet
             '';
           };
           website = pkgs.writeShellApplication {
             name = "micasa-website";
-            runtimeInputs = [ pkgs.hugo ];
+            runtimeInputs = [ pkgs.hugo pkgs.pagefind ];
             text = ''
               mkdir -p docs/static/images
               cp images/favicon.svg docs/static/images/favicon.svg
               cp images/demo.webp docs/static/images/demo.webp
+
+              # Build once to generate the pagefind index, then copy it
+              # into docs/static/ so hugo server serves it as a static asset.
+              _tmpsite=$(mktemp -d)
+              hugo --source docs --destination "$_tmpsite" --minify --quiet
+              pagefind --site "$_tmpsite" --quiet
+              rm -rf docs/static/pagefind
+              cp -r "$_tmpsite/pagefind" docs/static/pagefind
+              rm -rf "$_tmpsite"
 
               _port=$((RANDOM % 10000 + 30000))
               printf 'http://localhost:%s\n' "$_port"

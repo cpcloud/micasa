@@ -11,6 +11,7 @@
   <link rel="preload" as="font" type="font/woff2" href="{{ "fonts/source-serif-4-latin.woff2" | relURL }}" crossorigin>
   <link rel="preload" as="font" type="font/woff2" href="{{ "fonts/dm-serif-display-latin-400.woff2" | relURL }}" crossorigin>
   <link rel="stylesheet" href="{{ "css/docs.css" | relURL }}">
+  <link rel="stylesheet" href="/pagefind/pagefind-ui.css">
   <script type="importmap">
   {
     "imports": {
@@ -31,6 +32,12 @@
     <a href="{{ "blog/" | relURL }}">Blog</a>
     <a href="https://github.com/cpcloud/micasa">GitHub</a>
   </nav>
+</div>
+
+<div class="search-overlay" id="search-overlay">
+  <div class="search-modal" id="search-modal">
+    <div id="search"></div>
+  </div>
 </div>
 
 <div class="docs-layout">
@@ -59,6 +66,46 @@ document.addEventListener('click', function(e) {
     sidebar.classList.remove('open');
   }
 });
+</script>
+
+<script src="/pagefind/pagefind-ui.js"></script>
+<script>
+(function() {
+  var overlay = document.getElementById('search-overlay');
+  var modal = document.getElementById('search-modal');
+  var initialized = false;
+  var input;
+
+  function open() {
+    if (!initialized) {
+      new PagefindUI({ element: '#search', showSubResults: true, showImages: false });
+      input = document.querySelector('.pagefind-ui__search-input');
+      initialized = true;
+    }
+    overlay.classList.add('open');
+    input.focus();
+  }
+
+  function close() {
+    overlay.classList.remove('open');
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === '/' && !overlay.classList.contains('open')) {
+      var tag = (e.target.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return;
+      e.preventDefault();
+      open();
+    }
+    if (e.key === 'Escape' && overlay.classList.contains('open')) {
+      close();
+    }
+  });
+
+  overlay.addEventListener('click', function(e) {
+    if (!modal.contains(e.target)) close();
+  });
+})();
 </script>
 
 <script type="module">

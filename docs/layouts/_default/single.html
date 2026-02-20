@@ -2,6 +2,8 @@
 {{- /* Licensed under the Apache License, Version 2.0 */ -}}
 
 {{ define "main" }}
-  <h1>{{ .Title }}</h1>
-  {{ .Content }}
+  <article data-pagefind-body>
+    <h1>{{ .Title }}</h1>
+    {{ .Content }}
+  </article>
 {{ end }}
