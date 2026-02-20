@@ -74,6 +74,8 @@ in
       "d ${cfg.dataDir} 0700 ${cfg.user} ${cfg.group} -"
     ];
 
+    # PermitUserEnvironment is intentionally omitted: it is not allowed
+    # inside a Match block and the global default (no) already applies.
     services.openssh.extraConfig = lib.mkAfter ''
       Match User ${cfg.user}
         ForceCommand umask 0077; exec ${cfg.package}/bin/micasa --db ${cfg.dataDir}/micasa.db
@@ -82,7 +84,6 @@ in
         AllowStreamLocalForwarding no
         X11Forwarding no
         PermitTunnel no
-        PermitUserEnvironment no
         PasswordAuthentication no
         KbdInteractiveAuthentication no
         PermitTTY yes
