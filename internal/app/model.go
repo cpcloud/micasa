@@ -98,14 +98,19 @@ func NewModel(store *data.Store, options Options) (*Model, error) {
 			model = persisted
 		} else {
 			// No persisted model -- try auto-detecting if the server has exactly one.
-			tempClient := llm.NewClient(options.LLMConfig.BaseURL, model, options.LLMConfig.Timeout)
+			tempClient := llm.NewClient(options.LLMConfig.BaseURL, model, options.LLMConfig.APIKey, options.LLMConfig.Timeout)
 			if detected := autoDetectModel(tempClient); detected != "" {
 				model = detected
 				// Persist so we don't re-detect every startup.
 				_ = store.PutLastModel(model)
 			}
 		}
-		client = llm.NewClient(options.LLMConfig.BaseURL, model, options.LLMConfig.Timeout)
+		client = llm.NewClient(
+			options.LLMConfig.BaseURL,
+			model,
+			options.LLMConfig.APIKey,
+			options.LLMConfig.Timeout,
+		)
 		extraContext = options.LLMConfig.ExtraContext
 	}
 

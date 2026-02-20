@@ -174,6 +174,44 @@ func TestCacheTTLDaysRejectsNegative(t *testing.T) {
 	assert.Contains(t, err.Error(), "must be non-negative")
 }
 
+func TestAPIKeyFromFile(t *testing.T) {
+	path := writeConfig(t, `[llm]
+api_key = "sk-ant-test-key"
+`)
+	cfg, err := LoadFromPath(path)
+	require.NoError(t, err)
+	assert.Equal(t, "sk-ant-test-key", cfg.LLM.APIKey)
+}
+
+func TestAPIKeyDefaultEmpty(t *testing.T) {
+	cfg, err := LoadFromPath(filepath.Join(t.TempDir(), "nope.toml"))
+	require.NoError(t, err)
+	assert.Empty(t, cfg.LLM.APIKey)
+}
+
+func TestAPIKeyEnvOverride(t *testing.T) {
+	path := writeConfig(t, `[llm]
+api_key = "from-file"
+`)
+	t.Setenv("MICASA_LLM_API_KEY", "from-env")
+	cfg, err := LoadFromPath(path)
+	require.NoError(t, err)
+	assert.Equal(t, "from-env", cfg.LLM.APIKey)
+}
+
+func TestCloudProviderConfig(t *testing.T) {
+	path := writeConfig(t, `[llm]
+base_url = "https://api.anthropic.com/v1"
+model = "claude-sonnet-4-5-20250929"
+api_key = "sk-ant-api03-secret"
+`)
+	cfg, err := LoadFromPath(path)
+	require.NoError(t, err)
+	assert.Equal(t, "https://api.anthropic.com/v1", cfg.LLM.BaseURL)
+	assert.Equal(t, "claude-sonnet-4-5-20250929", cfg.LLM.Model)
+	assert.Equal(t, "sk-ant-api03-secret", cfg.LLM.APIKey)
+}
+
 func TestLLMTimeout(t *testing.T) {
 	t.Run("default", func(t *testing.T) {
 		cfg, err := LoadFromPath(filepath.Join(t.TempDir(), "nope.toml"))

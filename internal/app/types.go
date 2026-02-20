@@ -152,13 +152,14 @@ type Options struct {
 type llmConfig struct {
 	BaseURL      string
 	Model        string
+	APIKey       string
 	ExtraContext string
 	Timeout      time.Duration
 }
 
 // SetLLM configures the LLM backend on the Options. Pass empty strings to
 // disable the LLM feature.
-func (o *Options) SetLLM(baseURL, model, extraContext string, timeout time.Duration) {
+func (o *Options) SetLLM(baseURL, model, apiKey, extraContext string, timeout time.Duration) {
 	if baseURL == "" || model == "" {
 		o.LLMConfig = nil
 		return
@@ -166,6 +167,7 @@ func (o *Options) SetLLM(baseURL, model, extraContext string, timeout time.Durat
 	o.LLMConfig = &llmConfig{
 		BaseURL:      baseURL,
 		Model:        model,
+		APIKey:       apiKey,
 		ExtraContext: extraContext,
 		Timeout:      timeout,
 	}

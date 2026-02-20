@@ -631,6 +631,12 @@ func (m *Model) cmdSwitchModel(name string) tea.Cmd {
 				}
 			}
 		}
+		if !client.IsLocalServer() {
+			return pullProgressMsg{
+				Err:  fmt.Errorf("model %q not found -- check the model name", name),
+				Done: true,
+			}
+		}
 		return startPull(client, name)
 	}
 }
