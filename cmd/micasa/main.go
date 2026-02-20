@@ -13,6 +13,7 @@ import (
 
 	"github.com/alecthomas/kong"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/cpcloud/micasa/internal/app"
 	"github.com/cpcloud/micasa/internal/config"
 	"github.com/cpcloud/micasa/internal/data"
@@ -109,6 +110,14 @@ func (cmd *runCmd) Run() error {
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
+	}
+	if len(cfg.Warnings) > 0 {
+		warnStyle := lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{
+			Light: "#B8860B", Dark: "#F0E442", // Wong yellow
+		})
+		for _, w := range cfg.Warnings {
+			fmt.Fprintln(os.Stderr, warnStyle.Render("warning: "+w))
+		}
 	}
 	if err := store.SetMaxDocumentSize(cfg.Documents.MaxFileSize.Bytes()); err != nil {
 		return fmt.Errorf("configure document size limit: %w", err)

@@ -234,6 +234,8 @@ func TestCacheTTLDaysStillWorks(t *testing.T) {
 	cfg, err := LoadFromPath(path)
 	require.NoError(t, err)
 	assert.Equal(t, 7*24*time.Hour, cfg.Documents.CacheTTLDuration())
+	require.Len(t, cfg.Warnings, 1)
+	assert.Contains(t, cfg.Warnings[0], "documents.cache_ttl_days")
 }
 
 func TestCacheTTLDaysZeroDisables(t *testing.T) {
@@ -248,6 +250,8 @@ func TestCacheTTLDaysEnvOverride(t *testing.T) {
 	cfg, err := LoadFromPath(noConfig(t))
 	require.NoError(t, err)
 	assert.Equal(t, 14*24*time.Hour, cfg.Documents.CacheTTLDuration())
+	require.Len(t, cfg.Warnings, 1)
+	assert.Contains(t, cfg.Warnings[0], "MICASA_CACHE_TTL_DAYS")
 }
 
 func TestCacheTTLDaysRejectsNegative(t *testing.T) {
