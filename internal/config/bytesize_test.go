@@ -82,23 +82,6 @@ func TestParseByteSizeRejectsInvalid(t *testing.T) {
 	}
 }
 
-func TestByteSizeString(t *testing.T) {
-	tests := []struct {
-		size ByteSize
-		want string
-	}{
-		{ByteSize(1 << 30), "1.0 GiB"},
-		{ByteSize(50 << 20), "50 MiB"},
-		{ByteSize(1 << 10), "1.0 KiB"},
-		{ByteSize(500), "500 B"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.want, func(t *testing.T) {
-			assert.Equal(t, tt.want, tt.size.String())
-		})
-	}
-}
-
 func TestByteSizeUnmarshalTOMLInt(t *testing.T) {
 	var b ByteSize
 	require.NoError(t, b.UnmarshalTOML(int64(1024)))

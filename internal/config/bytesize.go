@@ -18,11 +18,6 @@ type ByteSize uint64
 // Bytes returns the size as uint64.
 func (b ByteSize) Bytes() uint64 { return uint64(b) }
 
-// String returns a human-readable IEC representation (e.g. "50 MiB").
-func (b ByteSize) String() string {
-	return humanize.IBytes(uint64(b))
-}
-
 // UnmarshalTOML implements toml.Unmarshaler for ByteSize,
 // accepting both TOML integers (bytes) and strings ("50 MiB").
 func (b *ByteSize) UnmarshalTOML(v any) error {
