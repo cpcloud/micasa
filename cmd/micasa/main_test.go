@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cpcloud/micasa/internal/data"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -127,4 +128,112 @@ func TestVersion_Injected(t *testing.T) {
 	verOut, err := verCmd.Output()
 	require.NoError(t, err, "--version failed")
 	assert.Equal(t, "1.2.3", strings.TrimSpace(string(verOut)))
+}
+
+// createTestDB creates a migrated, seeded SQLite database file and returns
+// its path. The file lives in a test-scoped temp directory.
+func createTestDB(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "source.db")
+	store, err := data.Open(path)
+	require.NoError(t, err)
+	require.NoError(t, store.AutoMigrate())
+	require.NoError(t, store.SeedDefaults())
+	require.NoError(t, store.Close())
+	return path
+}
+
+func TestBackupCmd(t *testing.T) {
+	bin := buildTestBinary(t)
+
+	t.Run("ExplicitDest", func(t *testing.T) {
+		src := createTestDB(t)
+		dest := filepath.Join(t.TempDir(), "backup.db")
+		cmd := exec.Command(bin, "backup", "--source", src, dest) //nolint:gosec // test binary
+		out, err := cmd.CombinedOutput()
+		require.NoError(t, err, "backup failed: %s", out)
+
+		got := strings.TrimSpace(string(out))
+		assert.True(t, filepath.IsAbs(got), "expected absolute path, got %q", got)
+
+		_, statErr := os.Stat(dest)
+		assert.NoError(t, statErr, "destination file should exist")
+	})
+
+	t.Run("DefaultDest", func(t *testing.T) {
+		src := createTestDB(t)
+		cmd := exec.Command(bin, "backup", "--source", src) //nolint:gosec // test binary
+		out, err := cmd.CombinedOutput()
+		require.NoError(t, err, "backup failed: %s", out)
+
+		wantPath, absErr := filepath.Abs(src + ".backup")
+		require.NoError(t, absErr)
+		assert.Equal(t, wantPath, strings.TrimSpace(string(out)))
+
+		_, statErr := os.Stat(src + ".backup")
+		assert.NoError(t, statErr, "default destination should exist")
+	})
+
+	t.Run("SourceFromEnv", func(t *testing.T) {
+		src := createTestDB(t)
+		dest := filepath.Join(t.TempDir(), "env-backup.db")
+		cmd := exec.Command(bin, "backup", dest) //nolint:gosec // test binary
+		cmd.Env = append(os.Environ(), "MICASA_DB_PATH="+src)
+		out, err := cmd.CombinedOutput()
+		require.NoError(t, err, "backup via MICASA_DB_PATH failed: %s", out)
+
+		_, statErr := os.Stat(dest)
+		assert.NoError(t, statErr, "destination file should exist")
+	})
+
+	t.Run("ProducesValidDB", func(t *testing.T) {
+		src := createTestDB(t)
+		dest := filepath.Join(t.TempDir(), "valid-backup.db")
+		cmd := exec.Command(bin, "backup", "--source", src, dest) //nolint:gosec // test binary
+		out, err := cmd.CombinedOutput()
+		require.NoError(t, err, "backup failed: %s", out)
+
+		backup, openErr := data.Open(dest)
+		require.NoError(t, openErr, "backup should be a valid SQLite database")
+		t.Cleanup(func() { _ = backup.Close() })
+	})
+
+	t.Run("MemorySourceRejected", func(t *testing.T) {
+		dest := filepath.Join(t.TempDir(), "backup.db")
+		cmd := exec.Command( //nolint:gosec // test binary
+			bin,
+			"backup",
+			"--source",
+			":memory:",
+			dest,
+		)
+		out, err := cmd.CombinedOutput()
+		require.Error(t, err)
+		assert.Contains(t, string(out), "in-memory")
+	})
+
+	t.Run("DestAlreadyExists", func(t *testing.T) {
+		src := createTestDB(t)
+		dest := filepath.Join(t.TempDir(), "existing.db")
+		require.NoError(t, os.WriteFile(dest, []byte("x"), 0o600))
+
+		cmd := exec.Command(bin, "backup", "--source", src, dest) //nolint:gosec // test binary
+		out, err := cmd.CombinedOutput()
+		require.Error(t, err)
+		assert.Contains(t, string(out), "already exists")
+	})
+
+	t.Run("SourceNotFound", func(t *testing.T) {
+		dest := filepath.Join(t.TempDir(), "backup.db")
+		cmd := exec.Command( //nolint:gosec // test binary
+			bin,
+			"backup",
+			"--source",
+			"/nonexistent/path.db",
+			dest,
+		)
+		out, err := cmd.CombinedOutput()
+		require.Error(t, err)
+		assert.NotEmpty(t, string(out), "should produce an error message")
+	})
 }
