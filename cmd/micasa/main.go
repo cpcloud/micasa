@@ -4,9 +4,11 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime/debug"
 
 	"github.com/alecthomas/kong"
@@ -20,56 +22,75 @@ import (
 var version = "dev"
 
 type cli struct {
-	DBPath    string           `arg:"" optional:"" help:"SQLite database path. Pass with --demo to persist demo data."        env:"MICASA_DB_PATH"`
-	Demo      bool             `                   help:"Launch with sample data in an in-memory database."`
-	Years     int              `                   help:"Generate N years of simulated home ownership data. Requires --demo."`
-	PrintPath bool             `                   help:"Print the resolved database path and exit."`
-	Version   kong.VersionFlag `                   help:"Show version and exit."`
+	Run     runCmd           `cmd:"" default:"withargs" help:"Launch the TUI (default)."`
+	Backup  backupCmd        `cmd:""                    help:"Back up the database to a file."`
+	Version kong.VersionFlag `                          help:"Show version and exit."          name:"version"`
+}
+
+type runCmd struct {
+	DBPath    string `arg:"" optional:"" help:"SQLite database path. Pass with --demo to persist demo data."        env:"MICASA_DB_PATH"`
+	Demo      bool   `                   help:"Launch with sample data in an in-memory database."`
+	Years     int    `                   help:"Generate N years of simulated home ownership data. Requires --demo."`
+	PrintPath bool   `                   help:"Print the resolved database path and exit."`
+}
+
+type backupCmd struct {
+	Dest   string `arg:"" optional:"" help:"Destination file path. Defaults to <source>.backup."`
+	Source string `                   help:"Source database path. Defaults to the standard location." default:"" env:"MICASA_DB_PATH"`
 }
 
 func main() {
 	var c cli
-	kong.Parse(&c,
+	kctx := kong.Parse(&c,
 		kong.Name(data.AppName),
 		kong.Description("A terminal UI for tracking everything about your home."),
 		kong.UsageOnError(),
 		kong.Vars{"version": versionString()},
 	)
-
-	dbPath, err := resolveDBPath(c)
-	if err != nil {
-		fail("resolve db path", err)
+	if err := kctx.Run(); err != nil {
+		if errors.Is(err, tea.ErrInterrupted) {
+			os.Exit(130)
+		}
+		fmt.Fprintf(os.Stderr, "%s: %v\n", data.AppName, err)
+		os.Exit(1)
 	}
-	if c.PrintPath {
+}
+
+func (cmd *runCmd) Run() error {
+	dbPath, err := cmd.resolveDBPath()
+	if err != nil {
+		return fmt.Errorf("resolve db path: %w", err)
+	}
+	if cmd.PrintPath {
 		fmt.Println(dbPath)
-		return
+		return nil
 	}
 	store, err := data.Open(dbPath)
 	if err != nil {
-		fail("open database", err)
+		return fmt.Errorf("open database: %w", err)
 	}
 	if err := store.AutoMigrate(); err != nil {
-		fail("migrate database", err)
+		return fmt.Errorf("migrate database: %w", err)
 	}
 	if err := store.SeedDefaults(); err != nil {
-		fail("seed defaults", err)
+		return fmt.Errorf("seed defaults: %w", err)
 	}
-	if c.Years > 0 && !c.Demo {
-		fail("invalid flags", fmt.Errorf("--years requires --demo"))
+	if cmd.Years > 0 && !cmd.Demo {
+		return fmt.Errorf("--years requires --demo")
 	}
-	if c.Years < 0 {
-		fail("invalid flags", fmt.Errorf("--years must be non-negative"))
+	if cmd.Years < 0 {
+		return fmt.Errorf("--years must be non-negative")
 	}
-	if c.Demo {
-		if c.Years > 0 {
-			summary, err := store.SeedScaledData(c.Years)
+	if cmd.Demo {
+		if cmd.Years > 0 {
+			summary, err := store.SeedScaledData(cmd.Years)
 			if err != nil {
-				fail("seed scaled data", err)
+				return fmt.Errorf("seed scaled data: %w", err)
 			}
 			fmt.Fprintf(
 				os.Stderr,
 				"seeded %d years: %d vendors, %d projects, %d appliances, %d maintenance, %d service logs, %d quotes, %d documents\n",
-				c.Years,
+				cmd.Years,
 				summary.Vendors,
 				summary.Projects,
 				summary.Appliances,
@@ -80,24 +101,24 @@ func main() {
 			)
 		} else {
 			if err := store.SeedDemoData(); err != nil {
-				fail("seed demo data", err)
+				return fmt.Errorf("seed demo data: %w", err)
 			}
 		}
 	}
 
 	cfg, err := config.Load()
 	if err != nil {
-		fail("load config", err)
+		return fmt.Errorf("load config: %w", err)
 	}
 	if err := store.SetMaxDocumentSize(cfg.Documents.MaxFileSize); err != nil {
-		fail("configure document size limit", err)
+		return fmt.Errorf("configure document size limit: %w", err)
 	}
 	cacheDir, err := data.DocumentCacheDir()
 	if err != nil {
-		fail("resolve document cache directory", err)
+		return fmt.Errorf("resolve document cache directory: %w", err)
 	}
 	if _, err := data.EvictStaleCache(cacheDir, cfg.Documents.CacheTTLDays); err != nil {
-		fail("evict stale cache", err)
+		return fmt.Errorf("evict stale cache: %w", err)
 	}
 
 	opts := app.Options{
@@ -108,24 +129,66 @@ func main() {
 
 	model, err := app.NewModel(store, opts)
 	if err != nil {
-		fail("initialize app", err)
+		return fmt.Errorf("initialize app: %w", err)
 	}
-	if _, err := tea.NewProgram(model, tea.WithAltScreen()).Run(); err != nil {
-		if errors.Is(err, tea.ErrInterrupted) {
-			os.Exit(130)
-		}
-		fail("run app", err)
-	}
+	_, err = tea.NewProgram(model, tea.WithAltScreen()).Run()
+	return err
 }
 
-func resolveDBPath(c cli) (string, error) {
-	if c.DBPath != "" {
-		return c.DBPath, nil
+func (cmd *runCmd) resolveDBPath() (string, error) {
+	if cmd.DBPath != "" {
+		return cmd.DBPath, nil
 	}
-	if c.Demo {
+	if cmd.Demo {
 		return ":memory:", nil
 	}
 	return data.DefaultDBPath()
+}
+
+func (cmd *backupCmd) Run() error {
+	sourcePath := cmd.Source
+	if sourcePath == "" {
+		var err error
+		sourcePath, err = data.DefaultDBPath()
+		if err != nil {
+			return fmt.Errorf("resolve source path: %w", err)
+		}
+	}
+	if sourcePath == ":memory:" {
+		return fmt.Errorf("cannot back up an in-memory database")
+	}
+
+	destPath := cmd.Dest
+	if destPath == "" {
+		destPath = sourcePath + ".backup"
+	}
+
+	if err := data.ValidateDBPath(destPath); err != nil {
+		return fmt.Errorf("invalid destination: %w", err)
+	}
+	if _, err := os.Stat(destPath); err == nil {
+		return fmt.Errorf(
+			"destination %q already exists -- remove it first or choose a different path",
+			destPath,
+		)
+	}
+
+	store, err := data.Open(sourcePath)
+	if err != nil {
+		return fmt.Errorf("open database: %w", err)
+	}
+	defer func() { _ = store.Close() }()
+
+	if err := store.Backup(context.Background(), destPath); err != nil {
+		return err
+	}
+
+	absPath, err := filepath.Abs(destPath)
+	if err != nil {
+		return fmt.Errorf("resolve absolute path: %w", err)
+	}
+	fmt.Println(absPath)
+	return nil
 }
 
 // versionString returns the version for display. Release builds return
@@ -156,9 +219,4 @@ func versionString() string {
 		return revision + "-dirty"
 	}
 	return revision
-}
-
-func fail(context string, err error) {
-	fmt.Fprintf(os.Stderr, "%s: %s: %v\n", data.AppName, context, err)
-	os.Exit(1)
 }

@@ -1,0 +1,94 @@
+// Copyright 2026 Phillip Cloud
+// Licensed under the Apache License, Version 2.0
+
+package data
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/cpcloud/micasa/internal/fake"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestBackupCreatesValidCopy(t *testing.T) {
+	store := newTestStoreWithDemoData(t, testSeed)
+
+	destPath := filepath.Join(t.TempDir(), "backup.db")
+	require.NoError(t, store.Backup(context.Background(), destPath))
+
+	// Open the backup and verify row counts match the source.
+	backup, err := Open(destPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = backup.Close() })
+
+	srcVendors, err := store.ListVendors(false)
+	require.NoError(t, err)
+	dstVendors, err := backup.ListVendors(false)
+	require.NoError(t, err)
+	assert.Equal(t, len(srcVendors), len(dstVendors), "vendor count mismatch")
+
+	srcProjects, err := store.ListProjects(false)
+	require.NoError(t, err)
+	dstProjects, err := backup.ListProjects(false)
+	require.NoError(t, err)
+	assert.Equal(t, len(srcProjects), len(dstProjects), "project count mismatch")
+
+	srcAppliances, err := store.ListAppliances(false)
+	require.NoError(t, err)
+	dstAppliances, err := backup.ListAppliances(false)
+	require.NoError(t, err)
+	assert.Equal(t, len(srcAppliances), len(dstAppliances), "appliance count mismatch")
+
+	srcMaint, err := store.ListMaintenance(false)
+	require.NoError(t, err)
+	dstMaint, err := backup.ListMaintenance(false)
+	require.NoError(t, err)
+	assert.Equal(t, len(srcMaint), len(dstMaint), "maintenance count mismatch")
+
+	srcIncidents, err := store.ListIncidents(false)
+	require.NoError(t, err)
+	dstIncidents, err := backup.ListIncidents(false)
+	require.NoError(t, err)
+	assert.Equal(t, len(srcIncidents), len(dstIncidents), "incident count mismatch")
+}
+
+func TestBackupDestAlreadyExists(t *testing.T) {
+	store := newTestStore(t)
+
+	destPath := filepath.Join(t.TempDir(), "existing.db")
+	require.NoError(t, os.WriteFile(destPath, []byte("placeholder"), 0o600))
+
+	err := store.Backup(context.Background(), destPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "backup")
+}
+
+func TestBackupMemoryDB(t *testing.T) {
+	// Open an in-memory store, seed it, then back it up to a file.
+	store, err := Open(":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = store.Close() })
+	require.NoError(t, store.AutoMigrate())
+	require.NoError(t, store.SeedDefaults())
+	require.NoError(t, store.SeedDemoDataFrom(fake.New(testSeed)))
+
+	destPath := filepath.Join(t.TempDir(), "mem-backup.db")
+	require.NoError(t, store.Backup(context.Background(), destPath))
+
+	// Verify the backup is a valid database with the expected tables.
+	backup, err := Open(destPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = backup.Close() })
+
+	vendors, err := backup.ListVendors(false)
+	require.NoError(t, err)
+	assert.NotEmpty(t, vendors, "backup of in-memory DB should contain vendors")
+
+	projects, err := backup.ListProjects(false)
+	require.NoError(t, err)
+	assert.NotEmpty(t, projects, "backup of in-memory DB should contain projects")
+}

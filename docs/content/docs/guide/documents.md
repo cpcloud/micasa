@@ -37,7 +37,7 @@ automatically linked to that record.
 ## File handling
 
 - **Storage**: files are stored as BLOBs inside the SQLite database, so
-  `cp micasa.db backup.db` backs up everything -- no sidecar files
+  `micasa backup backup.db` backs up everything -- no sidecar files
 - **Size limit**: 50 MB per file
 - **MIME detection**: automatic from file contents and extension
 - **Checksum**: SHA-256 hash stored for integrity

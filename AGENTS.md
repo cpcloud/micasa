@@ -360,7 +360,7 @@ These have been repeatedly requested. Violating them wastes the user's time.
 - **Record every user request as a GitHub issue**: Use `/create-issue`
   immediately when a request is made. This includes small one-liner asks.
 - **Single-file backup principle**: Every feature must preserve the property
-  that `cp micasa.db backup.db` is a complete backup. Never store
+  that `micasa backup backup.db` is a complete backup. Never store
   application state outside the SQLite database (e.g. external file
   references, sidecar directories). If a feature needs filesystem files
   (document BLOBs, exports), the DB is the source of truth and the

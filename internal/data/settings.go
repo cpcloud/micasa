@@ -14,7 +14,7 @@ import (
 
 // Setting is a simple key-value store for app preferences that persist
 // across sessions (e.g. last-used LLM model). Stored in SQLite so a
-// single "cp micasa.db backup.db" captures everything.
+// single "micasa backup backup.db" captures everything.
 type Setting struct {
 	Key       string `gorm:"primaryKey"`
 	Value     string

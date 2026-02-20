@@ -54,15 +54,19 @@ etc.). These are reference data used in select dropdowns.
 
 ## Backup
 
-Your database is a single file. Back it up with `cp`:
+Use the built-in `backup` command to create a consistent snapshot:
 
 ```sh
-cp "$(micasa --print-path)" ~/backups/micasa-$(date +%F).db
+micasa backup ~/backups/micasa-$(date +%F).db
 ```
 
-Since SQLite supports [hot
-backup](https://www.sqlite.org/backup.html), you can safely copy the file
-while micasa is running.
+This uses SQLite's [Online Backup API](https://www.sqlite.org/backup.html)
+to produce a safe copy even while micasa is running. To back up a database
+at a non-default path, pass `--source`:
+
+```sh
+micasa backup --source /path/to/micasa.db ~/backups/micasa-$(date +%F).db
+```
 
 ## Soft delete
 
@@ -120,10 +124,10 @@ stops being used.
 
 ### What you should do
 
-Back up before upgrading. The database is one file:
+Back up before upgrading:
 
 ```sh
-cp "$(micasa --print-path)" ~/backups/micasa-$(date +%F).db
+micasa backup ~/backups/micasa-$(date +%F).db
 ```
 
 If an upgrade goes wrong, restore from the copy and pin the previous version

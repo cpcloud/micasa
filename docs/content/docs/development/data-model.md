@@ -119,7 +119,7 @@ File attachments stored as BLOBs inside the database.
   any entity type -- projects, incidents, appliances, quotes, maintenance
   items, vendors, or service log entries. This avoids a separate join table
   per entity.
-- File data lives inside SQLite, so `cp micasa.db backup.db` is a complete
+- File data lives inside SQLite, so `micasa backup backup.db` is a complete
   backup with no sidecar files.
 - Drill columns on the Projects and Appliances tabs give direct access to
   linked documents.

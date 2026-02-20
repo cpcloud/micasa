@@ -16,23 +16,23 @@ import (
 )
 
 func TestResolveDBPath_ExplicitPath(t *testing.T) {
-	c := cli{DBPath: "/custom/path.db"}
-	got, err := resolveDBPath(c)
+	cmd := runCmd{DBPath: "/custom/path.db"}
+	got, err := cmd.resolveDBPath()
 	require.NoError(t, err)
 	assert.Equal(t, "/custom/path.db", got)
 }
 
 func TestResolveDBPath_ExplicitPathWithDemo(t *testing.T) {
 	// Explicit path takes precedence even when --demo is set.
-	c := cli{DBPath: "/tmp/demo.db", Demo: true}
-	got, err := resolveDBPath(c)
+	cmd := runCmd{DBPath: "/tmp/demo.db", Demo: true}
+	got, err := cmd.resolveDBPath()
 	require.NoError(t, err)
 	assert.Equal(t, "/tmp/demo.db", got)
 }
 
 func TestResolveDBPath_DemoNoPath(t *testing.T) {
-	c := cli{Demo: true}
-	got, err := resolveDBPath(c)
+	cmd := runCmd{Demo: true}
+	got, err := cmd.resolveDBPath()
 	require.NoError(t, err)
 	assert.Equal(t, ":memory:", got)
 }
@@ -41,8 +41,8 @@ func TestResolveDBPath_Default(t *testing.T) {
 	// With no flags, resolveDBPath falls through to DefaultDBPath.
 	// Clear the env override so the platform default is used.
 	t.Setenv("MICASA_DB_PATH", "")
-	c := cli{}
-	got, err := resolveDBPath(c)
+	cmd := runCmd{}
+	got, err := cmd.resolveDBPath()
 	require.NoError(t, err)
 	assert.NotEmpty(t, got)
 	assert.True(
@@ -56,8 +56,8 @@ func TestResolveDBPath_Default(t *testing.T) {
 func TestResolveDBPath_EnvOverride(t *testing.T) {
 	// MICASA_DB_PATH env var is honored when no positional arg is given.
 	t.Setenv("MICASA_DB_PATH", "/env/override.db")
-	c := cli{}
-	got, err := resolveDBPath(c)
+	cmd := runCmd{}
+	got, err := cmd.resolveDBPath()
 	require.NoError(t, err)
 	assert.Equal(t, "/env/override.db", got)
 }
@@ -65,8 +65,8 @@ func TestResolveDBPath_EnvOverride(t *testing.T) {
 func TestResolveDBPath_ExplicitPathBeatsEnv(t *testing.T) {
 	// Positional arg takes precedence over env var.
 	t.Setenv("MICASA_DB_PATH", "/env/override.db")
-	c := cli{DBPath: "/explicit/wins.db"}
-	got, err := resolveDBPath(c)
+	cmd := runCmd{DBPath: "/explicit/wins.db"}
+	got, err := cmd.resolveDBPath()
 	require.NoError(t, err)
 	assert.Equal(t, "/explicit/wins.db", got)
 }

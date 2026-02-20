@@ -67,7 +67,7 @@ vendor contacts, your warranty dates, the PDF of that invoice you'll need in
 three years when something breaks again -- all of it. One file.
 
 ```sh
-cp micasa.db backup.db   # that's your entire backup strategy
+micasa backup backup.db   # that's your entire backup strategy
 ```
 
 Since everything nowadays seems to want you to log in including your damn smoke

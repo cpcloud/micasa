@@ -119,7 +119,7 @@ that might conflict with existing data.
 
 ## Backup story
 
-The single-file principle (`cp micasa.db backup.db` is a complete backup)
+The single-file principle (`micasa backup backup.db` is a complete backup)
 means any future migration framework inherits a simple rollback story:
 restore from the copy. No down-migrations needed if users back up before
 upgrading.
