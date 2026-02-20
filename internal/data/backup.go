@@ -10,9 +10,10 @@ import (
 	"modernc.org/sqlite"
 )
 
-// backuper is the interface exposed by the modernc.org/sqlite driver
-// connection for online backups.
-type backuper interface {
+// backupConn is the subset of the modernc.org/sqlite driver connection
+// needed for online backups. The driver's conn type is unexported, so we
+// assert this interface instead.
+type backupConn interface {
 	NewBackup(string) (*sqlite.Backup, error)
 }
 
@@ -33,7 +34,7 @@ func (s *Store) Backup(ctx context.Context, destPath string) error {
 	defer func() { _ = conn.Close() }()
 
 	if err := conn.Raw(func(driverConn any) error {
-		b, ok := driverConn.(backuper)
+		b, ok := driverConn.(backupConn)
 		if !ok {
 			return fmt.Errorf(
 				"SQLite driver does not support the backup API -- please report this as a bug",

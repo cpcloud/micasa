@@ -65,6 +65,12 @@ func (cmd *runCmd) Run() error {
 		fmt.Println(dbPath)
 		return nil
 	}
+	if cmd.Years > 0 && !cmd.Demo {
+		return fmt.Errorf("--years requires --demo")
+	}
+	if cmd.Years < 0 {
+		return fmt.Errorf("--years must be non-negative")
+	}
 	store, err := data.Open(dbPath)
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
@@ -74,12 +80,6 @@ func (cmd *runCmd) Run() error {
 	}
 	if err := store.SeedDefaults(); err != nil {
 		return fmt.Errorf("seed defaults: %w", err)
-	}
-	if cmd.Years > 0 && !cmd.Demo {
-		return fmt.Errorf("--years requires --demo")
-	}
-	if cmd.Years < 0 {
-		return fmt.Errorf("--years must be non-negative")
 	}
 	if cmd.Demo {
 		if cmd.Years > 0 {

@@ -237,6 +237,20 @@ func TestBackupCmd(t *testing.T) {
 		assert.Contains(t, string(out), "not found")
 	})
 
+	t.Run("InvalidDestPath", func(t *testing.T) {
+		src := createTestDB(t)
+		cmd := exec.Command( //nolint:gosec // test binary
+			bin,
+			"backup",
+			"--source",
+			src,
+			"file:///tmp/backup.db?mode=rwc",
+		)
+		out, err := cmd.CombinedOutput()
+		require.Error(t, err)
+		assert.Contains(t, string(out), "invalid destination")
+	})
+
 	t.Run("SourceNotMicasaDB", func(t *testing.T) {
 		// Create a valid SQLite database that isn't a micasa database.
 		src := filepath.Join(t.TempDir(), "other.db")
