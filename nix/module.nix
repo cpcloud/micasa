@@ -56,6 +56,8 @@ in
     };
   };
 
+  meta.doc = ./module.md;
+
   config = lib.mkIf cfg.enable {
     users.users.${cfg.user} = {
       isSystemUser = true;
