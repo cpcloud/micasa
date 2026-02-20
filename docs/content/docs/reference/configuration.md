@@ -7,46 +7,45 @@ linkTitle = "Configuration"
 
 micasa has minimal configuration -- it's designed to work out of the box.
 
-## CLI flags
+## CLI
+
+micasa has two subcommands. `run` is the default and launches the TUI;
+`backup` creates a database snapshot.
 
 ```
-Usage: micasa [<db-path>] [flags]
+Usage: micasa <command> [flags]
 
-A terminal UI for tracking everything about your home.
-
-Arguments:
-  [<db-path>]    SQLite database path. Pass with --demo to persist demo data.
+Commands:
+  run [<db-path>]    Launch the TUI (default).
+  backup [<dest>]    Back up the database to a file.
 
 Flags:
-  -h, --help          Show help.
-      --version       Show version and exit.
-      --demo          Launch with sample data in an in-memory database.
-      --print-path    Print the resolved database path and exit.
+  -h, --help       Show context-sensitive help.
+      --version    Show version and exit.
 ```
 
-### `<db-path>`
+### `run` (default)
 
-Optional positional argument. When provided, micasa uses this path for the
-SQLite database instead of the default location.
+```
+micasa [<db-path>] [flags]
+```
 
-When combined with `--demo`, the demo data is written to this file (instead
-of in-memory), so you can restart with the same demo state:
+| Flag | Description |
+|------|-------------|
+| `<db-path>` | SQLite database path. Overrides `MICASA_DB_PATH`. |
+| `--demo` | Launch with fictitious sample data in an in-memory database. |
+| `--years=N` | Generate N years of simulated data. Requires `--demo`. |
+| `--print-path` | Print the resolved database path and exit. |
+
+When `--demo` is combined with a path, the demo data is written to that
+file so you can restart with the same state:
 
 ```sh
 micasa --demo /tmp/my-demo.db   # creates and populates
 micasa /tmp/my-demo.db          # reopens with the demo data
 ```
 
-### `--demo`
-
-Launches with fictitious sample data: a house profile, several projects,
-maintenance items, appliances, service log entries, and quotes. Without a
-`<db-path>`, the database lives in memory and disappears when you quit.
-
-### `--print-path`
-
-Prints the resolved database path to stdout and exits. Useful for scripting
-and backup:
+`--print-path` is useful for scripting:
 
 ```sh
 micasa --print-path                               # platform default
@@ -54,7 +53,25 @@ MICASA_DB_PATH=/tmp/foo.db micasa --print-path    # /tmp/foo.db
 micasa --print-path /custom/path.db               # /custom/path.db
 micasa --demo --print-path                        # :memory:
 micasa --demo --print-path /tmp/d.db              # /tmp/d.db
-cp "$(micasa --print-path)" backup.db             # backup the database
+```
+
+### `backup`
+
+```
+micasa backup [<dest>] [--source <path>]
+```
+
+| Flag | Description |
+|------|-------------|
+| `<dest>` | Destination file path. Defaults to `<source>.backup`. |
+| `--source` | Source database path. Defaults to the standard location. Honors `MICASA_DB_PATH`. |
+
+Creates a consistent snapshot using SQLite's Online Backup API, safe to
+run while the TUI is open:
+
+```sh
+micasa backup ~/backups/micasa-$(date +%F).db
+micasa backup --source /path/to/micasa.db ~/backups/snapshot.db
 ```
 
 ## Environment variables
