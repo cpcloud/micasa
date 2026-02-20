@@ -13,13 +13,13 @@ import (
 func TestParseByteSizeBareInteger(t *testing.T) {
 	b, err := ParseByteSize("1024")
 	require.NoError(t, err)
-	assert.Equal(t, int64(1024), b.Bytes())
+	assert.Equal(t, uint64(1024), b.Bytes())
 }
 
 func TestParseByteSizeIECUnits(t *testing.T) {
 	tests := []struct {
 		input string
-		want  int64
+		want  uint64
 	}{
 		{"100 B", 100},
 		{"1 KiB", 1 << 10},
@@ -39,7 +39,7 @@ func TestParseByteSizeIECUnits(t *testing.T) {
 func TestParseByteSizeSIUnits(t *testing.T) {
 	tests := []struct {
 		input string
-		want  int64
+		want  uint64
 	}{
 		{"1 KB", 1000},
 		{"50 MB", 50_000_000},
@@ -58,19 +58,19 @@ func TestParseByteSizeSIUnits(t *testing.T) {
 func TestParseByteSizeFractional(t *testing.T) {
 	b, err := ParseByteSize("1.5 GiB")
 	require.NoError(t, err)
-	assert.Equal(t, int64(1.5*(1<<30)), b.Bytes())
+	assert.Equal(t, uint64(1.5*(1<<30)), b.Bytes())
 }
 
 func TestParseByteSizeCaseInsensitive(t *testing.T) {
 	b, err := ParseByteSize("50 mib")
 	require.NoError(t, err)
-	assert.Equal(t, int64(50<<20), b.Bytes())
+	assert.Equal(t, uint64(50<<20), b.Bytes())
 }
 
 func TestParseByteSizeNoSpace(t *testing.T) {
 	b, err := ParseByteSize("50MiB")
 	require.NoError(t, err)
-	assert.Equal(t, int64(50<<20), b.Bytes())
+	assert.Equal(t, uint64(50<<20), b.Bytes())
 }
 
 func TestParseByteSizeRejectsInvalid(t *testing.T) {
@@ -102,13 +102,13 @@ func TestByteSizeString(t *testing.T) {
 func TestByteSizeUnmarshalTOMLInt(t *testing.T) {
 	var b ByteSize
 	require.NoError(t, b.UnmarshalTOML(int64(1024)))
-	assert.Equal(t, int64(1024), b.Bytes())
+	assert.Equal(t, uint64(1024), b.Bytes())
 }
 
 func TestByteSizeUnmarshalTOMLString(t *testing.T) {
 	var b ByteSize
 	require.NoError(t, b.UnmarshalTOML("50 MiB"))
-	assert.Equal(t, int64(50<<20), b.Bytes())
+	assert.Equal(t, uint64(50<<20), b.Bytes())
 }
 
 func TestByteSizeUnmarshalTOMLRejectsOtherTypes(t *testing.T) {

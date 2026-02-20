@@ -126,35 +126,35 @@ func TestMaxDocumentSizeFromFileInteger(t *testing.T) {
 	path := writeConfig(t, "[documents]\nmax_file_size = 1048576\n")
 	cfg, err := LoadFromPath(path)
 	require.NoError(t, err)
-	assert.Equal(t, int64(1048576), cfg.Documents.MaxFileSize.Bytes())
+	assert.Equal(t, uint64(1048576), cfg.Documents.MaxFileSize.Bytes())
 }
 
 func TestMaxDocumentSizeFromFileString(t *testing.T) {
 	path := writeConfig(t, "[documents]\nmax_file_size = \"10 MiB\"\n")
 	cfg, err := LoadFromPath(path)
 	require.NoError(t, err)
-	assert.Equal(t, int64(10<<20), cfg.Documents.MaxFileSize.Bytes())
+	assert.Equal(t, uint64(10<<20), cfg.Documents.MaxFileSize.Bytes())
 }
 
 func TestMaxDocumentSizeFromFileFractional(t *testing.T) {
-	path := writeConfig(t, "[documents]\nmax_file_size = "1.5 GiB"\n")
+	path := writeConfig(t, "[documents]\nmax_file_size = \"1.5 GiB\"\n")
 	cfg, err := LoadFromPath(path)
 	require.NoError(t, err)
-	assert.Equal(t, int64(1.5*(1<<30)), cfg.Documents.MaxFileSize.Bytes())
+	assert.Equal(t, uint64(1.5*(1<<30)), cfg.Documents.MaxFileSize.Bytes())
 }
 
 func TestMaxDocumentSizeEnvOverrideInteger(t *testing.T) {
 	t.Setenv("MICASA_MAX_DOCUMENT_SIZE", "2097152")
 	cfg, err := LoadFromPath(noConfig(t))
 	require.NoError(t, err)
-	assert.Equal(t, int64(2097152), cfg.Documents.MaxFileSize.Bytes())
+	assert.Equal(t, uint64(2097152), cfg.Documents.MaxFileSize.Bytes())
 }
 
 func TestMaxDocumentSizeEnvOverrideUnitized(t *testing.T) {
 	t.Setenv("MICASA_MAX_DOCUMENT_SIZE", "100 MiB")
 	cfg, err := LoadFromPath(noConfig(t))
 	require.NoError(t, err)
-	assert.Equal(t, int64(100<<20), cfg.Documents.MaxFileSize.Bytes())
+	assert.Equal(t, uint64(100<<20), cfg.Documents.MaxFileSize.Bytes())
 }
 
 func TestMaxDocumentSizeRejectsZero(t *testing.T) {
