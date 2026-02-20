@@ -61,16 +61,20 @@ in
       isSystemUser = true;
       inherit (cfg) group;
       home = cfg.dataDir;
-      createHome = true;
       shell = pkgs.bashInteractive;
       openssh.authorizedKeys.keys = cfg.authorizedKeys;
     };
 
     users.groups.${cfg.group} = { };
 
+    # Ensure dataDir exists with strict permissions on every boot.
+    systemd.tmpfiles.rules = [
+      "d ${cfg.dataDir} 0700 ${cfg.user} ${cfg.group} -"
+    ];
+
     services.openssh.extraConfig = lib.mkAfter ''
       Match User ${cfg.user}
-        ForceCommand ${cfg.package}/bin/micasa --db ${cfg.dataDir}/micasa.db
+        ForceCommand umask 0077; exec ${cfg.package}/bin/micasa --db ${cfg.dataDir}/micasa.db
         AllowTcpForwarding no
         AllowAgentForwarding no
         AllowStreamLocalForwarding no
