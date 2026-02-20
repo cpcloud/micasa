@@ -243,7 +243,7 @@ backend:
 Environment variables override config file values. The full precedence order
 (highest to lowest):
 
-1. Environment variables (`OLLAMA_HOST`, `MICASA_LLM_MODEL`, `MICASA_LLM_TIMEOUT`, `MICASA_MAX_DOCUMENT_SIZE`, `MICASA_CACHE_TTL`)
+1. Environment variables (see [table above](#environment-variables))
 2. Config file values
 3. Built-in defaults
 
