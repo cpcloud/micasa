@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -265,6 +266,31 @@ func TestTranslateForeignKeyViolation(t *testing.T) {
 	err = db.Create(&Child{ParentID: 9999}).Error
 	require.Error(t, err)
 	assert.ErrorIs(t, err, gorm.ErrForeignKeyViolated)
+}
+
+// Regression test for #393: time.Time values in numeric-offset timezones
+// (e.g. IST +0530) must roundtrip through SQLite without Scan errors.
+func TestTimeRoundtripNumericTimezone(t *testing.T) {
+	type Record struct {
+		ID        uint `gorm:"primaryKey"`
+		CreatedAt time.Time
+	}
+
+	db, err := gorm.Open(&Dialector{DSN: testDSN(t)}, &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&Record{}))
+
+	ist := time.FixedZone("+0530", 5*3600+30*60)
+	ts := time.Date(2026, 2, 20, 9, 46, 30, 0, ist)
+
+	require.NoError(t, db.Create(&Record{CreatedAt: ts}).Error)
+
+	var got Record
+	require.NoError(t, db.First(&got).Error)
+	assert.True(t, ts.Equal(got.CreatedAt),
+		"want %v, got %v", ts, got.CreatedAt)
 }
 
 func TestCompareVersion(t *testing.T) {
