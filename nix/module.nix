@@ -4,7 +4,7 @@
 # NixOS module that serves micasa over SSH.
 #
 # Users connect with `ssh micasa@<host>` and land directly in the TUI.
-# TCP and X11 forwarding are disabled for the service user.
+# All forwarding and tunneling is disabled for the service user.
 #
 # Usage in a NixOS configuration:
 #
@@ -72,7 +72,12 @@ in
       Match User ${cfg.user}
         ForceCommand ${cfg.package}/bin/micasa --db ${cfg.dataDir}/micasa.db
         AllowTcpForwarding no
+        AllowAgentForwarding no
+        AllowStreamLocalForwarding no
         X11Forwarding no
+        PermitTunnel no
+        PermitUserEnvironment no
+        PermitTTY yes
     '';
   };
 }
