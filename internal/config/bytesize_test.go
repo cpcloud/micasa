@@ -115,3 +115,22 @@ func TestByteSizeUnmarshalTOMLRejectsOtherTypes(t *testing.T) {
 	var b ByteSize
 	assert.Error(t, b.UnmarshalTOML(3.14))
 }
+
+func TestByteSizeUnmarshalTOMLRejectsNegative(t *testing.T) {
+	var b ByteSize
+	assert.Error(t, b.UnmarshalTOML(int64(-1)))
+}
+
+func TestParseByteSizeRejectsOverflow(t *testing.T) {
+	// 10 EiB exceeds math.MaxInt64 (~9.2 EiB).
+	_, err := ParseByteSize("10 EiB")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "overflows")
+}
+
+func TestParseByteSizeRejectsBareIntegerOverflow(t *testing.T) {
+	// math.MaxInt64 + 1 as a bare integer string.
+	_, err := ParseByteSize("9223372036854775808")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "overflows")
+}
