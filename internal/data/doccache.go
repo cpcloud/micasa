@@ -52,11 +52,11 @@ func (s *Store) ExtractDocument(id uint) (string, error) {
 }
 
 // EvictStaleCache removes cached document files from dir that haven't been
-// modified in the given number of days. A ttlDays of 0 disables eviction.
+// modified within the given TTL. A ttl of 0 disables eviction.
 // Returns the number of files removed and any error encountered while listing
 // the directory (individual file removal errors are skipped).
-func EvictStaleCache(dir string, ttlDays int) (int, error) {
-	if ttlDays <= 0 || dir == "" {
+func EvictStaleCache(dir string, ttl time.Duration) (int, error) {
+	if ttl <= 0 || dir == "" {
 		return 0, nil
 	}
 
@@ -68,7 +68,7 @@ func EvictStaleCache(dir string, ttlDays int) (int, error) {
 		return 0, fmt.Errorf("list cache dir: %w", err)
 	}
 
-	cutoff := time.Now().AddDate(0, 0, -ttlDays)
+	cutoff := time.Now().Add(-ttl)
 	removed := 0
 	for _, entry := range entries {
 		if entry.IsDir() {

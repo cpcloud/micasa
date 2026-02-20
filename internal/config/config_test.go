@@ -21,9 +21,13 @@ func writeConfig(t *testing.T, content string) string {
 	return path
 }
 
+func noConfig(t *testing.T) string {
+	t.Helper()
+	return filepath.Join(t.TempDir(), "nope.toml")
+}
+
 func TestDefaultsApplied(t *testing.T) {
-	// Point to a nonexistent file so no config is loaded.
-	cfg, err := LoadFromPath(filepath.Join(t.TempDir(), "nope.toml"))
+	cfg, err := LoadFromPath(noConfig(t))
 	require.NoError(t, err)
 	assert.Equal(t, DefaultBaseURL, cfg.LLM.BaseURL)
 	assert.Equal(t, DefaultModel, cfg.LLM.Model)
@@ -69,7 +73,7 @@ model = "from-file"
 func TestOllamaHostAppendsV1(t *testing.T) {
 	t.Setenv("OLLAMA_HOST", "http://myhost:11434")
 
-	cfg, err := LoadFromPath(filepath.Join(t.TempDir(), "nope.toml"))
+	cfg, err := LoadFromPath(noConfig(t))
 	require.NoError(t, err)
 	assert.Equal(t, "http://myhost:11434/v1", cfg.LLM.BaseURL)
 }
@@ -77,7 +81,7 @@ func TestOllamaHostAppendsV1(t *testing.T) {
 func TestOllamaHostAlreadyHasV1(t *testing.T) {
 	t.Setenv("OLLAMA_HOST", "http://myhost:11434/v1")
 
-	cfg, err := LoadFromPath(filepath.Join(t.TempDir(), "nope.toml"))
+	cfg, err := LoadFromPath(noConfig(t))
 	require.NoError(t, err)
 	assert.Equal(t, "http://myhost:11434/v1", cfg.LLM.BaseURL)
 }
@@ -97,6 +101,9 @@ func TestExampleTOML(t *testing.T) {
 	assert.Contains(t, example, "base_url")
 	assert.Contains(t, example, "model")
 	assert.Contains(t, example, "timeout")
+	assert.Contains(t, example, "[documents]")
+	assert.Contains(t, example, "max_file_size")
+	assert.Contains(t, example, "cache_ttl")
 }
 
 func TestMalformedConfigReturnsError(t *testing.T) {
@@ -107,26 +114,47 @@ func TestMalformedConfigReturnsError(t *testing.T) {
 	assert.Contains(t, err.Error(), "parse")
 }
 
+// --- MaxFileSize ---
+
 func TestDefaultMaxDocumentSize(t *testing.T) {
-	cfg, err := LoadFromPath(filepath.Join(t.TempDir(), "nope.toml"))
+	cfg, err := LoadFromPath(noConfig(t))
 	require.NoError(t, err)
-	assert.Equal(t, data.MaxDocumentSize, cfg.Documents.MaxFileSize)
+	assert.Equal(t, data.MaxDocumentSize, cfg.Documents.MaxFileSize.Bytes())
 }
 
-func TestMaxDocumentSizeFromFile(t *testing.T) {
-	path := writeConfig(t, `[documents]
-max_file_size = 1048576
-`)
+func TestMaxDocumentSizeFromFileInteger(t *testing.T) {
+	path := writeConfig(t, "[documents]\nmax_file_size = 1048576\n")
 	cfg, err := LoadFromPath(path)
 	require.NoError(t, err)
-	assert.Equal(t, uint64(1048576), cfg.Documents.MaxFileSize)
+	assert.Equal(t, int64(1048576), cfg.Documents.MaxFileSize.Bytes())
 }
 
-func TestMaxDocumentSizeEnvOverride(t *testing.T) {
-	t.Setenv("MICASA_MAX_DOCUMENT_SIZE", "2097152")
-	cfg, err := LoadFromPath(filepath.Join(t.TempDir(), "nope.toml"))
+func TestMaxDocumentSizeFromFileString(t *testing.T) {
+	path := writeConfig(t, "[documents]\nmax_file_size = \"10 MiB\"\n")
+	cfg, err := LoadFromPath(path)
 	require.NoError(t, err)
-	assert.Equal(t, uint64(2097152), cfg.Documents.MaxFileSize)
+	assert.Equal(t, int64(10<<20), cfg.Documents.MaxFileSize.Bytes())
+}
+
+func TestMaxDocumentSizeFromFileFractional(t *testing.T) {
+	path := writeConfig(t, "[documents]\nmax_file_size = "1.5 GiB"\n")
+	cfg, err := LoadFromPath(path)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1.5*(1<<30)), cfg.Documents.MaxFileSize.Bytes())
+}
+
+func TestMaxDocumentSizeEnvOverrideInteger(t *testing.T) {
+	t.Setenv("MICASA_MAX_DOCUMENT_SIZE", "2097152")
+	cfg, err := LoadFromPath(noConfig(t))
+	require.NoError(t, err)
+	assert.Equal(t, int64(2097152), cfg.Documents.MaxFileSize.Bytes())
+}
+
+func TestMaxDocumentSizeEnvOverrideUnitized(t *testing.T) {
+	t.Setenv("MICASA_MAX_DOCUMENT_SIZE", "100 MiB")
+	cfg, err := LoadFromPath(noConfig(t))
+	require.NoError(t, err)
+	assert.Equal(t, int64(100<<20), cfg.Documents.MaxFileSize.Bytes())
 }
 
 func TestMaxDocumentSizeRejectsZero(t *testing.T) {
@@ -136,31 +164,84 @@ func TestMaxDocumentSizeRejectsZero(t *testing.T) {
 	assert.Contains(t, err.Error(), "must be positive")
 }
 
-func TestDefaultCacheTTLDays(t *testing.T) {
-	cfg, err := LoadFromPath(filepath.Join(t.TempDir(), "nope.toml"))
+// --- CacheTTL ---
+
+func TestDefaultCacheTTL(t *testing.T) {
+	cfg, err := LoadFromPath(noConfig(t))
 	require.NoError(t, err)
-	assert.Equal(t, DefaultCacheTTLDays, cfg.Documents.CacheTTLDays)
+	assert.Equal(t, DefaultCacheTTL, cfg.Documents.CacheTTLDuration())
 }
 
-func TestCacheTTLDaysFromFile(t *testing.T) {
+func TestCacheTTLFromFileString(t *testing.T) {
+	path := writeConfig(t, "[documents]\ncache_ttl = \"7d\"\n")
+	cfg, err := LoadFromPath(path)
+	require.NoError(t, err)
+	assert.Equal(t, 7*24*time.Hour, cfg.Documents.CacheTTLDuration())
+}
+
+func TestCacheTTLFromFileGoDuration(t *testing.T) {
+	path := writeConfig(t, "[documents]\ncache_ttl = \"168h\"\n")
+	cfg, err := LoadFromPath(path)
+	require.NoError(t, err)
+	assert.Equal(t, 168*time.Hour, cfg.Documents.CacheTTLDuration())
+}
+
+func TestCacheTTLFromFileInteger(t *testing.T) {
+	path := writeConfig(t, "[documents]\ncache_ttl = 3600\n")
+	cfg, err := LoadFromPath(path)
+	require.NoError(t, err)
+	assert.Equal(t, time.Hour, cfg.Documents.CacheTTLDuration())
+}
+
+func TestCacheTTLZeroDisables(t *testing.T) {
+	path := writeConfig(t, "[documents]\ncache_ttl = \"0s\"\n")
+	cfg, err := LoadFromPath(path)
+	require.NoError(t, err)
+	assert.Equal(t, time.Duration(0), cfg.Documents.CacheTTLDuration())
+}
+
+func TestCacheTTLEnvOverride(t *testing.T) {
+	t.Setenv("MICASA_CACHE_TTL", "14d")
+	cfg, err := LoadFromPath(noConfig(t))
+	require.NoError(t, err)
+	assert.Equal(t, 14*24*time.Hour, cfg.Documents.CacheTTLDuration())
+}
+
+func TestCacheTTLEnvOverrideSeconds(t *testing.T) {
+	t.Setenv("MICASA_CACHE_TTL", "86400")
+	cfg, err := LoadFromPath(noConfig(t))
+	require.NoError(t, err)
+	assert.Equal(t, 24*time.Hour, cfg.Documents.CacheTTLDuration())
+}
+
+func TestCacheTTLRejectsNegative(t *testing.T) {
+	path := writeConfig(t, "[documents]\ncache_ttl = \"-1s\"\n")
+	_, err := LoadFromPath(path)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must be non-negative")
+}
+
+// --- CacheTTLDays (deprecated) ---
+
+func TestCacheTTLDaysStillWorks(t *testing.T) {
 	path := writeConfig(t, "[documents]\ncache_ttl_days = 7\n")
 	cfg, err := LoadFromPath(path)
 	require.NoError(t, err)
-	assert.Equal(t, 7, cfg.Documents.CacheTTLDays)
+	assert.Equal(t, 7*24*time.Hour, cfg.Documents.CacheTTLDuration())
 }
 
 func TestCacheTTLDaysZeroDisables(t *testing.T) {
 	path := writeConfig(t, "[documents]\ncache_ttl_days = 0\n")
 	cfg, err := LoadFromPath(path)
 	require.NoError(t, err)
-	assert.Equal(t, 0, cfg.Documents.CacheTTLDays)
+	assert.Equal(t, time.Duration(0), cfg.Documents.CacheTTLDuration())
 }
 
 func TestCacheTTLDaysEnvOverride(t *testing.T) {
 	t.Setenv("MICASA_CACHE_TTL_DAYS", "14")
-	cfg, err := LoadFromPath(filepath.Join(t.TempDir(), "nope.toml"))
+	cfg, err := LoadFromPath(noConfig(t))
 	require.NoError(t, err)
-	assert.Equal(t, 14, cfg.Documents.CacheTTLDays)
+	assert.Equal(t, 14*24*time.Hour, cfg.Documents.CacheTTLDuration())
 }
 
 func TestCacheTTLDaysRejectsNegative(t *testing.T) {
@@ -170,9 +251,26 @@ func TestCacheTTLDaysRejectsNegative(t *testing.T) {
 	assert.Contains(t, err.Error(), "must be non-negative")
 }
 
+func TestCacheTTLAndCacheTTLDaysBothSetFails(t *testing.T) {
+	path := writeConfig(t, "[documents]\ncache_ttl = \"30d\"\ncache_ttl_days = 30\n")
+	_, err := LoadFromPath(path)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot both be set")
+}
+
+func TestCacheTTLAndCacheTTLDaysEnvBothSetFails(t *testing.T) {
+	t.Setenv("MICASA_CACHE_TTL", "30d")
+	t.Setenv("MICASA_CACHE_TTL_DAYS", "30")
+	_, err := LoadFromPath(noConfig(t))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot both be set")
+}
+
+// --- LLM Timeout ---
+
 func TestLLMTimeout(t *testing.T) {
 	t.Run("default", func(t *testing.T) {
-		cfg, err := LoadFromPath(filepath.Join(t.TempDir(), "nope.toml"))
+		cfg, err := LoadFromPath(noConfig(t))
 		require.NoError(t, err)
 		assert.Equal(t, DefaultLLMTimeout, cfg.LLM.TimeoutDuration())
 	})
@@ -193,7 +291,7 @@ func TestLLMTimeout(t *testing.T) {
 
 	t.Run("env override", func(t *testing.T) {
 		t.Setenv("MICASA_LLM_TIMEOUT", "15s")
-		cfg, err := LoadFromPath(filepath.Join(t.TempDir(), "nope.toml"))
+		cfg, err := LoadFromPath(noConfig(t))
 		require.NoError(t, err)
 		assert.Equal(t, 15*time.Second, cfg.LLM.TimeoutDuration())
 	})

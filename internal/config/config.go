@@ -5,6 +5,7 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -60,22 +61,38 @@ func (l LLM) TimeoutDuration() time.Duration {
 
 // Documents holds settings for document attachments.
 type Documents struct {
-	// MaxFileSize is the largest file (in bytes) that can be imported as a
-	// document attachment. Default: 50 MiB.
-	MaxFileSize uint64 `toml:"max_file_size"`
+	// MaxFileSize is the largest file that can be imported as a document
+	// attachment. Accepts unitized strings ("50 MiB") or bare integers
+	// (bytes). Default: 50 MiB.
+	MaxFileSize ByteSize `toml:"max_file_size"`
 
-	// CacheTTLDays is the number of days an extracted document cache entry
-	// is kept before being evicted on the next startup. Set to 0 to disable
-	// eviction. Default: 30.
-	CacheTTLDays int `toml:"cache_ttl_days"`
+	// CacheTTL is the preferred cache lifetime setting. Accepts unitized
+	// strings ("30d", "720h") or bare integers (seconds). Default: 30d.
+	CacheTTL *Duration `toml:"cache_ttl,omitempty"`
+
+	// CacheTTLDays is deprecated; use CacheTTL instead. Kept for backward
+	// compatibility. Bare integer interpreted as days.
+	CacheTTLDays *int `toml:"cache_ttl_days,omitempty"`
+}
+
+// CacheTTLDuration returns the resolved cache TTL as a time.Duration.
+// CacheTTL takes precedence over CacheTTLDays. Returns 0 to disable.
+func (d Documents) CacheTTLDuration() time.Duration {
+	if d.CacheTTL != nil {
+		return d.CacheTTL.Duration
+	}
+	if d.CacheTTLDays != nil {
+		return time.Duration(*d.CacheTTLDays) * 24 * time.Hour
+	}
+	return DefaultCacheTTL
 }
 
 const (
-	DefaultBaseURL      = "http://localhost:11434/v1"
-	DefaultModel        = "qwen3"
-	DefaultLLMTimeout   = 5 * time.Second
-	DefaultCacheTTLDays = 30
-	configRelPath       = "micasa/config.toml"
+	DefaultBaseURL    = "http://localhost:11434/v1"
+	DefaultModel      = "qwen3"
+	DefaultLLMTimeout = 5 * time.Second
+	DefaultCacheTTL   = 30 * 24 * time.Hour // 30 days
+	configRelPath     = "micasa/config.toml"
 )
 
 // defaults returns a Config with all default values populated.
@@ -87,8 +104,7 @@ func defaults() Config {
 			Timeout: DefaultLLMTimeout.String(),
 		},
 		Documents: Documents{
-			MaxFileSize:  data.MaxDocumentSize,
-			CacheTTLDays: DefaultCacheTTLDays,
+			MaxFileSize: ByteSize(data.MaxDocumentSize),
 		},
 	}
 }
@@ -141,10 +157,30 @@ func LoadFromPath(path string) (Config, error) {
 		)
 	}
 
-	if cfg.Documents.CacheTTLDays < 0 {
+	if cfg.Documents.CacheTTL != nil && cfg.Documents.CacheTTLDays != nil {
 		return cfg, fmt.Errorf(
-			"documents.cache_ttl_days must be non-negative, got %d",
-			cfg.Documents.CacheTTLDays,
+			"documents.cache_ttl and documents.cache_ttl_days cannot both be set -- " +
+				"remove cache_ttl_days (deprecated) and use cache_ttl instead",
+		)
+	}
+
+	if cfg.Documents.CacheTTLDays != nil {
+		log.Printf(
+			"warning: documents.cache_ttl_days is deprecated -- " +
+				"use documents.cache_ttl (e.g. \"30d\") instead",
+		)
+		if *cfg.Documents.CacheTTLDays < 0 {
+			return cfg, fmt.Errorf(
+				"documents.cache_ttl_days must be non-negative, got %d",
+				*cfg.Documents.CacheTTLDays,
+			)
+		}
+	}
+
+	if cfg.Documents.CacheTTL != nil && cfg.Documents.CacheTTL.Duration < 0 {
+		return cfg, fmt.Errorf(
+			"documents.cache_ttl must be non-negative, got %s",
+			cfg.Documents.CacheTTL.Duration,
 		)
 	}
 
@@ -169,13 +205,19 @@ func applyEnvOverrides(cfg *Config) {
 		cfg.LLM.Timeout = timeout
 	}
 	if maxSize := os.Getenv("MICASA_MAX_DOCUMENT_SIZE"); maxSize != "" {
-		if n, err := strconv.ParseUint(maxSize, 10, 64); err == nil {
-			cfg.Documents.MaxFileSize = n
+		if parsed, err := ParseByteSize(maxSize); err == nil {
+			cfg.Documents.MaxFileSize = parsed
+		}
+	}
+	if ttl := os.Getenv("MICASA_CACHE_TTL"); ttl != "" {
+		if parsed, err := ParseDuration(ttl); err == nil {
+			d := Duration{parsed}
+			cfg.Documents.CacheTTL = &d
 		}
 	}
 	if ttl := os.Getenv("MICASA_CACHE_TTL_DAYS"); ttl != "" {
 		if n, err := strconv.Atoi(ttl); err == nil {
-			cfg.Documents.CacheTTLDays = n
+			cfg.Documents.CacheTTLDays = &n
 		}
 	}
 }
@@ -206,11 +248,13 @@ model = "` + DefaultModel + `"
 # timeout = "5s"
 
 [documents]
-# Maximum file size (in bytes) for document imports. Default: 50 MiB.
-# max_file_size = 52428800
+# Maximum file size for document imports. Accepts unitized strings or bare
+# integers (bytes). Default: 50 MiB.
+# max_file_size = "50 MiB"
 
-# Days to keep extracted document cache entries before evicting on startup.
-# Set to 0 to disable eviction. Default: 30.
-# cache_ttl_days = 30
+# How long to keep extracted document cache entries before evicting on startup.
+# Accepts "30d", "720h", or bare integers (seconds). Set to "0s" to disable.
+# Default: 30d.
+# cache_ttl = "30d"
 `
 }

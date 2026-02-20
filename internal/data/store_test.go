@@ -2069,7 +2069,7 @@ func TestEvictStaleCacheRemovesOldFiles(t *testing.T) {
 	old := time.Now().AddDate(0, 0, -40)
 	require.NoError(t, os.Chtimes(stale, old, old))
 
-	removed, err := EvictStaleCache(dir, 30)
+	removed, err := EvictStaleCache(dir, 30*24*time.Hour)
 	require.NoError(t, err)
 	assert.Equal(t, 1, removed)
 
@@ -2079,7 +2079,7 @@ func TestEvictStaleCacheRemovesOldFiles(t *testing.T) {
 
 func TestEvictStaleCacheEmptyDir(t *testing.T) {
 	dir := t.TempDir()
-	removed, err := EvictStaleCache(dir, 30)
+	removed, err := EvictStaleCache(dir, 30*24*time.Hour)
 	require.NoError(t, err)
 	assert.Equal(t, 0, removed)
 }
@@ -2093,7 +2093,7 @@ func TestEvictStaleCacheSkipsSubdirectories(t *testing.T) {
 	old := time.Now().AddDate(0, 0, -40)
 	require.NoError(t, os.Chtimes(subdir, old, old))
 
-	removed, err := EvictStaleCache(dir, 30)
+	removed, err := EvictStaleCache(dir, 30*24*time.Hour)
 	require.NoError(t, err)
 	assert.Equal(t, 0, removed)
 	assert.DirExists(t, subdir)
@@ -2108,7 +2108,7 @@ func TestEvictStaleCacheRecentFileKept(t *testing.T) {
 	recent := time.Now().AddDate(0, 0, -29)
 	require.NoError(t, os.Chtimes(f, recent, recent))
 
-	removed, err := EvictStaleCache(dir, 30)
+	removed, err := EvictStaleCache(dir, 30*24*time.Hour)
 	require.NoError(t, err)
 	assert.Equal(t, 0, removed)
 	assert.FileExists(t, f)
@@ -2130,14 +2130,14 @@ func TestEvictStaleCacheZeroTTLDisabled(t *testing.T) {
 
 func TestEvictStaleCacheEmptyDirPath(t *testing.T) {
 	// Empty dir path should be a no-op, not read CWD.
-	removed, err := EvictStaleCache("", 30)
+	removed, err := EvictStaleCache("", 30*24*time.Hour)
 	require.NoError(t, err)
 	assert.Equal(t, 0, removed)
 }
 
 func TestEvictStaleCacheNonexistentDir(t *testing.T) {
 	// Missing cache dir should be a no-op, not a fatal error.
-	removed, err := EvictStaleCache(filepath.Join(t.TempDir(), "nope"), 30)
+	removed, err := EvictStaleCache(filepath.Join(t.TempDir(), "nope"), 30*24*time.Hour)
 	require.NoError(t, err)
 	assert.Equal(t, 0, removed)
 }

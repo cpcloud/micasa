@@ -59,6 +59,16 @@ cp "$(micasa --print-path)" backup.db             # backup the database
 
 ## Environment variables
 
+| Variable | Default | Config equivalent | Description |
+|----------|---------|-------------------|-------------|
+| `MICASA_DB_PATH` | [Platform default](#platform-data-directory) | -- | Database file path |
+| `OLLAMA_HOST` | `http://localhost:11434/v1` | `llm.base_url` | LLM API base URL |
+| `MICASA_LLM_MODEL` | `qwen3` | `llm.model` | LLM model name |
+| `MICASA_LLM_TIMEOUT` | `5s` | `llm.timeout` | LLM operation timeout |
+| `MICASA_MAX_DOCUMENT_SIZE` | `50 MiB` | `documents.max_file_size` | Max document import size |
+| `MICASA_CACHE_TTL` | `30d` | `documents.cache_ttl` | Document cache lifetime |
+| `MICASA_CACHE_TTL_DAYS` | -- | `documents.cache_ttl_days` | Deprecated; use `MICASA_CACHE_TTL` |
+
 ### `MICASA_DB_PATH`
 
 Sets the default database path when no positional argument is given. Equivalent
@@ -97,6 +107,32 @@ the config file value. Uses Go duration syntax:
 export MICASA_LLM_TIMEOUT=15s
 micasa   # waits up to 15s for LLM server responses
 ```
+
+### `MICASA_MAX_DOCUMENT_SIZE`
+
+Sets the maximum file size for document imports, overriding the config file
+value. Accepts unitized strings or bare integers (bytes). Must be positive:
+
+```sh
+export MICASA_MAX_DOCUMENT_SIZE="100 MiB"
+micasa   # allows documents up to 100 MiB
+```
+
+### `MICASA_CACHE_TTL`
+
+Sets the document cache lifetime, overriding the config file value. Accepts
+day-suffixed strings (`30d`), Go durations (`720h`), or bare integers
+(seconds). Set to `0` to disable eviction:
+
+```sh
+export MICASA_CACHE_TTL=7d
+micasa   # evicts cache entries older than 7 days
+```
+
+### `MICASA_CACHE_TTL_DAYS`
+
+Deprecated. Use `MICASA_CACHE_TTL` instead. Accepts a bare integer
+interpreted as days. Cannot be set alongside `MICASA_CACHE_TTL`.
 
 ### Platform data directory
 
@@ -161,6 +197,16 @@ model = "qwen3"
 # Go duration syntax: "5s", "10s", "500ms", etc. Default: "5s".
 # Increase if your LLM server is slow to respond.
 # timeout = "5s"
+
+[documents]
+# Maximum file size for document imports. Accepts unitized strings or bare
+# integers (bytes). Default: 50 MiB.
+# max_file_size = "50 MiB"
+
+# How long to keep extracted document cache entries before evicting on startup.
+# Accepts "30d", "720h", or bare integers (seconds). Set to "0s" to disable.
+# Default: 30d.
+# cache_ttl = "30d"
 ```
 
 ### `[llm]` section
@@ -171,6 +217,14 @@ model = "qwen3"
 | `model` | string | `qwen3` | Model identifier sent in chat requests. Must be available on the server. |
 | `extra_context` | string | (empty) | Free-form text appended to all LLM system prompts. Useful for telling the model about your house, preferred currency, or regional conventions. |
 | `timeout` | string | `"5s"` | Max wait time for quick LLM operations (ping, model listing). Go duration syntax, e.g. `"10s"`, `"500ms"`. Increase for slow servers. |
+
+### `[documents]` section
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `max_file_size` | string or integer | `"50 MiB"` | Maximum file size for document imports. Accepts unitized strings (`"50 MiB"`, `"1.5 GiB"`) or bare integers (bytes). Must be positive. |
+| `cache_ttl` | string or integer | `"30d"` | Cache lifetime for extracted documents. Accepts `"30d"`, `"720h"`, or bare integers (seconds). Set to `"0s"` to disable eviction. |
+| `cache_ttl_days` | integer | -- | Deprecated. Use `cache_ttl` instead. Bare integer interpreted as days. Cannot be set alongside `cache_ttl`. |
 
 ### Supported LLM backends
 
@@ -189,7 +243,7 @@ backend:
 Environment variables override config file values. The full precedence order
 (highest to lowest):
 
-1. `OLLAMA_HOST` / `MICASA_LLM_MODEL` / `MICASA_LLM_TIMEOUT` environment variables
+1. Environment variables (`OLLAMA_HOST`, `MICASA_LLM_MODEL`, `MICASA_LLM_TIMEOUT`, `MICASA_MAX_DOCUMENT_SIZE`, `MICASA_CACHE_TTL`)
 2. Config file values
 3. Built-in defaults
 

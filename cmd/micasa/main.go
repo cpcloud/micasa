@@ -110,14 +110,14 @@ func (cmd *runCmd) Run() error {
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
-	if err := store.SetMaxDocumentSize(cfg.Documents.MaxFileSize); err != nil {
+	if err := store.SetMaxDocumentSize(cfg.Documents.MaxFileSize.Bytes()); err != nil {
 		return fmt.Errorf("configure document size limit: %w", err)
 	}
 	cacheDir, err := data.DocumentCacheDir()
 	if err != nil {
 		return fmt.Errorf("resolve document cache directory: %w", err)
 	}
-	if _, err := data.EvictStaleCache(cacheDir, cfg.Documents.CacheTTLDays); err != nil {
+	if _, err := data.EvictStaleCache(cacheDir, cfg.Documents.CacheTTLDuration()); err != nil {
 		return fmt.Errorf("evict stale cache: %w", err)
 	}
 
