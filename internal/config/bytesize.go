@@ -32,7 +32,7 @@ func (b *ByteSize) UnmarshalTOML(v any) error {
 		if val < 0 {
 			return fmt.Errorf("max_file_size: must be non-negative, got %d", val)
 		}
-		*b = ByteSize(val) //nolint:gosec // guarded by val < 0 check above
+		*b = ByteSize(val)
 		return nil
 	case string:
 		parsed, err := ParseByteSize(val)
