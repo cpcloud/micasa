@@ -892,7 +892,7 @@ func documentRows(docs []data.Document) ([]table.Row, []rowMeta, [][]cell) {
 				{Value: d.Title, Kind: cellText},
 				{Value: documentEntityLabel(d.EntityKind, d.EntityID), Kind: cellReadonly},
 				{Value: d.MIMEType, Kind: cellText},
-				{Value: formatFileSize(d.SizeBytes), Kind: cellReadonly},
+				{Value: formatFileSize(docSizeBytes(d)), Kind: cellReadonly},
 				{Value: d.Notes, Kind: cellNotes},
 				{Value: d.UpdatedAt.Format(data.DateLayout), Kind: cellReadonly},
 			},
@@ -909,7 +909,7 @@ func entityDocumentRows(docs []data.Document) ([]table.Row, []rowMeta, [][]cell)
 				{Value: fmt.Sprintf("%d", d.ID), Kind: cellReadonly},
 				{Value: d.Title, Kind: cellText},
 				{Value: d.MIMEType, Kind: cellText},
-				{Value: formatFileSize(d.SizeBytes), Kind: cellReadonly},
+				{Value: formatFileSize(docSizeBytes(d)), Kind: cellReadonly},
 				{Value: d.Notes, Kind: cellNotes},
 				{Value: d.UpdatedAt.Format(data.DateLayout), Kind: cellReadonly},
 			},
@@ -925,20 +925,14 @@ func documentEntityLabel(kind string, id uint) string {
 	return fmt.Sprintf("%s #%d", kind, id)
 }
 
-// formatFileSize returns a human-readable file size string for int64 values
-// (e.g. Document.SizeBytes, os.FileInfo.Size()).
-func formatFileSize(bytes int64) string {
-	if bytes <= 0 {
-		return ""
-	}
-	return formatFileSizeUint64(uint64(bytes)) //nolint:gosec // non-negative checked above
+// docSizeBytes returns d.SizeBytes as uint64. The DB column is int64 but
+// values are always non-negative since they come from os.FileInfo.Size().
+func docSizeBytes(d data.Document) uint64 {
+	return uint64(max(d.SizeBytes, 0)) //nolint:gosec // clamped to non-negative
 }
 
-// formatFileSizeUint64 returns a human-readable file size string.
-func formatFileSizeUint64(bytes uint64) string {
-	if bytes == 0 {
-		return ""
-	}
+// formatFileSize returns a human-readable file size string.
+func formatFileSize(bytes uint64) string {
 	const (
 		kB = 1024
 		mB = kB * 1024

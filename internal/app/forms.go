@@ -2218,11 +2218,17 @@ func (m *Model) parseDocumentFormData() (data.Document, error) {
 			return data.Document{}, fmt.Errorf("stat file: %w", err)
 		}
 		maxSize := m.store.MaxDocumentSize()
-		if info.Size() < 0 ||
-			uint64(info.Size()) > maxSize { //nolint:gosec // negative checked first
+		fileSize := info.Size()
+		if fileSize < 0 {
+			return data.Document{}, fmt.Errorf("file has invalid size %d", fileSize)
+		}
+		if uint64(fileSize) > maxSize { //nolint:gosec // negative ruled out above
 			return data.Document{}, fmt.Errorf(
 				"file is too large (%s) -- maximum allowed is %s",
-				formatFileSize(info.Size()), formatFileSizeUint64(maxSize),
+				formatFileSize(
+					uint64(fileSize),
+				),
+				formatFileSize(maxSize), //nolint:gosec // negative ruled out above
 			)
 		}
 		fileData, err := os.ReadFile(path)

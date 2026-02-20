@@ -220,7 +220,7 @@ func TestEntityDocumentRows(t *testing.T) {
 }
 
 func TestFormatFileSize(t *testing.T) {
-	assert.Empty(t, formatFileSize(0))
+	assert.Equal(t, "0 B", formatFileSize(0))
 	assert.Equal(t, "512 B", formatFileSize(512))
 	assert.Equal(t, "1.0 KB", formatFileSize(1024))
 	assert.Equal(t, "1.5 KB", formatFileSize(1536))
