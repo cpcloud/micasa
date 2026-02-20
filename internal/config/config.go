@@ -152,9 +152,7 @@ func LoadFromPath(path string) (Config, error) {
 	}
 
 	if cfg.Documents.MaxFileSize == 0 {
-		return cfg, fmt.Errorf(
-			"documents.max_file_size must be positive, got 0",
-		)
+		return cfg, fmt.Errorf("documents.max_file_size must be positive")
 	}
 
 	if cfg.Documents.CacheTTL != nil && cfg.Documents.CacheTTLDays != nil {
