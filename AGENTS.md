@@ -355,6 +355,10 @@ These have been repeatedly requested. Violating them wastes the user's time.
   use bare `t.Fatal`, `t.Fatalf`, `t.Error`, or `t.Errorf` for
   assertions — strong justification is needed to deviate from this
   pattern.
+- **Test every error path**: When writing a function that can fail
+  (returns an error, clamps a value, rejects input), you must write at
+  least one test that exercises that failure path. Untested error paths
+  are dead code waiting to break silently.
 - **OSV scanner findings are blockers**: Use `/fix-osv-finding` to
   remediate. Never dismiss scanner output without analyzing reachability.
 - **Record every user request as a GitHub issue**: Use `/create-issue`
