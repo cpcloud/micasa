@@ -164,6 +164,12 @@ func TestMaxDocumentSizeRejectsZero(t *testing.T) {
 	assert.Contains(t, err.Error(), "must be positive")
 }
 
+func TestMaxDocumentSizeRejectsNegative(t *testing.T) {
+	path := writeConfig(t, "[documents]\nmax_file_size = -1\n")
+	_, err := LoadFromPath(path)
+	require.Error(t, err)
+}
+
 // --- CacheTTL ---
 
 func TestDefaultCacheTTL(t *testing.T) {
