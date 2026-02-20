@@ -87,9 +87,9 @@ func TestByteSizeString(t *testing.T) {
 		size ByteSize
 		want string
 	}{
-		{ByteSize(1 << 30), "1 GiB"},
+		{ByteSize(1 << 30), "1.0 GiB"},
 		{ByteSize(50 << 20), "50 MiB"},
-		{ByteSize(1 << 10), "1 KiB"},
+		{ByteSize(1 << 10), "1.0 KiB"},
 		{ByteSize(500), "500 B"},
 	}
 	for _, tt := range tests {
