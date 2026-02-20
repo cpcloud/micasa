@@ -925,8 +925,17 @@ func documentEntityLabel(kind string, id uint) string {
 	return fmt.Sprintf("%s #%d", kind, id)
 }
 
-// formatFileSize returns a human-readable file size string.
+// formatFileSize returns a human-readable file size string for int64 values
+// (e.g. Document.SizeBytes, os.FileInfo.Size()).
 func formatFileSize(bytes int64) string {
+	if bytes <= 0 {
+		return ""
+	}
+	return formatFileSizeUint64(uint64(bytes)) //nolint:gosec // non-negative checked above
+}
+
+// formatFileSizeUint64 returns a human-readable file size string.
+func formatFileSizeUint64(bytes uint64) string {
 	if bytes == 0 {
 		return ""
 	}

@@ -119,25 +119,21 @@ max_file_size = 1048576
 `)
 	cfg, err := LoadFromPath(path)
 	require.NoError(t, err)
-	assert.Equal(t, int64(1048576), cfg.Documents.MaxFileSize)
+	assert.Equal(t, uint64(1048576), cfg.Documents.MaxFileSize)
 }
 
 func TestMaxDocumentSizeEnvOverride(t *testing.T) {
 	t.Setenv("MICASA_MAX_DOCUMENT_SIZE", "2097152")
 	cfg, err := LoadFromPath(filepath.Join(t.TempDir(), "nope.toml"))
 	require.NoError(t, err)
-	assert.Equal(t, int64(2097152), cfg.Documents.MaxFileSize)
+	assert.Equal(t, uint64(2097152), cfg.Documents.MaxFileSize)
 }
 
-func TestMaxDocumentSizeRejectsInvalid(t *testing.T) {
-	for _, val := range []string{"-1", "0"} {
-		t.Run(val, func(t *testing.T) {
-			path := writeConfig(t, "[documents]\nmax_file_size = "+val+"\n")
-			_, err := LoadFromPath(path)
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), "must be positive")
-		})
-	}
+func TestMaxDocumentSizeRejectsZero(t *testing.T) {
+	path := writeConfig(t, "[documents]\nmax_file_size = 0\n")
+	_, err := LoadFromPath(path)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must be positive")
 }
 
 func TestDefaultCacheTTLDays(t *testing.T) {

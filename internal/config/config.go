@@ -62,7 +62,7 @@ func (l LLM) TimeoutDuration() time.Duration {
 type Documents struct {
 	// MaxFileSize is the largest file (in bytes) that can be imported as a
 	// document attachment. Default: 50 MiB.
-	MaxFileSize int64 `toml:"max_file_size"`
+	MaxFileSize uint64 `toml:"max_file_size"`
 
 	// CacheTTLDays is the number of days an extracted document cache entry
 	// is kept before being evicted on the next startup. Set to 0 to disable
@@ -135,10 +135,9 @@ func LoadFromPath(path string) (Config, error) {
 		}
 	}
 
-	if cfg.Documents.MaxFileSize <= 0 {
+	if cfg.Documents.MaxFileSize == 0 {
 		return cfg, fmt.Errorf(
-			"documents.max_file_size must be positive, got %d",
-			cfg.Documents.MaxFileSize,
+			"documents.max_file_size must be positive, got 0",
 		)
 	}
 
@@ -170,7 +169,7 @@ func applyEnvOverrides(cfg *Config) {
 		cfg.LLM.Timeout = timeout
 	}
 	if maxSize := os.Getenv("MICASA_MAX_DOCUMENT_SIZE"); maxSize != "" {
-		if n, err := strconv.ParseInt(maxSize, 10, 64); err == nil {
+		if n, err := strconv.ParseUint(maxSize, 10, 64); err == nil {
 			cfg.Documents.MaxFileSize = n
 		}
 	}

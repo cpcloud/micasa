@@ -23,7 +23,7 @@ import (
 
 type Store struct {
 	db              *gorm.DB
-	maxDocumentSize int64
+	maxDocumentSize uint64
 }
 
 func Open(path string) (*Store, error) {
@@ -48,15 +48,15 @@ func Open(path string) (*Store, error) {
 }
 
 // MaxDocumentSize returns the configured maximum file size for document imports.
-func (s *Store) MaxDocumentSize() int64 {
+func (s *Store) MaxDocumentSize() uint64 {
 	return s.maxDocumentSize
 }
 
 // SetMaxDocumentSize overrides the maximum allowed file size for document
-// imports. The value must be positive; invalid values are rejected.
-func (s *Store) SetMaxDocumentSize(n int64) error {
-	if n <= 0 {
-		return fmt.Errorf("max document size must be positive, got %d", n)
+// imports. The value must be positive; zero is rejected.
+func (s *Store) SetMaxDocumentSize(n uint64) error {
+	if n == 0 {
+		return fmt.Errorf("max document size must be positive, got 0")
 	}
 	s.maxDocumentSize = n
 	return nil
@@ -985,22 +985,20 @@ func (s *Store) GetDocument(id uint) (Document, error) {
 }
 
 func (s *Store) CreateDocument(doc *Document) error {
-	if doc.SizeBytes > s.maxDocumentSize {
+	if doc.SizeBytes > 0 &&
+		uint64(doc.SizeBytes) > s.maxDocumentSize { //nolint:gosec // SizeBytes is non-negative here
 		return fmt.Errorf(
 			"file is too large (%s) -- maximum allowed is %s",
-			formatBytes(doc.SizeBytes), formatBytes(s.maxDocumentSize),
+			formatBytes(uint64(doc.SizeBytes)), //nolint:gosec // SizeBytes checked positive above
+			formatBytes(s.maxDocumentSize),
 		)
 	}
 	return s.db.Create(doc).Error
 }
 
-// formatBytes renders a byte count as a human-readable IEC string (KiB,
-// MiB, etc.). Negative values are clamped to zero.
-func formatBytes(n int64) string {
-	if n < 0 {
-		n = 0
-	}
-	return humanize.IBytes(uint64(n)) //nolint:gosec // clamped above
+// formatBytes renders a byte count as a human-readable IEC string (KiB, MiB, etc.).
+func formatBytes(n uint64) string {
+	return humanize.IBytes(n)
 }
 
 // UpdateDocument persists changes to a document. Entity linkage (EntityID,
