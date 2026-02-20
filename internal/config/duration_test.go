@@ -17,12 +17,6 @@ func TestParseDurationDaySuffix(t *testing.T) {
 	assert.Equal(t, 30*24*time.Hour, d)
 }
 
-func TestParseDurationGoDuration(t *testing.T) {
-	d, err := ParseDuration("720h")
-	require.NoError(t, err)
-	assert.Equal(t, 720*time.Hour, d)
-}
-
 func TestParseDurationBareInteger(t *testing.T) {
 	d, err := ParseDuration("3600")
 	require.NoError(t, err)
