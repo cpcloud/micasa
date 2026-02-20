@@ -81,6 +81,8 @@ in
         X11Forwarding no
         PermitTunnel no
         PermitUserEnvironment no
+        PasswordAuthentication no
+        KbdInteractiveAuthentication no
         PermitTTY yes
     '';
   };
