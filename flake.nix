@@ -383,18 +383,25 @@
           };
         };
 
-        apps = {
-          default = flake-utils.lib.mkApp { drv = micasa; };
-          website = flake-utils.lib.mkApp { drv = self.packages.${system}.website; };
-          record-tape = flake-utils.lib.mkApp { drv = self.packages.${system}.record-tape; };
-          record-demo = flake-utils.lib.mkApp { drv = self.packages.${system}.record-demo; };
-          docs = flake-utils.lib.mkApp { drv = self.packages.${system}.docs; };
-          capture-one = flake-utils.lib.mkApp { drv = self.packages.${system}.capture-one; };
-          capture-screenshots = flake-utils.lib.mkApp { drv = self.packages.${system}.capture-screenshots; };
-          record-animated = flake-utils.lib.mkApp { drv = self.packages.${system}.record-animated; };
-          deadcode = flake-utils.lib.mkApp { drv = self.packages.${system}.run-deadcode; };
-          osv-scanner = flake-utils.lib.mkApp { drv = self.packages.${system}.run-osv-scanner; };
-          pre-commit = flake-utils.lib.mkApp { drv = self.packages.${system}.run-pre-commit; };
+        apps =
+          let
+            app = drv: desc:
+              flake-utils.lib.mkApp { inherit drv; }
+              // { meta.description = desc; };
+            pkg = name: self.packages.${system}.${name};
+          in
+          {
+            default = app micasa "Terminal UI for home maintenance";
+            website = app (pkg "website") "Start local Hugo dev server";
+            record-tape = app (pkg "record-tape") "Record a VHS tape to WebP";
+            record-demo = app (pkg "record-demo") "Record the main demo tape";
+            docs = app (pkg "docs") "Build static documentation site";
+            capture-one = app (pkg "capture-one") "Capture a VHS tape screenshot";
+            capture-screenshots = app (pkg "capture-screenshots") "Capture all VHS screenshots in parallel";
+            record-animated = app (pkg "record-animated") "Record all animated demo tapes";
+            deadcode = app (pkg "run-deadcode") "Run whole-program dead code analysis";
+            osv-scanner = app (pkg "run-osv-scanner") "Scan for known vulnerabilities";
+            pre-commit = app (pkg "run-pre-commit") "Run all pre-commit hooks";
         };
 
         formatter = pkgs.nixpkgs-fmt;
