@@ -5,7 +5,6 @@ package config
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -22,6 +21,10 @@ import (
 type Config struct {
 	LLM       LLM       `toml:"llm"`
 	Documents Documents `toml:"documents"`
+
+	// Warnings collects non-fatal messages (e.g. deprecations) during load.
+	// Not serialized; the caller decides how to display them.
+	Warnings []string `toml:"-"`
 }
 
 // LLM holds settings for the local LLM inference backend.
@@ -169,10 +172,10 @@ func LoadFromPath(path string) (Config, error) {
 			deprecated = "MICASA_CACHE_TTL_DAYS"
 			replacement = "MICASA_CACHE_TTL"
 		}
-		log.Printf(
-			"warning: %s is deprecated -- use %s (e.g. \"30d\") instead",
+		cfg.Warnings = append(cfg.Warnings, fmt.Sprintf(
+			"%s is deprecated -- use %s (e.g. \"30d\") instead",
 			deprecated, replacement,
-		)
+		))
 		if *cfg.Documents.CacheTTLDays < 0 {
 			return cfg, fmt.Errorf(
 				"documents.cache_ttl_days must be non-negative, got %d",
