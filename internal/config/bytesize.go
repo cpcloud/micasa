@@ -15,9 +15,8 @@ import (
 // like "50 MiB" or bare integers (interpreted as bytes).
 type ByteSize uint64
 
-// Bytes returns the size as int64 for compatibility with store APIs.
-// Values are validated at parse time to not exceed math.MaxInt64.
-func (b ByteSize) Bytes() int64 { return int64(b) } //nolint:gosec // overflow prevented by parse-time validation
+// Bytes returns the size as uint64.
+func (b ByteSize) Bytes() uint64 { return uint64(b) }
 
 // String returns a human-readable IEC representation (e.g. "50 MiB").
 func (b ByteSize) String() string {
