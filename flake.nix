@@ -55,7 +55,7 @@
 
           comment_prefix() {
             case "$1" in
-              *.go|go.mod)  echo "//" ;;
+              *.go|go.mod|*.js) echo "//" ;;
               *.nix|*.yml|*.yaml|*.sh|.envrc|.gitignore) echo "#" ;;
               *.md)         echo "md" ;;
               *)            echo "#" ;;
@@ -109,11 +109,16 @@
               settings.flags = "--base-formatter=${pkgs.gofumpt}/bin/gofumpt " + "--max-len=100";
             };
             golangci-lint.enable = true;
+            actionlint.enable = true;
+            statix.enable = true;
+            deadnix.enable = true;
+            biome.enable = true;
+            taplo.enable = true;
             license-header = {
               enable = true;
               name = "license-header";
               entry = "${licenseCheck}";
-              files = "\\.(go|nix|ya?ml|sh|md)$|^\\.envrc$|\\.gitignore$|^go\\.mod$";
+              files = "\\.(go|nix|ya?ml|sh|md|js)$|^\\.envrc$|\\.gitignore$|^go\\.mod$";
               excludes = ["LICENSE" "flake\\.lock" "go\\.sum" "\\.json$" "^docs/content/"];
               language = "system";
               pass_filenames = true;

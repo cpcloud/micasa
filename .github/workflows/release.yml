@@ -103,7 +103,7 @@ jobs:
       - name: Generate checksums
         run: |
           cd assets
-          sha256sum * > checksums.txt
+          sha256sum ./* > checksums.txt
 
       - name: Upload checksums
         env:
