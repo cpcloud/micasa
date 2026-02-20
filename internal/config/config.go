@@ -163,9 +163,15 @@ func LoadFromPath(path string) (Config, error) {
 	}
 
 	if cfg.Documents.CacheTTLDays != nil {
+		deprecated := "documents.cache_ttl_days"
+		replacement := "documents.cache_ttl"
+		if os.Getenv("MICASA_CACHE_TTL_DAYS") != "" {
+			deprecated = "MICASA_CACHE_TTL_DAYS"
+			replacement = "MICASA_CACHE_TTL"
+		}
 		log.Printf(
-			"warning: documents.cache_ttl_days is deprecated -- " +
-				"use documents.cache_ttl (e.g. \"30d\") instead",
+			"warning: %s is deprecated -- use %s (e.g. \"30d\") instead",
+			deprecated, replacement,
 		)
 		if *cfg.Documents.CacheTTLDays < 0 {
 			return cfg, fmt.Errorf(
