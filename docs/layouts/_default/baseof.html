@@ -34,6 +34,10 @@
   </nav>
 </div>
 
+<button class="search-hint" onclick="document.dispatchEvent(new KeyboardEvent('keydown',{key:'/'}))">
+  <kbd>/</kbd> search
+</button>
+
 <div class="search-overlay" id="search-overlay">
   <div class="search-modal" id="search-modal">
     <div id="search"></div>
@@ -74,20 +78,24 @@ document.addEventListener('click', function(e) {
   var overlay = document.getElementById('search-overlay');
   var modal = document.getElementById('search-modal');
   var initialized = false;
-  var input;
 
   function open() {
     if (!initialized) {
       new PagefindUI({ element: '#search', showSubResults: true, showImages: false });
-      input = document.querySelector('.pagefind-ui__search-input');
       initialized = true;
     }
+    overlay.classList.remove('closing');
     overlay.classList.add('open');
-    input.focus();
+    var el = document.querySelector('.pagefind-ui__search-input');
+    if (el) el.focus();
   }
 
   function close() {
-    overlay.classList.remove('open');
+    overlay.classList.add('closing');
+    modal.addEventListener('animationend', function handler() {
+      modal.removeEventListener('animationend', handler);
+      overlay.classList.remove('open', 'closing');
+    });
   }
 
   document.addEventListener('keydown', function(e) {

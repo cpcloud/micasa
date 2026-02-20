@@ -209,7 +209,7 @@
 
               _port=$((RANDOM % 10000 + 30000))
               printf 'http://localhost:%s\n' "$_port"
-              exec hugo server --source docs --buildDrafts --port "$_port" --bind 0.0.0.0 &>/dev/null
+              exec hugo server --source docs --buildDrafts --disableFastRender --noHTTPCache --port "$_port" --bind 0.0.0.0 &>/dev/null
             '';
           };
           # Records any VHS tape and converts the GIF output to WebP
