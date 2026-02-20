@@ -228,6 +228,21 @@ func TestFormatFileSize(t *testing.T) {
 	assert.Equal(t, "1.0 GB", formatFileSize(1024*1024*1024))
 }
 
+func TestDocSizeBytesClamsNegative(t *testing.T) {
+	d := data.Document{SizeBytes: -1}
+	assert.Equal(t, uint64(0), docSizeBytes(d))
+}
+
+func TestDocSizeBytesPassesPositive(t *testing.T) {
+	d := data.Document{SizeBytes: 4096}
+	assert.Equal(t, uint64(4096), docSizeBytes(d))
+}
+
+func TestDocSizeBytesZero(t *testing.T) {
+	d := data.Document{SizeBytes: 0}
+	assert.Equal(t, uint64(0), docSizeBytes(d))
+}
+
 func TestDocumentEntityLabel(t *testing.T) {
 	assert.Empty(t, documentEntityLabel("", 0))
 	assert.Equal(t, "project #5", documentEntityLabel("project", 5))
