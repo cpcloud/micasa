@@ -19,12 +19,34 @@ import (
 
 // Config is the top-level application configuration, loaded from a TOML file.
 type Config struct {
+	Database  Database  `toml:"database"`
 	LLM       LLM       `toml:"llm"`
 	Documents Documents `toml:"documents"`
 
 	// Warnings collects non-fatal messages (e.g. deprecations) during load.
 	// Not serialized; the caller decides how to display them.
 	Warnings []string `toml:"-"`
+}
+
+// Database holds SQLite connection-level settings.
+type Database struct {
+	// BusyTimeout controls how long SQLite waits before returning
+	// SQLITE_BUSY when another connection holds a lock.
+	// Go duration string, e.g. "5s", "10s", "500ms". Default: "5s".
+	BusyTimeout string `toml:"busy_timeout"`
+}
+
+// BusyTimeoutDuration returns the parsed busy timeout, falling back to
+// data.DefaultBusyTimeout if the value is empty or unparseable.
+func (d Database) BusyTimeoutDuration() time.Duration {
+	if d.BusyTimeout == "" {
+		return data.DefaultBusyTimeout
+	}
+	dur, err := time.ParseDuration(d.BusyTimeout)
+	if err != nil {
+		return data.DefaultBusyTimeout
+	}
+	return dur
 }
 
 // LLM holds settings for the local LLM inference backend.
@@ -101,6 +123,9 @@ const (
 // defaults returns a Config with all default values populated.
 func defaults() Config {
 	return Config{
+		Database: Database{
+			BusyTimeout: data.DefaultBusyTimeout.String(),
+		},
 		LLM: LLM{
 			BaseURL: DefaultBaseURL,
 			Model:   DefaultModel,
@@ -140,6 +165,22 @@ func LoadFromPath(path string) (Config, error) {
 
 	// Normalize: strip trailing slash from base URL.
 	cfg.LLM.BaseURL = strings.TrimRight(cfg.LLM.BaseURL, "/")
+
+	if cfg.Database.BusyTimeout != "" {
+		d, err := time.ParseDuration(cfg.Database.BusyTimeout)
+		if err != nil {
+			return cfg, fmt.Errorf(
+				"database.busy_timeout: invalid duration %q -- use Go syntax like \"5s\" or \"10s\"",
+				cfg.Database.BusyTimeout,
+			)
+		}
+		if d <= 0 {
+			return cfg, fmt.Errorf(
+				"database.busy_timeout must be positive, got %s",
+				cfg.Database.BusyTimeout,
+			)
+		}
+	}
 
 	if cfg.LLM.Timeout != "" {
 		d, err := time.ParseDuration(cfg.LLM.Timeout)
@@ -198,6 +239,9 @@ func LoadFromPath(path string) (Config, error) {
 // OLLAMA_HOST sets the base URL (with /v1 appended if missing).
 // MICASA_LLM_MODEL sets the model.
 func applyEnvOverrides(cfg *Config) {
+	if bt := os.Getenv("MICASA_BUSY_TIMEOUT"); bt != "" {
+		cfg.Database.BusyTimeout = bt
+	}
 	if host := os.Getenv("OLLAMA_HOST"); host != "" {
 		host = strings.TrimRight(host, "/")
 		if !strings.HasSuffix(host, "/v1") {
@@ -234,6 +278,12 @@ func applyEnvOverrides(cfg *Config) {
 func ExampleTOML() string {
 	return `# micasa configuration
 # Place this file at: ` + Path() + `
+
+[database]
+# How long SQLite waits before returning SQLITE_BUSY when another connection
+# holds a lock. Go duration syntax: "5s", "10s", "500ms", etc. Default: "5s".
+# Increase if you see "database is locked" errors on slow storage.
+# busy_timeout = "5s"
 
 [llm]
 # Base URL for an OpenAI-compatible API endpoint.

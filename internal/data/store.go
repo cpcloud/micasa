@@ -21,21 +21,47 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+// DefaultBusyTimeout is how long SQLite waits before returning SQLITE_BUSY
+// when another connection holds a lock.
+const DefaultBusyTimeout = 5 * time.Second
+
+// Option configures how the database is opened.
+type Option func(*openOptions)
+
+type openOptions struct {
+	busyTimeout time.Duration
+}
+
+// WithBusyTimeout sets the SQLite busy_timeout pragma. The value is truncated
+// to whole milliseconds. Zero or negative values are ignored (the default
+// applies).
+func WithBusyTimeout(d time.Duration) Option {
+	return func(o *openOptions) {
+		if d > 0 {
+			o.busyTimeout = d
+		}
+	}
+}
+
 type Store struct {
 	db              *gorm.DB
 	maxDocumentSize uint64
 }
 
-func Open(path string) (*Store, error) {
+func Open(path string, opts ...Option) (*Store, error) {
 	if err := ValidateDBPath(path); err != nil {
 		return nil, err
+	}
+	o := openOptions{busyTimeout: DefaultBusyTimeout}
+	for _, fn := range opts {
+		fn(&o)
 	}
 	db, err := gorm.Open(
 		sqlite.Open(path,
 			"PRAGMA foreign_keys = ON",
 			"PRAGMA journal_mode = WAL",
 			"PRAGMA synchronous = NORMAL",
-			"PRAGMA busy_timeout = 5000",
+			fmt.Sprintf("PRAGMA busy_timeout = %d", o.busyTimeout.Milliseconds()),
 		),
 		&gorm.Config{
 			Logger: logger.Default.LogMode(logger.Silent),

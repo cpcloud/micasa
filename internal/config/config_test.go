@@ -97,6 +97,8 @@ base_url = "http://localhost:11434/v1/"
 
 func TestExampleTOML(t *testing.T) {
 	example := ExampleTOML()
+	assert.Contains(t, example, "[database]")
+	assert.Contains(t, example, "busy_timeout")
 	assert.Contains(t, example, "[llm]")
 	assert.Contains(t, example, "base_url")
 	assert.Contains(t, example, "model")
@@ -315,6 +317,56 @@ func TestLLMTimeout(t *testing.T) {
 
 	t.Run("rejects negative", func(t *testing.T) {
 		path := writeConfig(t, "[llm]\ntimeout = \"-1s\"\n")
+		_, err := LoadFromPath(path)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "must be positive")
+	})
+}
+
+func TestBusyTimeout(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
+		cfg, err := LoadFromPath(noConfig(t))
+		require.NoError(t, err)
+		assert.Equal(t, data.DefaultBusyTimeout, cfg.Database.BusyTimeoutDuration())
+	})
+
+	t.Run("from file", func(t *testing.T) {
+		path := writeConfig(t, "[database]\nbusy_timeout = \"10s\"\n")
+		cfg, err := LoadFromPath(path)
+		require.NoError(t, err)
+		assert.Equal(t, 10*time.Second, cfg.Database.BusyTimeoutDuration())
+	})
+
+	t.Run("sub-second", func(t *testing.T) {
+		path := writeConfig(t, "[database]\nbusy_timeout = \"500ms\"\n")
+		cfg, err := LoadFromPath(path)
+		require.NoError(t, err)
+		assert.Equal(t, 500*time.Millisecond, cfg.Database.BusyTimeoutDuration())
+	})
+
+	t.Run("env override", func(t *testing.T) {
+		t.Setenv("MICASA_BUSY_TIMEOUT", "15s")
+		cfg, err := LoadFromPath(noConfig(t))
+		require.NoError(t, err)
+		assert.Equal(t, 15*time.Second, cfg.Database.BusyTimeoutDuration())
+	})
+
+	t.Run("rejects invalid", func(t *testing.T) {
+		path := writeConfig(t, "[database]\nbusy_timeout = \"not-a-duration\"\n")
+		_, err := LoadFromPath(path)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid duration")
+	})
+
+	t.Run("rejects negative", func(t *testing.T) {
+		path := writeConfig(t, "[database]\nbusy_timeout = \"-1s\"\n")
+		_, err := LoadFromPath(path)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "must be positive")
+	})
+
+	t.Run("rejects zero", func(t *testing.T) {
+		path := writeConfig(t, "[database]\nbusy_timeout = \"0s\"\n")
 		_, err := LoadFromPath(path)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "must be positive")

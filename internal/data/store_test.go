@@ -2353,3 +2353,51 @@ func TestRestoreDocumentBlockedByDeletedIncident(t *testing.T) {
 	require.NoError(t, store.RestoreIncident(incID))
 	require.NoError(t, store.RestoreDocument(docID))
 }
+
+func TestBusyTimeout(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "test.db")
+		store, err := Open(path)
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = store.Close() })
+
+		var timeout int
+		require.NoError(t, store.db.Raw("PRAGMA busy_timeout").Scan(&timeout).Error)
+		assert.Equal(t, int(DefaultBusyTimeout.Milliseconds()), timeout)
+	})
+
+	t.Run("custom", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "test.db")
+		store, err := Open(path, WithBusyTimeout(10*time.Second))
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = store.Close() })
+
+		var timeout int
+		require.NoError(t, store.db.Raw("PRAGMA busy_timeout").Scan(&timeout).Error)
+		assert.Equal(t, 10000, timeout)
+	})
+
+	t.Run("zero ignored", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "test.db")
+		store, err := Open(path, WithBusyTimeout(0))
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = store.Close() })
+
+		var timeout int
+		require.NoError(t, store.db.Raw("PRAGMA busy_timeout").Scan(&timeout).Error)
+		assert.Equal(t, int(DefaultBusyTimeout.Milliseconds()), timeout,
+			"zero should fall back to default")
+	})
+
+	t.Run("negative ignored", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "test.db")
+		store, err := Open(path, WithBusyTimeout(-1*time.Second))
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = store.Close() })
+
+		var timeout int
+		require.NoError(t, store.db.Raw("PRAGMA busy_timeout").Scan(&timeout).Error)
+		assert.Equal(t, int(DefaultBusyTimeout.Milliseconds()), timeout,
+			"negative should fall back to default")
+	})
+}

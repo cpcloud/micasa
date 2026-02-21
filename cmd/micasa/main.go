@@ -72,7 +72,12 @@ func (cmd *runCmd) Run() error {
 	if cmd.Years < 0 {
 		return fmt.Errorf("--years must be non-negative")
 	}
-	store, err := data.Open(dbPath)
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	store, err := data.Open(dbPath, data.WithBusyTimeout(cfg.Database.BusyTimeoutDuration()))
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
@@ -107,10 +112,6 @@ func (cmd *runCmd) Run() error {
 		}
 	}
 
-	cfg, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("load config: %w", err)
-	}
 	if len(cfg.Warnings) > 0 {
 		warnStyle := lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{
 			Light: "#B8860B", Dark: "#F0E442", // Wong yellow
@@ -188,7 +189,12 @@ func (cmd *backupCmd) Run() error {
 		)
 	}
 
-	store, err := data.Open(sourcePath)
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	store, err := data.Open(sourcePath, data.WithBusyTimeout(cfg.Database.BusyTimeoutDuration()))
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
