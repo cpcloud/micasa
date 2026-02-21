@@ -571,6 +571,10 @@ func (m *Model) handleNormalKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 	case "/":
 		m.openColumnFinder()
 		return nil, true
+	case "o":
+		if cmd := m.openSelectedDocument(); cmd != nil {
+			return cmd, true
+		}
 	case "i":
 		m.enterEditMode()
 		return nil, true
@@ -641,6 +645,12 @@ func (m *Model) handleNormalEnter() error {
 		return nil
 	}
 
+	// On the Documents tab, hint at the open-file shortcut.
+	if tab.Kind == tabDocuments {
+		m.setStatusInfo("Press o to open.")
+		return nil
+	}
+
 	m.setStatusInfo("Press i to edit.")
 	return nil
 }
@@ -672,11 +682,6 @@ func (m *Model) handleEditKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 			m.setStatusError(err.Error())
 		} else {
 			m.reloadAfterMutation()
-		}
-		return nil, true
-	case "o":
-		if cmd := m.openSelectedDocument(); cmd != nil {
-			return cmd, true
 		}
 		return nil, true
 	case "x":

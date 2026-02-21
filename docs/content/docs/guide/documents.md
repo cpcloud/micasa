@@ -41,8 +41,8 @@ automatically linked to that record.
 - **Size limit**: 50 MB per file
 - **MIME detection**: automatic from file contents and extension
 - **Checksum**: SHA-256 hash stored for integrity
-- **Cache**: when you open a document (`enter` on the row), micasa extracts it
-  to the XDG cache directory and opens it with your OS viewer
+- **Cache**: when you open a document (`o`), micasa extracts it to the XDG
+  cache directory and opens it with your OS viewer
 
 ## Entity linking
 

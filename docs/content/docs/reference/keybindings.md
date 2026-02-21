@@ -67,6 +67,7 @@ Complete reference of every keybinding in micasa, organized by mode.
 | Key     | Action |
 |---------|--------|
 | `enter` | Drill into detail view, follow FK link, or preview notes |
+| `o`     | Open selected document with OS viewer (Docs tab only) |
 | `i`     | Enter Edit mode |
 | `@`     | Open LLM chat overlay |
 | `?`     | Open help overlay |
