@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -60,6 +61,26 @@ func (s *Store) SetMaxDocumentSize(n uint64) error {
 	}
 	s.maxDocumentSize = n
 	return nil
+}
+
+// ExpandHome replaces a leading "~" or "~/" with the current user's home
+// directory. Other forms like "~user/" are left as-is because os/user.Lookup
+// requires cgo on macOS.
+func ExpandHome(path string) string {
+	if !strings.HasPrefix(path, "~") {
+		return path
+	}
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return path
+	}
+	if path == "~" {
+		return home
+	}
+	if strings.HasPrefix(path, "~/") {
+		return filepath.Join(home, path[2:])
+	}
+	return path
 }
 
 // ValidateDBPath rejects paths that could be interpreted as URIs by the

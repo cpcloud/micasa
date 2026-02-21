@@ -146,7 +146,7 @@ func (cmd *runCmd) Run() error {
 
 func (cmd *runCmd) resolveDBPath() (string, error) {
 	if cmd.DBPath != "" {
-		return cmd.DBPath, nil
+		return data.ExpandHome(cmd.DBPath), nil
 	}
 	if cmd.Demo {
 		return ":memory:", nil
@@ -162,6 +162,8 @@ func (cmd *backupCmd) Run() error {
 		if err != nil {
 			return fmt.Errorf("resolve source path: %w", err)
 		}
+	} else {
+		sourcePath = data.ExpandHome(sourcePath)
 	}
 	if sourcePath == ":memory:" {
 		return fmt.Errorf("cannot back up an in-memory database")
@@ -176,6 +178,8 @@ func (cmd *backupCmd) Run() error {
 	destPath := cmd.Dest
 	if destPath == "" {
 		destPath = sourcePath + ".backup"
+	} else {
+		destPath = data.ExpandHome(destPath)
 	}
 
 	if err := data.ValidateDBPath(destPath); err != nil {

@@ -5,6 +5,8 @@ package data
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/brianvoe/gofakeit/v7"
@@ -82,6 +84,37 @@ func TestValidateDBPathRejectsRandomURLsWithQueryParams(t *testing.T) {
 			assert.Error(t, ValidateDBPath(u), "ValidateDBPath(%q) should reject", u)
 		})
 	}
+}
+
+func TestExpandHome(t *testing.T) {
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+
+	t.Run("tilde slash prefix", func(t *testing.T) {
+		assert.Equal(t, filepath.Join(home, "foo.pdf"), ExpandHome("~/foo.pdf"))
+	})
+	t.Run("nested path", func(t *testing.T) {
+		assert.Equal(
+			t,
+			filepath.Join(home, "docs", "invoice.pdf"),
+			ExpandHome("~/docs/invoice.pdf"),
+		)
+	})
+	t.Run("bare tilde", func(t *testing.T) {
+		assert.Equal(t, home, ExpandHome("~"))
+	})
+	t.Run("absolute path unchanged", func(t *testing.T) {
+		assert.Equal(t, "/tmp/foo.pdf", ExpandHome("/tmp/foo.pdf"))
+	})
+	t.Run("relative path unchanged", func(t *testing.T) {
+		assert.Equal(t, "foo.pdf", ExpandHome("foo.pdf"))
+	})
+	t.Run("empty string unchanged", func(t *testing.T) {
+		assert.Equal(t, "", ExpandHome(""))
+	})
+	t.Run("tilde other user unchanged", func(t *testing.T) {
+		assert.Equal(t, "~otheruser/foo", ExpandHome("~otheruser/foo"))
+	})
 }
 
 func TestOpenRejectsURIs(t *testing.T) {

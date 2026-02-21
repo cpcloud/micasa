@@ -2211,7 +2211,7 @@ func (m *Model) parseDocumentFormData() (data.Document, error) {
 		Notes:      strings.TrimSpace(values.Notes),
 	}
 	// Read file from path if provided (new document or file replacement).
-	path := filepath.Clean(expandHome(strings.TrimSpace(values.FilePath)))
+	path := filepath.Clean(data.ExpandHome(strings.TrimSpace(values.FilePath)))
 	if path != "" && path != "." {
 		info, err := os.Stat(path)
 		if err != nil {
@@ -2309,7 +2309,7 @@ func optionalFilePath() func(string) error {
 		if path == "" {
 			return nil
 		}
-		path = expandHome(path)
+		path = data.ExpandHome(path)
 		info, err := os.Stat(path)
 		if err != nil {
 			return fmt.Errorf("file not found: %s", path)
@@ -2319,24 +2319,4 @@ func optionalFilePath() func(string) error {
 		}
 		return nil
 	}
-}
-
-// expandHome replaces a leading "~" or "~/" with the current user's home
-// directory. Other forms like "~user/" are left as-is because os/user.Lookup
-// requires cgo on macOS.
-func expandHome(path string) string {
-	if !strings.HasPrefix(path, "~") {
-		return path
-	}
-	home, err := os.UserHomeDir()
-	if err != nil || home == "" {
-		return path
-	}
-	if path == "~" {
-		return home
-	}
-	if strings.HasPrefix(path, "~/") {
-		return filepath.Join(home, path[2:])
-	}
-	return path
 }
