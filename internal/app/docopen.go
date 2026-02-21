@@ -4,6 +4,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"os/exec"
 	"runtime"
@@ -47,10 +48,13 @@ func (m *Model) openSelectedDocument() tea.Cmd {
 func openFileCmd(path string) tea.Cmd {
 	return func() tea.Msg {
 		var cmd *exec.Cmd
+		var openerName string
 		switch runtime.GOOS {
 		case "darwin":
+			openerName = "open"
 			cmd = exec.Command("open", path) //nolint:gosec // path from trusted cache directory
 		case "windows":
+			openerName = "cmd"
 			cmd = exec.Command(
 				"cmd",
 				"/c",
@@ -59,8 +63,35 @@ func openFileCmd(path string) tea.Cmd {
 				path,
 			) //nolint:gosec // path from trusted cache directory
 		default:
+			openerName = "xdg-open"
 			cmd = exec.Command("xdg-open", path) //nolint:gosec // path from trusted cache directory
 		}
-		return openFileResultMsg{Err: cmd.Run()}
+		err := cmd.Run()
+		if err != nil {
+			err = wrapOpenerError(err, openerName)
+		}
+		return openFileResultMsg{Err: err}
+	}
+}
+
+// wrapOpenerError adds an actionable hint when the OS file-opener command
+// is missing or cannot be found.
+func wrapOpenerError(err error, openerName string) error {
+	if !errors.Is(err, exec.ErrNotFound) {
+		return err
+	}
+	switch openerName {
+	case "xdg-open":
+		return fmt.Errorf(
+			"%s not found -- install xdg-utils (e.g. apt install xdg-utils)",
+			openerName,
+		)
+	case "open":
+		return fmt.Errorf(
+			"%s not found -- expected on macOS; is this a headless environment?",
+			openerName,
+		)
+	default:
+		return fmt.Errorf("%s not found -- no file opener available", openerName)
 	}
 }

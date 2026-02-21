@@ -45,6 +45,8 @@ func (s *Store) ExtractDocument(id uint) (string, error) {
 		return cachePath, nil
 	}
 
+	// 0o600: owner read/write only. Windows ignores Unix permission bits;
+	// cached files there inherit the user's default ACL.
 	if err := os.WriteFile(cachePath, doc.Data, 0o600); err != nil {
 		return "", fmt.Errorf("write cached document: %w", err)
 	}
