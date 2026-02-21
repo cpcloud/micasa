@@ -914,6 +914,30 @@ var (
 			return a.Name, nil
 		},
 	}
+	maintenanceDocumentDef = detailDef{
+		tabKind:    tabMaintenance,
+		subName:    tabDocuments.String(),
+		specs:      entityDocumentColumnSpecs,
+		handler:    func(id uint) TabHandler { return newEntityDocumentHandler(data.DocumentEntityMaintenance, id) },
+		breadcrumb: stdBreadcrumb("Maintenance", tabDocuments.String()),
+		getName:    getMaintenanceName,
+	}
+	quoteDocumentDef = detailDef{
+		tabKind:    tabQuotes,
+		subName:    tabDocuments.String(),
+		specs:      entityDocumentColumnSpecs,
+		handler:    func(id uint) TabHandler { return newEntityDocumentHandler(data.DocumentEntityQuote, id) },
+		breadcrumb: stdBreadcrumb("Quotes", tabDocuments.String()),
+		getName:    getQuoteDisplayName,
+	}
+	vendorDocumentDef = detailDef{
+		tabKind:    tabVendors,
+		subName:    tabDocuments.String(),
+		specs:      entityDocumentColumnSpecs,
+		handler:    func(id uint) TabHandler { return newEntityDocumentHandler(data.DocumentEntityVendor, id) },
+		breadcrumb: stdBreadcrumb("Vendors", tabDocuments.String()),
+		getName:    getVendorName,
+	}
 )
 
 // Shared getName helpers for defs that resolve the same entity type.
@@ -939,6 +963,22 @@ func getProjectTitle(s *data.Store, id uint) (string, error) {
 		return "", fmt.Errorf("load project: %w", err)
 	}
 	return p.Title, nil
+}
+
+func getMaintenanceName(s *data.Store, id uint) (string, error) {
+	item, err := s.GetMaintenance(id)
+	if err != nil {
+		return "", fmt.Errorf("load maintenance item: %w", err)
+	}
+	return item.Name, nil
+}
+
+func getQuoteDisplayName(s *data.Store, id uint) (string, error) {
+	q, err := s.GetQuote(id)
+	if err != nil {
+		return "", fmt.Errorf("load quote: %w", err)
+	}
+	return fmt.Sprintf("%s #%d", q.Vendor.Name, q.ID), nil
 }
 
 // openDetailFromDef opens a drilldown using a detail definition.
@@ -987,21 +1027,46 @@ func (m *Model) openApplianceDocumentDetail(applianceID uint, applianceName stri
 }
 
 // detailRoute maps a (TabKind, colTitle) pair to a detailDef for dispatch.
+// When formKind is set (non-zero), the route only matches if the tab handler's
+// FormKind equals it. This disambiguates nested detail views that share a
+// parent tabKind but belong to different entity types (e.g. appliance
+// maintenance detail has tabKind=tabAppliances but formKind=formMaintenance).
 type detailRoute struct {
 	tabKinds []TabKind
 	colTitle string
 	def      detailDef
+	formKind FormKind
 }
 
 var detailRoutes = []detailRoute{
-	{[]TabKind{tabMaintenance, tabAppliances}, "Log", serviceLogDef},
-	{[]TabKind{tabAppliances}, "Maint", applianceMaintenanceDef},
-	{[]TabKind{tabVendors}, tabQuotes.String(), vendorQuoteDef},
-	{[]TabKind{tabVendors}, "Jobs", vendorJobsDef},
-	{[]TabKind{tabProjects}, tabQuotes.String(), projectQuoteDef},
-	{[]TabKind{tabProjects}, tabDocuments.String(), projectDocumentDef},
-	{[]TabKind{tabIncidents}, tabDocuments.String(), incidentDocumentDef},
-	{[]TabKind{tabAppliances}, tabDocuments.String(), applianceDocumentDef},
+	{tabKinds: []TabKind{tabMaintenance, tabAppliances}, colTitle: "Log", def: serviceLogDef},
+	{tabKinds: []TabKind{tabAppliances}, colTitle: "Maint", def: applianceMaintenanceDef},
+	{tabKinds: []TabKind{tabVendors}, colTitle: tabQuotes.String(), def: vendorQuoteDef},
+	{tabKinds: []TabKind{tabVendors}, colTitle: "Jobs", def: vendorJobsDef},
+	{tabKinds: []TabKind{tabProjects}, colTitle: tabQuotes.String(), def: projectQuoteDef},
+	// Handler-scoped document routes: match nested detail views where the
+	// parent tabKind is shared but the handler identifies the entity type.
+	{
+		tabKinds: []TabKind{tabMaintenance, tabAppliances},
+		colTitle: tabDocuments.String(),
+		def:      maintenanceDocumentDef,
+		formKind: formMaintenance,
+	},
+	{
+		tabKinds: []TabKind{tabQuotes, tabVendors, tabProjects},
+		colTitle: tabDocuments.String(),
+		def:      quoteDocumentDef,
+		formKind: formQuote,
+	},
+	// Generic document routes: match top-level tabs (no formKind filter).
+	{tabKinds: []TabKind{tabProjects}, colTitle: tabDocuments.String(), def: projectDocumentDef},
+	{tabKinds: []TabKind{tabIncidents}, colTitle: tabDocuments.String(), def: incidentDocumentDef},
+	{
+		tabKinds: []TabKind{tabAppliances},
+		colTitle: tabDocuments.String(),
+		def:      applianceDocumentDef,
+	},
+	{tabKinds: []TabKind{tabVendors}, colTitle: tabDocuments.String(), def: vendorDocumentDef},
 }
 
 // openDetailForRow dispatches a drilldown based on the current tab kind and the
@@ -1010,6 +1075,10 @@ var detailRoutes = []detailRoute{
 func (m *Model) openDetailForRow(tab *Tab, rowID uint, colTitle string) error {
 	for _, route := range detailRoutes {
 		if route.colTitle != colTitle {
+			continue
+		}
+		if route.formKind != formNone && tab.Handler != nil &&
+			tab.Handler.FormKind() != route.formKind {
 			continue
 		}
 		for _, kind := range route.tabKinds {

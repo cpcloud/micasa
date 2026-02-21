@@ -75,7 +75,7 @@ func TestQuoteRows(t *testing.T) {
 			LaborCents: &labor,
 		},
 	}
-	rows, meta, cells := quoteRows(quotes)
+	rows, meta, cells := quoteRows(quotes, nil)
 	require.Len(t, rows, 1)
 	assert.Equal(t, uint(1), meta[0].ID)
 	assert.Equal(t, "Kitchen", cells[0][1].Value)
@@ -92,7 +92,7 @@ func TestQuoteRowsFallbackProjectName(t *testing.T) {
 			TotalCents: 100,
 		},
 	}
-	_, _, cells := quoteRows(quotes)
+	_, _, cells := quoteRows(quotes, nil)
 	assert.Equal(t, "Project 42", cells[0][1].Value)
 }
 
@@ -111,7 +111,7 @@ func TestMaintenanceRows(t *testing.T) {
 		},
 	}
 	logCounts := map[uint]int{1: 4}
-	rows, meta, cells := maintenanceRows(items, logCounts)
+	rows, meta, cells := maintenanceRows(items, logCounts, nil)
 	require.Len(t, rows, 1)
 	assert.Equal(t, uint(1), meta[0].ID)
 	assert.Equal(t, "HVAC Filter", cells[0][1].Value)
@@ -126,7 +126,7 @@ func TestMaintenanceRowsNoAppliance(t *testing.T) {
 	items := []data.MaintenanceItem{
 		{ID: 1, Name: "Gutters", Category: data.MaintenanceCategory{Name: "Exterior"}},
 	}
-	_, _, cells := maintenanceRows(items, nil)
+	_, _, cells := maintenanceRows(items, nil, nil)
 	assert.Empty(t, cells[0][3].Value)
 	assert.True(t, cells[0][3].Null, "nil appliance should produce a null cell")
 	assert.Zero(t, cells[0][3].LinkID)

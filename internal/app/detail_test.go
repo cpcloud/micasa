@@ -140,9 +140,9 @@ func TestServiceLogHandlerFormKind(t *testing.T) {
 
 func TestMaintenanceColumnsIncludeLog(t *testing.T) {
 	specs := maintenanceColumnSpecs()
-	last := specs[len(specs)-1]
-	assert.Equal(t, "Log", last.Title)
-	assert.Equal(t, cellDrilldown, last.Kind)
+	secondLast := specs[len(specs)-2]
+	assert.Equal(t, "Log", secondLast.Title)
+	assert.Equal(t, cellDrilldown, secondLast.Kind)
 }
 
 func TestApplianceColumnsIncludeMaintAndDocs(t *testing.T) {
@@ -313,9 +313,12 @@ func TestApplianceMaintenanceColumnSpecsNoAppliance(t *testing.T) {
 			"appliance maintenance detail should not include Appliance column",
 		)
 	}
-	// Last column should be the Log drilldown (nested drilldown is supported).
+	// Second-to-last should be the Log drilldown, last should be Docs.
+	secondLast := specs[len(specs)-2]
+	assert.Equal(t, "Log", secondLast.Title)
+	assert.Equal(t, cellDrilldown, secondLast.Kind)
 	last := specs[len(specs)-1]
-	assert.Equal(t, "Log", last.Title)
+	assert.Equal(t, tabDocuments.String(), last.Title)
 	assert.Equal(t, cellDrilldown, last.Kind)
 }
 
@@ -823,4 +826,196 @@ func TestOpenDetailForRow_ApplianceDocuments(t *testing.T) {
 	require.NoError(t, m.openDetailForRow(tab, appliances[0].ID, tabDocuments.String()))
 	require.True(t, m.inDetail())
 	assert.Equal(t, tabDocuments.String(), m.detail().Tab.Name)
+}
+
+// ---------------------------------------------------------------------------
+// Maintenance document drilldown tests
+// ---------------------------------------------------------------------------
+
+func TestMaintenanceColumnSpecsIncludeDocs(t *testing.T) {
+	specs := maintenanceColumnSpecs()
+	last := specs[len(specs)-1]
+	assert.Equal(t, tabDocuments.String(), last.Title)
+	assert.Equal(t, cellDrilldown, last.Kind)
+}
+
+func TestMaintenanceDocumentHandlerFormKind(t *testing.T) {
+	h := newEntityDocumentHandler(data.DocumentEntityMaintenance, 1)
+	assert.Equal(t, formDocument, h.FormKind())
+}
+
+func TestOpenDetailForRow_MaintenanceDocuments(t *testing.T) {
+	m := newTestModelWithDemoData(t, 42)
+	m.active = tabIndex(tabMaintenance)
+	tab := m.activeTab()
+	require.NotNil(t, tab)
+
+	items, err := m.store.ListMaintenance(false)
+	require.NoError(t, err)
+	require.NotEmpty(t, items)
+
+	require.NoError(t, m.openDetailForRow(tab, items[0].ID, tabDocuments.String()))
+	require.True(t, m.inDetail())
+	assert.Equal(t, tabDocuments.String(), m.detail().Tab.Name)
+	assert.Contains(t, m.detail().Breadcrumb, "Maintenance")
+}
+
+// ---------------------------------------------------------------------------
+// Quote document drilldown tests
+// ---------------------------------------------------------------------------
+
+func TestQuoteColumnSpecsIncludeDocs(t *testing.T) {
+	specs := quoteColumnSpecs()
+	last := specs[len(specs)-1]
+	assert.Equal(t, tabDocuments.String(), last.Title)
+	assert.Equal(t, cellDrilldown, last.Kind)
+}
+
+func TestQuoteDocumentHandlerFormKind(t *testing.T) {
+	h := newEntityDocumentHandler(data.DocumentEntityQuote, 1)
+	assert.Equal(t, formDocument, h.FormKind())
+}
+
+func TestOpenDetailForRow_QuoteDocuments(t *testing.T) {
+	m := newTestModelWithDemoData(t, 42)
+	m.active = tabIndex(tabQuotes)
+	tab := m.activeTab()
+	require.NotNil(t, tab)
+
+	quotes, err := m.store.ListQuotes(false)
+	require.NoError(t, err)
+	require.NotEmpty(t, quotes)
+
+	require.NoError(t, m.openDetailForRow(tab, quotes[0].ID, tabDocuments.String()))
+	require.True(t, m.inDetail())
+	assert.Equal(t, tabDocuments.String(), m.detail().Tab.Name)
+	assert.Contains(t, m.detail().Breadcrumb, "Quotes")
+}
+
+// ---------------------------------------------------------------------------
+// Vendor document drilldown tests
+// ---------------------------------------------------------------------------
+
+func TestVendorColumnSpecsIncludeDocs(t *testing.T) {
+	specs := vendorColumnSpecs()
+	last := specs[len(specs)-1]
+	assert.Equal(t, tabDocuments.String(), last.Title)
+	assert.Equal(t, cellDrilldown, last.Kind)
+}
+
+func TestVendorDocumentHandlerFormKind(t *testing.T) {
+	h := newEntityDocumentHandler(data.DocumentEntityVendor, 1)
+	assert.Equal(t, formDocument, h.FormKind())
+}
+
+func TestOpenDetailForRow_VendorDocuments(t *testing.T) {
+	m := newTestModelWithDemoData(t, 42)
+	m.active = tabIndex(tabVendors)
+	tab := m.activeTab()
+	require.NotNil(t, tab)
+
+	vendors, err := m.store.ListVendors(false)
+	require.NoError(t, err)
+	require.NotEmpty(t, vendors)
+
+	require.NoError(t, m.openDetailForRow(tab, vendors[0].ID, tabDocuments.String()))
+	require.True(t, m.inDetail())
+	assert.Equal(t, tabDocuments.String(), m.detail().Tab.Name)
+	assert.Contains(t, m.detail().Breadcrumb, "Vendors")
+}
+
+// ---------------------------------------------------------------------------
+// Nested document drilldown routing tests
+// ---------------------------------------------------------------------------
+
+func TestNestedApplianceMaintenanceDocuments(t *testing.T) {
+	m := newTestModelWithDemoData(t, 42)
+	m.active = tabIndex(tabAppliances)
+
+	appliances, err := m.store.ListAppliances(false)
+	require.NoError(t, err)
+	require.NotEmpty(t, appliances)
+
+	// Find an appliance with maintenance items.
+	var applianceID uint
+	var items []data.MaintenanceItem
+	for _, a := range appliances {
+		items, err = m.store.ListMaintenanceByAppliance(a.ID, false)
+		require.NoError(t, err)
+		if len(items) > 0 {
+			applianceID = a.ID
+			break
+		}
+	}
+	require.NotEmpty(t, items, "demo data must have at least one appliance with maintenance")
+
+	// Level 1: Appliance → Maintenance
+	tab := m.activeTab()
+	require.NoError(t, m.openDetailForRow(tab, applianceID, "Maint"))
+	require.Len(t, m.detailStack, 1)
+
+	// Reload so rows are populated.
+	require.NoError(t, m.reloadDetailTab())
+
+	// Level 2: Maintenance item → Documents (should use maintenanceDocumentDef,
+	// not applianceDocumentDef, even though tab.Kind == tabAppliances).
+	detailTab := &m.detail().Tab
+	require.NoError(t, m.openDetailForRow(detailTab, items[0].ID, tabDocuments.String()))
+	require.Len(t, m.detailStack, 2)
+	assert.Equal(t, tabDocuments.String(), m.detail().Tab.Name)
+	assert.Contains(t, m.detail().Breadcrumb, "Maintenance")
+}
+
+func TestNestedVendorQuoteDocuments(t *testing.T) {
+	m := newTestModelWithDemoData(t, 42)
+	m.active = tabIndex(tabVendors)
+
+	vendors, err := m.store.ListVendors(false)
+	require.NoError(t, err)
+	require.NotEmpty(t, vendors)
+
+	// Level 1: Vendor → Quotes
+	tab := m.activeTab()
+	require.NoError(t, m.openDetailForRow(tab, vendors[0].ID, tabQuotes.String()))
+	require.Len(t, m.detailStack, 1)
+
+	require.NoError(t, m.reloadDetailTab())
+
+	// Level 2: Quote → Documents (should use quoteDocumentDef, not vendorDocumentDef).
+	detailTab := &m.detail().Tab
+	quotes, err := m.store.ListQuotesByVendor(vendors[0].ID, false)
+	require.NoError(t, err)
+	require.NotEmpty(t, quotes, "demo data must have vendor with quotes")
+
+	require.NoError(t, m.openDetailForRow(detailTab, quotes[0].ID, tabDocuments.String()))
+	require.Len(t, m.detailStack, 2)
+	assert.Equal(t, tabDocuments.String(), m.detail().Tab.Name)
+	assert.Contains(t, m.detail().Breadcrumb, "Quotes")
+}
+
+func TestNestedProjectQuoteDocuments(t *testing.T) {
+	m := newTestModelWithDemoData(t, 42)
+	m.active = tabIndex(tabProjects)
+
+	projects, err := m.store.ListProjects(false)
+	require.NoError(t, err)
+	require.NotEmpty(t, projects)
+
+	// Level 1: Project → Quotes
+	tab := m.activeTab()
+	require.NoError(t, m.openDetailForRow(tab, projects[0].ID, tabQuotes.String()))
+	require.Len(t, m.detailStack, 1)
+
+	require.NoError(t, m.reloadDetailTab())
+
+	// Level 2: Quote → Documents (should use quoteDocumentDef, not projectDocumentDef).
+	detailTab := &m.detail().Tab
+	quotes, err := m.store.ListQuotesByProject(projects[0].ID, false)
+	require.NoError(t, err)
+	require.NotEmpty(t, quotes, "demo data must have project with quotes")
+
+	require.NoError(t, m.openDetailForRow(detailTab, quotes[0].ID, tabDocuments.String()))
+	require.Len(t, m.detailStack, 2)
+	assert.Equal(t, tabDocuments.String(), m.detail().Tab.Name)
+	assert.Contains(t, m.detail().Breadcrumb, "Quotes")
 }

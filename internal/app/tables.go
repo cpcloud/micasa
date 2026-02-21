@@ -151,6 +151,7 @@ const (
 	quoteColMat
 	quoteColOther
 	quoteColRecv
+	quoteColDocs
 )
 
 func quoteColumnSpecs() []columnSpec {
@@ -175,6 +176,7 @@ func quoteColumnSpecs() []columnSpec {
 		{Title: "Mat", Min: 8, Max: 12, Align: alignRight, Kind: cellMoney},
 		{Title: "Other", Min: 8, Max: 12, Align: alignRight, Kind: cellMoney},
 		{Title: "Recv", Min: 10, Max: 12, Kind: cellDate},
+		{Title: tabDocuments.String(), Min: 5, Max: 6, Align: alignRight, Kind: cellDrilldown},
 	}
 }
 
@@ -189,6 +191,7 @@ const (
 	maintenanceColNext
 	maintenanceColEvery
 	maintenanceColLog
+	maintenanceColDocs
 )
 
 func maintenanceColumnSpecs() []columnSpec {
@@ -207,6 +210,7 @@ func maintenanceColumnSpecs() []columnSpec {
 		{Title: "Next", Min: 10, Max: 12, Kind: cellUrgency},
 		{Title: "Every", Min: 6, Max: 10},
 		{Title: "Log", Min: 4, Max: 6, Align: alignRight, Kind: cellDrilldown},
+		{Title: tabDocuments.String(), Min: 5, Max: 6, Align: alignRight, Kind: cellDrilldown},
 	}
 }
 
@@ -347,12 +351,17 @@ func applianceMaintenanceColumnSpecs() []columnSpec {
 func applianceMaintenanceRows(
 	items []data.MaintenanceItem,
 	logCounts map[uint]int,
+	docCounts map[uint]int,
 ) ([]table.Row, []rowMeta, [][]cell) {
 	return buildRows(items, func(item data.MaintenanceItem) rowSpec {
 		interval := formatInterval(item.IntervalMonths)
 		logCount := "0"
 		if n := logCounts[item.ID]; n > 0 {
 			logCount = fmt.Sprintf("%d", n)
+		}
+		docCount := "0"
+		if n := docCounts[item.ID]; n > 0 {
+			docCount = fmt.Sprintf("%d", n)
 		}
 		nextDue := data.ComputeNextDue(item.LastServicedAt, item.IntervalMonths)
 		return rowSpec{
@@ -366,6 +375,7 @@ func applianceMaintenanceRows(
 				dateCell(nextDue, cellUrgency),
 				{Value: interval, Kind: cellText},
 				{Value: logCount, Kind: cellDrilldown},
+				{Value: docCount, Kind: cellDrilldown},
 			},
 		}
 	})
@@ -518,6 +528,7 @@ const (
 	vendorColWebsite
 	vendorColQuotes
 	vendorColJobs
+	vendorColDocs
 )
 
 func vendorColumnSpecs() []columnSpec {
@@ -530,6 +541,7 @@ func vendorColumnSpecs() []columnSpec {
 		{Title: "Website", Min: 12, Max: 28, Flex: true},
 		{Title: tabQuotes.String(), Min: 6, Max: 8, Align: alignRight, Kind: cellDrilldown},
 		{Title: "Jobs", Min: 5, Max: 8, Align: alignRight, Kind: cellDrilldown},
+		{Title: tabDocuments.String(), Min: 5, Max: 6, Align: alignRight, Kind: cellDrilldown},
 	}
 }
 
@@ -537,6 +549,7 @@ func vendorRows(
 	vendors []data.Vendor,
 	quoteCounts map[uint]int,
 	jobCounts map[uint]int,
+	docCounts map[uint]int,
 ) ([]table.Row, []rowMeta, [][]cell) {
 	return buildRows(vendors, func(v data.Vendor) rowSpec {
 		quoteCount := "0"
@@ -546,6 +559,10 @@ func vendorRows(
 		jobCount := "0"
 		if n := jobCounts[v.ID]; n > 0 {
 			jobCount = fmt.Sprintf("%d", n)
+		}
+		docCount := "0"
+		if n := docCounts[v.ID]; n > 0 {
+			docCount = fmt.Sprintf("%d", n)
 		}
 		return rowSpec{
 			ID:      v.ID,
@@ -559,6 +576,7 @@ func vendorRows(
 				{Value: v.Website, Kind: cellText},
 				{Value: quoteCount, Kind: cellDrilldown},
 				{Value: jobCount, Kind: cellDrilldown},
+				{Value: docCount, Kind: cellDrilldown},
 			},
 		}
 	})
@@ -623,11 +641,16 @@ func projectRows(
 
 func quoteRows(
 	quotes []data.Quote,
+	docCounts map[uint]int,
 ) ([]table.Row, []rowMeta, [][]cell) {
 	return buildRows(quotes, func(q data.Quote) rowSpec {
 		projectName := q.Project.Title
 		if projectName == "" {
 			projectName = fmt.Sprintf("Project %d", q.ProjectID)
+		}
+		docCount := "0"
+		if n := docCounts[q.ID]; n > 0 {
+			docCount = fmt.Sprintf("%d", n)
 		}
 		return rowSpec{
 			ID:      q.ID,
@@ -641,6 +664,7 @@ func quoteRows(
 				centsCell(q.MaterialsCents),
 				centsCell(q.OtherCents),
 				dateCell(q.ReceivedDate, cellDate),
+				{Value: docCount, Kind: cellDrilldown},
 			},
 		}
 	})
@@ -649,6 +673,7 @@ func quoteRows(
 func maintenanceRows(
 	items []data.MaintenanceItem,
 	logCounts map[uint]int,
+	docCounts map[uint]int,
 ) ([]table.Row, []rowMeta, [][]cell) {
 	return buildRows(items, func(item data.MaintenanceItem) rowSpec {
 		interval := formatInterval(item.IntervalMonths)
@@ -661,6 +686,10 @@ func maintenanceRows(
 		logCount := "0"
 		if n := logCounts[item.ID]; n > 0 {
 			logCount = fmt.Sprintf("%d", n)
+		}
+		docCount := "0"
+		if n := docCounts[item.ID]; n > 0 {
+			docCount = fmt.Sprintf("%d", n)
 		}
 		nextDue := data.ComputeNextDue(item.LastServicedAt, item.IntervalMonths)
 		return rowSpec{
@@ -675,6 +704,7 @@ func maintenanceRows(
 				dateCell(nextDue, cellUrgency),
 				{Value: interval, Kind: cellText},
 				{Value: logCount, Kind: cellDrilldown},
+				{Value: docCount, Kind: cellDrilldown},
 			},
 		}
 	})
@@ -719,11 +749,16 @@ func vendorQuoteColumnSpecs() []columnSpec {
 
 func vendorQuoteRows(
 	quotes []data.Quote,
+	docCounts map[uint]int,
 ) ([]table.Row, []rowMeta, [][]cell) {
 	return buildRows(quotes, func(q data.Quote) rowSpec {
 		projectName := q.Project.Title
 		if projectName == "" {
 			projectName = fmt.Sprintf("Project %d", q.ProjectID)
+		}
+		docCount := "0"
+		if n := docCounts[q.ID]; n > 0 {
+			docCount = fmt.Sprintf("%d", n)
 		}
 		return rowSpec{
 			ID:      q.ID,
@@ -736,6 +771,7 @@ func vendorQuoteRows(
 				centsCell(q.MaterialsCents),
 				centsCell(q.OtherCents),
 				dateCell(q.ReceivedDate, cellDate),
+				{Value: docCount, Kind: cellDrilldown},
 			},
 		}
 	})
@@ -794,8 +830,13 @@ func projectQuoteColumnSpecs() []columnSpec {
 
 func projectQuoteRows(
 	quotes []data.Quote,
+	docCounts map[uint]int,
 ) ([]table.Row, []rowMeta, [][]cell) {
 	return buildRows(quotes, func(q data.Quote) rowSpec {
+		docCount := "0"
+		if n := docCounts[q.ID]; n > 0 {
+			docCount = fmt.Sprintf("%d", n)
+		}
 		return rowSpec{
 			ID:      q.ID,
 			Deleted: q.DeletedAt.Valid,
@@ -807,6 +848,7 @@ func projectQuoteRows(
 				centsCell(q.MaterialsCents),
 				centsCell(q.OtherCents),
 				dateCell(q.ReceivedDate, cellDate),
+				{Value: docCount, Kind: cellDrilldown},
 			},
 		}
 	})
