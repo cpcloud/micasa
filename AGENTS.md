@@ -179,6 +179,8 @@ details; do not duplicate that detail here.
   `gh` subcommands.
 - **Treat "upstream" conceptually**: Use the repo's canonical mainline remote
   (e.g. `origin/main`) even if no `upstream` remote exists.
+- **Modern CLI tools**: Use `rg` not `grep`, `fd` not `find`, `sd` not
+  `sed` where possible.
 
 ### Nix
 
