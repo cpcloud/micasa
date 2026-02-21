@@ -85,6 +85,22 @@ func TestEnterOnPlainColumnShowsGuidance(t *testing.T) {
 	assert.Contains(t, m.status.Text, "Press i to edit.", "status should guide user to press i")
 }
 
+func TestEnterOnDocumentsTabShowsOpenHint(t *testing.T) {
+	m := newTestModel()
+	m.showDashboard = false
+	m.active = tabIndex(tabDocuments)
+	tab := m.effectiveTab()
+	require.Equal(t, tabDocuments, tab.Kind)
+
+	// Move to a plain text column (Title, col 1).
+	tab.ColCursor = 1
+	require.Equal(t, cellText, tab.Specs[1].Kind)
+
+	sendKey(m, "enter")
+	assert.Equal(t, modeNormal, m.mode, "should stay in normal mode")
+	assert.Contains(t, m.status.Text, "Press o to open.")
+}
+
 func TestExitEditModeWithEsc(t *testing.T) {
 	m := newTestModel()
 	sendKey(m, "i")

@@ -692,6 +692,7 @@ func (m *Model) helpContent() string {
 				{"!", "Invert filter"},
 				{keyCtrlN, "Clear pins and filter"},
 				{"enter", drilldownArrow + " drill / " + linkArrow + " follow / preview"},
+				{"o", "Open document"},
 				{"tab", "House profile"},
 				{"D", "Summary"},
 				{"@", "Ask LLM"},
