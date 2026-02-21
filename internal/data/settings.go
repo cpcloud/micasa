@@ -30,8 +30,9 @@ type ChatInput struct {
 }
 
 const (
-	settingLLMModel      = "llm.model"
-	settingShowDashboard = "ui.show_dashboard"
+	settingLLMModel          = "llm.model"
+	settingShowDashboard     = "ui.show_dashboard"
+	settingTesseractHintSeen = "hint.tesseract_shown"
 
 	// chatHistoryMax is the maximum number of chat inputs retained.
 	chatHistoryMax = 200
@@ -88,6 +89,18 @@ func (s *Store) PutShowDashboard(show bool) error {
 		val = "true"
 	}
 	return s.PutSetting(settingShowDashboard, val)
+}
+
+// TesseractHintSeen returns whether the one-time "install tesseract" hint
+// has already been shown to the user.
+func (s *Store) TesseractHintSeen() bool {
+	val, err := s.GetSetting(settingTesseractHintSeen)
+	return err == nil && val == "true"
+}
+
+// MarkTesseractHintSeen records that the tesseract hint was shown.
+func (s *Store) MarkTesseractHintSeen() error {
+	return s.PutSetting(settingTesseractHintSeen, "true")
 }
 
 // AppendChatInput adds a prompt to the persistent history, deduplicating

@@ -183,6 +183,8 @@
               pkgs.fd
               pkgs.sd
               pkgs.sqlite-interactive
+              pkgs.tesseract
+              pkgs.poppler-utils
             ]
             ++ enabledPackages;
           };
