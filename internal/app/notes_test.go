@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -178,10 +179,10 @@ func TestFirstLine(t *testing.T) {
 		{"empty", "", ""},
 		{"no newlines", "hello world", "hello world"},
 		{"leading/trailing space", "  hello  ", "hello"},
-		{"single newline", "line one\nline two", "line one..."},
-		{"crlf", "line one\r\nline two", "line one..."},
-		{"multiple newlines", "a\n\nb\n\nc", "a..."},
-		{"tabs and newlines", "a\t\nb", "a..."},
+		{"single newline", "line one\nline two", "line one\u2026"},
+		{"crlf", "line one\r\nline two", "line one\u2026"},
+		{"multiple newlines", "a\n\nb\n\nc", "a\u2026"},
+		{"tabs and newlines", "a\t\nb", "a\u2026"},
 		{"only whitespace", "  \n\t  ", ""},
 	}
 	for _, tt := range tests {
@@ -220,7 +221,7 @@ func TestMultilineNotesRenderedAsSingleLineInTable(t *testing.T) {
 	// Instead, the two lines should be collapsed into a single line.
 	assert.NotContains(t, view, "filter\nand",
 		"table should not render literal newlines in notes cells")
-	assert.Contains(t, view, "Changed the filter...",
+	assert.Contains(t, view, "Changed the filter\u2026",
 		"table should show the first line of the note with ellipsis")
 	assert.NotContains(t, view, "and checked pressure",
 		"table should not show subsequent lines of a multi-line note")
@@ -239,13 +240,13 @@ func TestMultilineNotesPreservedInPreviewOverlay(t *testing.T) {
 
 func TestNaturalWidthsMultilineNotesFirstLine(t *testing.T) {
 	specs := []columnSpec{
-		{Title: "Notes", Min: 5, Max: 40, Flex: true, Kind: cellNotes},
+		{Title: "N", Min: 1, Max: 40, Flex: true, Kind: cellNotes},
 	}
 	rows := [][]cell{
 		{{Value: "short\nvery long second line here", Kind: cellNotes}},
 	}
 	widths := naturalWidths(specs, rows)
-	// Width should reflect the first line + "...", not the longer second line.
+	// Width should reflect the first line + ellipsis, not the longer second line.
 	require.Len(t, widths, 1)
-	assert.Equal(t, len("short..."), widths[0])
+	assert.Equal(t, lipgloss.Width("short\u2026"), widths[0])
 }
