@@ -1529,16 +1529,28 @@ func (m *Model) saveForm() tea.Cmd {
 	isFirstHouse := m.formKind == formHouse && !m.hasHouse
 	m.snapshotForUndo()
 	kind := m.formKind
+	isCreate := m.editID == nil
 	err := m.handleFormSubmit()
 	if err != nil {
 		m.setStatusError(err.Error())
 		return nil
+	}
+	// For new items, capture the ID before exitForm clears it
+	// so we can move the cursor after the table reloads.
+	var newID uint
+	if isCreate && m.editID != nil {
+		newID = *m.editID
 	}
 	m.exitForm()
 	if isFirstHouse {
 		m.setStatusInfo("House set up. Press b/f to switch tabs, i to edit, ? for help.")
 	}
 	m.reloadAfterFormSave(kind)
+	if isCreate && newID > 0 {
+		if tab := m.effectiveTab(); tab != nil {
+			selectRowByID(tab, newID)
+		}
+	}
 	return nil
 }
 
