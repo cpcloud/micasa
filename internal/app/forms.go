@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/cpcloud/micasa/internal/data"
@@ -1460,6 +1461,13 @@ func (m *Model) openDatePicker(
 
 // activateForm applies defaults and switches the model into form mode.
 // All form-opening paths should call this instead of duplicating the epilogue.
+// Init is called eagerly so the form renders correctly on the very first
+// frame; the returned Cmd (cursor blink etc.) is cached for formInitCmd.
+//
+// A synthetic WindowSizeMsg is also sent to the form so it calculates
+// correct group widths and heights before the first render. Without this,
+// multi-group forms jump when huh's deferred WindowSize cmd arrives and
+// recalculates dimensions from the default 80-column width.
 func (m *Model) activateForm(kind FormKind, form *huh.Form, values any) {
 	applyFormDefaults(form)
 	m.prevMode = m.mode
@@ -1468,6 +1476,21 @@ func (m *Model) activateForm(kind FormKind, form *huh.Form, values any) {
 	m.form = form
 	m.formData = values
 	m.formHasRequired = true
+	m.pendingFormInit = form.Init()
+	// Eagerly process the window size so groups have correct widths and
+	// heights before the first View() call.
+	if m.width > 0 && m.height > 0 {
+		updated, cmd := form.Update(tea.WindowSizeMsg{
+			Width:  m.width,
+			Height: m.height,
+		})
+		if f, ok := updated.(*huh.Form); ok {
+			m.form = f
+		}
+		if cmd != nil {
+			m.pendingFormInit = tea.Batch(m.pendingFormInit, cmd)
+		}
+	}
 	m.snapshotForm()
 }
 

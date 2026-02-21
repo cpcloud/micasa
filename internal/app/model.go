@@ -75,6 +75,7 @@ type Model struct {
 	confirmDiscard        bool // true when showing "discard unsaved changes?" prompt
 	confirmQuit           bool // true when discard was triggered by ctrl+q (quit after confirm)
 	formHasRequired       bool
+	pendingFormInit       tea.Cmd // cached Init cmd from activateForm
 	editID                *uint
 	inlineInput           *inlineInputState
 	undoStack             []undoEntry
@@ -1712,6 +1713,7 @@ func (m *Model) exitForm() {
 	m.formSnapshot = nil
 	m.formDirty = false
 	m.confirmDiscard = false
+	m.pendingFormInit = nil
 	m.editID = nil
 	if savedID != nil {
 		if tab := m.effectiveTab(); tab != nil {
@@ -1747,10 +1749,9 @@ func (m *Model) surfaceError(err error) {
 }
 
 func (m *Model) formInitCmd() tea.Cmd {
-	if m.mode == modeForm && m.form != nil {
-		return m.form.Init()
-	}
-	return nil
+	cmd := m.pendingFormInit
+	m.pendingFormInit = nil
+	return cmd
 }
 
 const (

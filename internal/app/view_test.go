@@ -911,6 +911,21 @@ func TestFilterIndicatorOnTabRow(t *testing.T) {
 	assert.NotContains(t, tabs, filterMarkPreviewInverted)
 }
 
+// TestTabsLockedInFormMode verifies that tabsLocked returns true in form
+// mode (inactive tabs struck through), matching edit-mode behavior.
+func TestTabsLockedInFormMode(t *testing.T) {
+	m := newTestModel()
+
+	m.mode = modeNormal
+	assert.False(t, m.tabsLocked(), "normal mode should not lock tabs")
+
+	m.mode = modeEdit
+	assert.True(t, m.tabsLocked(), "edit mode should lock tabs")
+
+	m.mode = modeForm
+	assert.True(t, m.tabsLocked(), "form mode should lock tabs")
+}
+
 func TestHelpContentIncludesInvertFilter(t *testing.T) {
 	m := newTestModel()
 	help := m.helpContent()

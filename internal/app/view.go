@@ -176,8 +176,15 @@ func (m *Model) buildDashboardOverlay() string {
 	return box.Render(boxContent)
 }
 
+// tabsLocked returns true when tab switching is disabled and inactive tabs
+// should be visually struck through. This applies in edit mode (tabs are
+// pinned) and form mode (tabs are inaccessible while the form is open).
+func (m *Model) tabsLocked() bool {
+	return m.mode == modeEdit || m.mode == modeForm
+}
+
 func (m *Model) tabsView() string {
-	pinned := m.mode == modeEdit
+	pinned := m.tabsLocked()
 	parts := make([]string, 0, len(m.tabs)*2)
 	for i, tab := range m.tabs {
 		if i == m.active {
