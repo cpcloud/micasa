@@ -225,7 +225,7 @@ func TestDocumentRows(t *testing.T) {
 	require.Len(t, rows, 1)
 	assert.Equal(t, uint(1), meta[0].ID)
 	assert.Equal(t, "Invoice", cells[0][1].Value)
-	assert.Equal(t, "Kitchen Reno [project]", cells[0][2].Value)
+	assert.Equal(t, "P Kitchen Reno", cells[0][2].Value)
 	assert.Equal(t, "application/pdf", cells[0][3].Value)
 	assert.Equal(t, "2.0 KB", cells[0][4].Value)
 }
@@ -278,11 +278,11 @@ func TestDocumentEntityLabel(t *testing.T) {
 		{Kind: "appliance", ID: 12}: "Dishwasher",
 	}
 	assert.Empty(t, documentEntityLabel("", 0, names))
-	assert.Equal(t, "Kitchen Reno [project]", documentEntityLabel("project", 5, names))
-	assert.Equal(t, "Dishwasher [appliance]", documentEntityLabel("appliance", 12, names))
+	assert.Equal(t, "P Kitchen Reno", documentEntityLabel("project", 5, names))
+	assert.Equal(t, "A Dishwasher", documentEntityLabel("appliance", 12, names))
 	assert.Equal(
 		t,
-		"vendor #99",
+		"V #99",
 		documentEntityLabel("vendor", 99, names),
 		"fallback for missing name",
 	)

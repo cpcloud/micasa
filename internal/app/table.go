@@ -493,6 +493,8 @@ func renderCell(
 			style = s
 		}
 		value = statusLabel(value)
+	} else if cellValue.Kind == cellEntity {
+		return renderEntityCell(value, spec, width, hl, deleted, dimmed, pinMatch, styles)
 	} else if cellValue.Kind == cellUrgency {
 		style = urgencyStyle(value)
 	} else if cellValue.Kind == cellWarranty {
@@ -631,6 +633,78 @@ func renderPillCell(
 	return pill
 }
 
+// renderEntityCell renders a document-entity cell as a colored kind-letter
+// prefix followed by the entity name in the default text color.
+// Format: "P Kitchen Reno" where "P" is bold+colored.
+func renderEntityCell(
+	value string,
+	spec columnSpec,
+	width int,
+	hl cellHighlight,
+	deleted bool,
+	dimmed bool,
+	pinMatch bool,
+	styles Styles,
+) string {
+	// Split "P Kitchen Reno" into letter and name.
+	var letter string
+	name := value
+	if len(value) >= 2 && value[1] == ' ' {
+		letter = string(value[0])
+		name = value[2:]
+	}
+
+	letterStyle := entityCellStyle(value)
+	nameStyle := defaultStyle
+
+	if pinMatch {
+		letterStyle = styles.Pinned
+		nameStyle = styles.Pinned
+	}
+	if deleted {
+		letterStyle = letterStyle.Foreground(textDim).Strikethrough(true).Italic(true)
+		nameStyle = nameStyle.Foreground(textDim).Strikethrough(true).Italic(true)
+	}
+	if dimmed && !deleted {
+		letterStyle = lipgloss.NewStyle().Foreground(textDim)
+		nameStyle = nameStyle.Foreground(textDim)
+	}
+
+	switch hl {
+	case highlightCursor:
+		letterStyle = letterStyle.Background(border)
+		nameStyle = nameStyle.Background(border).Bold(true)
+	case highlightRow:
+		letterStyle = letterStyle.Background(surface)
+		nameStyle = nameStyle.Background(surface).Bold(true)
+	case highlightNone:
+	}
+
+	renderedLetter := letterStyle.Render(letter)
+	letterW := lipgloss.Width(renderedLetter)
+
+	// Name gets the remaining width after the letter and space.
+	nameW := width - letterW - 1
+	if nameW < 1 {
+		nameW = 1
+	}
+	truncName := ansi.Truncate(name, nameW, "\u2026")
+	renderedName := nameStyle.Render(truncName)
+	nameRenderedW := lipgloss.Width(renderedName)
+
+	content := renderedLetter + " " + renderedName
+	totalW := letterW + 1 + nameRenderedW
+
+	if pad := width - totalW; pad > 0 {
+		padStyle := lipgloss.NewStyle()
+		if hl == highlightRow || hl == highlightCursor {
+			padStyle = padStyle.Background(surface)
+		}
+		content += padStyle.Render(strings.Repeat(" ", pad))
+	}
+	return content
+}
+
 // joinCells joins rendered cell strings using per-gap separators.
 // If separators is shorter than needed, falls back to the last separator.
 func joinCells(cells []string, separators []string) string {
@@ -674,6 +748,28 @@ var (
 	warrantyExpired = lipgloss.NewStyle().Foreground(danger)
 	warrantyActive  = lipgloss.NewStyle().Foreground(success)
 )
+
+// entityKindLetterStyles maps the single-letter entity prefix to a
+// colorblind-safe color from the Wong palette.
+var entityKindLetterStyles = map[byte]lipgloss.Style{
+	'A': lipgloss.NewStyle().Foreground(muted).Bold(true),     // Appliance
+	'I': lipgloss.NewStyle().Foreground(danger).Bold(true),    // Incident
+	'M': lipgloss.NewStyle().Foreground(secondary).Bold(true), // Maintenance
+	'P': lipgloss.NewStyle().Foreground(accent).Bold(true),    // Project
+	'Q': lipgloss.NewStyle().Foreground(success).Bold(true),   // Quote
+	'V': lipgloss.NewStyle().Foreground(warning).Bold(true),   // Vendor
+}
+
+// entityCellStyle returns a style for the entity cell based on the kind-letter
+// prefix. The letter (A/I/M/P/Q/V) gets a bold kind-specific color.
+func entityCellStyle(value string) lipgloss.Style {
+	if len(value) > 0 {
+		if s, ok := entityKindLetterStyles[value[0]]; ok {
+			return s
+		}
+	}
+	return lipgloss.NewStyle().Foreground(textDim)
+}
 
 // urgencyStyle returns a style colored from green (far out) through yellow
 // (upcoming) to red (overdue) based on the number of days until a date.

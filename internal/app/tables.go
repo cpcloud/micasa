@@ -995,7 +995,7 @@ func documentRows(docs []data.Document, names entityNameMap) ([]table.Row, []row
 			Cells: []cell{
 				{Value: fmt.Sprintf("%d", d.ID), Kind: cellReadonly},
 				{Value: d.Title, Kind: cellText},
-				{Value: documentEntityLabel(d.EntityKind, d.EntityID, names), Kind: cellReadonly},
+				{Value: documentEntityLabel(d.EntityKind, d.EntityID, names), Kind: cellEntity},
 				{Value: d.MIMEType, Kind: cellText},
 				{Value: formatFileSize(docSizeBytes(d)), Kind: cellReadonly},
 				{Value: d.Notes, Kind: cellNotes},
@@ -1022,16 +1022,32 @@ func entityDocumentRows(docs []data.Document) ([]table.Row, []rowMeta, [][]cell)
 	})
 }
 
-// documentEntityLabel returns a label like "Kitchen Reno (project)" when a
-// name is available, or falls back to "project #3".
+// entityKindLetter maps entity kind strings to a single-letter prefix used in
+// the Entity column. Each letter is unique across all entity types.
+var entityKindLetter = map[string]string{
+	data.DocumentEntityAppliance:   "A",
+	data.DocumentEntityIncident:    "I",
+	data.DocumentEntityMaintenance: "M",
+	data.DocumentEntityProject:     "P",
+	data.DocumentEntityQuote:       "Q",
+	data.DocumentEntityVendor:      "V",
+}
+
+// documentEntityLabel returns a label like "P Kitchen Reno" with a
+// single-letter kind prefix, or falls back to "project #3" when
+// the name map has no entry.
 func documentEntityLabel(kind string, id uint, names entityNameMap) string {
 	if kind == "" {
 		return ""
 	}
-	if name, ok := names[entityRef{Kind: kind, ID: id}]; ok {
-		return name + " [" + kind + "]"
+	letter, ok := entityKindLetter[kind]
+	if !ok {
+		return kind + " #" + fmt.Sprintf("%d", id)
 	}
-	return kind + " #" + fmt.Sprintf("%d", id)
+	if name, found := names[entityRef{Kind: kind, ID: id}]; found {
+		return letter + " " + name
+	}
+	return letter + " #" + fmt.Sprintf("%d", id)
 }
 
 // docSizeBytes returns d.SizeBytes as uint64. The DB column is int64 but

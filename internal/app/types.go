@@ -212,6 +212,7 @@ const (
 	cellWarranty  // date with green/red coloring based on expiry
 	cellUrgency   // date colored by proximity (green -> yellow -> red)
 	cellNotes     // text that can be expanded in a read-only overlay
+	cellEntity    // entity ref with colored kind-letter prefix
 )
 
 type cell struct {
