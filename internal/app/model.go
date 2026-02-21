@@ -1529,27 +1529,17 @@ func (m *Model) saveForm() tea.Cmd {
 	isFirstHouse := m.formKind == formHouse && !m.hasHouse
 	m.snapshotForUndo()
 	kind := m.formKind
-	isCreate := m.editID == nil
 	err := m.handleFormSubmit()
 	if err != nil {
 		m.setStatusError(err.Error())
 		return nil
 	}
-	// Capture the new item's ID before exitForm clears m.editID,
-	// so we can move the cursor after the table reloads.
-	var newID *uint
-	if isCreate {
-		newID = m.editID
-	}
+	// Reload before exitForm so the new/updated row is in the table
+	// when exitForm positions the cursor.
+	m.reloadAfterFormSave(kind)
 	m.exitForm()
 	if isFirstHouse {
 		m.setStatusInfo("House set up. Press b/f to switch tabs, i to edit, ? for help.")
-	}
-	m.reloadAfterFormSave(kind)
-	if newID != nil {
-		if tab := m.effectiveTab(); tab != nil {
-			selectRowByID(tab, *newID)
-		}
 	}
 	return nil
 }
@@ -1559,6 +1549,7 @@ func (m *Model) saveForm() tea.Cmd {
 func (m *Model) saveFormInPlace() tea.Cmd {
 	m.snapshotForUndo()
 	kind := m.formKind
+	isCreate := m.editID == nil
 	err := m.handleFormSubmit()
 	if err != nil {
 		m.setStatusError(err.Error())
@@ -1566,6 +1557,13 @@ func (m *Model) saveFormInPlace() tea.Cmd {
 	}
 	m.snapshotForm()
 	m.reloadAfterFormSave(kind)
+	// After a create, position the cursor on the new row so that
+	// subsequent Esc leaves the user on the item they just created.
+	if isCreate && m.editID != nil {
+		if tab := m.effectiveTab(); tab != nil {
+			selectRowByID(tab, *m.editID)
+		}
+	}
 	return nil
 }
 
@@ -1691,7 +1689,11 @@ func (m *Model) closeInlineInput() {
 	m.editID = nil
 }
 
+// exitForm closes the form and restores the previous mode. If editID is
+// set (item was saved at least once), the cursor moves to that row so the
+// user lands on the item they were just editing/creating.
 func (m *Model) exitForm() {
+	savedID := m.editID
 	m.mode = m.prevMode
 	// Restore correct table key bindings for the returning mode.
 	if m.mode == modeEdit {
@@ -1706,6 +1708,11 @@ func (m *Model) exitForm() {
 	m.formDirty = false
 	m.confirmDiscard = false
 	m.editID = nil
+	if savedID != nil {
+		if tab := m.effectiveTab(); tab != nil {
+			selectRowByID(tab, *savedID)
+		}
+	}
 }
 
 func (m *Model) setStatusInfo(text string) {
