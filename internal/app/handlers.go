@@ -556,7 +556,15 @@ func (h serviceLogHandler) Load(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	rows, meta, cellRows := serviceLogRows(entries)
+	ids := make([]uint, len(entries))
+	for i, e := range entries {
+		ids[i] = e.ID
+	}
+	docCounts, err := store.CountDocumentsByEntity(data.DocumentEntityServiceLog, ids)
+	if err != nil {
+		docCounts = map[uint]int{}
+	}
+	rows, meta, cellRows := serviceLogRows(entries, docCounts)
 	return rows, meta, cellRows, nil
 }
 

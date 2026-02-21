@@ -389,6 +389,7 @@ const (
 	serviceLogColPerformedBy
 	serviceLogColCost
 	serviceLogColNotes
+	serviceLogColDocs
 )
 
 func serviceLogColumnSpecs() []columnSpec {
@@ -404,11 +405,13 @@ func serviceLogColumnSpecs() []columnSpec {
 		},
 		{Title: "Cost", Min: 8, Max: 12, Align: alignRight, Kind: cellMoney},
 		{Title: "Notes", Min: 12, Max: 40, Flex: true, Kind: cellNotes},
+		{Title: tabDocuments.String(), Min: 5, Max: 8, Align: alignRight, Kind: cellDrilldown},
 	}
 }
 
 func serviceLogRows(
 	entries []data.ServiceLogEntry,
+	docCounts map[uint]int,
 ) ([]table.Row, []rowMeta, [][]cell) {
 	return buildRows(entries, func(e data.ServiceLogEntry) rowSpec {
 		performedBy := "Self"
@@ -416,6 +419,10 @@ func serviceLogRows(
 		if e.VendorID != nil && e.Vendor.Name != "" {
 			performedBy = e.Vendor.Name
 			vendorLinkID = *e.VendorID
+		}
+		docCount := "0"
+		if n := docCounts[e.ID]; n > 0 {
+			docCount = fmt.Sprintf("%d", n)
 		}
 		return rowSpec{
 			ID:      e.ID,
@@ -426,6 +433,7 @@ func serviceLogRows(
 				{Value: performedBy, Kind: cellText, LinkID: vendorLinkID},
 				centsCell(e.CostCents),
 				{Value: e.Notes, Kind: cellNotes},
+				{Value: docCount, Kind: cellDrilldown},
 			},
 		}
 	})

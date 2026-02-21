@@ -1376,6 +1376,9 @@ func (m *Model) inlineEditServiceLog(id uint, col serviceLogCol) error {
 		m.openNotesEdit(id, formServiceLog, &values.Notes, values)
 	case serviceLogColID:
 		return m.startEditServiceLogForm(id)
+	case serviceLogColDocs:
+		// Drilldown column; handled by openDetailForRow, not inline edit.
+		return nil
 	}
 	return nil
 }
