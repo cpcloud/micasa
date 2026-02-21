@@ -4,6 +4,7 @@
 package app
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/charmbracelet/bubbles/table"
@@ -61,9 +62,30 @@ func (k TabKind) String() string {
 		return "Vendors"
 	case tabDocuments:
 		return "Docs"
-	default:
-		return "Unknown"
 	}
+	panic(fmt.Sprintf("unhandled TabKind: %d", k))
+}
+
+// singular returns the lowercase singular noun for a tab kind, used in
+// context-aware empty-state messages for detail drilldowns.
+func (k TabKind) singular() string {
+	switch k {
+	case tabProjects:
+		return "project"
+	case tabQuotes:
+		return "quote"
+	case tabMaintenance:
+		return "maintenance item"
+	case tabIncidents:
+		return "incident"
+	case tabAppliances:
+		return "appliance"
+	case tabVendors:
+		return "vendor"
+	case tabDocuments:
+		return "doc"
+	}
+	panic(fmt.Sprintf("unhandled TabKind: %d", k))
 }
 
 type rowMeta struct {

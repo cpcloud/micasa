@@ -875,7 +875,7 @@ func (m *Model) tableView(tab *Tab) string {
 		if tab.FilterActive && hasPins(tab) {
 			bodyParts = append(bodyParts, m.styles.Empty.Render("No matches."))
 		} else {
-			bodyParts = append(bodyParts, m.styles.Empty.Render(emptyHint(tab.Kind)))
+			bodyParts = append(bodyParts, m.styles.Empty.Render(m.emptyHint(tab)))
 		}
 	} else {
 		bodyParts = append(bodyParts, strings.Join(rows, "\n"))
@@ -1085,8 +1085,20 @@ func truncateLeft(s string, maxW int) string {
 	return ansi.TruncateLeft(s, sw-maxW+1, "…")
 }
 
-// emptyHint returns a context-aware empty state message for the given tab.
-func emptyHint(kind TabKind) string {
+// emptyHint returns a context-aware empty state message. In a detail
+// drilldown the message references the sub-tab name and the parent entity
+// kind so the user sees e.g. "No docs for this appliance yet." instead of
+// the generic top-level message.
+func (m *Model) emptyHint(tab *Tab) string {
+	if m.inDetail() {
+		return fmt.Sprintf("No %s for this %s yet. Press i for edit mode, then a to add one.",
+			strings.ToLower(tab.Name), tab.Kind.singular())
+	}
+	return topLevelEmptyHint(tab.Kind)
+}
+
+// topLevelEmptyHint returns the empty-state message for a top-level tab.
+func topLevelEmptyHint(kind TabKind) string {
 	switch kind {
 	case tabProjects:
 		return "No projects yet. Press i for edit mode, then a to add one. ? for help."
@@ -1100,9 +1112,10 @@ func emptyHint(kind TabKind) string {
 		return "No appliances yet. Press i for edit mode, then a to add one. ? for help."
 	case tabVendors:
 		return "No vendors yet. Press i for edit mode, then a to add one. ? for help."
-	default:
-		return "No entries yet."
+	case tabDocuments:
+		return "No documents yet."
 	}
+	panic(fmt.Sprintf("unhandled TabKind: %d", kind))
 }
 
 // wordWrap breaks text into lines of at most maxW visible columns, splitting
