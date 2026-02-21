@@ -20,6 +20,35 @@ func formFieldLabels(m *Model) string {
 	return m.form.View()
 }
 
+func TestSaveFormFocusesNewItem(t *testing.T) {
+	m := newTestModelWithStore(t)
+
+	// Create first project and check cursor lands on it.
+	m.startProjectForm()
+	m.form.Init()
+	v1, ok := m.formData.(*projectFormData)
+	require.True(t, ok)
+	v1.Title = "First"
+	m.saveForm()
+
+	meta, ok := m.selectedRowMeta()
+	require.True(t, ok, "should have a selected row after creating first project")
+	firstID := meta.ID
+
+	// Create second project; cursor should move to the new item.
+	m.startProjectForm()
+	m.form.Init()
+	v2, ok := m.formData.(*projectFormData)
+	require.True(t, ok)
+	v2.Title = "Second"
+	m.saveForm()
+
+	meta, ok = m.selectedRowMeta()
+	require.True(t, ok, "should have a selected row after creating second project")
+	assert.NotEqual(t, firstID, meta.ID,
+		"cursor should move to the newly created item, not stay on the first")
+}
+
 func TestAddProjectFormHasOnlyEssentialFields(t *testing.T) {
 	m := newTestModelWithStore(t)
 	m.startProjectForm()
