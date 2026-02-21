@@ -69,6 +69,15 @@ func TestVendorRows(t *testing.T) {
 	assert.Equal(t, "5", cells[1][7].Value)
 }
 
+func TestVendorRowsDocCount(t *testing.T) {
+	docCounts := map[uint]int{1: 9}
+	_, _, cells := vendorRows(sampleVendors(), nil, nil, docCounts)
+	require.Len(t, cells, 2)
+	assert.Equal(t, "9", cells[0][int(vendorColDocs)].Value)
+	assert.Equal(t, cellDrilldown, cells[0][int(vendorColDocs)].Kind)
+	assert.Equal(t, "0", cells[1][int(vendorColDocs)].Value)
+}
+
 func TestVendorHandlerFormKind(t *testing.T) {
 	h := vendorHandler{}
 	assert.Equal(t, formVendor, h.FormKind())

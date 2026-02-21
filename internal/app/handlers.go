@@ -81,10 +81,7 @@ func (projectHandler) Load(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	ids := make([]uint, len(projects))
-	for i, p := range projects {
-		ids[i] = p.ID
-	}
+	ids := entityIDs(projects, func(p data.Project) uint { return p.ID })
 	quoteCounts, err := store.CountQuotesByProject(ids)
 	if err != nil {
 		quoteCounts = map[uint]int{}
@@ -161,10 +158,7 @@ func (quoteHandler) Load(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	ids := make([]uint, len(quotes))
-	for i, q := range quotes {
-		ids[i] = q.ID
-	}
+	ids := entityIDs(quotes, func(q data.Quote) uint { return q.ID })
 	docCounts, err := store.CountDocumentsByEntity(data.DocumentEntityQuote, ids)
 	if err != nil {
 		docCounts = map[uint]int{}
@@ -232,10 +226,7 @@ func (maintenanceHandler) Load(
 		return nil, nil, nil, err
 	}
 	// Batch-fetch service log counts and document counts for all items.
-	ids := make([]uint, len(items))
-	for i, item := range items {
-		ids[i] = item.ID
-	}
+	ids := entityIDs(items, func(item data.MaintenanceItem) uint { return item.ID })
 	logCounts, err := store.CountServiceLogs(ids)
 	if err != nil {
 		logCounts = map[uint]int{} // non-fatal
@@ -312,10 +303,7 @@ func (applianceHandler) Load(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	ids := make([]uint, len(items))
-	for i, item := range items {
-		ids[i] = item.ID
-	}
+	ids := entityIDs(items, func(a data.Appliance) uint { return a.ID })
 	maintCounts, err := store.CountMaintenanceByAppliance(ids)
 	if err != nil {
 		maintCounts = map[uint]int{}
@@ -386,10 +374,7 @@ func (incidentHandler) Load(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	ids := make([]uint, len(items))
-	for i, inc := range items {
-		ids[i] = inc.ID
-	}
+	ids := entityIDs(items, func(inc data.Incident) uint { return inc.ID })
 	docCounts, err := store.CountDocumentsByEntity(data.DocumentEntityIncident, ids)
 	if err != nil {
 		docCounts = map[uint]int{}
@@ -518,10 +503,7 @@ func newApplianceMaintenanceHandler(applianceID uint) scopedHandler {
 			if err != nil {
 				return nil, nil, nil, err
 			}
-			ids := make([]uint, len(items))
-			for i, item := range items {
-				ids[i] = item.ID
-			}
+			ids := entityIDs(items, func(item data.MaintenanceItem) uint { return item.ID })
 			logCounts, err := store.CountServiceLogs(ids)
 			if err != nil {
 				logCounts = map[uint]int{}
@@ -556,10 +538,7 @@ func (h serviceLogHandler) Load(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	ids := make([]uint, len(entries))
-	for i, e := range entries {
-		ids[i] = e.ID
-	}
+	ids := entityIDs(entries, func(e data.ServiceLogEntry) uint { return e.ID })
 	docCounts, err := store.CountDocumentsByEntity(data.DocumentEntityServiceLog, ids)
 	if err != nil {
 		docCounts = map[uint]int{}
@@ -626,10 +605,7 @@ func (vendorHandler) Load(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	ids := make([]uint, len(vendors))
-	for i, v := range vendors {
-		ids[i] = v.ID
-	}
+	ids := entityIDs(vendors, func(v data.Vendor) uint { return v.ID })
 	quoteCounts, err := store.CountQuotesByVendor(ids)
 	if err != nil {
 		quoteCounts = map[uint]int{}
@@ -697,10 +673,7 @@ func newVendorQuoteHandler(vendorID uint) scopedHandler {
 			if err != nil {
 				return nil, nil, nil, err
 			}
-			ids := make([]uint, len(quotes))
-			for i, q := range quotes {
-				ids[i] = q.ID
-			}
+			ids := entityIDs(quotes, func(q data.Quote) uint { return q.ID })
 			docCounts, err := store.CountDocumentsByEntity(data.DocumentEntityQuote, ids)
 			if err != nil {
 				docCounts = map[uint]int{}
@@ -755,10 +728,7 @@ func newProjectQuoteHandler(projectID uint) scopedHandler {
 			if err != nil {
 				return nil, nil, nil, err
 			}
-			ids := make([]uint, len(quotes))
-			for i, q := range quotes {
-				ids[i] = q.ID
-			}
+			ids := entityIDs(quotes, func(q data.Quote) uint { return q.ID })
 			docCounts, err := store.CountDocumentsByEntity(data.DocumentEntityQuote, ids)
 			if err != nil {
 				docCounts = map[uint]int{}

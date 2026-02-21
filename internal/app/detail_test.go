@@ -138,7 +138,7 @@ func TestServiceLogHandlerFormKind(t *testing.T) {
 	assert.Equal(t, formServiceLog, h.FormKind())
 }
 
-func TestMaintenanceColumnsIncludeLog(t *testing.T) {
+func TestMaintenanceColumnsIncludeLogAndDocs(t *testing.T) {
 	specs := maintenanceColumnSpecs()
 	secondLast := specs[len(specs)-2]
 	assert.Equal(t, "Log", secondLast.Title)

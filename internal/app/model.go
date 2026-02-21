@@ -1124,8 +1124,8 @@ func (m *Model) openDetailForRow(tab *Tab, rowID uint, colTitle string) error {
 		if route.colTitle != colTitle {
 			continue
 		}
-		if route.formKind != formNone && tab.Handler != nil &&
-			tab.Handler.FormKind() != route.formKind {
+		if route.formKind != formNone &&
+			(tab.Handler == nil || tab.Handler.FormKind() != route.formKind) {
 			continue
 		}
 		for _, kind := range route.tabKinds {
