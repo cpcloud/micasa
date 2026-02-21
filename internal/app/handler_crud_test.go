@@ -1032,5 +1032,12 @@ func TestSaveFormInPlaceSetEditID(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, docs, 1)
 		assert.Equal(t, "Permit (final)", docs[0].Title, "second save should update")
+		assert.Equal(t, projID, docs[0].EntityID, "entity ID must survive update")
+		assert.Equal(
+			t,
+			data.DocumentEntityProject,
+			docs[0].EntityKind,
+			"entity kind must survive update",
+		)
 	})
 }
