@@ -27,6 +27,8 @@ func DefaultDBPath() (string, error) {
 // On Linux: $XDG_CACHE_HOME/micasa/documents (default ~/.cache/micasa/documents)
 func DocumentCacheDir() (string, error) {
 	dir := filepath.Join(xdg.CacheHome, AppName, "documents")
+	// 0o700: owner-only access. Windows ignores Unix permission bits;
+	// the directory there inherits the user's default ACL.
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", err
 	}
