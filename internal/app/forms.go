@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/cpcloud/micasa/internal/data"
@@ -1461,15 +1460,23 @@ func (m *Model) openDatePicker(
 
 // activateForm applies defaults and switches the model into form mode.
 // All form-opening paths should call this instead of duplicating the epilogue.
-// Init is called eagerly so the form renders correctly on the very first
-// frame; the returned Cmd (cursor blink etc.) is cached for formInitCmd.
 //
-// A synthetic WindowSizeMsg is also sent to the form so it calculates
-// correct group widths and heights before the first render. Without this,
-// multi-group forms jump when huh's deferred WindowSize cmd arrives and
-// recalculates dimensions from the default 80-column width.
+// The form width is set to the terminal width before Init so that group
+// layouts match the actual terminal from the very first frame. huh's
+// Form.Init defers a tea.WindowSize() that would recalculate widths and
+// equalize group heights one frame late, causing a visible jump; updateForm
+// blocks that deferred message so neither width nor height changes after the
+// initial render.
 func (m *Model) activateForm(kind FormKind, form *huh.Form, values any) {
 	applyFormDefaults(form)
+	// Set form width before Init so groups render at the correct terminal
+	// width immediately. Without this, groups start at the default 80
+	// columns and jump when the deferred WindowSizeMsg arrives.
+	// The house form sets its own narrower width before calling
+	// activateForm, so skip the override for that case.
+	if m.width > 0 && kind != formHouse {
+		form.WithWidth(m.width)
+	}
 	m.prevMode = m.mode
 	m.mode = modeForm
 	m.formKind = kind
@@ -1477,20 +1484,6 @@ func (m *Model) activateForm(kind FormKind, form *huh.Form, values any) {
 	m.formData = values
 	m.formHasRequired = true
 	m.pendingFormInit = form.Init()
-	// Eagerly process the window size so groups have correct widths and
-	// heights before the first View() call.
-	if m.width > 0 && m.height > 0 {
-		updated, cmd := form.Update(tea.WindowSizeMsg{
-			Width:  m.width,
-			Height: m.height,
-		})
-		if f, ok := updated.(*huh.Form); ok {
-			m.form = f
-		}
-		if cmd != nil {
-			m.pendingFormInit = tea.Batch(m.pendingFormInit, cmd)
-		}
-	}
 	m.snapshotForm()
 }
 

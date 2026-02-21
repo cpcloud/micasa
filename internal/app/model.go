@@ -329,7 +329,12 @@ func (m *Model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "ctrl+s" {
 		return m, m.saveFormInPlace()
 	}
-	if _, isResize := msg.(tea.WindowSizeMsg); isResize && m.formKind == formHouse {
+	// Block huh's deferred WindowSizeMsg from reaching the form. Without
+	// this, Form.Init's tea.WindowSize() triggers height equalization that
+	// pads shorter groups to the tallest group's height, pushing the "next"
+	// indicator far below the last field. activateForm already sets the
+	// correct width before Init, so this message is redundant.
+	if _, isResize := msg.(tea.WindowSizeMsg); isResize {
 		return m, nil
 	}
 	// Intercept 1-9 on Select fields to jump to the Nth option.
