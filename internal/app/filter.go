@@ -67,9 +67,16 @@ func clearPinsForColumn(tab *Tab, col int) {
 // cellDisplayValue returns the value used for pin matching. In mag mode,
 // numeric cells are transformed to their magnitude representation. NULL cells
 // return a sentinel key so they can be pinned independently of empty strings.
+// Entity cells return the kind name ("project", "vendor") so pinning groups
+// by entity type rather than specific entity.
 func cellDisplayValue(c cell, magMode bool) string {
 	if c.Null {
 		return nullPinKey
+	}
+	if c.Kind == cellEntity && len(c.Value) >= 2 && c.Value[1] == ' ' {
+		if kind, ok := entityLetterKind[c.Value[0]]; ok {
+			return kind
+		}
 	}
 	if magMode {
 		return strings.ToLower(strings.TrimSpace(magFormat(c, false)))
