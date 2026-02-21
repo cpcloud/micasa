@@ -661,6 +661,19 @@ func (m *Model) handleNormalEnter() error {
 		return nil
 	}
 
+	// On a polymorphic entity cell, resolve the target tab from the kind letter.
+	if spec.Kind == cellEntity {
+		if c, ok := m.selectedCell(col); ok {
+			if c.LinkID > 0 && len(c.Value) > 0 {
+				if target, ok := entityLetterTab[c.Value[0]]; ok {
+					return m.navigateToLink(&columnLink{TargetTab: target}, c.LinkID)
+				}
+			}
+			m.setStatusInfo("Nothing to follow.")
+		}
+		return nil
+	}
+
 	// On the Documents tab, hint at the open-file shortcut.
 	if tab.Kind == tabDocuments {
 		m.setStatusInfo("Press o to open.")

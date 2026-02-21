@@ -995,7 +995,11 @@ func documentRows(docs []data.Document, names entityNameMap) ([]table.Row, []row
 			Cells: []cell{
 				{Value: fmt.Sprintf("%d", d.ID), Kind: cellReadonly},
 				{Value: d.Title, Kind: cellText},
-				{Value: documentEntityLabel(d.EntityKind, d.EntityID, names), Kind: cellEntity},
+				{
+					Value:  documentEntityLabel(d.EntityKind, d.EntityID, names),
+					Kind:   cellEntity,
+					LinkID: d.EntityID,
+				},
 				{Value: d.MIMEType, Kind: cellText},
 				{Value: formatFileSize(docSizeBytes(d)), Kind: cellReadonly},
 				{Value: d.Notes, Kind: cellNotes},
@@ -1020,6 +1024,16 @@ func entityDocumentRows(docs []data.Document) ([]table.Row, []rowMeta, [][]cell)
 			},
 		}
 	})
+}
+
+// entityLetterTab maps the single-letter entity prefix to the tab it links to.
+var entityLetterTab = map[byte]TabKind{
+	'A': tabAppliances,
+	'I': tabIncidents,
+	'M': tabMaintenance,
+	'P': tabProjects,
+	'Q': tabQuotes,
+	'V': tabVendors,
 }
 
 // entityKindLetter maps entity kind strings to a single-letter prefix used in
