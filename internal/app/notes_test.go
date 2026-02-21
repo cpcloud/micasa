@@ -168,3 +168,84 @@ func TestEnterHintShowsPreviewOnNotesColumn(t *testing.T) {
 	hint := m.enterHint()
 	assert.Equal(t, "preview", hint)
 }
+
+func TestFirstLine(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"empty", "", ""},
+		{"no newlines", "hello world", "hello world"},
+		{"leading/trailing space", "  hello  ", "hello"},
+		{"single newline", "line one\nline two", "line one..."},
+		{"crlf", "line one\r\nline two", "line one..."},
+		{"multiple newlines", "a\n\nb\n\nc", "a..."},
+		{"tabs and newlines", "a\t\nb", "a..."},
+		{"only whitespace", "  \n\t  ", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, firstLine(tt.input))
+		})
+	}
+}
+
+func TestMultilineNotesRenderedAsSingleLineInTable(t *testing.T) {
+	m := newTestModel()
+	m.active = tabIndex(tabMaintenance)
+	_ = m.openServiceLogDetail(1, "Test")
+	tab := m.effectiveTab()
+	require.NotNil(t, tab)
+
+	multilineNote := "Changed the filter\nand checked pressure"
+
+	tab.Table.SetRows([]table.Row{
+		{"1", "2026-01-15", "Self", "$50.00", multilineNote},
+	})
+	tab.Rows = []rowMeta{{ID: 1}}
+	tab.CellRows = [][]cell{
+		{
+			{Value: "1", Kind: cellReadonly},
+			{Value: "2026-01-15", Kind: cellDate},
+			{Value: "Self", Kind: cellText},
+			{Value: "$50.00", Kind: cellMoney},
+			{Value: multilineNote, Kind: cellNotes},
+		},
+	}
+
+	view := m.buildView()
+
+	// The table should NOT show a raw newline in the rendered note.
+	// Instead, the two lines should be collapsed into a single line.
+	assert.NotContains(t, view, "filter\nand",
+		"table should not render literal newlines in notes cells")
+	assert.Contains(t, view, "Changed the filter...",
+		"table should show the first line of the note with ellipsis")
+	assert.NotContains(t, view, "and checked pressure",
+		"table should not show subsequent lines of a multi-line note")
+}
+
+func TestMultilineNotesPreservedInPreviewOverlay(t *testing.T) {
+	m := newTestModel()
+	m.showNotePreview = true
+	m.notePreviewText = "Changed the filter\nand checked pressure"
+	m.notePreviewTitle = "Notes"
+
+	view := m.buildView()
+	assert.Contains(t, view, "Changed the filter")
+	assert.Contains(t, view, "and checked pressure")
+}
+
+func TestNaturalWidthsMultilineNotesFirstLine(t *testing.T) {
+	specs := []columnSpec{
+		{Title: "Notes", Min: 5, Max: 40, Flex: true, Kind: cellNotes},
+	}
+	rows := [][]cell{
+		{{Value: "short\nvery long second line here", Kind: cellNotes}},
+	}
+	widths := naturalWidths(specs, rows)
+	// Width should reflect the first line + "...", not the longer second line.
+	require.Len(t, widths, 1)
+	assert.Equal(t, len("short..."), widths[0])
+}

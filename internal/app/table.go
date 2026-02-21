@@ -468,7 +468,7 @@ func renderCell(
 	if width < 1 {
 		width = 1
 	}
-	value := strings.TrimSpace(cellValue.Value)
+	value := firstLine(cellValue.Value)
 	style := cellStyle(cellValue.Kind, styles)
 	if cellValue.Null {
 		value = "\u2205" // ∅
@@ -687,6 +687,17 @@ func dateDiffDays(now, target time.Time) int {
 	return int(math.Round(tgtDate.Sub(nowDate).Hours() / 24))
 }
 
+// firstLine returns the first line of s, trimmed of surrounding whitespace.
+// If there are additional lines, an ellipsis is appended to signal that more
+// content is available in the preview overlay.
+func firstLine(s string) string {
+	s = strings.TrimSpace(s)
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		return strings.TrimRight(s[:i], "\r \t") + "..."
+	}
+	return s
+}
+
 func formatCell(value string, width int, align alignKind) string {
 	if width < 1 {
 		return ""
@@ -817,7 +828,7 @@ func naturalWidths(specs []columnSpec, rows [][]cell) []int {
 			if i >= len(row) {
 				continue
 			}
-			value := strings.TrimSpace(row[i].Value)
+			value := firstLine(row[i].Value)
 			if value == "" {
 				continue
 			}
