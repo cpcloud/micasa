@@ -975,8 +975,8 @@ func TestSaveFormInPlaceSetEditID(t *testing.T) {
 		m := newTestModelWithStore(t)
 		m.formKind = formDocument
 		m.formData = &documentFormData{
-			Title:      "Test Doc",
-			EntityKind: data.DocumentEntityProject,
+			Title:     "Test Doc",
+			EntityRef: entityRef{Kind: data.DocumentEntityProject},
 		}
 
 		m.saveFormInPlace()
@@ -984,8 +984,8 @@ func TestSaveFormInPlaceSetEditID(t *testing.T) {
 		require.NotNil(t, m.editID)
 
 		m.formData = &documentFormData{
-			Title:      "Test Doc (revised)",
-			EntityKind: data.DocumentEntityProject,
+			Title:     "Test Doc (revised)",
+			EntityRef: entityRef{Kind: data.DocumentEntityProject},
 		}
 		m.status = statusMsg{}
 		m.saveFormInPlace()
@@ -1013,8 +1013,8 @@ func TestSaveFormInPlaceSetEditID(t *testing.T) {
 
 		m.formKind = formDocument
 		m.formData = &documentFormData{
-			Title:      "Permit",
-			EntityKind: data.DocumentEntityProject,
+			Title:     "Permit",
+			EntityRef: entityRef{Kind: data.DocumentEntityProject},
 		}
 
 		m.saveFormInPlace()
@@ -1022,8 +1022,8 @@ func TestSaveFormInPlaceSetEditID(t *testing.T) {
 		require.NotNil(t, m.editID)
 
 		m.formData = &documentFormData{
-			Title:      "Permit (final)",
-			EntityKind: data.DocumentEntityProject,
+			Title:     "Permit (final)",
+			EntityRef: entityRef{Kind: data.DocumentEntityProject},
 		}
 		m.status = statusMsg{}
 		m.saveFormInPlace()

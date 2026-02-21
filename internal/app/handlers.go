@@ -756,7 +756,8 @@ func (documentHandler) Load(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	rows, meta, cellRows := documentRows(docs)
+	names := buildEntityNameMap(store)
+	rows, meta, cellRows := documentRows(docs, names)
 	return rows, meta, cellRows, nil
 }
 

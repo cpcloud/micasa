@@ -218,11 +218,14 @@ func TestDocumentRows(t *testing.T) {
 			UpdatedAt:  time.Date(2025, 7, 1, 0, 0, 0, 0, time.UTC),
 		},
 	}
-	rows, meta, cells := documentRows(docs)
+	names := entityNameMap{
+		{Kind: data.DocumentEntityProject, ID: 42}: "Kitchen Reno",
+	}
+	rows, meta, cells := documentRows(docs, names)
 	require.Len(t, rows, 1)
 	assert.Equal(t, uint(1), meta[0].ID)
 	assert.Equal(t, "Invoice", cells[0][1].Value)
-	assert.Equal(t, "project #42", cells[0][2].Value)
+	assert.Equal(t, "Kitchen Reno [project]", cells[0][2].Value)
 	assert.Equal(t, "application/pdf", cells[0][3].Value)
 	assert.Equal(t, "2.0 KB", cells[0][4].Value)
 }
@@ -270,9 +273,19 @@ func TestDocSizeBytesZero(t *testing.T) {
 }
 
 func TestDocumentEntityLabel(t *testing.T) {
-	assert.Empty(t, documentEntityLabel("", 0))
-	assert.Equal(t, "project #5", documentEntityLabel("project", 5))
-	assert.Equal(t, "appliance #12", documentEntityLabel("appliance", 12))
+	names := entityNameMap{
+		{Kind: "project", ID: 5}:    "Kitchen Reno",
+		{Kind: "appliance", ID: 12}: "Dishwasher",
+	}
+	assert.Empty(t, documentEntityLabel("", 0, names))
+	assert.Equal(t, "Kitchen Reno [project]", documentEntityLabel("project", 5, names))
+	assert.Equal(t, "Dishwasher [appliance]", documentEntityLabel("appliance", 12, names))
+	assert.Equal(
+		t,
+		"vendor #99",
+		documentEntityLabel("vendor", 99, names),
+		"fallback for missing name",
+	)
 }
 
 func TestCentsCellNil(t *testing.T) {

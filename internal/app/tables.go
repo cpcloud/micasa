@@ -929,7 +929,7 @@ func documentColumnSpecs() []columnSpec {
 	return []columnSpec{
 		{Title: "ID", Min: 4, Max: 6, Align: alignRight, Kind: cellReadonly},
 		{Title: "Title", Min: 14, Max: 32, Flex: true},
-		{Title: "Entity", Min: 10, Max: 20, Flex: true, Kind: cellReadonly},
+		{Title: "Entity", Min: 10, Max: 24, Flex: true},
 		{Title: "Type", Min: 8, Max: 16},
 		{Title: "Size", Min: 6, Max: 10, Align: alignRight, Kind: cellReadonly},
 		{Title: "Notes", Min: 12, Max: 40, Flex: true, Kind: cellNotes},
@@ -941,7 +941,53 @@ func entityDocumentColumnSpecs() []columnSpec {
 	return withoutColumn(documentColumnSpecs(), "Entity")
 }
 
-func documentRows(docs []data.Document) ([]table.Row, []rowMeta, [][]cell) {
+// entityNameMap maps (kind, id) pairs to display names for document entities.
+type entityNameMap map[entityRef]string
+
+// buildEntityNameMap loads names for all entity types so the document table
+// can display resolved labels instead of raw "kind #id".
+func buildEntityNameMap(store *data.Store) entityNameMap {
+	names := make(entityNameMap)
+
+	if appliances, err := store.ListAppliances(false); err == nil {
+		for _, a := range appliances {
+			names[entityRef{Kind: data.DocumentEntityAppliance, ID: a.ID}] = a.Name
+		}
+	}
+	if incidents, err := store.ListIncidents(false); err == nil {
+		for _, inc := range incidents {
+			names[entityRef{Kind: data.DocumentEntityIncident, ID: inc.ID}] = inc.Title
+		}
+	}
+	if items, err := store.ListMaintenance(false); err == nil {
+		for _, item := range items {
+			names[entityRef{Kind: data.DocumentEntityMaintenance, ID: item.ID}] = item.Name
+		}
+	}
+	if projects, err := store.ListProjects(false); err == nil {
+		for _, p := range projects {
+			names[entityRef{Kind: data.DocumentEntityProject, ID: p.ID}] = p.Title
+		}
+	}
+	if quotes, err := store.ListQuotes(false); err == nil {
+		for _, q := range quotes {
+			names[entityRef{Kind: data.DocumentEntityQuote, ID: q.ID}] = fmt.Sprintf(
+				"%s / %s",
+				q.Project.Title,
+				q.Vendor.Name,
+			)
+		}
+	}
+	if vendors, err := store.ListVendors(false); err == nil {
+		for _, v := range vendors {
+			names[entityRef{Kind: data.DocumentEntityVendor, ID: v.ID}] = v.Name
+		}
+	}
+
+	return names
+}
+
+func documentRows(docs []data.Document, names entityNameMap) ([]table.Row, []rowMeta, [][]cell) {
 	return buildRows(docs, func(d data.Document) rowSpec {
 		return rowSpec{
 			ID:      d.ID,
@@ -949,7 +995,7 @@ func documentRows(docs []data.Document) ([]table.Row, []rowMeta, [][]cell) {
 			Cells: []cell{
 				{Value: fmt.Sprintf("%d", d.ID), Kind: cellReadonly},
 				{Value: d.Title, Kind: cellText},
-				{Value: documentEntityLabel(d.EntityKind, d.EntityID), Kind: cellReadonly},
+				{Value: documentEntityLabel(d.EntityKind, d.EntityID, names), Kind: cellReadonly},
 				{Value: d.MIMEType, Kind: cellText},
 				{Value: formatFileSize(docSizeBytes(d)), Kind: cellReadonly},
 				{Value: d.Notes, Kind: cellNotes},
@@ -976,12 +1022,16 @@ func entityDocumentRows(docs []data.Document) ([]table.Row, []rowMeta, [][]cell)
 	})
 }
 
-// documentEntityLabel returns a short label like "project #3".
-func documentEntityLabel(kind string, id uint) string {
+// documentEntityLabel returns a label like "Kitchen Reno (project)" when a
+// name is available, or falls back to "project #3".
+func documentEntityLabel(kind string, id uint, names entityNameMap) string {
 	if kind == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s #%d", kind, id)
+	if name, ok := names[entityRef{Kind: kind, ID: id}]; ok {
+		return name + " [" + kind + "]"
+	}
+	return kind + " #" + fmt.Sprintf("%d", id)
 }
 
 // docSizeBytes returns d.SizeBytes as uint64. The DB column is int64 but

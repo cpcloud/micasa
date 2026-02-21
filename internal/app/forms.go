@@ -106,11 +106,18 @@ type vendorFormData struct {
 	Notes       string
 }
 
+// entityRef identifies a polymorphic document parent (kind + ID).
+// The zero value represents "no entity".
+type entityRef struct {
+	Kind string
+	ID   uint
+}
+
 type documentFormData struct {
-	Title      string
-	FilePath   string // local file path; read on submit for new documents
-	EntityKind string // set by scoped handlers
-	Notes      string
+	Title     string
+	FilePath  string // local file path; read on submit for new documents
+	EntityRef entityRef
+	Notes     string
 }
 
 type incidentFormData struct {
@@ -1432,6 +1439,93 @@ func applianceOptions(appliances []data.Appliance) []huh.Option[uint] {
 	return withOrdinals(options)
 }
 
+// documentEntityOptions builds a flat option list of all active entities that
+// a document can be linked to. Options are grouped by kind with descriptive
+// labels. The first option is always "(none)" for unlinked documents.
+func (m *Model) documentEntityOptions() ([]huh.Option[entityRef], error) {
+	none := entityRef{}
+	opts := []huh.Option[entityRef]{huh.NewOption("(none)", none)}
+
+	// Appliances
+	appliances, err := m.store.ListAppliances(false)
+	if err != nil {
+		return nil, fmt.Errorf("list appliances: %w", err)
+	}
+	for _, a := range appliances {
+		label := a.Name
+		if a.Brand != "" {
+			label += " (" + a.Brand + ")"
+		}
+		opts = append(opts, huh.NewOption(
+			label+" [appliance]",
+			entityRef{Kind: data.DocumentEntityAppliance, ID: a.ID},
+		))
+	}
+
+	// Incidents
+	incidents, err := m.store.ListIncidents(false)
+	if err != nil {
+		return nil, fmt.Errorf("list incidents: %w", err)
+	}
+	for _, inc := range incidents {
+		opts = append(opts, huh.NewOption(
+			inc.Title+" [incident]",
+			entityRef{Kind: data.DocumentEntityIncident, ID: inc.ID},
+		))
+	}
+
+	// Maintenance items
+	items, err := m.store.ListMaintenance(false)
+	if err != nil {
+		return nil, fmt.Errorf("list maintenance: %w", err)
+	}
+	for _, item := range items {
+		opts = append(opts, huh.NewOption(
+			item.Name+" [maintenance]",
+			entityRef{Kind: data.DocumentEntityMaintenance, ID: item.ID},
+		))
+	}
+
+	// Projects
+	projects, err := m.store.ListProjects(false)
+	if err != nil {
+		return nil, fmt.Errorf("list projects: %w", err)
+	}
+	for _, p := range projects {
+		opts = append(opts, huh.NewOption(
+			p.Title+" [project]",
+			entityRef{Kind: data.DocumentEntityProject, ID: p.ID},
+		))
+	}
+
+	// Quotes
+	quotes, err := m.store.ListQuotes(false)
+	if err != nil {
+		return nil, fmt.Errorf("list quotes: %w", err)
+	}
+	for _, q := range quotes {
+		label := fmt.Sprintf("%s / %s", q.Project.Title, q.Vendor.Name)
+		opts = append(opts, huh.NewOption(
+			label+" [quote]",
+			entityRef{Kind: data.DocumentEntityQuote, ID: q.ID},
+		))
+	}
+
+	// Vendors
+	for _, v := range m.vendors {
+		label := v.Name
+		if v.ContactName != "" {
+			label += " (" + v.ContactName + ")"
+		}
+		opts = append(opts, huh.NewOption(
+			label+" [vendor]",
+			entityRef{Kind: data.DocumentEntityVendor, ID: v.ID},
+		))
+	}
+
+	return withOrdinals(opts), nil
+}
+
 // openDatePicker opens the calendar picker for an inline date edit.
 // When the user picks a date, the form data is saved via the handler.
 func (m *Model) openDatePicker(
@@ -2152,21 +2246,39 @@ func intToString(value int) string {
 // startDocumentForm opens a new-document form. entityKind is set by scoped
 // handlers (e.g. "project") or empty for the top-level Documents tab.
 func (m *Model) startDocumentForm(entityKind string) error {
-	values := &documentFormData{EntityKind: entityKind}
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().
-				Title(requiredTitle("Title")).
-				Value(&values.Title).
-				Validate(requiredText("title")),
-			huh.NewInput().
-				Title("File path").
-				Description("Local path to the file to attach").
-				Value(&values.FilePath).
-				Validate(optionalFilePath()),
-			huh.NewText().Title("Notes").Value(&values.Notes),
-		),
+	values := &documentFormData{}
+	scoped := entityKind != ""
+
+	fields := []huh.Field{
+		huh.NewInput().
+			Title(requiredTitle("Title")).
+			Value(&values.Title).
+			Validate(requiredText("title")),
+	}
+
+	if !scoped {
+		entityOpts, err := m.documentEntityOptions()
+		if err != nil {
+			return err
+		}
+		fields = append(fields,
+			huh.NewSelect[entityRef]().
+				Title("Entity").
+				Options(entityOpts...).
+				Value(&values.EntityRef),
+		)
+	}
+
+	fields = append(fields,
+		huh.NewInput().
+			Title("File path").
+			Description("Local path to the file to attach").
+			Value(&values.FilePath).
+			Validate(optionalFilePath()),
+		huh.NewText().Title("Notes").Value(&values.Notes),
 	)
+
+	form := huh.NewForm(huh.NewGroup(fields...))
 	m.activateForm(formDocument, form, values)
 	return nil
 }
@@ -2178,26 +2290,44 @@ func (m *Model) startEditDocumentForm(id uint) error {
 	}
 	values := documentFormValues(doc)
 	m.editID = &id
-	m.openEditDocumentForm(values)
-	return nil
+
+	scoped := len(m.detailStack) > 0
+	return m.openEditDocumentForm(values, scoped)
 }
 
-func (m *Model) openEditDocumentForm(values *documentFormData) {
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().
-				Title(requiredTitle("Title")).
-				Value(&values.Title).
-				Validate(requiredText("title")),
-			huh.NewInput().
-				Title("File path").
-				Description("Local path to a replacement file").
-				Value(&values.FilePath).
-				Validate(optionalFilePath()),
-			huh.NewText().Title("Notes").Value(&values.Notes),
-		),
+func (m *Model) openEditDocumentForm(values *documentFormData, scoped bool) error {
+	fields := []huh.Field{
+		huh.NewInput().
+			Title(requiredTitle("Title")).
+			Value(&values.Title).
+			Validate(requiredText("title")),
+	}
+
+	if !scoped {
+		entityOpts, err := m.documentEntityOptions()
+		if err != nil {
+			return err
+		}
+		fields = append(fields,
+			huh.NewSelect[entityRef]().
+				Title("Entity").
+				Options(entityOpts...).
+				Value(&values.EntityRef),
+		)
+	}
+
+	fields = append(fields,
+		huh.NewInput().
+			Title("File path").
+			Description("Local path to a replacement file").
+			Value(&values.FilePath).
+			Validate(optionalFilePath()),
+		huh.NewText().Title("Notes").Value(&values.Notes),
 	)
+
+	form := huh.NewForm(huh.NewGroup(fields...))
 	m.activateForm(formDocument, form, values)
+	return nil
 }
 
 func (m *Model) submitDocumentForm() error {
@@ -2244,7 +2374,8 @@ func (m *Model) parseDocumentFormData() (data.Document, error) {
 	}
 	doc := data.Document{
 		Title:      strings.TrimSpace(values.Title),
-		EntityKind: values.EntityKind,
+		EntityKind: values.EntityRef.Kind,
+		EntityID:   values.EntityRef.ID,
 		Notes:      strings.TrimSpace(values.Notes),
 	}
 	// Read file from path if provided (new document or file replacement).
@@ -2304,7 +2435,17 @@ func (m *Model) inlineEditDocument(id uint, col documentCol) error {
 		)
 	case documentColNotes:
 		m.openNotesEdit(id, formDocument, &values.Notes, values)
-	case documentColID, documentColEntity, documentColType, documentColSize, documentColUpdated:
+	case documentColEntity:
+		entityOpts, err := m.documentEntityOptions()
+		if err != nil {
+			return err
+		}
+		field := huh.NewSelect[entityRef]().
+			Title("Entity").
+			Options(entityOpts...).
+			Value(&values.EntityRef)
+		m.openInlineEdit(id, formDocument, field, values)
+	case documentColID, documentColType, documentColSize, documentColUpdated:
 		return m.startEditDocumentForm(id)
 	}
 	return nil
@@ -2312,9 +2453,9 @@ func (m *Model) inlineEditDocument(id uint, col documentCol) error {
 
 func documentFormValues(doc data.Document) *documentFormData {
 	return &documentFormData{
-		Title:      doc.Title,
-		EntityKind: doc.EntityKind,
-		Notes:      doc.Notes,
+		Title:     doc.Title,
+		EntityRef: entityRef{Kind: doc.EntityKind, ID: doc.EntityID},
+		Notes:     doc.Notes,
 	}
 }
 
