@@ -1000,7 +1000,7 @@ func (m *Model) inlineEditVendor(id uint, col vendorCol) error {
 		m.openInlineInput(id, formVendor, "Phone", "", &values.Phone, nil, values)
 	case vendorColWebsite:
 		m.openInlineInput(id, formVendor, "Website", "", &values.Website, nil, values)
-	case vendorColID, vendorColQuotes, vendorColJobs:
+	case vendorColID, vendorColQuotes, vendorColJobs, vendorColDocs:
 		return m.startEditVendorForm(id)
 	}
 	return nil
@@ -1144,7 +1144,7 @@ func (m *Model) inlineEditQuote(id uint, col quoteCol) error {
 		)
 	case quoteColRecv:
 		m.openDatePicker(id, formQuote, &values.ReceivedDate, values)
-	case quoteColID:
+	case quoteColID, quoteColDocs:
 		return m.startEditQuoteForm(id)
 	}
 	return nil
@@ -1195,7 +1195,7 @@ func (m *Model) inlineEditMaintenance(id uint, col maintenanceCol) error {
 			optionalInterval("interval"),
 			values,
 		)
-	case maintenanceColID, maintenanceColNext, maintenanceColLog:
+	case maintenanceColID, maintenanceColNext, maintenanceColLog, maintenanceColDocs:
 		return m.startEditMaintenanceForm(id)
 	}
 	return nil
