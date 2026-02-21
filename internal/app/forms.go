@@ -2186,12 +2186,12 @@ func (m *Model) submitScopedDocumentForm(entityKind string, entityID uint) error
 	if err != nil {
 		return err
 	}
+	doc.EntityKind = entityKind
+	doc.EntityID = entityID
 	if m.editID != nil {
 		doc.ID = *m.editID
 		return m.store.UpdateDocument(doc)
 	}
-	doc.EntityKind = entityKind
-	doc.EntityID = entityID
 	if err := m.store.CreateDocument(&doc); err != nil {
 		return err
 	}
