@@ -96,6 +96,19 @@ func TestQuoteRowsFallbackProjectName(t *testing.T) {
 	assert.Equal(t, "Project 42", cells[0][1].Value)
 }
 
+func TestQuoteRowsDocCount(t *testing.T) {
+	quotes := []data.Quote{
+		{ID: 1, ProjectID: 1, Project: data.Project{Title: "Kitchen"}, TotalCents: 100},
+		{ID: 2, ProjectID: 1, Project: data.Project{Title: "Kitchen"}, TotalCents: 200},
+	}
+	docCounts := map[uint]int{2: 5}
+	_, _, cells := quoteRows(quotes, docCounts)
+	require.Len(t, cells, 2)
+	assert.Equal(t, "0", cells[0][int(quoteColDocs)].Value)
+	assert.Equal(t, cellDrilldown, cells[0][int(quoteColDocs)].Kind)
+	assert.Equal(t, "5", cells[1][int(quoteColDocs)].Value)
+}
+
 func TestMaintenanceRows(t *testing.T) {
 	appID := uint(5)
 	lastServiced := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -120,6 +133,19 @@ func TestMaintenanceRows(t *testing.T) {
 	assert.Equal(t, uint(5), cells[0][3].LinkID)
 	assert.Equal(t, "3m", cells[0][6].Value)
 	assert.Equal(t, "4", cells[0][7].Value)
+}
+
+func TestMaintenanceRowsDocCount(t *testing.T) {
+	items := []data.MaintenanceItem{
+		{ID: 1, Name: "HVAC Filter", IntervalMonths: 3},
+		{ID: 2, Name: "Gutters", IntervalMonths: 6},
+	}
+	docCounts := map[uint]int{1: 7}
+	_, _, cells := maintenanceRows(items, nil, docCounts)
+	require.Len(t, cells, 2)
+	assert.Equal(t, "7", cells[0][int(maintenanceColDocs)].Value)
+	assert.Equal(t, cellDrilldown, cells[0][int(maintenanceColDocs)].Kind)
+	assert.Equal(t, "0", cells[1][int(maintenanceColDocs)].Value)
 }
 
 func TestMaintenanceRowsNoAppliance(t *testing.T) {

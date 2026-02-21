@@ -733,6 +733,15 @@ type rowSpec struct {
 	Cells   []cell
 }
 
+// entityIDs extracts the ID from each element using the given accessor.
+func entityIDs[T any](items []T, id func(T) uint) []uint {
+	ids := make([]uint, len(items))
+	for i, item := range items {
+		ids[i] = id(item)
+	}
+	return ids
+}
+
 // buildRows converts a slice of entities into the three parallel slices that
 // the table and sort systems consume. The toRow function maps each entity to
 // its ID, deletion status, and cell values.
