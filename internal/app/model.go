@@ -935,6 +935,26 @@ var (
 			return a.Name, nil
 		},
 	}
+	serviceLogDocumentDef = detailDef{
+		tabKind: tabMaintenance,
+		subName: tabDocuments.String(),
+		specs:   entityDocumentColumnSpecs,
+		handler: func(id uint) TabHandler {
+			return newEntityDocumentHandler(data.DocumentEntityServiceLog, id)
+		},
+		breadcrumb: func(m *Model, parentName string) string {
+			// Service log docs are always opened from within a service log
+			// detail, so the parent breadcrumb is already on the stack.
+			return parentName + breadcrumbSep + tabDocuments.String()
+		},
+		getName: func(s *data.Store, id uint) (string, error) {
+			entry, err := s.GetServiceLog(id)
+			if err != nil {
+				return "", fmt.Errorf("load service log: %w", err)
+			}
+			return entry.ServicedAt.Format(data.DateLayout), nil
+		},
+	}
 	maintenanceDocumentDef = detailDef{
 		tabKind:    tabMaintenance,
 		subName:    tabDocuments.String(),
@@ -1067,6 +1087,12 @@ var detailRoutes = []detailRoute{
 	{tabKinds: []TabKind{tabProjects}, colTitle: tabQuotes.String(), def: projectQuoteDef},
 	// Handler-scoped document routes: match nested detail views where the
 	// parent tabKind is shared but the handler identifies the entity type.
+	{
+		tabKinds: []TabKind{tabMaintenance, tabAppliances},
+		colTitle: tabDocuments.String(),
+		def:      serviceLogDocumentDef,
+		formKind: formServiceLog,
+	},
 	{
 		tabKinds: []TabKind{tabMaintenance, tabAppliances},
 		colTitle: tabDocuments.String(),

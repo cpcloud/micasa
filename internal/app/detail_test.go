@@ -116,8 +116,8 @@ func TestDetailTabHasServiceLogSpecs(t *testing.T) {
 	_ = m.openServiceLogDetail(1, "Test")
 
 	tab := m.effectiveTab()
-	require.Len(t, tab.Specs, 5)
-	expected := []string{"ID", "Date", "Performed By", "Cost", "Notes"}
+	require.Len(t, tab.Specs, 6)
+	expected := []string{"ID", "Date", "Performed By", "Cost", "Notes", tabDocuments.String()}
 	for i, want := range expected {
 		assert.Equalf(t, want, tab.Specs[i].Title, "column %d", i)
 	}
@@ -164,7 +164,7 @@ func TestVendorOptions(t *testing.T) {
 
 func TestServiceLogColumnSpecs(t *testing.T) {
 	specs := serviceLogColumnSpecs()
-	require.Len(t, specs, 5)
+	require.Len(t, specs, 6)
 	// Verify the "Performed By" column is flex and linked to vendors.
 	pb := specs[2]
 	assert.True(t, pb.Flex)
@@ -180,7 +180,7 @@ func TestServiceLogRowsSelfPerformed(t *testing.T) {
 			Notes:      "test note",
 		},
 	}
-	_, meta, cellRows := serviceLogRows(entries)
+	_, meta, cellRows := serviceLogRows(entries, nil)
 	require.Len(t, cellRows, 1)
 	assert.Equal(t, "Self", cellRows[0][2].Value)
 	assert.Equal(t, uint(1), meta[0].ID)
@@ -196,7 +196,7 @@ func TestServiceLogRowsVendorPerformed(t *testing.T) {
 			Vendor:     data.Vendor{Name: "Acme Plumbing"},
 		},
 	}
-	_, _, cellRows := serviceLogRows(entries)
+	_, _, cellRows := serviceLogRows(entries, nil)
 	assert.Equal(t, "Acme Plumbing", cellRows[0][2].Value)
 	assert.Equal(t, uint(5), cellRows[0][2].LinkID)
 }
@@ -208,8 +208,21 @@ func TestServiceLogRowsSelfHasNoLink(t *testing.T) {
 			ServicedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 		},
 	}
-	_, _, cellRows := serviceLogRows(entries)
+	_, _, cellRows := serviceLogRows(entries, nil)
 	assert.Zero(t, cellRows[0][2].LinkID)
+}
+
+func TestServiceLogRowsDocCount(t *testing.T) {
+	entries := []data.ServiceLogEntry{
+		{ID: 1, ServicedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)},
+		{ID: 2, ServicedAt: time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)},
+	}
+	docCounts := map[uint]int{1: 3}
+	_, _, cellRows := serviceLogRows(entries, docCounts)
+	require.Len(t, cellRows, 2)
+	assert.Equal(t, "3", cellRows[0][int(serviceLogColDocs)].Value)
+	assert.Equal(t, cellDrilldown, cellRows[0][int(serviceLogColDocs)].Kind)
+	assert.Equal(t, "0", cellRows[1][int(serviceLogColDocs)].Value)
 }
 
 func TestMaintenanceLogColumnReplacedManual(t *testing.T) {
@@ -826,6 +839,46 @@ func TestOpenDetailForRow_ApplianceDocuments(t *testing.T) {
 	require.NoError(t, m.openDetailForRow(tab, appliances[0].ID, tabDocuments.String()))
 	require.True(t, m.inDetail())
 	assert.Equal(t, tabDocuments.String(), m.detail().Tab.Name)
+}
+
+func TestServiceLogDocumentHandlerFormKind(t *testing.T) {
+	h := newEntityDocumentHandler(data.DocumentEntityServiceLog, 1)
+	assert.Equal(t, formDocument, h.FormKind())
+}
+
+func TestOpenDetailForRow_ServiceLogDocuments(t *testing.T) {
+	m := newTestModelWithDemoData(t, 42)
+	m.active = tabIndex(tabMaintenance)
+
+	// List maintenance items and drill into one's service log.
+	items, err := m.store.ListMaintenance(false)
+	require.NoError(t, err)
+	require.NotEmpty(t, items)
+
+	// Create a service log entry for the first maintenance item.
+	entry := &data.ServiceLogEntry{
+		MaintenanceItemID: items[0].ID,
+		ServicedAt:        time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
+		Notes:             "test entry for doc drilldown",
+	}
+	require.NoError(t, m.store.CreateServiceLog(entry, data.Vendor{}))
+
+	require.NoError(t, m.openServiceLogDetail(items[0].ID, items[0].Name))
+	require.True(t, m.inDetail())
+
+	// Drill from the service log detail into documents.
+	detailTab := m.effectiveTab()
+	require.NotNil(t, detailTab)
+	require.NoError(t, m.openDetailForRow(detailTab, entry.ID, tabDocuments.String()))
+	assert.Equal(t, tabDocuments.String(), m.detail().Tab.Name)
+	assert.Contains(t, m.detail().Breadcrumb, tabDocuments.String())
+}
+
+func TestServiceLogDocumentColumnSpecsHasDocsColumn(t *testing.T) {
+	specs := serviceLogColumnSpecs()
+	last := specs[len(specs)-1]
+	assert.Equal(t, tabDocuments.String(), last.Title)
+	assert.Equal(t, cellDrilldown, last.Kind)
 }
 
 // ---------------------------------------------------------------------------
