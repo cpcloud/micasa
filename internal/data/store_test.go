@@ -1232,11 +1232,13 @@ func TestUpdateDocumentPreservesEntityLink(t *testing.T) {
 	require.Equal(t, projectID, original.EntityID)
 	require.Equal(t, DocumentEntityProject, original.EntityKind)
 
-	// Simulate what the form does: update title with EntityID=0 and empty Data.
+	// Simulate what the form does: pass entity fields through unchanged.
 	require.NoError(t, store.UpdateDocument(Document{
-		ID:    original.ID,
-		Title: "Renamed Doc",
-		Notes: "added notes",
+		ID:         original.ID,
+		Title:      "Renamed Doc",
+		Notes:      "added notes",
+		EntityKind: DocumentEntityProject,
+		EntityID:   projectID,
 	}))
 
 	updated, err := store.GetDocument(original.ID)
@@ -1250,6 +1252,90 @@ func TestUpdateDocumentPreservesEntityLink(t *testing.T) {
 		updated.EntityKind,
 		"EntityKind must survive a metadata-only edit",
 	)
+}
+
+func TestUpdateDocumentChangesEntity(t *testing.T) {
+	store := newTestStore(t)
+
+	types, _ := store.ProjectTypes()
+	require.NoError(t, store.CreateProject(&Project{
+		Title: "Project A", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}))
+	projects, _ := store.ListProjects(false)
+	projectID := projects[0].ID
+
+	require.NoError(t, store.CreateAppliance(&Appliance{Name: "Fridge"}))
+	appliances, _ := store.ListAppliances(false)
+	applianceID := appliances[0].ID
+
+	content := []byte("reassign me")
+	checksum := fmt.Sprintf("%x", sha256.Sum256(content))
+	require.NoError(t, store.CreateDocument(&Document{
+		Title:          "Reassign Doc",
+		FileName:       "doc.pdf",
+		MIMEType:       "application/pdf",
+		SizeBytes:      int64(len(content)),
+		ChecksumSHA256: checksum,
+		Data:           content,
+		EntityKind:     DocumentEntityProject,
+		EntityID:       projectID,
+	}))
+	docs, err := store.ListDocuments(false)
+	require.NoError(t, err)
+	require.Len(t, docs, 1)
+	original := docs[0]
+
+	// Reassign from project to appliance.
+	require.NoError(t, store.UpdateDocument(Document{
+		ID:         original.ID,
+		Title:      original.Title,
+		EntityKind: DocumentEntityAppliance,
+		EntityID:   applianceID,
+	}))
+
+	updated, err := store.GetDocument(original.ID)
+	require.NoError(t, err)
+	assert.Equal(t, DocumentEntityAppliance, updated.EntityKind)
+	assert.Equal(t, applianceID, updated.EntityID)
+}
+
+func TestUpdateDocumentClearsEntity(t *testing.T) {
+	store := newTestStore(t)
+
+	types, _ := store.ProjectTypes()
+	require.NoError(t, store.CreateProject(&Project{
+		Title: "Temp Project", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
+	}))
+	projects, _ := store.ListProjects(false)
+	projectID := projects[0].ID
+
+	content := []byte("unlink me")
+	checksum := fmt.Sprintf("%x", sha256.Sum256(content))
+	require.NoError(t, store.CreateDocument(&Document{
+		Title:          "Unlinked Doc",
+		FileName:       "doc.pdf",
+		MIMEType:       "application/pdf",
+		SizeBytes:      int64(len(content)),
+		ChecksumSHA256: checksum,
+		Data:           content,
+		EntityKind:     DocumentEntityProject,
+		EntityID:       projectID,
+	}))
+	docs, err := store.ListDocuments(false)
+	require.NoError(t, err)
+	require.Len(t, docs, 1)
+	original := docs[0]
+
+	// Clear entity assignment.
+	require.NoError(t, store.UpdateDocument(Document{
+		ID:    original.ID,
+		Title: original.Title,
+	}))
+
+	updated, err := store.GetDocument(original.ID)
+	require.NoError(t, err)
+	assert.Empty(t, updated.EntityKind)
+	assert.Zero(t, updated.EntityID)
 }
 
 func TestUpdateDocumentReplacesFile(t *testing.T) {

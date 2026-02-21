@@ -1037,7 +1037,7 @@ func (s *Store) CreateDocument(doc *Document) error {
 // re-link a document. When Data is empty the existing BLOB and file metadata
 // columns are also preserved, so metadata-only edits don't erase the file.
 func (s *Store) UpdateDocument(doc Document) error {
-	omit := []string{ColID, ColCreatedAt, ColDeletedAt, ColEntityID, ColEntityKind}
+	omit := []string{ColID, ColCreatedAt, ColDeletedAt}
 	if len(doc.Data) == 0 {
 		omit = append(omit,
 			ColFileName, ColMIMEType, ColSizeBytes,

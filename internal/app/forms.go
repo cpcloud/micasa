@@ -1439,6 +1439,19 @@ func applianceOptions(appliances []data.Appliance) []huh.Option[uint] {
 	return withOrdinals(options)
 }
 
+// entityOptionLabel colors the entire label using the kind's color from the
+// Entity column palette.
+func entityOptionLabel(kind, label string) string {
+	letter, ok := entityKindLetter[kind]
+	if !ok {
+		return label
+	}
+	if s, ok := entityKindLetterStyles[letter[0]]; ok {
+		return s.Render(label)
+	}
+	return label
+}
+
 // documentEntityOptions builds a flat option list of all active entities that
 // a document can be linked to. Options are grouped by kind with descriptive
 // labels. The first option is always "(none)" for unlinked documents.
@@ -1457,7 +1470,7 @@ func (m *Model) documentEntityOptions() ([]huh.Option[entityRef], error) {
 			label += " (" + a.Brand + ")"
 		}
 		opts = append(opts, huh.NewOption(
-			label+" [appliance]",
+			entityOptionLabel(data.DocumentEntityAppliance, label),
 			entityRef{Kind: data.DocumentEntityAppliance, ID: a.ID},
 		))
 	}
@@ -1469,7 +1482,7 @@ func (m *Model) documentEntityOptions() ([]huh.Option[entityRef], error) {
 	}
 	for _, inc := range incidents {
 		opts = append(opts, huh.NewOption(
-			inc.Title+" [incident]",
+			entityOptionLabel(data.DocumentEntityIncident, inc.Title),
 			entityRef{Kind: data.DocumentEntityIncident, ID: inc.ID},
 		))
 	}
@@ -1481,7 +1494,7 @@ func (m *Model) documentEntityOptions() ([]huh.Option[entityRef], error) {
 	}
 	for _, item := range items {
 		opts = append(opts, huh.NewOption(
-			item.Name+" [maintenance]",
+			entityOptionLabel(data.DocumentEntityMaintenance, item.Name),
 			entityRef{Kind: data.DocumentEntityMaintenance, ID: item.ID},
 		))
 	}
@@ -1493,7 +1506,7 @@ func (m *Model) documentEntityOptions() ([]huh.Option[entityRef], error) {
 	}
 	for _, p := range projects {
 		opts = append(opts, huh.NewOption(
-			p.Title+" [project]",
+			entityOptionLabel(data.DocumentEntityProject, p.Title),
 			entityRef{Kind: data.DocumentEntityProject, ID: p.ID},
 		))
 	}
@@ -1506,7 +1519,7 @@ func (m *Model) documentEntityOptions() ([]huh.Option[entityRef], error) {
 	for _, q := range quotes {
 		label := fmt.Sprintf("%s / %s", q.Project.Title, q.Vendor.Name)
 		opts = append(opts, huh.NewOption(
-			label+" [quote]",
+			entityOptionLabel(data.DocumentEntityQuote, label),
 			entityRef{Kind: data.DocumentEntityQuote, ID: q.ID},
 		))
 	}
@@ -1518,7 +1531,7 @@ func (m *Model) documentEntityOptions() ([]huh.Option[entityRef], error) {
 			label += " (" + v.ContactName + ")"
 		}
 		opts = append(opts, huh.NewOption(
-			label+" [vendor]",
+			entityOptionLabel(data.DocumentEntityVendor, label),
 			entityRef{Kind: data.DocumentEntityVendor, ID: v.ID},
 		))
 	}
