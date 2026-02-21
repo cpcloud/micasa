@@ -480,6 +480,16 @@ func TestCellDisplayValueNonNull(t *testing.T) {
 	assert.Equal(t, "hello", cellDisplayValue(c, false))
 }
 
+func TestCellDisplayValueEntityPinsByKind(t *testing.T) {
+	project := cell{Value: "P Kitchen Reno", Kind: cellEntity}
+	vendor := cell{Value: "V Bob's Plumbing", Kind: cellEntity}
+	empty := cell{Value: "", Kind: cellEntity}
+
+	assert.Equal(t, "project", cellDisplayValue(project, false))
+	assert.Equal(t, "vendor", cellDisplayValue(vendor, false))
+	assert.Equal(t, "", cellDisplayValue(empty, false), "empty entity returns empty")
+}
+
 func TestMatchesAllPinsNullCell(t *testing.T) {
 	pins := []filterPin{{Col: 1, Values: map[string]bool{nullPinKey: true}}}
 	nullRow := []cell{{Value: "1"}, {Kind: cellText, Null: true}}

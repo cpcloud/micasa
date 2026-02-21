@@ -1036,6 +1036,17 @@ var entityLetterTab = map[byte]TabKind{
 	'V': tabVendors,
 }
 
+// entityLetterKind maps the single-letter entity prefix to the full kind name.
+// Used by cellDisplayValue for kind-based pinning.
+var entityLetterKind = map[byte]string{
+	'A': data.DocumentEntityAppliance,
+	'I': data.DocumentEntityIncident,
+	'M': data.DocumentEntityMaintenance,
+	'P': data.DocumentEntityProject,
+	'Q': data.DocumentEntityQuote,
+	'V': data.DocumentEntityVendor,
+}
+
 // entityKindLetter maps entity kind strings to a single-letter prefix used in
 // the Entity column. Each letter is unique across all entity types.
 var entityKindLetter = map[string]string{
