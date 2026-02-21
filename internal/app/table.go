@@ -518,6 +518,7 @@ func renderCell(
 	var noteSuffixW int
 	if cellValue.Kind == cellNotes && !cellValue.Null && value != "" && value != "\u2014" {
 		if n := extraLineCount(cellValue.Value); n > 0 {
+			value += "\u2026"
 			noteSuffix = fmt.Sprintf("+%d", n)
 			noteSuffixW = lipgloss.Width(noteSuffix)
 		}
@@ -901,8 +902,8 @@ func naturalWidths(specs []columnSpec, rows [][]cell) []int {
 			cw := lipgloss.Width(value)
 			if spec.Kind == cellNotes {
 				if n := extraLineCount(row[i].Value); n > 0 {
-					// Account for gap + right-aligned "+N" indicator.
-					cw += 1 + noteSuffixWidth(n)
+					// Account for "…" + gap + right-aligned "+N" indicator.
+					cw += 1 + 1 + noteSuffixWidth(n)
 				}
 			}
 			if cw > w {

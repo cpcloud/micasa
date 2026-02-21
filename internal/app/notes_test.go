@@ -239,8 +239,8 @@ func TestMultilineNotesRenderedAsSingleLineInTable(t *testing.T) {
 	// The table should NOT show a raw newline in the rendered note.
 	assert.NotContains(t, view, "filter\nand",
 		"table should not render literal newlines in notes cells")
-	assert.Contains(t, view, "Changed the filter",
-		"table should show the first line of the note")
+	assert.Contains(t, view, "Changed the filter\u2026",
+		"table should show the first line with ellipsis")
 	assert.NotContains(t, view, "and checked pressure",
 		"table should not show subsequent lines of a multi-line note")
 	// Right-aligned grayed-out line count indicator.
@@ -267,8 +267,8 @@ func TestNaturalWidthsMultilineNotesFirstLine(t *testing.T) {
 		{{Value: "short\nvery long second line here", Kind: cellNotes}},
 	}
 	widths := naturalWidths(specs, rows)
-	// Width: first line ("short" = 5) + 1 gap + "+1" indicator (2) = 8.
+	// Width: first line ("short" = 5) + "…" (1) + gap (1) + "+1" (2) = 9.
 	// Not the longer second line (26).
 	require.Len(t, widths, 1)
-	assert.Equal(t, len("short")+1+noteSuffixWidth(1), widths[0])
+	assert.Equal(t, len("short")+1+1+noteSuffixWidth(1), widths[0])
 }
