@@ -254,3 +254,16 @@ type inlineInputState struct {
 	FieldPtr *string            // pointer into FormData
 	Validate func(string) error // nil = no validation
 }
+
+// editorState holds context for an in-flight $EDITOR session so we can
+// restore the textarea with the edited content when the editor exits.
+type editorState struct {
+	EditID   uint
+	FormKind FormKind
+	FormData any
+	FieldPtr *string // pointer into FormData for the notes field
+	TempFile string  // path to the temp file passed to the editor
+}
+
+// editorFinishedMsg is sent when an external $EDITOR process exits.
+type editorFinishedMsg struct{ Err error }

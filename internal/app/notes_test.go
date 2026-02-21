@@ -4,6 +4,8 @@
 package app
 
 import (
+	"fmt"
+	"os"
 	"testing"
 
 	"github.com/charmbracelet/bubbles/table"
@@ -271,4 +273,150 @@ func TestNaturalWidthsMultilineNotesFirstLine(t *testing.T) {
 	// Not the longer second line (26).
 	require.Len(t, widths, 1)
 	assert.Equal(t, len("short")+1+1+noteSuffixWidth(1), widths[0])
+}
+
+// --- Notes textarea overlay tests ---
+
+func TestOpenNotesEditOpensTextareaOverlay(t *testing.T) {
+	m := newTestModel()
+	values := &serviceLogFormData{Notes: "existing note"}
+	m.openNotesEdit(1, formServiceLog, &values.Notes, values)
+
+	assert.Equal(t, modeForm, m.mode)
+	assert.True(t, m.notesEditMode)
+	require.NotNil(t, m.notesFieldPtr)
+	assert.Equal(t, &values.Notes, m.notesFieldPtr)
+	assert.NotNil(t, m.form)
+	assert.Nil(t, m.inlineInput, "should not use inline input")
+}
+
+func TestNotesEditModeShowsEditorHint(t *testing.T) {
+	m := newTestModel()
+	values := &serviceLogFormData{Notes: "test"}
+	m.openNotesEdit(1, formServiceLog, &values.Notes, values)
+
+	status := m.statusView()
+	assert.Contains(t, status, "CTRL+E")
+}
+
+func TestNotesEditModeClearedOnExitForm(t *testing.T) {
+	m := newTestModel()
+	values := &serviceLogFormData{Notes: "test"}
+	m.openNotesEdit(1, formServiceLog, &values.Notes, values)
+	require.True(t, m.notesEditMode)
+
+	m.exitForm()
+
+	assert.False(t, m.notesEditMode)
+	assert.Nil(t, m.notesFieldPtr)
+}
+
+func TestCtrlEWithoutEditorShowsError(t *testing.T) {
+	m := newTestModel()
+	values := &serviceLogFormData{Notes: "test"}
+	m.openNotesEdit(1, formServiceLog, &values.Notes, values)
+
+	// Ensure no editor is set.
+	t.Setenv("EDITOR", "")
+	t.Setenv("VISUAL", "")
+
+	sendKey(m, "ctrl+e")
+
+	assert.Equal(t, statusError, m.status.Kind)
+	assert.Contains(t, m.status.Text, "$EDITOR")
+}
+
+func TestEditorFinishedMsgUpdatesFieldAndReopensTextarea(t *testing.T) {
+	m := newTestModel()
+	values := &serviceLogFormData{Notes: "original"}
+
+	// Simulate a pending editor returning edited content.
+	tmpFile := t.TempDir() + "/notes.txt"
+	require.NoError(t, os.WriteFile(tmpFile, []byte("edited content\n"), 0o600))
+
+	m.pendingEditor = &editorState{
+		EditID:   42,
+		FormKind: formServiceLog,
+		FormData: values,
+		FieldPtr: &values.Notes,
+		TempFile: tmpFile,
+	}
+
+	m.handleEditorFinished(editorFinishedMsg{})
+
+	// Field should be updated with trailing newline stripped.
+	assert.Equal(t, "edited content", values.Notes)
+	// Textarea should be reopened.
+	assert.Equal(t, modeForm, m.mode)
+	assert.True(t, m.notesEditMode)
+	assert.NotNil(t, m.form)
+}
+
+func TestEditorFinishedMsgStripsTrailingNewlines(t *testing.T) {
+	m := newTestModel()
+	values := &serviceLogFormData{Notes: "original"}
+
+	tmpFile := t.TempDir() + "/notes.txt"
+	require.NoError(t, os.WriteFile(tmpFile, []byte("line one\nline two\n\n\n"), 0o600))
+
+	m.pendingEditor = &editorState{
+		FormKind: formServiceLog,
+		FormData: values,
+		FieldPtr: &values.Notes,
+		TempFile: tmpFile,
+	}
+
+	m.handleEditorFinished(editorFinishedMsg{})
+
+	assert.Equal(t, "line one\nline two", values.Notes)
+}
+
+func TestEditorFinishedWithErrorReopensTextarea(t *testing.T) {
+	m := newTestModel()
+	values := &serviceLogFormData{Notes: "original"}
+
+	tmpFile := t.TempDir() + "/notes.txt"
+	require.NoError(t, os.WriteFile(tmpFile, []byte("original"), 0o600))
+
+	m.pendingEditor = &editorState{
+		FormKind: formServiceLog,
+		FormData: values,
+		FieldPtr: &values.Notes,
+		TempFile: tmpFile,
+	}
+
+	m.handleEditorFinished(editorFinishedMsg{Err: fmt.Errorf("exit status 1")})
+
+	// Original text should be preserved.
+	assert.Equal(t, "original", values.Notes)
+	// Textarea should still be reopened for retry.
+	assert.Equal(t, modeForm, m.mode)
+	assert.True(t, m.notesEditMode)
+	assert.Equal(t, statusError, m.status.Kind)
+}
+
+func TestNotePreviewStillWorksAfterNotesEditChanges(t *testing.T) {
+	m := newTestModel()
+	m.active = tabIndex(tabMaintenance)
+	_ = m.openServiceLogDetail(1, "Test")
+	tab := m.effectiveTab()
+	require.NotNil(t, tab)
+
+	tab.Table.SetRows([]table.Row{{"1", "2026-01-15", "Self", "", "read-only preview"}})
+	tab.Rows = []rowMeta{{ID: 1}}
+	tab.CellRows = [][]cell{
+		{
+			{Value: "1", Kind: cellReadonly},
+			{Value: "2026-01-15", Kind: cellDate},
+			{Value: "Self", Kind: cellText},
+			{Value: "", Kind: cellMoney},
+			{Value: "read-only preview", Kind: cellNotes},
+		},
+	}
+	tab.ColCursor = 4
+
+	sendKey(m, "enter")
+
+	require.True(t, m.showNotePreview)
+	assert.Equal(t, "read-only preview", m.notePreviewText)
 }

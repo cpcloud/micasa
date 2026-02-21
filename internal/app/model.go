@@ -7,6 +7,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"os/exec"
 	"reflect"
 	"strings"
 	"time"
@@ -78,6 +80,9 @@ type Model struct {
 	pendingFormInit       tea.Cmd // cached Init cmd from activateForm
 	editID                *uint
 	inlineInput           *inlineInputState
+	notesEditMode         bool    // true when a notes textarea overlay is active
+	notesFieldPtr         *string // pointer into formData for the notes field
+	pendingEditor         *editorState
 	undoStack             []undoEntry
 	redoStack             []undoEntry
 	magMode               bool // easter egg: display numbers as order-of-magnitude
@@ -213,6 +218,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.setStatusError(fmt.Sprintf("open: %s", typed.Err))
 		}
 		return m, nil
+	case editorFinishedMsg:
+		return m, m.handleEditorFinished(typed)
 	}
 
 	// Help overlay: delegate scrolling to the viewport, esc or ? dismisses.
@@ -328,6 +335,9 @@ func (m *Model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "ctrl+s" {
 		return m, m.saveFormInPlace()
+	}
+	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "ctrl+e" && m.notesEditMode {
+		return m, m.launchExternalEditor()
 	}
 	// Block huh's deferred WindowSizeMsg from reaching the form. Without
 	// this, Form.Init's tea.WindowSize() triggers height equalization that
@@ -1789,6 +1799,8 @@ func (m *Model) exitForm() {
 	m.confirmDiscard = false
 	m.pendingFormInit = nil
 	m.editID = nil
+	m.notesEditMode = false
+	m.notesFieldPtr = nil
 	if savedID != nil {
 		if tab := m.effectiveTab(); tab != nil {
 			selectRowByID(tab, *savedID)
@@ -2119,6 +2131,102 @@ var tabKindIndex = func() map[TabKind]int {
 	}
 	return m
 }()
+
+// editorBinary returns the user's preferred editor from $EDITOR or $VISUAL.
+// Returns "" if neither is set.
+func editorBinary() string {
+	if e := os.Getenv("EDITOR"); e != "" {
+		return e
+	}
+	return os.Getenv("VISUAL")
+}
+
+// launchExternalEditor writes the current notes text to a temp file and
+// launches $EDITOR via tea.ExecProcess. The textarea is closed so the
+// terminal is fully released to the editor.
+func (m *Model) launchExternalEditor() tea.Cmd {
+	editor := editorBinary()
+	if editor == "" {
+		m.setStatusError("Set $EDITOR or $VISUAL to use an external editor.")
+		return nil
+	}
+	if m.notesFieldPtr == nil {
+		return nil
+	}
+
+	f, err := os.CreateTemp("", "micasa-notes-*.txt")
+	if err != nil {
+		m.setStatusError(fmt.Sprintf("create temp file: %s", err))
+		return nil
+	}
+	if _, err := f.WriteString(*m.notesFieldPtr); err != nil {
+		_ = f.Close()
+		_ = os.Remove(f.Name())
+		m.setStatusError(fmt.Sprintf("write temp file: %s", err))
+		return nil
+	}
+	_ = f.Close()
+
+	m.pendingEditor = &editorState{
+		EditID:   0,
+		FormKind: m.formKind,
+		FormData: m.formData,
+		FieldPtr: m.notesFieldPtr,
+		TempFile: f.Name(),
+	}
+	if m.editID != nil {
+		m.pendingEditor.EditID = *m.editID
+	}
+
+	m.exitForm()
+
+	cmd := exec.Command(editor, f.Name()) //nolint:gosec // user-configured editor
+	return tea.ExecProcess(cmd, func(err error) tea.Msg {
+		return editorFinishedMsg{Err: err}
+	})
+}
+
+// handleEditorFinished reads the edited temp file, updates the field pointer,
+// and reopens the textarea so the user can review before saving.
+func (m *Model) handleEditorFinished(msg editorFinishedMsg) tea.Cmd {
+	pe := m.pendingEditor
+	m.pendingEditor = nil
+	if pe == nil {
+		return nil
+	}
+	defer func() { _ = os.Remove(pe.TempFile) }()
+
+	if msg.Err != nil {
+		m.setStatusError(fmt.Sprintf("editor: %s", msg.Err))
+		// Reopen textarea with the original text so the user can retry.
+		m.reopenNotesEdit(pe)
+		return m.formInitCmd()
+	}
+
+	content, err := os.ReadFile(pe.TempFile)
+	if err != nil {
+		m.setStatusError(fmt.Sprintf("read temp file: %s", err))
+		m.reopenNotesEdit(pe)
+		return m.formInitCmd()
+	}
+
+	// Strip trailing newline that editors typically add.
+	text := strings.TrimRight(string(content), "\n")
+	*pe.FieldPtr = text
+
+	m.reopenNotesEdit(pe)
+	return m.formInitCmd()
+}
+
+// reopenNotesEdit restores the textarea overlay from a pending editor state.
+func (m *Model) reopenNotesEdit(pe *editorState) {
+	if pe.EditID > 0 {
+		id := pe.EditID
+		m.editID = &id
+	}
+	m.formData = pe.FormData
+	m.openNotesTextarea(pe.FormKind, pe.FieldPtr, pe.FormData)
+}
 
 // autoDetectModel checks if the LLM server has exactly one model available
 // and returns it. Returns "" if the server is unreachable or has zero/multiple

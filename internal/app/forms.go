@@ -1373,7 +1373,7 @@ func (m *Model) inlineEditServiceLog(id uint, col serviceLogCol) error {
 			values,
 		)
 	case serviceLogColNotes:
-		m.openInlineInput(id, formServiceLog, "Notes", "", &values.Notes, nil, values)
+		m.openNotesEdit(id, formServiceLog, &values.Notes, values)
 	case serviceLogColID:
 		return m.startEditServiceLogForm(id)
 	}
@@ -1493,6 +1493,27 @@ func (m *Model) openInlineEdit(id uint, kind FormKind, field huh.Field, values a
 	m.editID = &id
 	m.activateForm(kind, huh.NewForm(huh.NewGroup(field)), values)
 	m.formHasRequired = false
+}
+
+// openNotesEdit opens a standalone textarea overlay for editing a notes field.
+// On submit the form data is saved via the handler, just like openInlineEdit
+// for select fields. The textarea supports ctrl+e to escalate to $EDITOR.
+func (m *Model) openNotesEdit(id uint, kind FormKind, fieldPtr *string, values any) {
+	m.editID = &id
+	m.formData = values
+	m.openNotesTextarea(kind, fieldPtr, values)
+}
+
+// openNotesTextarea creates and activates a textarea form for notes editing.
+// Separated from openNotesEdit so it can be reused when reopening after an
+// external editor session.
+func (m *Model) openNotesTextarea(kind FormKind, fieldPtr *string, values any) {
+	field := huh.NewText().Title("Notes").Value(fieldPtr)
+	form := huh.NewForm(huh.NewGroup(field))
+	m.activateForm(kind, form, values)
+	m.formHasRequired = false
+	m.notesEditMode = true
+	m.notesFieldPtr = fieldPtr
 }
 
 // openInlineInput sets up a single-field text edit rendered in the status bar,
@@ -2282,7 +2303,7 @@ func (m *Model) inlineEditDocument(id uint, col documentCol) error {
 			values,
 		)
 	case documentColNotes:
-		m.openInlineInput(id, formDocument, "Notes", "", &values.Notes, nil, values)
+		m.openNotesEdit(id, formDocument, &values.Notes, values)
 	case documentColID, documentColEntity, documentColType, documentColSize, documentColUpdated:
 		return m.startEditDocumentForm(id)
 	}

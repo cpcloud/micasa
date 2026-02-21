@@ -266,13 +266,18 @@ func (m *Model) statusView() string {
 		if m.formDirty {
 			dirtyIndicator = m.styles.FormDirty.Render("● unsaved")
 		}
-		help := joinWithSeparator(
-			m.helpSeparator(),
+		parts := []string{
 			dirtyIndicator,
 			m.helpItem("ctrl+s", "save"),
+		}
+		if m.notesEditMode {
+			parts = append(parts, m.helpItem("ctrl+e", "editor"))
+		}
+		parts = append(parts,
 			m.helpItem("esc", "cancel"),
 			m.helpItem("ctrl+q", "quit"),
 		)
+		help := joinWithSeparator(m.helpSeparator(), parts...)
 		return m.withStatusMessage(help)
 	}
 
@@ -727,6 +732,7 @@ func (m *Model) helpContent() string {
 				{"tab", "Next field"},
 				{"shift+tab", "Previous field"},
 				{"1-9", "Jump to Nth option"},
+				{"ctrl+e", "Open notes in $EDITOR"},
 				{"ctrl+s", "Save"},
 				{"esc", "Cancel"},
 			},

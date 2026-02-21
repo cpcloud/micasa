@@ -522,7 +522,7 @@ func TestHandlerSnapshotNonExistent(t *testing.T) {
 // vendorJobsHandler inline edit
 // ---------------------------------------------------------------------------
 
-func TestVendorJobsInlineEditNotesOpensInlineInput(t *testing.T) {
+func TestVendorJobsInlineEditNotesOpensTextarea(t *testing.T) {
 	m := newTestModelWithStore(t)
 	cats, _ := m.store.MaintenanceCategories()
 
@@ -554,10 +554,11 @@ func TestVendorJobsInlineEditNotesOpensInlineInput(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, rows, 1)
 
-	// Notes column should open inline input.
+	// Notes column should open textarea overlay (not inline input).
 	require.NoError(t, h.InlineEdit(m, meta[0].ID, int(vendorJobsColNotes)))
-	require.NotNil(t, m.inlineInput, "Notes column should open inline input")
-	assert.Equal(t, "Notes", m.inlineInput.Title)
+	assert.Nil(t, m.inlineInput, "Notes should not use inline input")
+	assert.Equal(t, modeForm, m.mode, "Notes should open in form mode")
+	assert.True(t, m.notesEditMode, "notesEditMode should be set")
 }
 
 func TestVendorJobsInlineEditItemShowsStatusMessage(t *testing.T) {
