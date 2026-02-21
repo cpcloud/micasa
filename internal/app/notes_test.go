@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/bubbles/table"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -179,15 +178,35 @@ func TestFirstLine(t *testing.T) {
 		{"empty", "", ""},
 		{"no newlines", "hello world", "hello world"},
 		{"leading/trailing space", "  hello  ", "hello"},
-		{"single newline", "line one\nline two", "line one\u2026"},
-		{"crlf", "line one\r\nline two", "line one\u2026"},
-		{"multiple newlines", "a\n\nb\n\nc", "a\u2026"},
-		{"tabs and newlines", "a\t\nb", "a\u2026"},
+		{"single newline", "line one\nline two", "line one"},
+		{"crlf", "line one\r\nline two", "line one"},
+		{"multiple newlines", "a\n\nb\n\nc", "a"},
+		{"tabs and newlines", "a\t\nb", "a"},
 		{"only whitespace", "  \n\t  ", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, firstLine(tt.input))
+		})
+	}
+}
+
+func TestExtraLineCount(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  int
+	}{
+		{"empty", "", 0},
+		{"single line", "hello", 0},
+		{"two lines", "a\nb", 1},
+		{"three lines", "a\nb\nc", 2},
+		{"trailing newline trimmed", "a\nb\n", 1},
+		{"blank lines count", "a\n\nb", 2},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, extraLineCount(tt.input))
 		})
 	}
 }
@@ -218,13 +237,15 @@ func TestMultilineNotesRenderedAsSingleLineInTable(t *testing.T) {
 	view := m.buildView()
 
 	// The table should NOT show a raw newline in the rendered note.
-	// Instead, the two lines should be collapsed into a single line.
 	assert.NotContains(t, view, "filter\nand",
 		"table should not render literal newlines in notes cells")
-	assert.Contains(t, view, "Changed the filter\u2026",
-		"table should show the first line of the note with ellipsis")
+	assert.Contains(t, view, "Changed the filter",
+		"table should show the first line of the note")
 	assert.NotContains(t, view, "and checked pressure",
 		"table should not show subsequent lines of a multi-line note")
+	// Right-aligned grayed-out line count indicator.
+	assert.Contains(t, view, "+1",
+		"table should show line count indicator for multi-line notes")
 }
 
 func TestMultilineNotesPreservedInPreviewOverlay(t *testing.T) {
@@ -246,7 +267,8 @@ func TestNaturalWidthsMultilineNotesFirstLine(t *testing.T) {
 		{{Value: "short\nvery long second line here", Kind: cellNotes}},
 	}
 	widths := naturalWidths(specs, rows)
-	// Width should reflect the first line + ellipsis, not the longer second line.
+	// Width: first line ("short" = 5) + 1 gap + "+1" indicator (2) = 8.
+	// Not the longer second line (26).
 	require.Len(t, widths, 1)
-	assert.Equal(t, lipgloss.Width("short\u2026"), widths[0])
+	assert.Equal(t, len("short")+1+noteSuffixWidth(1), widths[0])
 }

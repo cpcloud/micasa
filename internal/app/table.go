@@ -250,13 +250,20 @@ func viewportSorts(sorts []sortEntry, vpStart int) []sortEntry {
 
 // sortIndicatorWidth returns the maximum rendered width of a sort indicator
 // given the total number of columns. Single-column sorts show " ▲" (2),
+// decimalDigits returns the number of decimal digits in a positive integer.
+func decimalDigits(n int) int {
+	if n <= 0 {
+		return 1
+	}
+	return int(math.Log10(float64(n))) + 1
+}
+
 // multi-column sorts show " ▲N" where N can be up to log10(columns)+1 digits.
 func sortIndicatorWidth(columnCount int) int {
 	if columnCount <= 1 {
 		return 2 // " ▲"
 	}
-	digits := int(math.Log10(float64(columnCount))) + 1
-	return 2 + digits // " ▲" + index digits
+	return 2 + decimalDigits(columnCount) // " ▲" + index digits
 }
 
 // headerTitleWidth returns the rendered width of a column header including
@@ -506,6 +513,16 @@ func renderCell(
 		style = style.Foreground(textDim)
 	}
 
+	// Right-aligned grayed-out line count for multi-line notes.
+	var noteSuffix string
+	var noteSuffixW int
+	if cellValue.Kind == cellNotes && !cellValue.Null && value != "" && value != "\u2014" {
+		if n := extraLineCount(cellValue.Value); n > 0 {
+			noteSuffix = fmt.Sprintf("+%d", n)
+			noteSuffixW = lipgloss.Width(noteSuffix)
+		}
+	}
+
 	// For cursor underline and deleted strikethrough, style just the
 	// text and pad separately so the decoration matches text length.
 	if hl == highlightCursor || deleted {
@@ -516,9 +533,24 @@ func renderCell(
 		if hl == highlightRow {
 			cursorStyle = cursorStyle.Background(surface).Bold(true)
 		}
-		truncated := ansi.Truncate(value, width, "…")
+		textMaxW := width
+		if noteSuffixW > 0 {
+			textMaxW = width - noteSuffixW - 1
+			if textMaxW < 1 {
+				textMaxW = 1
+			}
+		}
+		truncated := ansi.Truncate(value, textMaxW, "\u2026")
 		styled := cursorStyle.Render(truncated)
 		textW := lipgloss.Width(truncated)
+		if noteSuffixW > 0 {
+			gap := width - textW - noteSuffixW
+			if gap < 1 {
+				gap = 1
+			}
+			dimSuffix := styles.Empty.Render(noteSuffix)
+			return styled + strings.Repeat(" ", gap) + dimSuffix
+		}
 		if pad := width - textW; pad > 0 {
 			if spec.Align == alignRight {
 				return strings.Repeat(" ", pad) + styled
@@ -530,6 +562,22 @@ func renderCell(
 
 	if hl == highlightRow {
 		style = style.Background(surface).Bold(true)
+	}
+
+	if noteSuffixW > 0 {
+		textMaxW := width - noteSuffixW - 1
+		if textMaxW < 1 {
+			textMaxW = 1
+		}
+		truncated := ansi.Truncate(value, textMaxW, "\u2026")
+		styledText := style.Render(truncated)
+		textW := lipgloss.Width(truncated)
+		gap := width - textW - noteSuffixW
+		if gap < 1 {
+			gap = 1
+		}
+		dimSuffix := styles.Empty.Render(noteSuffix)
+		return styledText + strings.Repeat(" ", gap) + dimSuffix
 	}
 
 	aligned := formatCell(value, width, spec.Align)
@@ -688,14 +736,32 @@ func dateDiffDays(now, target time.Time) int {
 }
 
 // firstLine returns the first line of s, trimmed of surrounding whitespace.
-// If there are additional lines, an ellipsis is appended to signal that more
-// content is available in the preview overlay.
 func firstLine(s string) string {
 	s = strings.TrimSpace(s)
 	if i := strings.IndexByte(s, '\n'); i >= 0 {
-		return strings.TrimRight(s[:i], "\r \t") + "\u2026"
+		return strings.TrimRight(s[:i], "\r \t")
 	}
 	return s
+}
+
+// extraLineCount returns the number of additional lines beyond the first.
+// Returns 0 for single-line or empty strings.
+func extraLineCount(s string) int {
+	s = strings.TrimSpace(s)
+	i := strings.IndexByte(s, '\n')
+	if i < 0 {
+		return 0
+	}
+	return strings.Count(s[i:], "\n")
+}
+
+// noteSuffixWidth returns the display width of the "+N" indicator for a
+// multi-line note with n extra lines.
+func noteSuffixWidth(n int) int {
+	if n <= 0 {
+		return 0
+	}
+	return 1 + decimalDigits(n) // "+" + digits
 }
 
 func formatCell(value string, width int, align alignKind) string {
@@ -832,7 +898,14 @@ func naturalWidths(specs []columnSpec, rows [][]cell) []int {
 			if value == "" {
 				continue
 			}
-			if cw := lipgloss.Width(value); cw > w {
+			cw := lipgloss.Width(value)
+			if spec.Kind == cellNotes {
+				if n := extraLineCount(row[i].Value); n > 0 {
+					// Account for gap + right-aligned "+N" indicator.
+					cw += 1 + noteSuffixWidth(n)
+				}
+			}
+			if cw > w {
 				w = cw
 			}
 		}
