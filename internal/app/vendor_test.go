@@ -34,8 +34,18 @@ func TestVendorTabKindString(t *testing.T) {
 
 func TestVendorColumnSpecs(t *testing.T) {
 	specs := vendorColumnSpecs()
-	require.Len(t, specs, 8)
-	expected := []string{"ID", "Name", "Contact", "Email", "Phone", "Website", "Quotes", "Jobs"}
+	require.Len(t, specs, 9)
+	expected := []string{
+		"ID",
+		"Name",
+		"Contact",
+		"Email",
+		"Phone",
+		"Website",
+		"Quotes",
+		"Jobs",
+		"Docs",
+	}
 	for i, want := range expected {
 		assert.Equalf(t, want, specs[i].Title, "column %d", i)
 	}
@@ -46,6 +56,7 @@ func TestVendorRows(t *testing.T) {
 		sampleVendors(),
 		map[uint]int{1: 3},
 		map[uint]int{2: 5},
+		nil,
 	)
 	require.Len(t, rows, 2)
 	assert.Equal(t, uint(1), meta[0].ID)
@@ -97,8 +108,8 @@ func TestVendorColumnSpecKinds(t *testing.T) {
 		assert.Equalf(t, cellText, specs[col].Kind,
 			"col %d (%s): expected cellText", col, specs[col].Title)
 	}
-	// Quotes (6) and Jobs (7) are drilldown columns.
-	for _, col := range []int{6, 7} {
+	// Quotes (6), Jobs (7), and Docs (8) are drilldown columns.
+	for _, col := range []int{6, 7, 8} {
 		assert.Equalf(t, cellDrilldown, specs[col].Kind,
 			"col %d (%s): expected cellDrilldown", col, specs[col].Title)
 	}

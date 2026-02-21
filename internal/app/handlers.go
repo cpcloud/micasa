@@ -161,7 +161,15 @@ func (quoteHandler) Load(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	rows, meta, cellRows := quoteRows(quotes)
+	ids := make([]uint, len(quotes))
+	for i, q := range quotes {
+		ids[i] = q.ID
+	}
+	docCounts, err := store.CountDocumentsByEntity(data.DocumentEntityQuote, ids)
+	if err != nil {
+		docCounts = map[uint]int{}
+	}
+	rows, meta, cellRows := quoteRows(quotes, docCounts)
 	return rows, meta, cellRows, nil
 }
 
@@ -223,7 +231,7 @@ func (maintenanceHandler) Load(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	// Batch-fetch service log counts for all items.
+	// Batch-fetch service log counts and document counts for all items.
 	ids := make([]uint, len(items))
 	for i, item := range items {
 		ids[i] = item.ID
@@ -232,7 +240,11 @@ func (maintenanceHandler) Load(
 	if err != nil {
 		logCounts = map[uint]int{} // non-fatal
 	}
-	rows, meta, cellRows := maintenanceRows(items, logCounts)
+	docCounts, err := store.CountDocumentsByEntity(data.DocumentEntityMaintenance, ids)
+	if err != nil {
+		docCounts = map[uint]int{}
+	}
+	rows, meta, cellRows := maintenanceRows(items, logCounts, docCounts)
 	return rows, meta, cellRows, nil
 }
 
@@ -514,7 +526,11 @@ func newApplianceMaintenanceHandler(applianceID uint) scopedHandler {
 			if err != nil {
 				logCounts = map[uint]int{}
 			}
-			rows, meta, cellRows := applianceMaintenanceRows(items, logCounts)
+			docCounts, err := store.CountDocumentsByEntity(data.DocumentEntityMaintenance, ids)
+			if err != nil {
+				docCounts = map[uint]int{}
+			}
+			rows, meta, cellRows := applianceMaintenanceRows(items, logCounts, docCounts)
 			return rows, meta, cellRows, nil
 		},
 		inlineEditFn: skipColEdit(parent, 3), // skip Appliance column
@@ -614,7 +630,11 @@ func (vendorHandler) Load(
 	if err != nil {
 		jobCounts = map[uint]int{}
 	}
-	rows, meta, cellRows := vendorRows(vendors, quoteCounts, jobCounts)
+	docCounts, err := store.CountDocumentsByEntity(data.DocumentEntityVendor, ids)
+	if err != nil {
+		docCounts = map[uint]int{}
+	}
+	rows, meta, cellRows := vendorRows(vendors, quoteCounts, jobCounts, docCounts)
 	return rows, meta, cellRows, nil
 }
 
@@ -669,7 +689,15 @@ func newVendorQuoteHandler(vendorID uint) scopedHandler {
 			if err != nil {
 				return nil, nil, nil, err
 			}
-			rows, meta, cellRows := vendorQuoteRows(quotes)
+			ids := make([]uint, len(quotes))
+			for i, q := range quotes {
+				ids[i] = q.ID
+			}
+			docCounts, err := store.CountDocumentsByEntity(data.DocumentEntityQuote, ids)
+			if err != nil {
+				docCounts = map[uint]int{}
+			}
+			rows, meta, cellRows := vendorQuoteRows(quotes, docCounts)
 			return rows, meta, cellRows, nil
 		},
 		inlineEditFn: skipColEdit(parent, 2), // skip Vendor column
@@ -719,7 +747,15 @@ func newProjectQuoteHandler(projectID uint) scopedHandler {
 			if err != nil {
 				return nil, nil, nil, err
 			}
-			rows, meta, cellRows := projectQuoteRows(quotes)
+			ids := make([]uint, len(quotes))
+			for i, q := range quotes {
+				ids[i] = q.ID
+			}
+			docCounts, err := store.CountDocumentsByEntity(data.DocumentEntityQuote, ids)
+			if err != nil {
+				docCounts = map[uint]int{}
+			}
+			rows, meta, cellRows := projectQuoteRows(quotes, docCounts)
 			return rows, meta, cellRows, nil
 		},
 		inlineEditFn: skipColEdit(parent, 1), // skip Project column
