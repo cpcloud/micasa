@@ -2277,6 +2277,7 @@ func (m *Model) startDocumentForm(entityKind string) error {
 		fields = append(fields,
 			huh.NewSelect[entityRef]().
 				Title("Entity").
+				Height(10).
 				Options(entityOpts...).
 				Value(&values.EntityRef),
 		)
@@ -2324,6 +2325,7 @@ func (m *Model) openEditDocumentForm(values *documentFormData, scoped bool) erro
 		fields = append(fields,
 			huh.NewSelect[entityRef]().
 				Title("Entity").
+				Height(10).
 				Options(entityOpts...).
 				Value(&values.EntityRef),
 		)
@@ -2455,6 +2457,7 @@ func (m *Model) inlineEditDocument(id uint, col documentCol) error {
 		}
 		field := huh.NewSelect[entityRef]().
 			Title("Entity").
+			Height(10).
 			Options(entityOpts...).
 			Value(&values.EntityRef)
 		m.openInlineEdit(id, formDocument, field, values)
