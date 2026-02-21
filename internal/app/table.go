@@ -693,7 +693,7 @@ func dateDiffDays(now, target time.Time) int {
 func firstLine(s string) string {
 	s = strings.TrimSpace(s)
 	if i := strings.IndexByte(s, '\n'); i >= 0 {
-		return strings.TrimRight(s[:i], "\r \t") + "..."
+		return strings.TrimRight(s[:i], "\r \t") + "\u2026"
 	}
 	return s
 }
