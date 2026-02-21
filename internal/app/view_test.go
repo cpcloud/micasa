@@ -945,9 +945,38 @@ func TestEmptyHintPerTab(t *testing.T) {
 		{tabVendors, "No vendors yet", "edit mode"},
 	}
 	for _, tt := range tests {
-		hint := emptyHint(tt.kind)
+		hint := topLevelEmptyHint(tt.kind)
 		assert.Contains(t, hint, tt.want)
 		assert.Contains(t, hint, tt.wantSub)
+	}
+}
+
+func TestEmptyHintDetailDrilldown(t *testing.T) {
+	tests := []struct {
+		parentKind TabKind
+		subName    string
+		wantSub    string // expected substring like "No docs for this appliance"
+	}{
+		{tabAppliances, tabDocuments.String(), "No docs for this appliance"},
+		{tabProjects, tabDocuments.String(), "No docs for this project"},
+		{tabIncidents, tabDocuments.String(), "No docs for this incident"},
+		{tabProjects, tabQuotes.String(), "No quotes for this project"},
+		{tabVendors, tabQuotes.String(), "No quotes for this vendor"},
+		{tabVendors, "Jobs", "No jobs for this vendor"},
+		{tabAppliances, "Maintenance", "No maintenance for this appliance"},
+		{tabMaintenance, "Service Log", "No service log for this maintenance item"},
+	}
+	for _, tt := range tests {
+		m := newTestModel()
+		// Push a detail context so m.inDetail() is true.
+		m.detailStack = append(m.detailStack, &detailContext{
+			Tab: Tab{Kind: tt.parentKind, Name: tt.subName},
+		})
+		hint := m.emptyHint(&m.detailStack[0].Tab)
+		assert.Contains(t, hint, tt.wantSub,
+			"parentKind=%s subName=%s", tt.parentKind, tt.subName)
+		assert.Contains(t, hint, "edit mode",
+			"detail hint should include edit-mode guidance")
 	}
 }
 
