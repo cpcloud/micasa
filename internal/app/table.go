@@ -88,7 +88,7 @@ func renderHeaderRow(
 	for i, spec := range specs {
 		width := safeWidth(widths, i)
 		title := spec.Title
-		if spec.Link != nil && columnHasLinks(rows, i) {
+		if (spec.Link != nil || spec.Kind == cellEntity) && columnHasLinks(rows, i) {
 			title = title + " " + styles.LinkIndicator.Render(linkArrow)
 		} else if spec.Kind == cellDrilldown {
 			title = title + " " + styles.LinkIndicator.Render(drilldownArrow)
@@ -271,7 +271,7 @@ func sortIndicatorWidth(columnCount int) int {
 // plus room for the worst-case sort indicator given the column count.
 func headerTitleWidth(spec columnSpec, columnCount int) int {
 	w := lipgloss.Width(spec.Title)
-	if spec.Link != nil {
+	if spec.Link != nil || spec.Kind == cellEntity {
 		w += 1 + lipgloss.Width(linkArrow) // " →"
 	} else if spec.Kind == cellDrilldown {
 		w += 1 + lipgloss.Width(drilldownArrow) // " ↘"

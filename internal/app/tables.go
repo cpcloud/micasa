@@ -929,7 +929,7 @@ func documentColumnSpecs() []columnSpec {
 	return []columnSpec{
 		{Title: "ID", Min: 4, Max: 6, Align: alignRight, Kind: cellReadonly},
 		{Title: "Title", Min: 14, Max: 32, Flex: true},
-		{Title: "Entity", Min: 10, Max: 24, Flex: true},
+		{Title: "Entity", Min: 10, Max: 24, Flex: true, Kind: cellEntity},
 		{Title: "Type", Min: 8, Max: 16},
 		{Title: "Size", Min: 6, Max: 10, Align: alignRight, Kind: cellReadonly},
 		{Title: "Notes", Min: 12, Max: 40, Flex: true, Kind: cellNotes},

@@ -675,6 +675,12 @@ func TestHeaderTitleWidth(t *testing.T) {
 			lipgloss.Width("Budget") + 1 + 1 + siw,
 		},
 		{
+			"entity",
+			columnSpec{Title: "Entity", Kind: cellEntity},
+			1,
+			lipgloss.Width("Entity") + 1 + lipgloss.Width(linkArrow) + siw,
+		},
+		{
 			"multi-col plain",
 			columnSpec{Title: "ID"},
 			8,
