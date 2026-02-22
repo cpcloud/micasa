@@ -366,7 +366,7 @@ func (m *Model) normalModeStatusHints(modeBadge string) []statusHint {
 	hints = append(hints,
 		statusHint{id: "edit", full: m.helpItem("i", "edit"), priority: 2},
 	)
-	if isDocumentTab(m.effectiveTab()) {
+	if m.effectiveTab().isDocumentTab() {
 		hints = append(hints, statusHint{
 			id: "open", full: m.helpItem("o", "open"), priority: 2,
 		})
@@ -413,7 +413,7 @@ func (m *Model) editModeStatusHelp(modeBadge string) string {
 			priority: 2,
 		},
 	}
-	if isDocumentTab(m.effectiveTab()) {
+	if m.effectiveTab().isDocumentTab() {
 		hints = append(hints, statusHint{
 			id: "open", full: m.helpItem("o", "open"), priority: 2,
 		})
