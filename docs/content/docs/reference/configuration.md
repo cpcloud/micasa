@@ -85,6 +85,12 @@ micasa backup --source /path/to/micasa.db ~/backups/snapshot.db
 | `MICASA_MAX_DOCUMENT_SIZE` | `50 MiB` | `documents.max_file_size` | Max document import size |
 | `MICASA_CACHE_TTL` | `30d` | `documents.cache_ttl` | Document cache lifetime |
 | `MICASA_CACHE_TTL_DAYS` | -- | `documents.cache_ttl_days` | Deprecated; use `MICASA_CACHE_TTL` |
+| `MICASA_EXTRACTION_MODEL` | (chat model) | `extraction.model` | LLM model for document extraction |
+| `MICASA_EXTRACTION_ENABLED` | `true` | `extraction.enabled` | Enable/disable LLM extraction |
+| `MICASA_EXTRACTION_THINKING` | `false` | `extraction.thinking` | Enable model thinking for extraction |
+| `MICASA_TEXT_TIMEOUT` | `30s` | `extraction.text_timeout` | pdftotext timeout |
+| `MICASA_MAX_OCR_PAGES` | `20` | `extraction.max_ocr_pages` | Max pages to OCR per document |
+| `MICASA_LLM_THINKING` | (unset) | `llm.thinking` | Enable model thinking for chat |
 
 ### `MICASA_DB_PATH`
 
@@ -215,6 +221,10 @@ model = "qwen3"
 # Increase if your LLM server is slow to respond.
 # timeout = "5s"
 
+# Enable model thinking mode for chat (e.g. qwen3 <think> blocks).
+# Unset = don't send (server default), true = enable, false = disable.
+# thinking = false
+
 [documents]
 # Maximum file size for document imports. Accepts unitized strings or bare
 # integers (bytes). Default: 50 MiB.
@@ -224,6 +234,25 @@ model = "qwen3"
 # Accepts "30d", "720h", or bare integers (seconds). Set to "0s" to disable.
 # Default: 30d.
 # cache_ttl = "30d"
+
+[extraction]
+# Model for document extraction. Defaults to llm.model. Extraction works well
+# with small, fast models optimized for structured JSON output.
+# model = "qwen2.5:7b"
+
+# Timeout for pdftotext. Go duration syntax: "30s", "1m", etc. Default: "30s".
+# Increase if you routinely process very large PDFs.
+# text_timeout = "30s"
+
+# Maximum pages to OCR for scanned documents. Default: 20.
+# max_ocr_pages = 20
+
+# Set to false to disable LLM-powered extraction. Text extraction and OCR
+# still run independently.
+# enabled = true
+
+# Enable model thinking for extraction. Default: false (faster, no <think>).
+# thinking = false
 ```
 
 ### `[llm]` section
@@ -234,6 +263,7 @@ model = "qwen3"
 | `model` | string | `qwen3` | Model identifier sent in chat requests. Must be available on the server. |
 | `extra_context` | string | (empty) | Free-form text appended to all LLM system prompts. Useful for telling the model about your house, preferred currency, or regional conventions. |
 | `timeout` | string | `"5s"` | Max wait time for quick LLM operations (ping, model listing). Go duration syntax, e.g. `"10s"`, `"500ms"`. Increase for slow servers. |
+| `thinking` | bool | (unset) | Enable model thinking mode (e.g. qwen3 `<think>` blocks). Unset = don't send the option (server default). |
 
 ### `[documents]` section
 
@@ -242,6 +272,20 @@ model = "qwen3"
 | `max_file_size` | string or integer | `"50 MiB"` | Maximum file size for document imports. Accepts unitized strings (`"50 MiB"`, `"1.5 GiB"`) or bare integers (bytes). Must be positive. |
 | `cache_ttl` | string or integer | `"30d"` | Cache lifetime for extracted documents. Accepts `"30d"`, `"720h"`, or bare integers (seconds). Set to `"0s"` to disable eviction. |
 | `cache_ttl_days` | integer | -- | Deprecated. Use `cache_ttl` instead. Bare integer interpreted as days. Cannot be set alongside `cache_ttl`. |
+
+### `[extraction]` section
+
+Controls the document extraction pipeline. Text extraction and OCR are
+independent and always available when their tools are installed. The LLM layer
+adds structured data extraction (document type, costs, dates, vendor matching).
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `model` | string | (chat model) | Model for document extraction. Falls back to `llm.model` if empty. A small, fast model (e.g. `qwen2.5:7b`) works well. |
+| `text_timeout` | string | `"30s"` | Max time for `pdftotext` to run. Go duration syntax, e.g. `"1m"`. Increase for very large PDFs. |
+| `max_ocr_pages` | int | `20` | Maximum pages to OCR per scanned document. Front-loaded info is typically in the first pages. |
+| `enabled` | bool | `true` | Set to `false` to disable LLM-powered extraction. Text extraction and OCR still run. |
+| `thinking` | bool | `false` | Enable model thinking mode for extraction. Disable for faster structured output. |
 
 ### Supported LLM backends
 

@@ -13,50 +13,56 @@ import (
 )
 
 func TestExtractText_PlainText(t *testing.T) {
-	text, err := ExtractText([]byte("Hello, world!"), "text/plain")
+	text, err := ExtractText([]byte("Hello, world!"), "text/plain", 0)
 	require.NoError(t, err)
 	assert.Equal(t, "Hello, world!", text)
 }
 
 func TestExtractText_Markdown(t *testing.T) {
 	md := "# Heading\n\nSome paragraph text.\n"
-	text, err := ExtractText([]byte(md), "text/markdown")
+	text, err := ExtractText([]byte(md), "text/markdown", 0)
 	require.NoError(t, err)
 	assert.Equal(t, "# Heading\n\nSome paragraph text.", text)
 }
 
 func TestExtractText_PlainTextWhitespaceNormalized(t *testing.T) {
 	input := "  lots   of    spaces  \n\n\n\n\nparagraph two  "
-	text, err := ExtractText([]byte(input), "text/plain")
+	text, err := ExtractText([]byte(input), "text/plain", 0)
 	require.NoError(t, err)
 	assert.Equal(t, "lots of spaces\n\nparagraph two", text)
 }
 
 func TestExtractText_EmptyData(t *testing.T) {
-	text, err := ExtractText(nil, "application/pdf")
+	text, err := ExtractText(nil, "application/pdf", 0)
 	require.NoError(t, err)
 	assert.Empty(t, text)
 }
 
 func TestExtractText_UnsupportedMIME(t *testing.T) {
-	text, err := ExtractText([]byte{0xFF, 0xD8}, "image/jpeg")
+	text, err := ExtractText([]byte{0xFF, 0xD8}, "image/jpeg", 0)
 	require.NoError(t, err)
 	assert.Empty(t, text)
 }
 
 func TestExtractText_OctetStream(t *testing.T) {
-	text, err := ExtractText([]byte{0x00, 0x01}, "application/octet-stream")
+	text, err := ExtractText([]byte{0x00, 0x01}, "application/octet-stream", 0)
 	require.NoError(t, err)
 	assert.Empty(t, text)
 }
 
 func TestExtractText_InvalidPDF(t *testing.T) {
-	_, err := ExtractText([]byte("not a pdf"), "application/pdf")
+	if !HasPDFToText() {
+		t.Skip("pdftotext not available")
+	}
+	_, err := ExtractText([]byte("not a pdf"), "application/pdf", 0)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "open pdf")
+	assert.Contains(t, err.Error(), "pdftotext")
 }
 
 func TestExtractText_PDF(t *testing.T) {
+	if !HasPDFToText() {
+		t.Skip("pdftotext not available")
+	}
 	pdfPath := filepath.Join("testdata", "sample.pdf")
 	data, err := os.ReadFile(pdfPath) //nolint:gosec // test fixture path
 	if err != nil {
@@ -65,9 +71,19 @@ func TestExtractText_PDF(t *testing.T) {
 			pdfPath,
 		)
 	}
-	text, err := ExtractText(data, "application/pdf")
+	text, err := ExtractText(data, "application/pdf", 0)
 	require.NoError(t, err)
 	assert.Contains(t, text, "Invoice")
+}
+
+func TestExtractText_PDFNoPdftotext(t *testing.T) {
+	// When pdftotext is missing, PDF extraction returns empty (not error).
+	if HasPDFToText() {
+		t.Skip("pdftotext is available; this test checks the missing-tool path")
+	}
+	text, err := ExtractText([]byte("%PDF-1.4 fake"), "application/pdf", 0)
+	require.NoError(t, err)
+	assert.Empty(t, text)
 }
 
 func TestIsScanned(t *testing.T) {

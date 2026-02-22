@@ -18,10 +18,11 @@ import (
 // Client talks to an OpenAI-compatible API endpoint (Ollama, llama.cpp,
 // LM Studio, etc.) for local LLM inference.
 type Client struct {
-	baseURL string // e.g. "http://localhost:11434/v1"
-	model   string
-	timeout time.Duration
-	http    *http.Client
+	baseURL  string // e.g. "http://localhost:11434/v1"
+	model    string
+	timeout  time.Duration
+	thinking *bool // nil = don't send; non-nil = send enable_thinking
+	http     *http.Client
 }
 
 // Message represents a single turn in the conversation.
@@ -40,10 +41,11 @@ type StreamChunk struct {
 // --- OpenAI-compatible request/response types ---
 
 type chatRequest struct {
-	Model       string    `json:"model"`
-	Messages    []Message `json:"messages"`
-	Stream      bool      `json:"stream"`
-	Temperature *float64  `json:"temperature,omitempty"`
+	Model       string         `json:"model"`
+	Messages    []Message      `json:"messages"`
+	Stream      bool           `json:"stream"`
+	Temperature *float64       `json:"temperature,omitempty"`
+	Options     map[string]any `json:"options,omitempty"`
 }
 
 type chatCompletionChunk struct {
@@ -91,6 +93,19 @@ func (c *Client) Model() string {
 // the model exists (e.g. via ListModels).
 func (c *Client) SetModel(model string) {
 	c.model = model
+}
+
+// SetThinking enables or disables model thinking mode.
+func (c *Client) SetThinking(enabled bool) {
+	c.thinking = &enabled
+}
+
+// requestOptions returns Ollama options, or nil if none are configured.
+func (c *Client) requestOptions() map[string]any {
+	if c.thinking == nil {
+		return nil
+	}
+	return map[string]any{"enable_thinking": *c.thinking}
 }
 
 // BaseURL returns the configured base URL.
@@ -276,6 +291,7 @@ func (c *Client) ChatComplete(
 		Messages:    messages,
 		Stream:      false,
 		Temperature: &temp,
+		Options:     c.requestOptions(),
 	})
 	if err != nil {
 		return "", fmt.Errorf("marshal request: %w", err)
@@ -328,6 +344,7 @@ func (c *Client) ChatStream(
 		Messages:    messages,
 		Stream:      true,
 		Temperature: &temp,
+		Options:     c.requestOptions(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("marshal request: %w", err)

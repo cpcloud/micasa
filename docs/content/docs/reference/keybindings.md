@@ -168,6 +168,20 @@ input:
 Press `enter` on a notes column (e.g., service log Notes) to open a read-only
 overlay showing the full text. Any key dismisses it.
 
+## Extraction overlay
+
+When a document extraction is in progress or complete, an overlay shows
+per-step progress (text, OCR, LLM). See the
+[Documents guide]({{< ref "/docs/guide/documents" >}}) for details.
+
+| Key       | Action |
+|-----------|--------|
+| `j` / `k` | Navigate between extraction steps |
+| `enter`   | Expand/collapse current step logs |
+| `a`       | Accept results (when extraction is done with no errors) |
+| `r`       | Rerun LLM step (when LLM step is complete) |
+| `esc`     | Cancel extraction and close overlay |
+
 ## Help overlay
 
 | Key       | Action |

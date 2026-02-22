@@ -17,13 +17,14 @@ func TestBuildExtractionPrompt(t *testing.T) {
 		Projects:   []string{"Kitchen Remodel"},
 		Appliances: []string{"HVAC Unit"},
 	}
-	msgs := BuildExtractionPrompt(
-		"invoice.pdf",
-		"application/pdf",
-		12345,
-		entities,
-		"Invoice text here",
-	)
+	msgs := BuildExtractionPrompt(ExtractionPromptInput{
+		Filename:  "invoice.pdf",
+		MIME:      "application/pdf",
+		SizeBytes: 12345,
+		Entities:  entities,
+		PdfText:   "Invoice text here",
+		Text:      "Invoice text here",
+	})
 
 	require.Len(t, msgs, 2)
 	assert.Equal(t, "system", msgs[0].Role)
@@ -40,8 +41,45 @@ func TestBuildExtractionPrompt(t *testing.T) {
 	assert.Contains(t, msgs[1].Content, "Invoice text here")
 }
 
+func TestBuildExtractionPrompt_DualSources(t *testing.T) {
+	msgs := BuildExtractionPrompt(ExtractionPromptInput{
+		Filename:  "mixed.pdf",
+		MIME:      "application/pdf",
+		SizeBytes: 50000,
+		PdfText:   "Digital text from pages 1-2",
+		OCRText:   "OCR text from page 3",
+	})
+
+	require.Len(t, msgs, 2)
+	user := msgs[1].Content
+	assert.Contains(t, user, "Source: pdftotext")
+	assert.Contains(t, user, "Source: tesseract OCR")
+	assert.Contains(t, user, "Digital text from pages 1-2")
+	assert.Contains(t, user, "OCR text from page 3")
+}
+
+func TestBuildExtractionPrompt_OCROnly(t *testing.T) {
+	msgs := BuildExtractionPrompt(ExtractionPromptInput{
+		Filename:  "scan.pdf",
+		MIME:      "application/pdf",
+		SizeBytes: 30000,
+		OCRText:   "OCR text from all pages",
+		Text:      "OCR text from all pages",
+	})
+
+	require.Len(t, msgs, 2)
+	user := msgs[1].Content
+	assert.Contains(t, user, "Source: tesseract OCR")
+	assert.NotContains(t, user, "Source: pdftotext")
+}
+
 func TestBuildExtractionPrompt_NoEntities(t *testing.T) {
-	msgs := BuildExtractionPrompt("doc.txt", "text/plain", 100, EntityContext{}, "Some text")
+	msgs := BuildExtractionPrompt(ExtractionPromptInput{
+		Filename:  "doc.txt",
+		MIME:      "text/plain",
+		SizeBytes: 100,
+		Text:      "Some text",
+	})
 	require.Len(t, msgs, 2)
 	assert.NotContains(t, msgs[0].Content, "Existing entities")
 }
@@ -92,6 +130,24 @@ func TestParseExtractionResponse_FullResponse(t *testing.T) {
 	assert.Equal(t, "Paid in full", hints.Notes)
 }
 
+func TestParseExtractionResponse_CurrencyUnitDollars(t *testing.T) {
+	raw := `{
+		"document_type": "invoice",
+		"currency_unit": "dollars",
+		"total_cents": 1500,
+		"labor_cents": 800,
+		"materials_cents": 700
+	}`
+	hints, err := ParseExtractionResponse(raw)
+	require.NoError(t, err)
+	require.NotNil(t, hints.TotalCents)
+	assert.Equal(t, int64(150000), *hints.TotalCents)
+	require.NotNil(t, hints.LaborCents)
+	assert.Equal(t, int64(80000), *hints.LaborCents)
+	require.NotNil(t, hints.MaterialsCents)
+	assert.Equal(t, int64(70000), *hints.MaterialsCents)
+}
+
 func TestParseExtractionResponse_Partial(t *testing.T) {
 	raw := `{"document_type": "receipt", "vendor_hint": "Home Depot"}`
 	hints, err := ParseExtractionResponse(raw)
@@ -134,23 +190,27 @@ func TestParseExtractionResponse_EmptyMaintenanceItems(t *testing.T) {
 
 func TestParseCents(t *testing.T) {
 	tests := []struct {
-		name   string
-		input  any
-		expect *int64
+		name      string
+		input     any
+		isDollars bool
+		expect    *int64
 	}{
-		{"nil", nil, nil},
-		{"float64 cents", float64(150000), ptr(int64(150000))},
-		{"float64 zero", float64(0), nil},
-		{"string dollar", "$1,500.00", ptr(int64(150000))},
-		{"string no dollar sign", "1,500.00", ptr(int64(150000))},
-		{"string no commas", "1500.00", ptr(int64(150000))},
-		{"string bare cents", "150000", ptr(int64(150000))},
-		{"string empty", "", nil},
-		{"bool", true, nil},
+		{"nil", nil, false, nil},
+		{"float64 cents", float64(150000), false, ptr(int64(150000))},
+		{"float64 zero", float64(0), false, nil},
+		{"float64 dollars", float64(1500), true, ptr(int64(150000))},
+		{"float64 dollars with fractional", float64(1500.50), true, ptr(int64(150050))},
+		{"float64 dollars zero", float64(0), true, nil},
+		{"string dollar", "$1,500.00", false, ptr(int64(150000))},
+		{"string no dollar sign", "1,500.00", false, ptr(int64(150000))},
+		{"string no commas", "1500.00", false, ptr(int64(150000))},
+		{"string bare cents", "150000", false, ptr(int64(150000))},
+		{"string empty", "", false, nil},
+		{"bool", true, false, nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := parseCents(tt.input)
+			result := parseCents(tt.input, tt.isDollars)
 			if tt.expect == nil {
 				assert.Nil(t, result)
 			} else {
@@ -242,7 +302,7 @@ func TestStripCodeFences(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expect, stripCodeFences(tt.input))
+			assert.Equal(t, tt.expect, StripCodeFences(tt.input))
 		})
 	}
 }

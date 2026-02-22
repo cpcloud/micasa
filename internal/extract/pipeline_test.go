@@ -35,13 +35,35 @@ func TestPipeline_PlainText(t *testing.T) {
 
 func TestPipeline_UnsupportedMIME(t *testing.T) {
 	p := &Pipeline{}
-	r := p.Run(context.Background(), []byte{0xFF, 0xD8}, "photo.jpg", "image/jpeg")
-	// No text layer extracted, OCR would be attempted but tesseract may not be available.
-	// Either way, no error.
+	// application/octet-stream: no text extraction, no OCR, no LLM.
+	r := p.Run(context.Background(), []byte{0xFF, 0xD8}, "blob.bin", "application/octet-stream")
+	assert.Empty(t, r.ExtractedText)
 	assert.NoError(t, r.Err)
 }
 
+func TestPipeline_ImageOCR(t *testing.T) {
+	if !ImageOCRAvailable() {
+		t.Skip("tesseract not available")
+	}
+
+	imgPath := filepath.Join("testdata", "invoice.png")
+	data, err := os.ReadFile(imgPath) //nolint:gosec // test fixture path
+	if err != nil {
+		t.Skipf("test fixture not found: %s", imgPath)
+	}
+
+	p := &Pipeline{}
+	r := p.Run(context.Background(), data, "invoice.png", "image/png")
+	require.NoError(t, r.Err)
+	assert.True(t, r.OCRUsed, "image should trigger OCR")
+	assert.NotEmpty(t, r.ExtractedText)
+}
+
 func TestPipeline_PDFTextExtraction(t *testing.T) {
+	if !HasPDFToText() {
+		t.Skip("pdftotext not available")
+	}
+
 	pdfPath := filepath.Join("testdata", "sample.pdf")
 	data, err := os.ReadFile(pdfPath) //nolint:gosec // test fixture path
 	if err != nil {
@@ -51,8 +73,8 @@ func TestPipeline_PDFTextExtraction(t *testing.T) {
 	p := &Pipeline{}
 	r := p.Run(context.Background(), data, "sample.pdf", "application/pdf")
 	require.NoError(t, r.Err)
+	assert.Contains(t, r.PdfText, "Invoice", "pdftotext should extract text")
 	assert.Contains(t, r.ExtractedText, "Invoice")
-	assert.False(t, r.OCRUsed, "digital PDF should not need OCR")
 	assert.False(t, r.LLMUsed, "no LLM client configured")
 	assert.Nil(t, r.Hints)
 }
@@ -69,6 +91,9 @@ func TestPipeline_OCRIntegration(t *testing.T) {
 	if !OCRAvailable() {
 		t.Skip("tesseract and/or pdftoppm not available")
 	}
+	if !HasPDFToText() {
+		t.Skip("pdftotext not available")
+	}
 
 	pdfPath := filepath.Join("testdata", "sample.pdf")
 	data, err := os.ReadFile(pdfPath) //nolint:gosec // test fixture path
@@ -76,11 +101,13 @@ func TestPipeline_OCRIntegration(t *testing.T) {
 		t.Skipf("test fixture not found: %s", pdfPath)
 	}
 
-	// The sample PDF has a text layer, so OCR should not be used.
+	// Both pdftotext and OCR should run for PDFs.
 	p := &Pipeline{MaxOCRPages: 5}
 	r := p.Run(context.Background(), data, "sample.pdf", "application/pdf")
 	require.NoError(t, r.Err)
-	assert.False(t, r.OCRUsed, "should use text layer, not OCR")
+	assert.True(t, r.OCRUsed, "OCR always runs for PDFs")
+	assert.NotEmpty(t, r.PdfText, "pdftotext should extract text")
+	assert.NotEmpty(t, r.OCRText, "OCR should also extract text")
 	assert.Contains(t, r.ExtractedText, "Invoice")
 }
 

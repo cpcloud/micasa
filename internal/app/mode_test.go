@@ -504,13 +504,15 @@ func TestModeBadgeFixedWidth(t *testing.T) {
 	assert.Equal(t, normalWidth, editWidth, "badge widths should match")
 }
 
-func TestShiftPrefixOnUppercaseKeycap(t *testing.T) {
+func TestKeycapPreservesCase(t *testing.T) {
 	m := newTestModel()
-	// Uppercase "H" should produce a keycap containing "SHIFT+H".
+	// Uppercase "H" stays as "H" (not "SHIFT+H").
 	rendered := m.keycap("H")
-	assert.Contains(t, rendered, "SHIFT+H")
-	// Lowercase "h" should produce "H" (uppercased), not "SHIFT+H".
+	assert.Contains(t, rendered, "H")
+	assert.NotContains(t, rendered, "SHIFT")
+	// Lowercase "h" stays as "h" (not uppercased).
 	rendered = m.keycap("h")
+	assert.Contains(t, rendered, "h")
 	assert.NotContains(t, rendered, "SHIFT")
 }
 

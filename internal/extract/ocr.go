@@ -134,7 +134,7 @@ func ocrImage(ctx context.Context, data []byte) (string, []byte, error) {
 	}
 	defer os.RemoveAll(tmpDir) //nolint:errcheck // best-effort cleanup
 
-	imgPath := filepath.Join(tmpDir, "input.png")
+	imgPath := filepath.Join(tmpDir, "input")
 	if err := os.WriteFile(imgPath, data, 0o600); err != nil {
 		return "", nil, fmt.Errorf("write temp image: %w", err)
 	}

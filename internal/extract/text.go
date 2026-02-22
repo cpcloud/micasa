@@ -5,23 +5,38 @@ package extract
 
 import (
 	"bytes"
+	"context"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
-
-	"github.com/ledongthuc/pdf"
+	"time"
 )
+
+// DefaultTextTimeout is the default timeout for pdftotext.
+const DefaultTextTimeout = 30 * time.Second
 
 // ExtractText pulls plain text from document content based on MIME type.
 // Returns empty string (not an error) for unsupported MIME types.
-func ExtractText(data []byte, mime string) (string, error) {
+// PDF extraction uses pdftotext (poppler-utils) when available,
+// returning empty for PDFs when the tool is missing. The timeout
+// parameter caps how long pdftotext can run (0 = DefaultTextTimeout).
+func ExtractText(data []byte, mime string, timeout time.Duration) (string, error) {
 	if len(data) == 0 {
 		return "", nil
+	}
+	if timeout <= 0 {
+		timeout = DefaultTextTimeout
 	}
 
 	switch {
 	case mime == "application/pdf":
-		return extractPDF(data)
+		if !HasPDFToText() {
+			return "", nil
+		}
+		return extractPDF(data, timeout)
 	case strings.HasPrefix(mime, "text/"):
 		return normalizeWhitespace(string(data)), nil
 	default:
@@ -29,24 +44,39 @@ func ExtractText(data []byte, mime string) (string, error) {
 	}
 }
 
-// extractPDF reads text from a PDF using ledongthuc/pdf.
-func extractPDF(data []byte) (string, error) {
-	r, err := pdf.NewReader(bytes.NewReader(data), int64(len(data)))
+// extractPDF shells out to pdftotext for text extraction. pdftotext
+// preserves reading order and table layout better than pure-Go readers.
+func extractPDF(data []byte, timeout time.Duration) (string, error) {
+	tmpDir, err := os.MkdirTemp("", "micasa-text-*")
 	if err != nil {
-		return "", fmt.Errorf("open pdf: %w", err)
+		return "", fmt.Errorf("create temp dir: %w", err)
+	}
+	defer os.RemoveAll(tmpDir) //nolint:errcheck // best-effort cleanup
+
+	pdfPath := filepath.Join(tmpDir, "input.pdf")
+	if err := os.WriteFile(pdfPath, data, 0o600); err != nil {
+		return "", fmt.Errorf("write temp pdf: %w", err)
 	}
 
-	textReader, err := r.GetPlainText()
-	if err != nil {
-		return "", fmt.Errorf("extract pdf text: %w", err)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cmd := exec.CommandContext( //nolint:gosec // args are constructed internally
+		ctx,
+		"pdftotext",
+		"-layout",
+		pdfPath,
+		"-", // stdout
+	)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("pdftotext: %s: %w", strings.TrimSpace(stderr.String()), err)
 	}
 
-	var buf bytes.Buffer
-	if _, err := buf.ReadFrom(textReader); err != nil {
-		return "", fmt.Errorf("read pdf text: %w", err)
-	}
-
-	return normalizeWhitespace(buf.String()), nil
+	return normalizeWhitespace(stdout.String()), nil
 }
 
 // collapseSpaces replaces runs of horizontal whitespace with a single space.
