@@ -35,8 +35,6 @@ micasa [<db-path>] [flags]
 | `<db-path>` | SQLite database path. Overrides `MICASA_DB_PATH`. |
 | `--demo` | Launch with fictitious sample data in an in-memory database. |
 | `--years=N` | Generate N years of simulated data. Requires `--demo`. |
-| `--print-path` | Print the resolved database path and exit. |
-
 When `--demo` is combined with a path, the demo data is written to that
 file so you can restart with the same state:
 
@@ -45,14 +43,21 @@ micasa --demo /tmp/my-demo.db   # creates and populates
 micasa /tmp/my-demo.db          # reopens with the demo data
 ```
 
-`--print-path` is useful for scripting:
+### `config`
+
+```
+micasa config --get <key>
+```
+
+Read configuration values using dot-delimited TOML keys:
 
 ```sh
-micasa --print-path                               # platform default
-MICASA_DB_PATH=/tmp/foo.db micasa --print-path    # /tmp/foo.db
-micasa --print-path /custom/path.db               # /custom/path.db
-micasa --demo --print-path                        # :memory:
-micasa --demo --print-path /tmp/d.db              # /tmp/d.db
+micasa config --get llm.model             # current model name
+micasa config --get llm.base_url          # LLM API endpoint
+micasa config --get documents.max_file_size  # max doc size in bytes
+micasa config --get db_path               # resolved database path
+micasa config --get data_dir              # data directory
+micasa config --get config_path           # config file location
 ```
 
 ### `backup`

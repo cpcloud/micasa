@@ -62,7 +62,7 @@ Linux, macOS, and Windows binaries are available for amd64 and arm64.
 ```sh
 micasa --demo         # poke around with sample data
 micasa                # start fresh with your own house
-micasa --print-path   # show where the database lives
+micasa config --get db_path   # show where the database lives
 ```
 
 > One SQLite file. Your data, your machine. Back it up with `cp`.
