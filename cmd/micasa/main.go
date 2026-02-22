@@ -17,7 +17,6 @@ import (
 	"github.com/cpcloud/micasa/internal/app"
 	"github.com/cpcloud/micasa/internal/config"
 	"github.com/cpcloud/micasa/internal/data"
-	"github.com/cpcloud/micasa/internal/locale"
 )
 
 // version is set at build time via -ldflags "-X main.version=...".
@@ -131,15 +130,13 @@ func (cmd *runCmd) Run() error {
 		return fmt.Errorf("evict stale cache: %w", err)
 	}
 
-	cur, err := resolveCurrency(store, cfg.Locale.Currency)
-	if err != nil {
+	if err := store.ResolveCurrency(cfg.Locale.Currency); err != nil {
 		return fmt.Errorf("resolve currency: %w", err)
 	}
 
 	opts := app.Options{
 		DBPath:     dbPath,
 		ConfigPath: config.Path(),
-		Currency:   cur,
 	}
 	opts.SetLLM(cfg.LLM.BaseURL, cfg.LLM.Model, cfg.LLM.ExtraContext, cfg.LLM.TimeoutDuration())
 
@@ -226,26 +223,6 @@ func (cmd *backupCmd) Run() error {
 	}
 	fmt.Println(absPath)
 	return nil
-}
-
-// resolveCurrency determines the currency to use. The database value is
-// authoritative; if unset, we resolve from config/env/locale and persist.
-func resolveCurrency(store *data.Store, configured string) (locale.Currency, error) {
-	code, err := store.GetCurrency()
-	if err != nil {
-		return locale.Currency{}, fmt.Errorf("read currency from database: %w", err)
-	}
-	if code != "" {
-		return locale.Resolve(code)
-	}
-	cur, err := locale.ResolveDefault(configured)
-	if err != nil {
-		return locale.Currency{}, err
-	}
-	if err := store.PutCurrency(cur.Code()); err != nil {
-		return locale.Currency{}, fmt.Errorf("persist currency to database: %w", err)
-	}
-	return cur, nil
 }
 
 // versionString returns the version for display. Release builds return

@@ -28,12 +28,13 @@ func newTestModelWithStore(t *testing.T) *Model {
 
 	require.NoError(t, store.AutoMigrate())
 	require.NoError(t, store.SeedDefaults())
+	store.SetCurrency(locale.DefaultCurrency())
 
 	require.NoError(t, store.CreateHouseProfile(data.HouseProfile{
 		Nickname: "Test House",
 	}))
 
-	m, err := NewModel(store, Options{DBPath: path, Currency: locale.DefaultCurrency()})
+	m, err := NewModel(store, Options{DBPath: path})
 	require.NoError(t, err)
 	m.width = 120
 	m.height = 40

@@ -24,9 +24,10 @@ func newTestModelWithDemoData(t *testing.T, seed uint64) *Model {
 	t.Cleanup(func() { _ = store.Close() })
 	require.NoError(t, store.AutoMigrate())
 	require.NoError(t, store.SeedDefaults())
+	store.SetCurrency(locale.DefaultCurrency())
 	h := fake.New(seed)
 	require.NoError(t, store.SeedDemoDataFrom(h))
-	m, err := NewModel(store, Options{DBPath: path, Currency: locale.DefaultCurrency()})
+	m, err := NewModel(store, Options{DBPath: path})
 	require.NoError(t, err)
 	m.width = 120
 	m.height = 40

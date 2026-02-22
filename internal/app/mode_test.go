@@ -9,22 +9,34 @@ import (
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/cpcloud/micasa/internal/data"
 	"github.com/cpcloud/micasa/internal/locale"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// newTestModel creates a minimal Model for mode tests (no database).
+// newTestModel creates a minimal Model for lightweight mode tests.
 func newTestModel() *Model {
 	styles := DefaultStyles()
+	store, err := data.Open(":memory:")
+	if err != nil {
+		panic(err)
+	}
+	if err := store.AutoMigrate(); err != nil {
+		panic(err)
+	}
+	if err := store.SeedDefaults(); err != nil {
+		panic(err)
+	}
+	store.SetCurrency(locale.DefaultCurrency())
 	m := &Model{
-		styles:   styles,
-		tabs:     NewTabs(styles),
-		active:   0,
-		mode:     modeNormal,
-		width:    120,
-		height:   40,
-		currency: locale.DefaultCurrency(),
+		store:  store,
+		styles: styles,
+		tabs:   NewTabs(styles),
+		active: 0,
+		mode:   modeNormal,
+		width:  120,
+		height: 40,
 	}
 	// Seed minimal rows so cursor operations don't panic.
 	for i := range m.tabs {

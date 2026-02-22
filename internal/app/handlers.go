@@ -9,7 +9,6 @@ import (
 
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/cpcloud/micasa/internal/data"
-	"github.com/cpcloud/micasa/internal/locale"
 )
 
 // TabHandler encapsulates entity-specific operations for a tab, eliminating
@@ -24,7 +23,6 @@ type TabHandler interface {
 	Load(
 		store *data.Store,
 		showDeleted bool,
-		cur locale.Currency,
 	) ([]table.Row, []rowMeta, [][]cell, error)
 
 	// Delete soft-deletes the entity with the given ID.
@@ -81,7 +79,6 @@ func (projectHandler) FormKind() FormKind { return formProject }
 func (projectHandler) Load(
 	store *data.Store,
 	showDeleted bool,
-	cur locale.Currency,
 ) ([]table.Row, []rowMeta, [][]cell, error) {
 	projects, err := store.ListProjects(showDeleted)
 	if err != nil {
@@ -96,7 +93,7 @@ func (projectHandler) Load(
 	if err != nil {
 		docCounts = map[uint]int{}
 	}
-	rows, meta, cellRows := projectRows(projects, quoteCounts, docCounts, cur)
+	rows, meta, cellRows := projectRows(projects, quoteCounts, docCounts, store.Currency())
 	return rows, meta, cellRows, nil
 }
 
@@ -159,7 +156,6 @@ func (quoteHandler) FormKind() FormKind { return formQuote }
 func (quoteHandler) Load(
 	store *data.Store,
 	showDeleted bool,
-	cur locale.Currency,
 ) ([]table.Row, []rowMeta, [][]cell, error) {
 	quotes, err := store.ListQuotes(showDeleted)
 	if err != nil {
@@ -170,7 +166,7 @@ func (quoteHandler) Load(
 	if err != nil {
 		docCounts = map[uint]int{}
 	}
-	rows, meta, cellRows := quoteRows(quotes, docCounts, cur)
+	rows, meta, cellRows := quoteRows(quotes, docCounts, store.Currency())
 	return rows, meta, cellRows, nil
 }
 
@@ -227,7 +223,6 @@ func (maintenanceHandler) FormKind() FormKind { return formMaintenance }
 func (maintenanceHandler) Load(
 	store *data.Store,
 	showDeleted bool,
-	cur locale.Currency,
 ) ([]table.Row, []rowMeta, [][]cell, error) {
 	items, err := store.ListMaintenance(showDeleted)
 	if err != nil {
@@ -306,7 +301,6 @@ func (applianceHandler) FormKind() FormKind { return formAppliance }
 func (applianceHandler) Load(
 	store *data.Store,
 	showDeleted bool,
-	cur locale.Currency,
 ) ([]table.Row, []rowMeta, [][]cell, error) {
 	items, err := store.ListAppliances(showDeleted)
 	if err != nil {
@@ -321,7 +315,13 @@ func (applianceHandler) Load(
 	if err != nil {
 		docCounts = map[uint]int{}
 	}
-	rows, meta, cellRows := applianceRows(items, maintCounts, docCounts, time.Now(), cur)
+	rows, meta, cellRows := applianceRows(
+		items,
+		maintCounts,
+		docCounts,
+		time.Now(),
+		store.Currency(),
+	)
 	return rows, meta, cellRows, nil
 }
 
@@ -378,7 +378,6 @@ func (incidentHandler) FormKind() FormKind { return formIncident }
 func (incidentHandler) Load(
 	store *data.Store,
 	showDeleted bool,
-	cur locale.Currency,
 ) ([]table.Row, []rowMeta, [][]cell, error) {
 	items, err := store.ListIncidents(showDeleted)
 	if err != nil {
@@ -389,7 +388,7 @@ func (incidentHandler) Load(
 	if err != nil {
 		docCounts = map[uint]int{}
 	}
-	rows, meta, cellRows := incidentRows(items, docCounts, cur)
+	rows, meta, cellRows := incidentRows(items, docCounts, store.Currency())
 	return rows, meta, cellRows, nil
 }
 
@@ -454,7 +453,7 @@ func (incidentHandler) SyncFixedValues(_ *Model, specs []columnSpec) {
 
 type scopedHandler struct {
 	TabHandler   // embedded; delegates FormKind, Delete, Restore, StartEditForm, Snapshot, SyncFixedValues
-	loadFn       func(*data.Store, bool, locale.Currency) ([]table.Row, []rowMeta, [][]cell, error)
+	loadFn       func(*data.Store, bool) ([]table.Row, []rowMeta, [][]cell, error)
 	inlineEditFn func(*Model, uint, int) error // nil = TabHandler.InlineEdit
 	startAddFn   func(*Model) error            // nil = TabHandler.StartAddForm
 	submitFn     func(*Model) error            // nil = TabHandler.SubmitForm
@@ -463,9 +462,8 @@ type scopedHandler struct {
 func (s scopedHandler) Load(
 	store *data.Store,
 	showDeleted bool,
-	cur locale.Currency,
 ) ([]table.Row, []rowMeta, [][]cell, error) {
-	return s.loadFn(store, showDeleted, cur)
+	return s.loadFn(store, showDeleted)
 }
 
 func (s scopedHandler) StartAddForm(m *Model) error {
@@ -509,7 +507,7 @@ func newApplianceMaintenanceHandler(applianceID uint) scopedHandler {
 	parent := maintenanceHandler{}
 	return scopedHandler{
 		TabHandler: parent,
-		loadFn: func(store *data.Store, showDeleted bool, cur locale.Currency) ([]table.Row, []rowMeta, [][]cell, error) {
+		loadFn: func(store *data.Store, showDeleted bool) ([]table.Row, []rowMeta, [][]cell, error) {
 			items, err := store.ListMaintenanceByAppliance(applianceID, showDeleted)
 			if err != nil {
 				return nil, nil, nil, err
@@ -544,7 +542,6 @@ func (h serviceLogHandler) FormKind() FormKind { return formServiceLog }
 func (h serviceLogHandler) Load(
 	store *data.Store,
 	showDeleted bool,
-	cur locale.Currency,
 ) ([]table.Row, []rowMeta, [][]cell, error) {
 	entries, err := store.ListServiceLog(h.maintenanceItemID, showDeleted)
 	if err != nil {
@@ -555,7 +552,7 @@ func (h serviceLogHandler) Load(
 	if err != nil {
 		docCounts = map[uint]int{}
 	}
-	rows, meta, cellRows := serviceLogRows(entries, docCounts, cur)
+	rows, meta, cellRows := serviceLogRows(entries, docCounts, store.Currency())
 	return rows, meta, cellRows, nil
 }
 
@@ -612,7 +609,6 @@ func (vendorHandler) FormKind() FormKind { return formVendor }
 func (vendorHandler) Load(
 	store *data.Store,
 	showDeleted bool,
-	cur locale.Currency,
 ) ([]table.Row, []rowMeta, [][]cell, error) {
 	vendors, err := store.ListVendors(showDeleted)
 	if err != nil {
@@ -681,7 +677,7 @@ func newVendorQuoteHandler(vendorID uint) scopedHandler {
 	parent := quoteHandler{}
 	return scopedHandler{
 		TabHandler: parent,
-		loadFn: func(store *data.Store, showDeleted bool, cur locale.Currency) ([]table.Row, []rowMeta, [][]cell, error) {
+		loadFn: func(store *data.Store, showDeleted bool) ([]table.Row, []rowMeta, [][]cell, error) {
 			quotes, err := store.ListQuotesByVendor(vendorID, showDeleted)
 			if err != nil {
 				return nil, nil, nil, err
@@ -691,7 +687,7 @@ func newVendorQuoteHandler(vendorID uint) scopedHandler {
 			if err != nil {
 				docCounts = map[uint]int{}
 			}
-			rows, meta, cellRows := vendorQuoteRows(quotes, docCounts, cur)
+			rows, meta, cellRows := vendorQuoteRows(quotes, docCounts, store.Currency())
 			return rows, meta, cellRows, nil
 		},
 		inlineEditFn: skipColEdit(parent, 2), // skip Vendor column
@@ -702,12 +698,12 @@ func newVendorJobsHandler(vendorID uint) scopedHandler {
 	parent := serviceLogHandler{}
 	return scopedHandler{
 		TabHandler: parent,
-		loadFn: func(store *data.Store, showDeleted bool, cur locale.Currency) ([]table.Row, []rowMeta, [][]cell, error) {
+		loadFn: func(store *data.Store, showDeleted bool) ([]table.Row, []rowMeta, [][]cell, error) {
 			entries, err := store.ListServiceLogsByVendor(vendorID, showDeleted)
 			if err != nil {
 				return nil, nil, nil, err
 			}
-			rows, meta, cellRows := vendorJobsRows(entries, cur)
+			rows, meta, cellRows := vendorJobsRows(entries, store.Currency())
 			return rows, meta, cellRows, nil
 		},
 		inlineEditFn: func(m *Model, id uint, col int) error {
@@ -736,7 +732,7 @@ func newProjectQuoteHandler(projectID uint) scopedHandler {
 	parent := quoteHandler{}
 	return scopedHandler{
 		TabHandler: parent,
-		loadFn: func(store *data.Store, showDeleted bool, cur locale.Currency) ([]table.Row, []rowMeta, [][]cell, error) {
+		loadFn: func(store *data.Store, showDeleted bool) ([]table.Row, []rowMeta, [][]cell, error) {
 			quotes, err := store.ListQuotesByProject(projectID, showDeleted)
 			if err != nil {
 				return nil, nil, nil, err
@@ -746,7 +742,7 @@ func newProjectQuoteHandler(projectID uint) scopedHandler {
 			if err != nil {
 				docCounts = map[uint]int{}
 			}
-			rows, meta, cellRows := projectQuoteRows(quotes, docCounts, cur)
+			rows, meta, cellRows := projectQuoteRows(quotes, docCounts, store.Currency())
 			return rows, meta, cellRows, nil
 		},
 		inlineEditFn: skipColEdit(parent, 1), // skip Project column
@@ -764,7 +760,6 @@ func (documentHandler) FormKind() FormKind { return formDocument }
 func (documentHandler) Load(
 	store *data.Store,
 	showDeleted bool,
-	cur locale.Currency,
 ) ([]table.Row, []rowMeta, [][]cell, error) {
 	docs, err := store.ListDocuments(showDeleted)
 	if err != nil {
@@ -820,7 +815,7 @@ func newEntityDocumentHandler(entityKind string, entityID uint) scopedHandler {
 	parent := documentHandler{}
 	return scopedHandler{
 		TabHandler: parent,
-		loadFn: func(store *data.Store, showDeleted bool, cur locale.Currency) ([]table.Row, []rowMeta, [][]cell, error) {
+		loadFn: func(store *data.Store, showDeleted bool) ([]table.Row, []rowMeta, [][]cell, error) {
 			docs, err := store.ListDocumentsByEntity(entityKind, entityID, showDeleted)
 			if err != nil {
 				return nil, nil, nil, err

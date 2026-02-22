@@ -24,6 +24,7 @@ func benchModel(b *testing.B) *Model {
 	require.NoError(b, store.AutoMigrate())
 	require.NoError(b, store.SeedDefaults())
 	require.NoError(b, store.SeedDemoDataFrom(fake.New(42)))
+	require.NoError(b, store.ResolveCurrency(""))
 	m, err := NewModel(store, Options{DBPath: path})
 	require.NoError(b, err)
 	m.width = 120

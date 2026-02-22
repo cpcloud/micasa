@@ -272,6 +272,7 @@ func newTestModelWithDetailRows() *Model {
 		{"1", "2026-01-15", "Self", "", "first"},
 		{"2", "2026-02-01", "Acme", "$150.00", "second"},
 	})
+	tab.Table.SetCursor(0)
 	tab.Rows = []rowMeta{{ID: 1}, {ID: 2}}
 	tab.CellRows = [][]cell{
 		{

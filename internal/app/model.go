@@ -21,7 +21,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/cpcloud/micasa/internal/data"
 	"github.com/cpcloud/micasa/internal/llm"
-	"github.com/cpcloud/micasa/internal/locale"
 	"gorm.io/gorm"
 )
 
@@ -43,7 +42,6 @@ type Model struct {
 	store                 *data.Store
 	dbPath                string
 	configPath            string
-	currency              locale.Currency
 	llmClient             *llm.Client
 	llmExtraContext       string     // user-provided context appended to prompts
 	chat                  *chatState // non-nil when chat overlay is open
@@ -121,7 +119,6 @@ func NewModel(store *data.Store, options Options) (*Model, error) {
 		store:           store,
 		dbPath:          options.DBPath,
 		configPath:      options.ConfigPath,
-		currency:        options.Currency,
 		llmClient:       client,
 		llmExtraContext: extraContext,
 		styles:          styles,
@@ -472,14 +469,14 @@ func (m *Model) handleCommonKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 			if !hasPins(tab) {
 				continue
 			}
-			translatePins(tab, m.magMode, m.currency.Symbol())
-			applyRowFilter(tab, m.magMode, m.currency.Symbol())
+			translatePins(tab, m.magMode, m.store.Currency().Symbol())
+			applyRowFilter(tab, m.magMode, m.store.Currency().Symbol())
 			applySorts(tab)
 		}
 		for _, dc := range m.detailStack {
 			if hasPins(&dc.Tab) {
-				translatePins(&dc.Tab, m.magMode, m.currency.Symbol())
-				applyRowFilter(&dc.Tab, m.magMode, m.currency.Symbol())
+				translatePins(&dc.Tab, m.magMode, m.store.Currency().Symbol())
+				applyRowFilter(&dc.Tab, m.magMode, m.store.Currency().Symbol())
 				applySorts(&dc.Tab)
 			}
 		}
@@ -1510,7 +1507,7 @@ func (m *Model) toggleSettledFilter() bool {
 	if hasColumnPins(tab, col) {
 		// Turn off: clear status column pins.
 		clearPinsForColumn(tab, col)
-		applyRowFilter(tab, m.magMode, m.currency.Symbol())
+		applyRowFilter(tab, m.magMode, m.store.Currency().Symbol())
 		applySorts(tab)
 		m.updateTabViewport(tab)
 		m.setStatusInfo("Settled shown.")
@@ -1520,7 +1517,7 @@ func (m *Model) toggleSettledFilter() bool {
 			togglePin(tab, col, status)
 		}
 		tab.FilterActive = true
-		applyRowFilter(tab, m.magMode, m.currency.Symbol())
+		applyRowFilter(tab, m.magMode, m.store.Currency().Symbol())
 		applySorts(tab)
 		m.updateTabViewport(tab)
 		m.setStatusInfo("Settled hidden.")
@@ -1564,7 +1561,7 @@ func (m *Model) reloadAllTabs() error {
 }
 
 func (m *Model) reloadTab(tab *Tab) error {
-	rows, meta, cellRows, err := tab.Handler.Load(m.store, tab.ShowDeleted, m.currency)
+	rows, meta, cellRows, err := tab.Handler.Load(m.store, tab.ShowDeleted)
 	if err != nil {
 		return err
 	}
@@ -1573,9 +1570,14 @@ func (m *Model) reloadTab(tab *Tab) error {
 	tab.FullRows = rows
 	tab.FullMeta = meta
 	tab.FullCellRows = cellRows
-	applyRowFilter(tab, m.magMode, m.currency.Symbol())
+	applyRowFilter(tab, m.magMode, m.store.Currency().Symbol())
 	tab.Stale = false
 	applySorts(tab)
+	// SetRows clamps cursor to len-1; an empty→non-empty transition can
+	// leave it at -1. Fix it so the first row is selected.
+	if tab.Table.Cursor() < 0 && len(tab.Rows) > 0 {
+		tab.Table.SetCursor(0)
+	}
 	m.updateTabViewport(tab)
 	return nil
 }
@@ -2024,9 +2026,9 @@ func (m *Model) togglePinAtCursor() {
 	}
 	// Pin what the user sees: null cells use the sentinel key; in mag mode,
 	// pin the magnitude representation; otherwise pin the raw value.
-	pinValue := cellDisplayValue(c, m.magMode, m.currency.Symbol())
+	pinValue := cellDisplayValue(c, m.magMode, m.store.Currency().Symbol())
 	pinned := togglePin(tab, col, pinValue)
-	applyRowFilter(tab, m.magMode, m.currency.Symbol())
+	applyRowFilter(tab, m.magMode, m.store.Currency().Symbol())
 	applySorts(tab)
 	m.updateTabViewport(tab)
 	if pinned {
@@ -2045,7 +2047,7 @@ func (m *Model) toggleFilterActivation() {
 	// ("eager mode"): arm the filter first, then every n immediately filters.
 	tab.FilterActive = !tab.FilterActive
 	if hasPins(tab) {
-		applyRowFilter(tab, m.magMode, m.currency.Symbol())
+		applyRowFilter(tab, m.magMode, m.store.Currency().Symbol())
 		applySorts(tab)
 		m.updateTabViewport(tab)
 	}
@@ -2057,7 +2059,7 @@ func (m *Model) clearAllPins() {
 		return
 	}
 	clearPins(tab)
-	applyRowFilter(tab, m.magMode, m.currency.Symbol())
+	applyRowFilter(tab, m.magMode, m.store.Currency().Symbol())
 	applySorts(tab)
 	m.updateTabViewport(tab)
 	m.setStatusInfo("Pins cleared.")
@@ -2070,7 +2072,7 @@ func (m *Model) toggleFilterInvert() {
 	}
 	tab.FilterInverted = !tab.FilterInverted
 	if hasPins(tab) {
-		applyRowFilter(tab, m.magMode, m.currency.Symbol())
+		applyRowFilter(tab, m.magMode, m.store.Currency().Symbol())
 		applySorts(tab)
 		m.updateTabViewport(tab)
 	}
@@ -2096,7 +2098,7 @@ func (m *Model) hideCurrentColumn() {
 	// Clear any pins on the hidden column.
 	clearPinsForColumn(tab, col)
 	if hasPins(tab) {
-		applyRowFilter(tab, m.magMode, m.currency.Symbol())
+		applyRowFilter(tab, m.magMode, m.store.Currency().Symbol())
 	}
 	// Try forward first; if at the right edge fall back to backward.
 	next := nextVisibleCol(tab.Specs, col, true)

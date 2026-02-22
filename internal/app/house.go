@@ -92,8 +92,8 @@ func (m *Model) houseExpanded() string {
 		m.hlv("renew", data.FormatDate(m.house.InsuranceRenewal)),
 	)
 	finLine2 := joinStyledParts(sep,
-		m.hlv("tax", m.currency.FormatOptionalCents(m.house.PropertyTaxCents)),
-		m.hlv("hoa", hoaSummary(m.house, m.currency)),
+		m.hlv("tax", m.store.Currency().FormatOptionalCents(m.house.PropertyTaxCents)),
+		m.hlv("hoa", hoaSummary(m.house, m.store.Currency())),
 	)
 	financial := m.houseSection("Financial", finLine1, finLine2)
 

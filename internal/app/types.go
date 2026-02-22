@@ -9,7 +9,6 @@ import (
 
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/cpcloud/micasa/internal/locale"
 )
 
 type Mode int
@@ -166,7 +165,6 @@ type detailContext struct {
 type Options struct {
 	DBPath     string
 	ConfigPath string
-	Currency   locale.Currency
 	LLMConfig  *llmConfig // nil if LLM is not configured
 }
 
