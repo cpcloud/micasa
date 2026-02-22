@@ -168,10 +168,20 @@
 
         devShells.default =
           let
-            inherit (preCommit) enabledPackages shellHook;
+            inherit (preCommit) enabledPackages;
           in
           pkgs.mkShell {
-            inherit shellHook;
+            shellHook = ''
+              ${preCommit.shellHook}
+
+              # Generate test document fixtures if missing.
+              if [[ ! -f internal/extract/testdata/mixed-inspection.pdf ]]; then
+                bash internal/extract/gen-sample-pdf.bash
+                bash internal/extract/gen-invoice-png.bash
+                bash internal/extract/gen-scanned-pdf.bash
+                bash internal/extract/gen-mixed-pdf.bash
+              fi
+            '';
             CGO_ENABLED = "0";
             packages = [
               pkgs.go
@@ -185,6 +195,7 @@
               pkgs.sqlite-interactive
               pkgs.tesseract
               pkgs.poppler-utils
+              pkgs.imagemagick
             ]
             ++ enabledPackages;
           };
@@ -358,6 +369,48 @@
                 | parallel -0 -j"$jobs" --bar record-tape {}
             '';
           };
+          gen-sample-pdf = pkgs.writeShellApplication {
+            name = "gen-sample-pdf";
+            text = ''
+              bash internal/extract/gen-sample-pdf.bash
+            '';
+          };
+          gen-invoice-png = pkgs.writeShellApplication {
+            name = "gen-invoice-png";
+            runtimeInputs = [ pkgs.imagemagick ];
+            text = ''
+              bash internal/extract/gen-invoice-png.bash
+            '';
+          };
+          gen-scanned-pdf = pkgs.writeShellApplication {
+            name = "gen-scanned-pdf";
+            runtimeInputs = [ pkgs.imagemagick ];
+            text = ''
+              bash internal/extract/gen-scanned-pdf.bash
+            '';
+          };
+          gen-mixed-pdf = pkgs.writeShellApplication {
+            name = "gen-mixed-pdf";
+            runtimeInputs = [ pkgs.poppler-utils ];
+            text = ''
+              bash internal/extract/gen-mixed-pdf.bash
+            '';
+          };
+          gen-testdata = pkgs.writeShellApplication {
+            name = "gen-testdata";
+            runtimeInputs = [
+              self.packages.${system}.gen-sample-pdf
+              self.packages.${system}.gen-invoice-png
+              self.packages.${system}.gen-scanned-pdf
+              self.packages.${system}.gen-mixed-pdf
+            ];
+            text = ''
+              gen-sample-pdf
+              gen-invoice-png
+              gen-scanned-pdf
+              gen-mixed-pdf
+            '';
+          };
           run-deadcode = pkgs.writeShellApplication {
             name = "run-deadcode";
             runtimeInputs = [
@@ -432,6 +485,11 @@
             capture-one = app (pkg "capture-one") "Capture a VHS tape screenshot";
             capture-screenshots = app (pkg "capture-screenshots") "Capture all VHS screenshots in parallel";
             record-animated = app (pkg "record-animated") "Record all animated demo tapes";
+            gen-sample-pdf = app (pkg "gen-sample-pdf") "Generate sample.pdf test fixture";
+            gen-invoice-png = app (pkg "gen-invoice-png") "Generate invoice.png test fixture";
+            gen-scanned-pdf = app (pkg "gen-scanned-pdf") "Generate scanned-invoice.pdf test fixture";
+            gen-mixed-pdf = app (pkg "gen-mixed-pdf") "Generate mixed-inspection.pdf test fixture";
+            gen-testdata = app (pkg "gen-testdata") "Generate all test document fixtures";
             deadcode = app (pkg "run-deadcode") "Run whole-program dead code analysis";
             osv-scanner = app (pkg "run-osv-scanner") "Scan for known vulnerabilities";
             pre-commit = app (pkg "run-pre-commit") "Run all pre-commit hooks";
