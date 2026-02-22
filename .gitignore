@@ -62,3 +62,4 @@ target/
 
 # Claude local settings
 .claude/settings.local.json
+.claude/worktrees
