@@ -36,8 +36,28 @@ jobs:
         with:
           go-version: ${{ matrix.go-version }}
 
+      - name: Install extraction tools (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils tesseract-ocr imagemagick
+
+      - name: Install extraction tools (macOS)
+        if: runner.os == 'macOS'
+        run: brew install poppler tesseract imagemagick
+
+      - name: Install extraction tools (Windows)
+        if: runner.os == 'Windows'
+        run: choco install poppler tesseract imagemagick --no-progress -y
+
       - name: Download dependencies
         run: go mod download
+
+      - name: Generate test fixtures
+        shell: bash
+        run: |
+          bash internal/extract/gen-sample-pdf.bash
+          bash internal/extract/gen-invoice-png.bash
+          bash internal/extract/gen-scanned-pdf.bash
+          bash internal/extract/gen-mixed-pdf.bash
 
       - name: Vet
         run: go vet ./...

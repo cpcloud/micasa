@@ -9,12 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/cpcloud/micasa/internal/data"
 	"github.com/cpcloud/micasa/internal/llm"
@@ -45,12 +43,7 @@ type chatState struct {
 	StreamCh     <-chan llm.StreamChunk // for stage 2 (answer streaming)
 	SQLStreamCh  <-chan llm.StreamChunk // for stage 1 (SQL generation)
 	CancelFn     context.CancelFunc
-	CurrentQuery string         // the user's current question being processed
-	Progress     progress.Model // pull progress bar
-	Pulling      bool           // true while a model pull is in progress
-	PullDisplay  string         // current pull status text, rendered as fixed chrome
-	PullPeak     float64        // high-water mark so the bar never goes backwards
-	PullCancel   context.CancelFunc
+	CurrentQuery string          // the user's current question being processed
 	Completer    *modelCompleter // non-nil when the model picker is showing
 	ShowSQL      bool            // when true, show generated SQL as a notice
 	History      []string        // past user inputs, newest last
@@ -58,10 +51,7 @@ type chatState struct {
 	HistoryBuf   string          // stashed live input while browsing history
 	Visible      bool            // false when the overlay is hidden but session persists
 
-	// Cached glamour renderer, keyed by width. Avoids re-parsing the JSON
-	// stylesheet on every streaming tick (~10/sec during LLM responses).
-	mdRenderer  *glamour.TermRenderer
-	mdRendererW int
+	markdownRenderer
 }
 
 // modelCompleter is the inline autocomplete list for /model.
@@ -176,12 +166,6 @@ func (m *Model) openChat() {
 	vp.KeyMap.Left.SetEnabled(false)
 	vp.KeyMap.Right.SetEnabled(false)
 
-	prog := progress.New(
-		progress.WithGradient(accent.Dark, success.Dark),
-		progress.WithFillCharacters('━', '┄'),
-	)
-	prog.PercentageStyle = lipgloss.NewStyle().Foreground(textDim)
-
 	sp := spinner.New(spinner.WithSpinner(spinner.Dot))
 	sp.Style = lipgloss.NewStyle().Foreground(accent)
 
@@ -197,7 +181,6 @@ func (m *Model) openChat() {
 		Input:      ti,
 		Viewport:   vp,
 		Spinner:    sp,
-		Progress:   prog,
 		Visible:    true,
 		History:    history,
 		HistoryCur: -1,
@@ -258,13 +241,10 @@ func (m *Model) cancelChatOperations() {
 			m.refreshChatViewport()
 		}
 	}
-	if m.chat.Pulling && m.chat.PullCancel != nil {
-		m.chat.PullCancel()
-		m.chat.Pulling = false
-		m.chat.PullCancel = nil
-		m.chat.PullDisplay = ""
-		m.chat.PullPeak = 0
-		if m.chat.Visible {
+	if m.pulling {
+		wasChatPull := m.pullFromChat
+		m.cancelPull()
+		if wasChatPull && m.chat.Visible {
 			m.chat.Messages = append(m.chat.Messages, chatMessage{
 				Role: roleNotice, Content: "Pull cancelled",
 			})
@@ -606,7 +586,7 @@ func (m *Model) cmdSwitchModel(name string) tea.Cmd {
 	if m.llmClient == nil {
 		return nil
 	}
-	if m.chat.Pulling {
+	if m.pulling {
 		m.chat.Messages = append(m.chat.Messages, chatMessage{
 			Role: roleError, Content: "a model pull is already in progress",
 		})
@@ -614,7 +594,9 @@ func (m *Model) cmdSwitchModel(name string) tea.Cmd {
 		return nil
 	}
 
-	m.chat.PullDisplay = "checking " + name + "..."
+	m.pullFromChat = true
+	m.pullDisplay = "checking " + name + "\u2026"
+	m.resizeTables()
 
 	client := m.llmClient
 	timeout := client.Timeout()
@@ -685,81 +667,6 @@ func readNextPullChunk(ps *ollamaPullState) tea.Msg {
 		PullState: ps,
 		Model:     ps.Model,
 	}
-}
-
-// handlePullProgress updates the pull notice message with download progress.
-// This runs independently of LLM streaming, so the user can keep chatting.
-func (m *Model) handlePullProgress(msg pullProgressMsg) tea.Cmd {
-	if m.chat == nil {
-		return nil
-	}
-
-	if msg.Err != nil {
-		m.chat.Pulling = false
-		m.chat.PullCancel = nil
-		m.chat.PullDisplay = ""
-		m.chat.PullPeak = 0
-		errMsg := "pull failed: " + msg.Err.Error()
-		if msg.Model != "" {
-			errMsg = fmt.Sprintf("pull failed for '%s': %s", msg.Model, msg.Err.Error())
-		}
-		m.chat.Messages = append(m.chat.Messages, chatMessage{
-			Role: roleError, Content: errMsg,
-		})
-		m.refreshChatViewport()
-		return nil
-	}
-
-	if msg.Done {
-		m.chat.Pulling = false
-		m.chat.PullCancel = nil
-		m.chat.PullDisplay = ""
-		m.chat.PullPeak = 0
-		if msg.Model != "" {
-			m.llmClient.SetModel(msg.Model)
-			// Persist so the model survives across sessions.
-			_ = m.store.PutLastModel(msg.Model)
-		}
-		m.chat.Messages = append(m.chat.Messages, chatMessage{
-			Role: roleNotice, Content: msg.Status,
-		})
-		m.refreshChatViewport()
-		return nil
-	}
-
-	// Mark pull as active on the first progress chunk.
-	if !m.chat.Pulling {
-		m.chat.Pulling = true
-		if msg.PullState != nil {
-			m.chat.PullCancel = msg.PullState.Cancel
-		}
-	}
-
-	m.chat.PullDisplay = m.formatPullProgress(msg)
-
-	ps := msg.PullState
-	return func() tea.Msg { return readNextPullChunk(ps) }
-}
-
-// formatPullProgress builds a clean display string for pull progress.
-// The percentage is clamped to a high-water mark so the bar never goes
-// backwards when Ollama starts downloading a new layer.
-func (m *Model) formatPullProgress(msg pullProgressMsg) string {
-	label := cleanPullStatus(msg.Status, msg.Model)
-	if msg.Percent < 0 {
-		return label
-	}
-	pct := msg.Percent
-	if pct < m.chat.PullPeak {
-		pct = m.chat.PullPeak
-	}
-	m.chat.PullPeak = pct
-	barW := m.chatViewportWidth() - 4
-	if barW < 20 {
-		barW = 20
-	}
-	m.chat.Progress.Width = barW
-	return label + "\n" + m.chat.Progress.ViewAs(pct)
 }
 
 // cleanPullStatus tidies up Ollama's raw status strings into something
@@ -1329,31 +1236,6 @@ func (m *Model) renderChatMessages() string {
 	return strings.Join(parts, "\n")
 }
 
-// renderMarkdown renders markdown text for terminal display using glamour.
-// The renderer is cached on the chatState and reused across calls at the same
-// width, avoiding repeated JSON stylesheet parsing during LLM streaming.
-func (cs *chatState) renderMarkdown(text string, width int) string {
-	if width < 10 {
-		width = 10
-	}
-	if cs.mdRenderer == nil || cs.mdRendererW != width {
-		r, err := glamour.NewTermRenderer(
-			glamour.WithAutoStyle(),
-			glamour.WithWordWrap(width),
-		)
-		if err != nil {
-			return wordWrap(text, width)
-		}
-		cs.mdRenderer = r
-		cs.mdRendererW = width
-	}
-	out, err := cs.mdRenderer.Render(text)
-	if err != nil {
-		return wordWrap(text, width)
-	}
-	return strings.TrimRight(out, "\n")
-}
-
 func (m *Model) llmModelLabel() string {
 	if m.llmClient != nil {
 		return m.llmClient.Model()
@@ -1493,12 +1375,12 @@ func (m *Model) buildChatOverlay() string {
 	if m.chat.Completer != nil {
 		hintParts = append(hintParts,
 			m.helpItem("up/down", "navigate"),
-			m.helpItem("enter", "select"),
+			m.helpItem("\u21b5", "select"),
 			m.helpItem("esc", "dismiss"),
 		)
 	} else {
 		hintParts = append(hintParts,
-			m.helpItem("enter", "send"),
+			m.helpItem("\u21b5", "send"),
 			m.sqlHintItem(),
 			m.helpItem("\u2191/\u2193", "history"),
 			m.helpItem("esc", "hide"),
@@ -1506,19 +1388,10 @@ func (m *Model) buildChatOverlay() string {
 	}
 	hints := joinWithSeparator(m.helpSeparator(), hintParts...)
 
-	// Pull progress bar (fixed, always visible while pulling).
-	pullView := ""
-	if m.chat.PullDisplay != "" {
-		pullView = m.styles.ChatNotice.Render(m.chat.PullDisplay)
-	}
-
-	// Build layout: title, viewport, [completer], [pull progress], input, hints.
+	// Build layout: title, viewport, [completer], input, hints.
 	sections := []string{title, "", vpView, ""}
 	if completerView != "" {
 		sections = append(sections, completerView, "")
-	}
-	if pullView != "" {
-		sections = append(sections, pullView, "")
 	}
 	sections = append(sections, inputView, "", hints)
 
@@ -1549,7 +1422,7 @@ func (m *Model) renderModelCompleter(innerW int) string {
 	lines := make([]string, completerMaxLines)
 
 	if mc.Loading {
-		lines[0] = m.styles.HeaderHint.Render("  loading models...")
+		lines[0] = m.styles.HeaderHint.Render("  loading models\u2026")
 		for i := 1; i < completerMaxLines; i++ {
 			lines[i] = ""
 		}
@@ -1700,10 +1573,6 @@ func (m *Model) chatViewportHeight() int {
 	if m.chat != nil && m.chat.Completer != nil {
 		// Reserve space for the completer + its surrounding blank line.
 		chrome += completerMaxLines + 1
-	}
-	if m.chat != nil && m.chat.PullDisplay != "" {
-		// Reserve space for the pull progress (label + bar + blank).
-		chrome += 3
 	}
 	h := maxOverlay - chrome
 	if h < 4 {

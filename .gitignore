@@ -52,6 +52,9 @@ docs/static/images/demo.webp
 # Pagefind search index (generated at build time)
 docs/static/pagefind/
 
+# Generated test document fixtures (nix run '.#fake-doc-gen')
+internal/extract/testdata/
+
 # Env / local
 .env
 .pre-commit-config.yaml

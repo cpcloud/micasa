@@ -30,7 +30,7 @@ Your house is quietly plotting to break while you sleep -- and you're dreaming a
 - **Is the dishwasher still under warranty?** Appliance tracking with purchase dates, warranty status, and maintenance history tied to each one.
 - **The basement is leaking again.** Log incidents with severity and location, link them to appliances and vendors, and resolve them when fixed.
 - **Who did we use last time?** A vendor directory with contact info, quote history, and every job they've done for you.
-- **Where's the warranty card?** Attach files (manuals, invoices, photos) directly to projects and appliances. Stored as BLOBs in the same SQLite file -- one `cp` backs up everything.
+- **Where's the warranty card?** Attach files (manuals, invoices, photos) directly to projects and appliances. Stored as BLOBs in the same SQLite file -- one `cp` backs up everything. PDFs and images are automatically processed with text extraction, OCR for scanned documents, and optional LLM-powered structured data extraction that pre-fills form fields.
 - **How much have I spent on plumbing?** Press `@` to chat with a local LLM about your data. It writes the SQL, runs the query, and summarizes the results -- all on your machine.
 
 ## Keyboard driven

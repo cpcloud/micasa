@@ -30,6 +30,15 @@ internal/
     form_select.go   Select field ordinal jumping
     calendar.go      Inline date picker overlay
     column_finder.go Fuzzy column jump overlay
+    extraction.go    Extraction pipeline overlay (OCR + LLM progress)
+  extract/           Document extraction pipeline
+    text.go          PDF text extraction (pdftotext from poppler-utils)
+    ocr.go           OCR via tesseract + pdftoppm
+    ocr_progress.go  Channel-based OCR progress for async overlay
+    llmextract.go    LLM prompt construction + response parsing
+    hints.go         ExtractionHints type definitions
+    pipeline.go      Pipeline orchestrator (text -> OCR -> LLM)
+    tools.go         External tool availability checks
   data/              Data access layer
     models.go        GORM models (HouseProfile, Project, Document, etc.)
     store.go         Store struct, CRUD methods, queries
@@ -118,8 +127,8 @@ to. The dashboard is refreshed when it becomes visible.
 
 ## Overlays
 
-Dashboard, help, calendar, column finder, and note preview are rendered as
-overlays using
+Dashboard, help, calendar, column finder, extraction progress, and note preview
+are rendered as overlays using
 [bubbletea-overlay](https://github.com/rmhubbert/bubbletea-overlay). They
 composite on top of the live table view with dimmed backgrounds. Overlays can
 stack (e.g. help on top of dashboard).

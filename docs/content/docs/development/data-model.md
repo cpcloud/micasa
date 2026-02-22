@@ -124,6 +124,17 @@ File attachments stored as BLOBs inside the database.
 - Drill columns on the Projects and Appliances tabs give direct access to
   linked documents.
 
+### Extraction columns
+
+Documents store extraction results alongside the file data:
+
+- `ExtractedText` -- plain text from the PDF reader or OCR
+- `OCRData` -- raw tesseract TSV output (bounding boxes, confidence scores)
+
+These columns are populated by the extraction pipeline (text -> OCR). The LLM
+layer produces `ExtractionHints` (document type, costs, dates, vendor matches)
+that pre-fill the edit form but are not stored as separate columns.
+
 ## Vendors
 
 People and companies you hire. Shared across quotes, service log entries, and

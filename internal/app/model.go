@@ -14,12 +14,14 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/cpcloud/micasa/internal/data"
+	"github.com/cpcloud/micasa/internal/extract"
 	"github.com/cpcloud/micasa/internal/llm"
 	"gorm.io/gorm"
 )
@@ -39,57 +41,72 @@ var (
 )
 
 type Model struct {
-	store                 *data.Store
-	dbPath                string
-	configPath            string
-	llmClient             *llm.Client
-	llmExtraContext       string     // user-provided context appended to prompts
-	chat                  *chatState // non-nil when chat overlay is open
-	styles                Styles
-	tabs                  []Tab
-	active                int
-	detailStack           []*detailContext // drilldown stack; top is active detail view
-	width                 int
-	height                int
-	helpViewport          *viewport.Model
-	showHouse             bool
-	showDashboard         bool
-	showNotePreview       bool
-	notePreviewText       string
-	notePreviewTitle      string
-	calendar              *calendarState
-	columnFinder          *columnFinderState
-	dashboard             dashboardData
-	dashCursor            int
-	dashNav               []dashNavEntry
-	dashExpanded          map[string]bool
-	dashScrollOffset      int
-	dashTotalLines        int
-	hasHouse              bool
-	house                 data.HouseProfile
-	mode                  Mode
-	prevMode              Mode // mode to restore after form closes
-	formKind              FormKind
-	form                  *huh.Form
-	formData              any
-	formSnapshot          any
-	formDirty             bool
-	confirmDiscard        bool // true when showing "discard unsaved changes?" prompt
-	confirmQuit           bool // true when discard was triggered by ctrl+q (quit after confirm)
-	formHasRequired       bool
-	pendingFormInit       tea.Cmd // cached Init cmd from activateForm
-	editID                *uint
-	inlineInput           *inlineInputState
-	notesEditMode         bool    // true when a notes textarea overlay is active
-	notesFieldPtr         *string // pointer into formData for the notes field
-	pendingEditor         *editorState
-	undoStack             []undoEntry
-	redoStack             []undoEntry
-	magMode               bool // easter egg: display numbers as order-of-magnitude
-	status                statusMsg
-	projectTypes          []data.ProjectType
-	maintenanceCategories []data.MaintenanceCategory
-	vendors               []data.Vendor
+	store                  *data.Store
+	dbPath                 string
+	configPath             string
+	llmClient              *llm.Client
+	llmExtraContext        string              // user-provided context appended to prompts
+	extractionModel        string              // model for extraction; empty = same as chat
+	extractionEnabled      bool                // LLM extraction on document upload
+	extractionThinking     bool                // enable model thinking mode
+	extractionClient       *llm.Client         // cached extraction LLM client
+	maxOCRPages            int                 // page limit for OCR
+	textTimeout            time.Duration       // pdftotext timeout; 0 = default
+	extractionReady        bool                // true once extraction model confirmed available
+	pendingExtractionDocID *uint               // doc saved without LLM; extract after pull
+	pulling                bool                // true while a model pull is in progress
+	pullFromChat           bool                // true when pull was initiated from chat /model
+	pullDisplay            string              // status bar progress text
+	pullPeak               float64             // high-water mark for progress bar
+	pullCancel             context.CancelFunc  // cancel in-flight pull
+	pullProgress           progress.Model      // bubbles progress bar widget
+	extraction             *extractionLogState // non-nil when extraction overlay is active
+	chat                   *chatState          // non-nil when chat overlay is open
+	styles                 Styles
+	tabs                   []Tab
+	active                 int
+	detailStack            []*detailContext // drilldown stack; top is active detail view
+	width                  int
+	height                 int
+	helpViewport           *viewport.Model
+	showHouse              bool
+	showDashboard          bool
+	showNotePreview        bool
+	notePreviewText        string
+	notePreviewTitle       string
+	calendar               *calendarState
+	columnFinder           *columnFinderState
+	dashboard              dashboardData
+	dashCursor             int
+	dashNav                []dashNavEntry
+	dashExpanded           map[string]bool
+	dashScrollOffset       int
+	dashTotalLines         int
+	hasHouse               bool
+	house                  data.HouseProfile
+	mode                   Mode
+	prevMode               Mode // mode to restore after form closes
+	formKind               FormKind
+	form                   *huh.Form
+	formData               any
+	formSnapshot           any
+	formDirty              bool
+	confirmDiscard         bool // true when showing "discard unsaved changes?" prompt
+	confirmQuit            bool // true when discard was triggered by ctrl+q (quit after confirm)
+	formHasRequired        bool
+	pendingFormInit        tea.Cmd // cached Init cmd from activateForm
+	editID                 *uint
+	inlineInput            *inlineInputState
+	notesEditMode          bool    // true when a notes textarea overlay is active
+	notesFieldPtr          *string // pointer into formData for the notes field
+	pendingEditor          *editorState
+	undoStack              []undoEntry
+	redoStack              []undoEntry
+	magMode                bool // easter egg: display numbers as order-of-magnitude
+	status                 statusMsg
+	projectTypes           []data.ProjectType
+	maintenanceCategories  []data.MaintenanceCategory
+	vendors                []data.Vendor
 }
 
 func NewModel(store *data.Store, options Options) (*Model, error) {
@@ -112,20 +129,35 @@ func NewModel(store *data.Store, options Options) (*Model, error) {
 			}
 		}
 		client = llm.NewClient(options.LLMConfig.BaseURL, model, options.LLMConfig.Timeout)
+		if options.LLMConfig.Thinking != nil {
+			client.SetThinking(*options.LLMConfig.Thinking)
+		}
 		extraContext = options.LLMConfig.ExtraContext
 	}
 
+	pprog := progress.New(
+		progress.WithGradient(textDim.Dark, accent.Dark),
+		progress.WithFillCharacters('━', '┄'),
+	)
+	pprog.PercentageStyle = lipgloss.NewStyle().Foreground(textDim)
+
 	model := &Model{
-		store:           store,
-		dbPath:          options.DBPath,
-		configPath:      options.ConfigPath,
-		llmClient:       client,
-		llmExtraContext: extraContext,
-		styles:          styles,
-		tabs:            NewTabs(styles),
-		active:          0,
-		showHouse:       false,
-		mode:            modeNormal,
+		store:              store,
+		dbPath:             options.DBPath,
+		configPath:         options.ConfigPath,
+		llmClient:          client,
+		llmExtraContext:    extraContext,
+		extractionModel:    options.ExtractionConfig.Model,
+		extractionEnabled:  options.ExtractionConfig.Enabled,
+		extractionThinking: options.ExtractionConfig.Thinking,
+		maxOCRPages:        options.ExtractionConfig.MaxOCRPages,
+		textTimeout:        options.ExtractionConfig.TextTimeout,
+		pullProgress:       pprog,
+		styles:             styles,
+		tabs:               NewTabs(styles),
+		active:             0,
+		showHouse:          false,
+		mode:               modeNormal,
 	}
 	if err := model.loadLookups(); err != nil {
 		return nil, err
@@ -167,11 +199,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			m.cancelChatOperations()
+			m.cancelExtraction()
+			m.cancelPull()
 			return m, tea.Quit
 		}
 		if typed.String() == "ctrl+c" {
 			// Cancel any ongoing LLM operations but don't quit.
 			m.cancelChatOperations()
+			m.cancelExtraction()
 			return m, nil
 		}
 	case chatChunkMsg:
@@ -196,23 +231,32 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case pullProgressMsg:
-		if m.chat != nil {
-			return m, m.handlePullProgress(typed)
-		}
-		return m, nil
+		return m, m.handlePullProgress(typed)
+	case extractionOCRProgressMsg:
+		return m, m.handleExtractionOCRProgress(typed)
+	case extractionLLMStartedMsg:
+		return m, m.handleExtractionLLMStarted(typed)
+	case extractionLLMChunkMsg:
+		return m, m.handleExtractionLLMChunk(typed)
 	case modelsListMsg:
 		if m.chat != nil {
 			m.handleModelsListMsg(typed)
 		}
 		return m, nil
 	case spinner.TickMsg:
+		var cmds []tea.Cmd
 		if m.chat != nil && m.chat.Streaming {
 			var cmd tea.Cmd
 			m.chat.Spinner, cmd = m.chat.Spinner.Update(msg)
 			m.refreshChatViewport()
-			return m, cmd
+			cmds = append(cmds, cmd)
 		}
-		return m, nil
+		if m.extraction != nil && !m.extraction.Done {
+			var cmd tea.Cmd
+			m.extraction.Spinner, cmd = m.extraction.Spinner.Update(msg)
+			cmds = append(cmds, cmd)
+		}
+		return m, tea.Batch(cmds...)
 	case openFileResultMsg:
 		if typed.Err != nil {
 			m.setStatusError(fmt.Sprintf("open: %s", typed.Err))
@@ -236,6 +280,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				vp, _ := m.helpViewport.Update(keyMsg)
 				m.helpViewport = &vp
 			}
+		}
+		return m, nil
+	}
+
+	// Extraction overlay: absorb all keys when visible.
+	if m.extraction != nil && m.extraction.Visible {
+		if typed, ok := msg.(tea.KeyMsg); ok {
+			return m, m.handleExtractionKey(typed)
 		}
 		return m, nil
 	}
@@ -392,6 +444,7 @@ func (m *Model) handleConfirmDiscard(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.confirmQuit {
 			m.confirmQuit = false
 			m.cancelChatOperations()
+			m.cancelPull()
 			return m, tea.Quit
 		}
 		m.exitForm()
@@ -690,6 +743,14 @@ func (m *Model) handleEditKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 	case "a":
 		m.startAddForm()
 		return m.formInitCmd(), true
+	case "A":
+		if tab := m.effectiveTab(); tab != nil && tab.Kind == tabDocuments {
+			if err := m.startQuickDocumentForm(); err != nil {
+				m.setStatusError(err.Error())
+			}
+			return m.formInitCmd(), true
+		}
+		return nil, false
 	case "e":
 		if err := m.startCellOrFormEdit(); err != nil {
 			m.setStatusError(err.Error())
@@ -1652,10 +1713,232 @@ func (m *Model) houseLines() int {
 }
 
 func (m *Model) statusLines() int {
-	if m.status.Text == "" {
-		return 1
+	lines := 1
+	if m.status.Text != "" {
+		lines++
 	}
-	return 2
+	if m.pullDisplay != "" {
+		lines++
+	}
+	return lines
+}
+
+// checkExtractionModelCmd returns a tea.Cmd that checks whether the extraction
+// model is available on the Ollama server. If missing, it initiates a pull.
+func (m *Model) checkExtractionModelCmd() tea.Cmd {
+	if !m.extractionEnabled || m.llmClient == nil {
+		return nil
+	}
+
+	// Resolve which model to check: extraction-specific or chat model.
+	model := m.extractionModel
+	if model == "" {
+		model = m.llmClient.Model()
+	}
+	if model == "" {
+		return nil
+	}
+
+	client := m.llmClient
+	timeout := client.Timeout()
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		models, err := client.ListModels(ctx)
+		if err != nil {
+			return pullProgressMsg{
+				Err:   fmt.Errorf("check extraction model: %w", err),
+				Done:  true,
+				Model: model,
+			}
+		}
+		for _, m := range models {
+			if m == model || strings.HasPrefix(m, model+":") {
+				return pullProgressMsg{
+					Done:  true,
+					Model: m,
+				}
+			}
+		}
+		return startPull(client, model)
+	}
+}
+
+// handlePullProgress processes model pull progress for both chat-initiated
+// and extraction-initiated pulls. Progress is shown in the status bar;
+// completion actions depend on who started the pull.
+func (m *Model) handlePullProgress(msg pullProgressMsg) tea.Cmd {
+	if msg.Err != nil {
+		fromChat := m.pullFromChat
+		m.clearPullState()
+		if fromChat && m.chat != nil {
+			m.chat.Messages = append(m.chat.Messages, chatMessage{
+				Role:    roleError,
+				Content: fmt.Sprintf("pull failed for '%s': %s", msg.Model, msg.Err),
+			})
+			m.refreshChatViewport()
+		} else {
+			m.setStatusError(fmt.Sprintf("model pull: %s", msg.Err))
+		}
+		m.resizeTables()
+		return nil
+	}
+	if msg.Done {
+		fromChat := m.pullFromChat
+		m.clearPullState()
+		m.status = statusMsg{}
+		// Mark extraction model as ready if it matches.
+		exModel := m.extractionModel
+		if exModel == "" && m.llmClient != nil {
+			exModel = m.llmClient.Model()
+		}
+		if msg.Model != "" && (msg.Model == exModel || strings.HasPrefix(msg.Model, exModel+":")) {
+			m.extractionReady = true
+		}
+		// Chat-initiated pulls switch the active model.
+		if fromChat {
+			if msg.Model != "" {
+				m.llmClient.SetModel(msg.Model)
+				_ = m.store.PutLastModel(msg.Model)
+			}
+			if m.chat != nil {
+				m.chat.Messages = append(m.chat.Messages, chatMessage{
+					Role: roleNotice, Content: msg.Status,
+				})
+				m.refreshChatViewport()
+			}
+		}
+		m.resizeTables()
+		// Extract hints for the pending document now that the model is available.
+		if m.extractionReady && m.pendingExtractionDocID != nil {
+			docID := *m.pendingExtractionDocID
+			m.pendingExtractionDocID = nil
+			doc, err := m.store.GetDocument(docID)
+			if err == nil {
+				return m.startExtractionOverlay(
+					docID, doc.FileName, doc.Data, doc.MIMEType, doc.ExtractedText,
+				)
+			}
+		}
+		return nil
+	}
+
+	m.pulling = true
+	if msg.PullState != nil {
+		m.pullCancel = msg.PullState.Cancel
+	}
+	m.pullDisplay = m.formatPullProgress(msg)
+	m.resizeTables()
+
+	ps := msg.PullState
+	return func() tea.Msg {
+		return readNextPullChunk(ps)
+	}
+}
+
+// formatPullProgress builds a compact single-line progress string.
+func (m *Model) formatPullProgress(msg pullProgressMsg) string {
+	label := cleanPullStatus(msg.Status, msg.Model)
+
+	if msg.Percent < 0 {
+		return label
+	}
+	pct := msg.Percent
+	if pct > m.pullPeak {
+		m.pullPeak = pct
+	} else {
+		pct = m.pullPeak
+	}
+	barW := m.width/3 - lipgloss.Width(label) - 2
+	if barW < 15 {
+		barW = 15
+	}
+	m.pullProgress.Width = barW
+	return label + " " + m.pullProgress.ViewAs(pct)
+}
+
+// extractionLLMClient returns the LLM client configured for extraction,
+// or nil if extraction is not available. The client is created once and cached.
+func (m *Model) extractionLLMClient() *llm.Client {
+	if m.extractionClient != nil {
+		return m.extractionClient
+	}
+	if m.llmClient == nil {
+		return nil
+	}
+	model := m.extractionModel
+	if model == "" {
+		model = m.llmClient.Model()
+	}
+	c := llm.NewClient(
+		m.llmClient.BaseURL(),
+		model,
+		m.llmClient.Timeout(),
+	)
+	c.SetThinking(m.extractionThinking)
+	m.extractionClient = c
+	return c
+}
+
+// afterDocumentSave returns a tea.Cmd to run async extraction (OCR and/or
+// LLM) on the just-saved document. Opens the extraction overlay if any async
+// steps are needed. If the LLM model isn't ready yet, it queues the doc for
+// extraction after the model pull completes.
+func (m *Model) afterDocumentSave() tea.Cmd {
+	if m.editID == nil {
+		return nil
+	}
+	docID := *m.editID
+
+	// Load the saved document to get its current state.
+	doc, err := m.store.GetDocument(docID)
+	if err != nil {
+		return nil
+	}
+
+	// Check if LLM extraction is configured and ready.
+	llmReady := m.extractionEnabled && m.extractionLLMClient() != nil && m.extractionReady
+
+	// Determine if OCR is needed (PDFs always, images always).
+	needsOCR := (isPDF(doc.MIMEType) && extract.OCRAvailable()) ||
+		(extract.IsImageMIME(doc.MIMEType) && extract.ImageOCRAvailable())
+
+	// If nothing async is needed, bail early.
+	if !needsOCR && !llmReady {
+		// If LLM is configured but model not ready, queue for after pull.
+		if m.extractionEnabled && m.llmClient != nil && !m.extractionReady {
+			m.pendingExtractionDocID = &docID
+			if !m.pulling {
+				m.setStatusInfo("checking extraction model\u2026")
+				return m.checkExtractionModelCmd()
+			}
+		}
+		return nil
+	}
+
+	return m.startExtractionOverlay(
+		docID,
+		doc.FileName,
+		doc.Data,
+		doc.MIMEType,
+		doc.ExtractedText,
+	)
+}
+
+// cancelPull cancels any in-flight model pull.
+func (m *Model) cancelPull() {
+	if m.pullCancel != nil {
+		m.pullCancel()
+	}
+	m.clearPullState()
+}
+
+func (m *Model) clearPullState() {
+	m.pulling = false
+	m.pullFromChat = false
+	m.pullDisplay = ""
+	m.pullPeak = 0
+	m.pullCancel = nil
 }
 
 func (m *Model) saveForm() tea.Cmd {
@@ -1670,11 +1953,12 @@ func (m *Model) saveForm() tea.Cmd {
 	// Reload before exitForm so the new/updated row is in the table
 	// when exitForm positions the cursor.
 	m.reloadAfterFormSave(kind)
+	cmd := m.afterDocumentSaveIfNeeded(kind)
 	m.exitForm()
 	if isFirstHouse {
 		m.setStatusInfo("House set up. Press b/f to switch tabs, i to edit, ? for help.")
 	}
-	return nil
+	return cmd
 }
 
 // saveFormInPlace persists the form data without closing the form,
@@ -1697,7 +1981,15 @@ func (m *Model) saveFormInPlace() tea.Cmd {
 			selectRowByID(tab, *m.editID)
 		}
 	}
-	return nil
+	return m.afterDocumentSaveIfNeeded(kind)
+}
+
+// afterDocumentSaveIfNeeded triggers async LLM extraction for document forms.
+func (m *Model) afterDocumentSaveIfNeeded(kind FormKind) tea.Cmd {
+	if kind != formDocument {
+		return nil
+	}
+	return m.afterDocumentSave()
 }
 
 // reloadAfterFormSave picks the minimal reload strategy based on which
@@ -1931,6 +2223,7 @@ func (m *Model) hasActiveOverlay() bool {
 		m.calendar != nil ||
 		m.showNotePreview ||
 		m.columnFinder != nil ||
+		(m.extraction != nil && m.extraction.Visible) ||
 		m.helpViewport != nil
 }
 

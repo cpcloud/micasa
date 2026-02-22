@@ -1050,6 +1050,19 @@ func (s *Store) UpdateDocument(doc Document) error {
 		Updates(doc).Error
 }
 
+// UpdateDocumentOCR persists OCR results on a document without touching
+// other fields. This is called from the async extraction overlay after
+// OCR completes.
+func (s *Store) UpdateDocumentOCR(id uint, text string, ocrData []byte) error {
+	updates := map[string]any{
+		ColOCRData: ocrData,
+	}
+	if text != "" {
+		updates[ColExtractedText] = text
+	}
+	return s.db.Model(&Document{}).Where(ColID+" = ?", id).Updates(updates).Error
+}
+
 func (s *Store) DeleteDocument(id uint) error {
 	return s.softDelete(&Document{}, DeletionEntityDocument, id)
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/cpcloud/micasa/internal/data"
+	"github.com/cpcloud/micasa/internal/extract"
 )
 
 type houseFormData struct {
@@ -118,6 +119,14 @@ type documentFormData struct {
 	FilePath  string // local file path; read on submit for new documents
 	EntityRef entityRef
 	Notes     string
+}
+
+// documentParseResult holds the parsed document and any non-fatal extraction
+// error. LLM hints are extracted asynchronously after save (see
+// extractDocumentHintsCmd).
+type documentParseResult struct {
+	Doc        data.Document
+	ExtractErr error
 }
 
 type incidentFormData struct {
@@ -2284,15 +2293,27 @@ func (m *Model) startDocumentForm(entityKind string) error {
 	}
 
 	fields = append(fields,
-		huh.NewInput().
-			Title("File path").
-			Description("Local path to the file to attach").
-			Value(&values.FilePath).
-			Validate(optionalFilePath()),
+		m.newDocumentFilePicker("File to attach").
+			Value(&values.FilePath),
 		huh.NewText().Title("Notes").Value(&values.Notes),
 	)
 
 	form := huh.NewForm(huh.NewGroup(fields...))
+	m.activateForm(formDocument, form, values)
+	return nil
+}
+
+// startQuickDocumentForm opens a minimal document form that only asks for a
+// file path. Title and notes are auto-filled by the extraction pipeline on
+// submit, making this the fast path for ingesting files.
+func (m *Model) startQuickDocumentForm() error {
+	values := &documentFormData{}
+	form := huh.NewForm(
+		huh.NewGroup(
+			m.newDocumentFilePicker("File to attach").
+				Value(&values.FilePath),
+		),
+	)
 	m.activateForm(formDocument, form, values)
 	return nil
 }
@@ -2332,11 +2353,8 @@ func (m *Model) openEditDocumentForm(values *documentFormData, scoped bool) erro
 	}
 
 	fields = append(fields,
-		huh.NewInput().
-			Title("File path").
-			Description("Local path to a replacement file").
-			Value(&values.FilePath).
-			Validate(optionalFilePath()),
+		m.newDocumentFilePicker("Replacement file").
+			Value(&values.FilePath),
 		huh.NewText().Title("Notes").Value(&values.Notes),
 	)
 
@@ -2345,47 +2363,77 @@ func (m *Model) openEditDocumentForm(values *documentFormData, scoped bool) erro
 	return nil
 }
 
+// newDocumentFilePicker creates a file picker pre-configured for document
+// uploads: files only, hidden files shown, height scaled to the terminal.
+func (m *Model) newDocumentFilePicker(title string) *huh.FilePicker {
+	h := m.height / 3
+	if h < 5 {
+		h = 5
+	}
+	return huh.NewFilePicker().
+		Title(title).
+		Picking(true).
+		FileAllowed(true).
+		DirAllowed(false).
+		ShowHidden(true).
+		Height(h)
+}
+
 func (m *Model) submitDocumentForm() error {
-	doc, err := m.parseDocumentFormData()
+	result, err := m.parseDocumentFormData()
 	if err != nil {
 		return err
 	}
+	doc := result.Doc
 	if m.editID != nil {
 		doc.ID = *m.editID
-		return m.store.UpdateDocument(doc)
+		if err := m.store.UpdateDocument(doc); err != nil {
+			return err
+		}
+	} else {
+		if err := m.store.CreateDocument(&doc); err != nil {
+			return err
+		}
+		id := doc.ID
+		m.editID = &id
 	}
-	if err := m.store.CreateDocument(&doc); err != nil {
-		return err
+	if result.ExtractErr != nil {
+		m.setStatusInfo(fmt.Sprintf("extraction incomplete: %s", result.ExtractErr))
 	}
-	id := doc.ID
-	m.editID = &id
 	return nil
 }
 
 // submitScopedDocumentForm creates a document with the given entity scope.
 func (m *Model) submitScopedDocumentForm(entityKind string, entityID uint) error {
-	doc, err := m.parseDocumentFormData()
+	result, err := m.parseDocumentFormData()
 	if err != nil {
 		return err
 	}
+	doc := result.Doc
 	doc.EntityKind = entityKind
 	doc.EntityID = entityID
 	if m.editID != nil {
 		doc.ID = *m.editID
-		return m.store.UpdateDocument(doc)
+		if err := m.store.UpdateDocument(doc); err != nil {
+			return err
+		}
+	} else {
+		if err := m.store.CreateDocument(&doc); err != nil {
+			return err
+		}
+		id := doc.ID
+		m.editID = &id
 	}
-	if err := m.store.CreateDocument(&doc); err != nil {
-		return err
+	if result.ExtractErr != nil {
+		m.setStatusInfo(fmt.Sprintf("extraction incomplete: %s", result.ExtractErr))
 	}
-	id := doc.ID
-	m.editID = &id
 	return nil
 }
 
-func (m *Model) parseDocumentFormData() (data.Document, error) {
+func (m *Model) parseDocumentFormData() (documentParseResult, error) {
 	values, ok := m.formData.(*documentFormData)
 	if !ok {
-		return data.Document{}, fmt.Errorf("unexpected document form data")
+		return documentParseResult{}, fmt.Errorf("unexpected document form data")
 	}
 	doc := data.Document{
 		Title:      strings.TrimSpace(values.Title),
@@ -2398,15 +2446,15 @@ func (m *Model) parseDocumentFormData() (data.Document, error) {
 	if path != "" && path != "." {
 		info, err := os.Stat(path)
 		if err != nil {
-			return data.Document{}, fmt.Errorf("stat file: %w", err)
+			return documentParseResult{}, fmt.Errorf("stat file: %w", err)
 		}
 		maxSize := m.store.MaxDocumentSize()
 		fileSize := info.Size()
 		if fileSize < 0 {
-			return data.Document{}, fmt.Errorf("file has invalid size %d", fileSize)
+			return documentParseResult{}, fmt.Errorf("file has invalid size %d", fileSize)
 		}
 		if uint64(fileSize) > maxSize { //nolint:gosec // negative ruled out above
-			return data.Document{}, fmt.Errorf(
+			return documentParseResult{}, fmt.Errorf(
 				"file is too large (%s) -- maximum allowed is %s",
 				formatFileSize(
 					uint64(fileSize),
@@ -2416,19 +2464,52 @@ func (m *Model) parseDocumentFormData() (data.Document, error) {
 		}
 		fileData, err := os.ReadFile(path)
 		if err != nil {
-			return data.Document{}, fmt.Errorf("read file: %w", err)
+			return documentParseResult{}, fmt.Errorf("read file: %w", err)
 		}
 		doc.FileName = filepath.Base(path)
 		doc.Data = fileData
 		doc.SizeBytes = int64(len(fileData))
 		doc.MIMEType = detectMIMEType(path, fileData)
 		doc.ChecksumSHA256 = fmt.Sprintf("%x", sha256.Sum256(fileData))
-		// Auto-fill title from filename when the user left it blank.
+
+		// Run text extraction synchronously (instant, pure Go). OCR and
+		// LLM run asynchronously in the extraction overlay after save.
+		var extractErr error
+		text, err := extract.ExtractText(fileData, doc.MIMEType, m.textTimeout)
+		if err != nil {
+			extractErr = err
+		}
+		doc.ExtractedText = text
+
+		// Show one-time tesseract hint if OCR might help but isn't available.
+		if extract.IsScanned(doc.ExtractedText) && !extract.OCRAvailable() {
+			if extract.IsImageMIME(doc.MIMEType) || doc.MIMEType == "application/pdf" {
+				m.showTesseractHint()
+			}
+		}
+
+		// Title defaults to filename; LLM may improve it asynchronously.
 		if doc.Title == "" {
 			doc.Title = data.TitleFromFilename(doc.FileName)
 		}
+
+		return documentParseResult{
+			Doc:        doc,
+			ExtractErr: extractErr,
+		}, nil
 	}
-	return doc, nil
+	return documentParseResult{Doc: doc}, nil
+}
+
+// showTesseractHint displays a one-time status bar hint suggesting the
+// user install tesseract for better document extraction. The hint is
+// persisted in the DB so it's never shown again.
+func (m *Model) showTesseractHint() {
+	if m.store.TesseractHintSeen() {
+		return
+	}
+	m.setStatusInfo("install tesseract for text extraction from scanned docs")
+	_ = m.store.MarkTesseractHintSeen()
 }
 
 func (m *Model) inlineEditDocument(id uint, col documentCol) error {
