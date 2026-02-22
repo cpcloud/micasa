@@ -178,6 +178,7 @@
               if [[ ! -f internal/extract/testdata/mixed-inspection.pdf ]]; then
                 bash internal/extract/gen-sample-pdf.bash
                 bash internal/extract/gen-invoice-png.bash
+                bash internal/extract/gen-sample-text-png.bash
                 bash internal/extract/gen-scanned-pdf.bash
                 bash internal/extract/gen-mixed-pdf.bash
               fi
@@ -382,6 +383,13 @@
               bash internal/extract/gen-invoice-png.bash
             '';
           };
+          gen-sample-text-png = pkgs.writeShellApplication {
+            name = "gen-sample-text-png";
+            runtimeInputs = [ pkgs.imagemagick ];
+            text = ''
+              bash internal/extract/gen-sample-text-png.bash
+            '';
+          };
           gen-scanned-pdf = pkgs.writeShellApplication {
             name = "gen-scanned-pdf";
             runtimeInputs = [ pkgs.imagemagick ];
@@ -401,12 +409,14 @@
             runtimeInputs = [
               self.packages.${system}.gen-sample-pdf
               self.packages.${system}.gen-invoice-png
+              self.packages.${system}.gen-sample-text-png
               self.packages.${system}.gen-scanned-pdf
               self.packages.${system}.gen-mixed-pdf
             ];
             text = ''
               gen-sample-pdf
               gen-invoice-png
+              gen-sample-text-png
               gen-scanned-pdf
               gen-mixed-pdf
             '';
@@ -487,6 +497,7 @@
             record-animated = app (pkg "record-animated") "Record all animated demo tapes";
             gen-sample-pdf = app (pkg "gen-sample-pdf") "Generate sample.pdf test fixture";
             gen-invoice-png = app (pkg "gen-invoice-png") "Generate invoice.png test fixture";
+            gen-sample-text-png = app (pkg "gen-sample-text-png") "Generate sample-text.png test fixture";
             gen-scanned-pdf = app (pkg "gen-scanned-pdf") "Generate scanned-invoice.pdf test fixture";
             gen-mixed-pdf = app (pkg "gen-mixed-pdf") "Generate mixed-inspection.pdf test fixture";
             gen-testdata = app (pkg "gen-testdata") "Generate all test document fixtures";

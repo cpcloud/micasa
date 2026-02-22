@@ -38,7 +38,11 @@ jobs:
 
       - name: Install extraction tools (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y poppler-utils tesseract-ocr imagemagick
+        run: |
+          sudo apt-get update && sudo apt-get install -y poppler-utils tesseract-ocr imagemagick
+          if ! command -v magick &>/dev/null; then
+            sudo ln -s "$(command -v convert)" /usr/local/bin/magick
+          fi
 
       - name: Install extraction tools (macOS)
         if: runner.os == 'macOS'
@@ -56,6 +60,7 @@ jobs:
         run: |
           bash internal/extract/gen-sample-pdf.bash
           bash internal/extract/gen-invoice-png.bash
+          bash internal/extract/gen-sample-text-png.bash
           bash internal/extract/gen-scanned-pdf.bash
           bash internal/extract/gen-mixed-pdf.bash
 
