@@ -182,6 +182,7 @@
               pkgs.ripgrep
               pkgs.fd
               pkgs.sd
+              pkgs.sqlite-interactive
             ]
             ++ enabledPackages;
           };
