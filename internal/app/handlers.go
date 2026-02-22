@@ -20,7 +20,10 @@ type TabHandler interface {
 	FormKind() FormKind
 
 	// Load fetches entities and converts them to table rows.
-	Load(store *data.Store, showDeleted bool) ([]table.Row, []rowMeta, [][]cell, error)
+	Load(
+		store *data.Store,
+		showDeleted bool,
+	) ([]table.Row, []rowMeta, [][]cell, error)
 
 	// Delete soft-deletes the entity with the given ID.
 	Delete(store *data.Store, id uint) error
@@ -90,7 +93,7 @@ func (projectHandler) Load(
 	if err != nil {
 		docCounts = map[uint]int{}
 	}
-	rows, meta, cellRows := projectRows(projects, quoteCounts, docCounts)
+	rows, meta, cellRows := projectRows(projects, quoteCounts, docCounts, store.Currency())
 	return rows, meta, cellRows, nil
 }
 
@@ -163,7 +166,7 @@ func (quoteHandler) Load(
 	if err != nil {
 		docCounts = map[uint]int{}
 	}
-	rows, meta, cellRows := quoteRows(quotes, docCounts)
+	rows, meta, cellRows := quoteRows(quotes, docCounts, store.Currency())
 	return rows, meta, cellRows, nil
 }
 
@@ -312,7 +315,13 @@ func (applianceHandler) Load(
 	if err != nil {
 		docCounts = map[uint]int{}
 	}
-	rows, meta, cellRows := applianceRows(items, maintCounts, docCounts, time.Now())
+	rows, meta, cellRows := applianceRows(
+		items,
+		maintCounts,
+		docCounts,
+		time.Now(),
+		store.Currency(),
+	)
 	return rows, meta, cellRows, nil
 }
 
@@ -379,7 +388,7 @@ func (incidentHandler) Load(
 	if err != nil {
 		docCounts = map[uint]int{}
 	}
-	rows, meta, cellRows := incidentRows(items, docCounts)
+	rows, meta, cellRows := incidentRows(items, docCounts, store.Currency())
 	return rows, meta, cellRows, nil
 }
 
@@ -543,7 +552,7 @@ func (h serviceLogHandler) Load(
 	if err != nil {
 		docCounts = map[uint]int{}
 	}
-	rows, meta, cellRows := serviceLogRows(entries, docCounts)
+	rows, meta, cellRows := serviceLogRows(entries, docCounts, store.Currency())
 	return rows, meta, cellRows, nil
 }
 
@@ -678,7 +687,7 @@ func newVendorQuoteHandler(vendorID uint) scopedHandler {
 			if err != nil {
 				docCounts = map[uint]int{}
 			}
-			rows, meta, cellRows := vendorQuoteRows(quotes, docCounts)
+			rows, meta, cellRows := vendorQuoteRows(quotes, docCounts, store.Currency())
 			return rows, meta, cellRows, nil
 		},
 		inlineEditFn: skipColEdit(parent, 2), // skip Vendor column
@@ -694,7 +703,7 @@ func newVendorJobsHandler(vendorID uint) scopedHandler {
 			if err != nil {
 				return nil, nil, nil, err
 			}
-			rows, meta, cellRows := vendorJobsRows(entries)
+			rows, meta, cellRows := vendorJobsRows(entries, store.Currency())
 			return rows, meta, cellRows, nil
 		},
 		inlineEditFn: func(m *Model, id uint, col int) error {
@@ -733,7 +742,7 @@ func newProjectQuoteHandler(projectID uint) scopedHandler {
 			if err != nil {
 				docCounts = map[uint]int{}
 			}
-			rows, meta, cellRows := projectQuoteRows(quotes, docCounts)
+			rows, meta, cellRows := projectQuoteRows(quotes, docCounts, store.Currency())
 			return rows, meta, cellRows, nil
 		},
 		inlineEditFn: skipColEdit(parent, 1), // skip Project column

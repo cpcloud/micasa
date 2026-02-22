@@ -13,6 +13,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/cpcloud/micasa/internal/data"
+	"github.com/cpcloud/micasa/internal/locale"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -61,7 +62,7 @@ func TestNaturalWidthsIgnoreMax(t *testing.T) {
 	rows := [][]cell{
 		{{Value: "1"}, {Value: "A very long name indeed"}},
 	}
-	natural := naturalWidths(specs, rows)
+	natural := naturalWidths(specs, rows, "$")
 	// "A very long name indeed" is 23 chars, well past Max of 12.
 	assert.Greater(t, natural[1], 12)
 }
@@ -689,7 +690,7 @@ func TestHeaderTitleWidth(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, headerTitleWidth(tt.spec, tt.cols))
+			assert.Equal(t, tt.want, headerTitleWidth(tt.spec, tt.cols, "$"))
 		})
 	}
 }
@@ -702,6 +703,7 @@ func renderTestHeader(
 	sorts []sortEntry,
 	termWidth int,
 ) string {
+	cur := locale.DefaultCurrency()
 	styles := DefaultStyles()
 	sepW := lipgloss.Width(" │ ")
 	widths := columnWidths(specs, nil, termWidth, sepW, nil)
@@ -709,7 +711,7 @@ func renderTestHeader(
 	for i := range seps {
 		seps[i] = " │ "
 	}
-	headerSpecs := annotateMoneyHeaders(specs, styles)
+	headerSpecs := annotateMoneyHeaders(specs, styles, cur)
 	vpSorts := make([]sortEntry, len(sorts))
 	copy(vpSorts, sorts)
 	return renderHeaderRow(headerSpecs, widths, seps, 0, vpSorts, false, false, nil, styles)

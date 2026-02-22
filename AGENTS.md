@@ -181,6 +181,9 @@ details; do not duplicate that detail here.
   (e.g. `origin/main`) even if no `upstream` remote exists.
 - **Modern CLI tools**: Use `rg` not `grep`, `fd` not `find`, `sd` not
   `sed` where possible.
+- **Never `cd` out of the worktree**: Your cwd is the worktree root. Run
+  all commands there. Never `cd` into the parent checkout or any other
+  directory.
 
 ### Nix
 

@@ -1276,7 +1276,7 @@ func (m *Model) renderChatMessages() string {
 			if text != "" {
 				display := text
 				if m.magMode {
-					display = magTransformText(display)
+					display = magTransformText(display, m.store.Currency().Symbol())
 				}
 				parts = append(parts, m.chat.renderMarkdown(display, innerW-2))
 			}

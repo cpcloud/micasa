@@ -21,10 +21,19 @@ import (
 type Config struct {
 	LLM       LLM       `toml:"llm"`
 	Documents Documents `toml:"documents"`
+	Locale    Locale    `toml:"locale"`
 
 	// Warnings collects non-fatal messages (e.g. deprecations) during load.
 	// Not serialized; the caller decides how to display them.
 	Warnings []string `toml:"-"`
+}
+
+// Locale holds locale-related settings.
+type Locale struct {
+	// Currency is the ISO 4217 code (e.g. "USD", "EUR", "GBP").
+	// Used as the default when the database has no currency set yet.
+	// Override with MICASA_CURRENCY env var.
+	Currency string `toml:"currency"`
 }
 
 // LLM holds settings for the local LLM inference backend.
@@ -227,6 +236,9 @@ func applyEnvOverrides(cfg *Config) {
 			cfg.Documents.CacheTTLDays = &n
 		}
 	}
+	if cur := os.Getenv("MICASA_CURRENCY"); cur != "" {
+		cfg.Locale.Currency = cur
+	}
 }
 
 // ExampleTOML returns a commented config file suitable for writing as a
@@ -263,5 +275,11 @@ model = "` + DefaultModel + `"
 # Accepts "30d", "720h", or bare integers (seconds). Set to "0s" to disable.
 # Default: 30d.
 # cache_ttl = "30d"
+
+[locale]
+# ISO 4217 currency code. Stored in the database on first run; after that the
+# database value is authoritative. Override: MICASA_CURRENCY env var.
+# Auto-detected from system locale if not set. Default: USD.
+# currency = "USD"
 `
 }

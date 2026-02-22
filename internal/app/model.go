@@ -469,14 +469,14 @@ func (m *Model) handleCommonKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 			if !hasPins(tab) {
 				continue
 			}
-			translatePins(tab, m.magMode)
-			applyRowFilter(tab, m.magMode)
+			translatePins(tab, m.magMode, m.store.Currency().Symbol())
+			applyRowFilter(tab, m.magMode, m.store.Currency().Symbol())
 			applySorts(tab)
 		}
 		for _, dc := range m.detailStack {
 			if hasPins(&dc.Tab) {
-				translatePins(&dc.Tab, m.magMode)
-				applyRowFilter(&dc.Tab, m.magMode)
+				translatePins(&dc.Tab, m.magMode, m.store.Currency().Symbol())
+				applyRowFilter(&dc.Tab, m.magMode, m.store.Currency().Symbol())
 				applySorts(&dc.Tab)
 			}
 		}
@@ -1507,7 +1507,7 @@ func (m *Model) toggleSettledFilter() bool {
 	if hasColumnPins(tab, col) {
 		// Turn off: clear status column pins.
 		clearPinsForColumn(tab, col)
-		applyRowFilter(tab, m.magMode)
+		applyRowFilter(tab, m.magMode, m.store.Currency().Symbol())
 		applySorts(tab)
 		m.updateTabViewport(tab)
 		m.setStatusInfo("Settled shown.")
@@ -1517,7 +1517,7 @@ func (m *Model) toggleSettledFilter() bool {
 			togglePin(tab, col, status)
 		}
 		tab.FilterActive = true
-		applyRowFilter(tab, m.magMode)
+		applyRowFilter(tab, m.magMode, m.store.Currency().Symbol())
 		applySorts(tab)
 		m.updateTabViewport(tab)
 		m.setStatusInfo("Settled hidden.")
@@ -1570,9 +1570,14 @@ func (m *Model) reloadTab(tab *Tab) error {
 	tab.FullRows = rows
 	tab.FullMeta = meta
 	tab.FullCellRows = cellRows
-	applyRowFilter(tab, m.magMode)
+	applyRowFilter(tab, m.magMode, m.store.Currency().Symbol())
 	tab.Stale = false
 	applySorts(tab)
+	// SetRows clamps cursor to len-1; an empty→non-empty transition can
+	// leave it at -1. Fix it so the first row is selected.
+	if tab.Table.Cursor() < 0 && len(tab.Rows) > 0 {
+		tab.Table.SetCursor(0)
+	}
 	m.updateTabViewport(tab)
 	return nil
 }
@@ -2021,9 +2026,9 @@ func (m *Model) togglePinAtCursor() {
 	}
 	// Pin what the user sees: null cells use the sentinel key; in mag mode,
 	// pin the magnitude representation; otherwise pin the raw value.
-	pinValue := cellDisplayValue(c, m.magMode)
+	pinValue := cellDisplayValue(c, m.magMode, m.store.Currency().Symbol())
 	pinned := togglePin(tab, col, pinValue)
-	applyRowFilter(tab, m.magMode)
+	applyRowFilter(tab, m.magMode, m.store.Currency().Symbol())
 	applySorts(tab)
 	m.updateTabViewport(tab)
 	if pinned {
@@ -2042,7 +2047,7 @@ func (m *Model) toggleFilterActivation() {
 	// ("eager mode"): arm the filter first, then every n immediately filters.
 	tab.FilterActive = !tab.FilterActive
 	if hasPins(tab) {
-		applyRowFilter(tab, m.magMode)
+		applyRowFilter(tab, m.magMode, m.store.Currency().Symbol())
 		applySorts(tab)
 		m.updateTabViewport(tab)
 	}
@@ -2054,7 +2059,7 @@ func (m *Model) clearAllPins() {
 		return
 	}
 	clearPins(tab)
-	applyRowFilter(tab, m.magMode)
+	applyRowFilter(tab, m.magMode, m.store.Currency().Symbol())
 	applySorts(tab)
 	m.updateTabViewport(tab)
 	m.setStatusInfo("Pins cleared.")
@@ -2067,7 +2072,7 @@ func (m *Model) toggleFilterInvert() {
 	}
 	tab.FilterInverted = !tab.FilterInverted
 	if hasPins(tab) {
-		applyRowFilter(tab, m.magMode)
+		applyRowFilter(tab, m.magMode, m.store.Currency().Symbol())
 		applySorts(tab)
 		m.updateTabViewport(tab)
 	}
@@ -2093,7 +2098,7 @@ func (m *Model) hideCurrentColumn() {
 	// Clear any pins on the hidden column.
 	clearPinsForColumn(tab, col)
 	if hasPins(tab) {
-		applyRowFilter(tab, m.magMode)
+		applyRowFilter(tab, m.magMode, m.store.Currency().Symbol())
 	}
 	// Try forward first; if at the right edge fall back to backward.
 	next := nextVisibleCol(tab.Specs, col, true)

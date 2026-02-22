@@ -32,6 +32,7 @@ type ChatInput struct {
 const (
 	settingLLMModel      = "llm.model"
 	settingShowDashboard = "ui.show_dashboard"
+	settingCurrency      = "locale.currency"
 
 	// chatHistoryMax is the maximum number of chat inputs retained.
 	chatHistoryMax = 200
@@ -88,6 +89,17 @@ func (s *Store) PutShowDashboard(show bool) error {
 		val = "true"
 	}
 	return s.PutSetting(settingShowDashboard, val)
+}
+
+// GetCurrency returns the persisted currency code (e.g. "USD", "EUR"),
+// or "" if none has been set.
+func (s *Store) GetCurrency() (string, error) {
+	return s.GetSetting(settingCurrency)
+}
+
+// PutCurrency persists the currency code to the database.
+func (s *Store) PutCurrency(code string) error {
+	return s.PutSetting(settingCurrency, code)
 }
 
 // AppendChatInput adds a prompt to the persistent history, deduplicating

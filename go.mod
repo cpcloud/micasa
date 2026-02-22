@@ -20,6 +20,7 @@ require (
 	github.com/iancoleman/strcase v0.3.0
 	github.com/rmhubbert/bubbletea-overlay v0.6.5
 	github.com/stretchr/testify v1.11.1
+	golang.org/x/text v0.34.0
 	gorm.io/gorm v1.31.1
 	modernc.org/sqlite v1.45.0
 )
@@ -67,7 +68,6 @@ require (
 	golang.org/x/net v0.50.0 // indirect
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/term v0.40.0 // indirect
-	golang.org/x/text v0.34.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	modernc.org/libc v1.67.6 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
