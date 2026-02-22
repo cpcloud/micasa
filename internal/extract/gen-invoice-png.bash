@@ -6,7 +6,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 
 mkdir -p testdata
 [[ -f testdata/invoice.png ]] && exit 0
-magick -size 800x400 xc:white \
+convert -size 800x400 xc:white \
   -pointsize 24 \
   -annotate +50+50  "PACIFIC NORTHWEST PLUMBING LLC" \
   -annotate +50+90  "4521 SE Hawthorne Blvd, Portland, OR 97215" \
