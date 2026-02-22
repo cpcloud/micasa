@@ -108,6 +108,7 @@
               enable = true;
               settings.flags = "--base-formatter=${pkgs.gofumpt}/bin/gofumpt " + "--max-len=100";
             };
+            nixfmt.enable = true;
             golangci-lint.enable = true;
             actionlint.enable = true;
             statix.enable = true;
@@ -119,7 +120,13 @@
               name = "license-header";
               entry = "${licenseCheck}";
               files = "\\.(go|nix|ya?ml|sh|md|js)$|^\\.envrc$|\\.gitignore$|^go\\.mod$";
-              excludes = ["LICENSE" "flake\\.lock" "go\\.sum" "\\.json$" "^docs/content/"];
+              excludes = [
+                "LICENSE"
+                "flake\\.lock"
+                "go\\.sum"
+                "\\.json$"
+                "^docs/content/"
+              ];
               language = "system";
               pass_filenames = true;
             };
@@ -133,10 +140,6 @@
         vhsFontsConf = pkgs.makeFontsConf {
           fontDirectories = [ "${pkgs.nerd-fonts.hack}/share/fonts/truetype" ];
         };
-
-        vhsFontSetup = ''
-          export FONTCONFIG_FILE="${vhsFontsConf}"
-        '';
 
         deadcode = pkgs.buildGoModule {
           pname = "deadcode";
@@ -176,6 +179,9 @@
               pkgs.git
               pkgs.hugo
               pkgs.vhs
+              pkgs.ripgrep
+              pkgs.fd
+              pkgs.sd
             ]
             ++ enabledPackages;
           };
@@ -183,21 +189,12 @@
         packages = {
           inherit micasa;
           default = micasa;
-          docs = pkgs.writeShellApplication {
-            name = "micasa-docs";
-            runtimeInputs = [ pkgs.hugo pkgs.pagefind ];
-            text = ''
-              mkdir -p docs/static/images
-              cp images/favicon.svg docs/static/images/favicon.svg
-              cp images/demo.webp docs/static/images/demo.webp
-              rm -rf website
-              hugo --source docs --destination ../website --minify
-              pagefind --site website --quiet
-            '';
-          };
-          website = pkgs.writeShellApplication {
+          site = pkgs.writeShellApplication {
             name = "micasa-website";
-            runtimeInputs = [ pkgs.hugo pkgs.pagefind ];
+            runtimeInputs = [
+              pkgs.hugo
+              pkgs.pagefind
+            ];
             text = ''
               mkdir -p docs/static/images
               cp images/favicon.svg docs/static/images/favicon.svg
@@ -226,6 +223,9 @@
               pkgs.nerd-fonts.hack
               pkgs.libwebp
             ];
+            runtimeEnv = {
+              FONTCONFIG_FILE = "${vhsFontsConf}";
+            };
             text = ''
               if [[ $# -ne 1 ]]; then
                 echo "usage: record-tape <tape-file>" >&2
@@ -241,8 +241,6 @@
               fi
 
               webp_path="''${gif_path%.gif}.webp"
-
-              ${vhsFontSetup}
 
               mkdir -p "$(dirname "$gif_path")"
               vhs "$tape"
@@ -266,6 +264,9 @@
               pkgs.nerd-fonts.hack
               pkgs.imagemagick
             ];
+            runtimeEnv = {
+              FONTCONFIG_FILE = "${vhsFontsConf}";
+            };
             text = ''
               if [[ $# -ne 1 ]]; then
                 echo "usage: capture-one <tape-file>" >&2
@@ -276,8 +277,6 @@
               name="$(basename "$tape" .tape)"
               OUT="docs/static/images"
               mkdir -p "$OUT"
-
-              ${vhsFontSetup}
 
               tmpdir=$(mktemp -d)
               trap 'rm -rf "$tmpdir"' EXIT
@@ -343,7 +342,10 @@
           };
           run-deadcode = pkgs.writeShellApplication {
             name = "run-deadcode";
-            runtimeInputs = [ deadcode pkgs.go ];
+            runtimeInputs = [
+              deadcode
+              pkgs.go
+            ];
             runtimeEnv.CGO_ENABLED = "0";
             text = ''
               export GOCACHE="''${GOCACHE:-$(mktemp -d)}"
@@ -360,7 +362,11 @@
           };
           run-pre-commit = pkgs.writeShellApplication {
             name = "run-pre-commit";
-            runtimeInputs = [ pkgs.go pkgs.git ] ++ preCommit.enabledPackages;
+            runtimeInputs = [
+              pkgs.go
+              pkgs.git
+            ]
+            ++ preCommit.enabledPackages;
             excludeShellChecks = [
               # shellHook from git-hooks.lib contains patterns that
               # trigger these warnings; the code is upstream-generated.
@@ -385,13 +391,10 @@
               Entrypoint = [ "/bin/micasa" ];
               Labels = {
                 "org.opencontainers.image.title" = "micasa";
-                "org.opencontainers.image.description" =
-                  "Terminal UI for managing home projects and maintenance";
-                "org.opencontainers.image.source" =
-                  "https://github.com/cpcloud/micasa";
+                "org.opencontainers.image.description" = "Terminal UI for managing home projects and maintenance";
+                "org.opencontainers.image.source" = "https://github.com/cpcloud/micasa";
                 "org.opencontainers.image.url" = "https://micasa.dev";
-                "org.opencontainers.image.documentation" =
-                  "https://micasa.dev/docs/";
+                "org.opencontainers.image.documentation" = "https://micasa.dev/docs/";
                 "org.opencontainers.image.licenses" = "Apache-2.0";
               };
             };
@@ -400,24 +403,21 @@
 
         apps =
           let
-            app = drv: desc:
-              flake-utils.lib.mkApp { inherit drv; }
-              // { meta.description = desc; };
+            app = drv: desc: flake-utils.lib.mkApp { inherit drv; } // { meta.description = desc; };
             pkg = name: self.packages.${system}.${name};
           in
           {
             default = app micasa "Terminal UI for home maintenance";
-            website = app (pkg "website") "Start local Hugo dev server";
+            site = app (pkg "site") "Start local Hugo dev server";
             record-tape = app (pkg "record-tape") "Record a VHS tape to WebP";
             record-demo = app (pkg "record-demo") "Record the main demo tape";
-            docs = app (pkg "docs") "Build static documentation site";
             capture-one = app (pkg "capture-one") "Capture a VHS tape screenshot";
             capture-screenshots = app (pkg "capture-screenshots") "Capture all VHS screenshots in parallel";
             record-animated = app (pkg "record-animated") "Record all animated demo tapes";
             deadcode = app (pkg "run-deadcode") "Run whole-program dead code analysis";
             osv-scanner = app (pkg "run-osv-scanner") "Scan for known vulnerabilities";
             pre-commit = app (pkg "run-pre-commit") "Run all pre-commit hooks";
-        };
+          };
 
         formatter = pkgs.nixpkgs-fmt;
       }
