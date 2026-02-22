@@ -100,13 +100,13 @@ func TestOCR_EmptyData(t *testing.T) {
 
 func TestOCR_PDF_Integration(t *testing.T) {
 	if !OCRAvailable() {
-		t.Skip("tesseract and/or pdftoppm not available")
+		skipOrFatalCI(t, "tesseract and/or pdftoppm not available")
 	}
 
 	pdfPath := filepath.Join("testdata", "sample.pdf")
 	data, err := os.ReadFile(pdfPath) //nolint:gosec // test fixture path
 	if err != nil {
-		t.Skipf("test fixture not found: %s", pdfPath)
+		skipOrFatalCI(t, "test fixture not found: "+pdfPath)
 	}
 
 	text, tsv, err := OCR(context.Background(), data, "application/pdf", 20)
@@ -119,13 +119,12 @@ func TestOCR_PDF_Integration(t *testing.T) {
 
 func TestOCR_Image_Integration(t *testing.T) {
 	if !ImageOCRAvailable() {
-		t.Skip("tesseract not available")
+		skipOrFatalCI(t, "tesseract not available")
 	}
 
-	// Create a simple test image with text using ImageMagick if available.
 	imgPath := filepath.Join("testdata", "sample-text.png")
 	if _, err := os.Stat(imgPath); err != nil {
-		t.Skipf("test image fixture not found: %s", imgPath)
+		skipOrFatalCI(t, "test image fixture not found: "+imgPath)
 	}
 
 	data, err := os.ReadFile(imgPath) //nolint:gosec // test fixture path

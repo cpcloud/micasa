@@ -43,13 +43,13 @@ func TestPipeline_UnsupportedMIME(t *testing.T) {
 
 func TestPipeline_ImageOCR(t *testing.T) {
 	if !ImageOCRAvailable() {
-		t.Skip("tesseract not available")
+		skipOrFatalCI(t, "tesseract not available")
 	}
 
 	imgPath := filepath.Join("testdata", "invoice.png")
 	data, err := os.ReadFile(imgPath) //nolint:gosec // test fixture path
 	if err != nil {
-		t.Skipf("test fixture not found: %s", imgPath)
+		skipOrFatalCI(t, "test fixture not found: "+imgPath)
 	}
 
 	p := &Pipeline{}
@@ -61,13 +61,13 @@ func TestPipeline_ImageOCR(t *testing.T) {
 
 func TestPipeline_PDFTextExtraction(t *testing.T) {
 	if !HasPDFToText() {
-		t.Skip("pdftotext not available")
+		skipOrFatalCI(t, "pdftotext not available")
 	}
 
 	pdfPath := filepath.Join("testdata", "sample.pdf")
 	data, err := os.ReadFile(pdfPath) //nolint:gosec // test fixture path
 	if err != nil {
-		t.Skipf("test fixture not found: %s", pdfPath)
+		skipOrFatalCI(t, "test fixture not found: "+pdfPath)
 	}
 
 	p := &Pipeline{}
@@ -89,16 +89,16 @@ func TestPipeline_NoLLMClient(t *testing.T) {
 
 func TestPipeline_OCRIntegration(t *testing.T) {
 	if !OCRAvailable() {
-		t.Skip("tesseract and/or pdftoppm not available")
+		skipOrFatalCI(t, "tesseract and/or pdftoppm not available")
 	}
 	if !HasPDFToText() {
-		t.Skip("pdftotext not available")
+		skipOrFatalCI(t, "pdftotext not available")
 	}
 
 	pdfPath := filepath.Join("testdata", "sample.pdf")
 	data, err := os.ReadFile(pdfPath) //nolint:gosec // test fixture path
 	if err != nil {
-		t.Skipf("test fixture not found: %s", pdfPath)
+		skipOrFatalCI(t, "test fixture not found: "+pdfPath)
 	}
 
 	// Both pdftotext and OCR should run for PDFs.
@@ -113,16 +113,17 @@ func TestPipeline_OCRIntegration(t *testing.T) {
 
 func TestPipeline_MixedPDF(t *testing.T) {
 	if !OCRAvailable() {
-		t.Skip("tesseract and/or pdftoppm not available")
+		skipOrFatalCI(t, "tesseract and/or pdftoppm not available")
 	}
 	if !HasPDFToText() {
-		t.Skip("pdftotext not available")
+		skipOrFatalCI(t, "pdftotext not available")
 	}
 
+	// mixed-inspection.pdf requires pdfunite which is unavailable on Windows.
 	pdfPath := filepath.Join("testdata", "mixed-inspection.pdf")
 	data, err := os.ReadFile(pdfPath) //nolint:gosec // test fixture path
 	if err != nil {
-		t.Skipf("test fixture not found: %s", pdfPath)
+		t.Skipf("test fixture not found (pdfunite unavailable?): %s", pdfPath)
 	}
 
 	p := &Pipeline{MaxOCRPages: 5}
