@@ -189,6 +189,21 @@
         packages = {
           inherit micasa;
           default = micasa;
+          docs = pkgs.writeShellApplication {
+            name = "micasa-docs";
+            runtimeInputs = [
+              pkgs.hugo
+              pkgs.pagefind
+            ];
+            text = ''
+              mkdir -p docs/static/images
+              cp images/favicon.svg docs/static/images/favicon.svg
+              cp images/demo.webp docs/static/images/demo.webp
+              rm -rf website
+              hugo --source docs --destination ../website --minify
+              pagefind --site website --quiet
+            '';
+          };
           site = pkgs.writeShellApplication {
             name = "micasa-website";
             runtimeInputs = [
