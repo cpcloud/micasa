@@ -20,11 +20,8 @@ type openFileResultMsg struct{ Err error }
 // top-level Documents tab and entity-scoped document sub-tabs (e.g.
 // Appliances > Docs).
 func isDocumentTab(tab *Tab) bool {
-	if tab == nil {
-		return false
-	}
-	return tab.Kind == tabDocuments ||
-		(tab.Handler != nil && tab.Handler.FormKind() == formDocument)
+	return tab != nil && (tab.Kind == tabDocuments ||
+		(tab.Handler != nil && tab.Handler.FormKind() == formDocument))
 }
 
 // openSelectedDocument extracts the selected document to the cache and
