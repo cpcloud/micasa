@@ -142,9 +142,18 @@ func TestFormatCompactCentsUSD(t *testing.T) {
 
 func TestFormatCompactCentsLargeUSD(t *testing.T) {
 	c := MustResolve("USD")
-	compact := c.FormatCompactCents(100000)
-	assert.Contains(t, compact, "$")
-	assert.Contains(t, compact, "k")
+	assert.Equal(t, "$1k", c.FormatCompactCents(100000))
+	assert.Equal(t, "$1.2k", c.FormatCompactCents(123456))
+	assert.Equal(t, "$45k", c.FormatCompactCents(4500000))
+	assert.Equal(t, "$1M", c.FormatCompactCents(100000000))
+}
+
+func TestFormatCompactCentsEUR(t *testing.T) {
+	c := MustResolve("EUR")
+	// EUR uses comma as decimal separator in compact notation too.
+	assert.Contains(t, c.FormatCompactCents(123456), "1,2k")
+	assert.Contains(t, c.FormatCompactCents(130000000), "1,3M")
+	assert.Contains(t, c.FormatCompactCents(100000), "1k")
 }
 
 func TestFormatCompactOptionalCentsNil(t *testing.T) {

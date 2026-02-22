@@ -150,6 +150,11 @@ func (c Currency) FormatCompactCents(cents int64) string {
 	}
 	si := humanize.SIWithDigits(dollars, 1, "")
 	si = strings.Replace(si, " ", "", 1)
+	// humanize always uses "." — replace with locale decimal separator.
+	_, dec := c.separators()
+	if dec != "." {
+		si = strings.Replace(si, ".", dec, 1)
+	}
 	if c.prefix {
 		return sign + c.symbol + si
 	}
