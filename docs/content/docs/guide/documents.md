@@ -60,6 +60,77 @@ The `Docs` column appears on the **Projects** and **Appliances** tabs, showing
 how many documents are linked to each record. In Nav mode, press `enter` to
 drill into a scoped document list for that record.
 
+## Extraction pipeline
+
+When you save a document with file data, micasa runs a three-layer extraction
+pipeline to pull structured information out of the file. Each layer is
+independent and degrades gracefully when its tools are unavailable.
+
+### Layer 1: text extraction
+
+Runs immediately during save. Extracts selectable text from PDFs using
+`pdftotext` (from poppler-utils) which preserves reading order and table
+layout. Plain-text files are read directly. Images skip this layer entirely.
+
+### Layer 2: OCR
+
+Triggers automatically when text extraction returns little or no text (scanned
+PDFs) or when the file is an image (PNG, JPEG, TIFF, etc.). Requires
+`pdftoppm` (for PDF rasterization) and `tesseract` to be installed. If these
+tools are missing, OCR is silently skipped.
+
+The OCR phase shows live progress in an overlay: rasterization page count, then
+per-page OCR status.
+
+### Layer 3: LLM extraction
+
+When an LLM is configured, micasa sends the extracted text to a local model
+that returns structured JSON: document type, suggested title, vendor name, cost
+breakdowns, dates, warranty expiry, entity links, and maintenance schedules
+extracted from manuals.
+
+These hints **pre-fill form fields** -- the user always reviews and confirms
+before anything is saved. The LLM never writes to the database directly.
+
+The extraction model can be configured separately from the chat model (a small,
+fast model works well here). See [Configuration]({{< ref
+"/docs/reference/configuration" >}}) for the `[extraction]` section.
+
+### Extraction overlay
+
+An overlay shows real-time progress during OCR and LLM extraction. Each step
+displays a status icon, elapsed time, and detail (page count, character count,
+model name).
+
+When extraction completes successfully, press `a` to accept the results and
+apply them to the document. On error the overlay stays open showing which step
+failed. Press `esc` at any time to cancel extraction and close the overlay.
+
+| Key | Action |
+|-----|--------|
+| `a` | Accept results (when done, no errors) |
+| `esc` | Cancel and close |
+| `j`/`k` | Navigate steps |
+| `enter` | Expand/collapse step logs |
+| `r` | Rerun LLM step |
+
+See [Keybindings]({{< ref "/docs/reference/keybindings" >}}) for the full
+reference.
+
+### Requirements
+
+| Tool | Used for | Install |
+|------|----------|---------|
+| `pdftotext` | PDF text extraction | Part of `poppler-utils` |
+| `pdftoppm` | PDF rasterization for OCR | Part of `poppler-utils` |
+| `tesseract` | OCR on rasterized pages and images | `tesseract-ocr` package |
+| Ollama (or compatible) | LLM-powered structured extraction | [ollama.com](https://ollama.com) |
+
+All external tools are optional. Without `pdftotext`, PDFs still save but
+without extracted text. Without `tesseract`, scanned documents and images skip
+OCR. Without an LLM, no structured hints are generated. The document always
+saves regardless.
+
 ## Inline editing
 
 In Edit mode, press `e` on the `Title` or `Notes` column to edit inline. Press

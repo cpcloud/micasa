@@ -134,11 +134,19 @@ func (cmd *runCmd) Run() error {
 		DBPath:     dbPath,
 		ConfigPath: config.Path(),
 	}
-	opts.SetLLM(cfg.LLM.BaseURL, cfg.LLM.Model, cfg.LLM.ExtraContext, cfg.LLM.TimeoutDuration())
+	opts.SetLLM(
+		cfg.LLM.BaseURL,
+		cfg.LLM.Model,
+		cfg.LLM.ExtraContext,
+		cfg.LLM.TimeoutDuration(),
+		cfg.LLM.Thinking,
+	)
 	opts.SetExtraction(
 		cfg.Extraction.ResolvedModel(cfg.LLM.Model),
 		cfg.Extraction.MaxOCRPages,
+		cfg.Extraction.TextTimeoutDuration(),
 		cfg.Extraction.IsEnabled(),
+		cfg.Extraction.ThinkingEnabled(),
 	)
 
 	model, err := app.NewModel(store, opts)

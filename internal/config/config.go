@@ -48,6 +48,10 @@ type LLM struct {
 	// (ping, model listing, auto-detect). Go duration string, e.g. "5s",
 	// "10s", "500ms". Default: "5s".
 	Timeout string `toml:"timeout"`
+
+	// Thinking enables the model's internal reasoning mode for chat
+	// (e.g. qwen3 <think> blocks). Default: unset (not sent to server).
+	Thinking *bool `toml:"thinking,omitempty"`
 }
 
 // TimeoutDuration returns the parsed LLM timeout, falling back to
@@ -108,6 +112,15 @@ type Extraction struct {
 	// is uploaded. Text extraction and OCR are independent and always
 	// available. Default: true.
 	Enabled *bool `toml:"enabled,omitempty"`
+
+	// TextTimeout is the maximum time to wait for pdftotext. Go duration
+	// string, e.g. "30s", "1m". Default: "30s".
+	TextTimeout string `toml:"text_timeout"`
+
+	// Thinking enables the model's internal reasoning mode (e.g. qwen3
+	// <think> blocks). Disable for faster responses when structured output
+	// is all you need. Default: false.
+	Thinking *bool `toml:"thinking,omitempty"`
 }
 
 // IsEnabled returns whether LLM extraction is enabled. Defaults to true
@@ -117,6 +130,25 @@ func (e Extraction) IsEnabled() bool {
 		return *e.Enabled
 	}
 	return true
+}
+
+// TextTimeoutDuration returns the parsed text extraction timeout, falling
+// back to DefaultTextTimeout if the value is empty or unparseable.
+func (e Extraction) TextTimeoutDuration() time.Duration {
+	if e.TextTimeout == "" {
+		return DefaultTextTimeout
+	}
+	d, err := time.ParseDuration(e.TextTimeout)
+	if err != nil {
+		return DefaultTextTimeout
+	}
+	return d
+}
+
+// ThinkingEnabled returns whether model thinking mode is enabled.
+// Defaults to false (faster, no <think> blocks).
+func (e Extraction) ThinkingEnabled() bool {
+	return e.Thinking != nil && *e.Thinking
 }
 
 // ResolvedModel returns the extraction model, falling back to the given
@@ -134,6 +166,7 @@ const (
 	DefaultLLMTimeout  = 5 * time.Second
 	DefaultCacheTTL    = 30 * 24 * time.Hour // 30 days
 	DefaultMaxOCRPages = 20
+	DefaultTextTimeout = 30 * time.Second
 	configRelPath      = "micasa/config.toml"
 )
 
@@ -233,6 +266,22 @@ func LoadFromPath(path string) (Config, error) {
 		)
 	}
 
+	if cfg.Extraction.TextTimeout != "" {
+		d, err := time.ParseDuration(cfg.Extraction.TextTimeout)
+		if err != nil {
+			return cfg, fmt.Errorf(
+				"extraction.text_timeout: invalid duration %q -- use Go syntax like \"30s\" or \"1m\"",
+				cfg.Extraction.TextTimeout,
+			)
+		}
+		if d <= 0 {
+			return cfg, fmt.Errorf(
+				"extraction.text_timeout must be positive, got %s",
+				cfg.Extraction.TextTimeout,
+			)
+		}
+	}
+
 	if cfg.Extraction.MaxOCRPages < 0 {
 		return cfg, fmt.Errorf(
 			"extraction.max_ocr_pages must be non-negative, got %d",
@@ -279,6 +328,9 @@ func applyEnvOverrides(cfg *Config) {
 			cfg.Documents.CacheTTLDays = &n
 		}
 	}
+	if timeout := os.Getenv("MICASA_TEXT_TIMEOUT"); timeout != "" {
+		cfg.Extraction.TextTimeout = timeout
+	}
 	if model := os.Getenv("MICASA_EXTRACTION_MODEL"); model != "" {
 		cfg.Extraction.Model = model
 	}
@@ -288,8 +340,19 @@ func applyEnvOverrides(cfg *Config) {
 		}
 	}
 	if enabled := os.Getenv("MICASA_EXTRACTION_ENABLED"); enabled != "" {
-		val := enabled == "true" || enabled == "1"
-		cfg.Extraction.Enabled = &val
+		if val, err := strconv.ParseBool(enabled); err == nil {
+			cfg.Extraction.Enabled = &val
+		}
+	}
+	if thinking := os.Getenv("MICASA_LLM_THINKING"); thinking != "" {
+		if val, err := strconv.ParseBool(thinking); err == nil {
+			cfg.LLM.Thinking = &val
+		}
+	}
+	if thinking := os.Getenv("MICASA_EXTRACTION_THINKING"); thinking != "" {
+		if val, err := strconv.ParseBool(thinking); err == nil {
+			cfg.Extraction.Thinking = &val
+		}
 	}
 }
 
@@ -318,6 +381,10 @@ model = "` + DefaultModel + `"
 # Increase if your LLM server is slow to respond.
 # timeout = "5s"
 
+# Enable model thinking mode for chat (e.g. qwen3 <think> blocks).
+# Unset = don't send (server default), true = enable, false = disable.
+# thinking = false
+
 [documents]
 # Maximum file size for document imports. Accepts unitized strings or bare
 # integers (bytes). Default: 50 MiB.
@@ -333,11 +400,20 @@ model = "` + DefaultModel + `"
 # small, fast model optimized for structured JSON output.
 # model = "qwen2.5:7b"
 
+# Timeout for pdftotext. Go duration syntax: "30s", "1m", etc. Default: "30s".
+# Increase if you routinely process very large PDFs.
+# text_timeout = "30s"
+
 # Maximum pages to OCR for scanned documents. Default: 20.
 # max_ocr_pages = 20
 
 # Set to false to disable LLM-powered extraction even when LLM is configured.
 # Text extraction and OCR still work independently.
 # enabled = true
+
+# Enable model thinking mode for extraction (e.g. qwen3 <think> blocks).
+# Disable for faster responses when structured output is all you need.
+# Default: false.
+# thinking = false
 `
 }

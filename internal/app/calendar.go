@@ -132,7 +132,7 @@ func calendarHints(styles Styles) string {
 		{"j/k", "week"},
 		{"H/L", "month"},
 		{"[/]", "year"},
-		{"enter", "pick"},
+		{"\u21b5", "pick"},
 		{"esc", "cancel"},
 	}
 

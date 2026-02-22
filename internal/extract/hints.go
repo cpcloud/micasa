@@ -52,8 +52,8 @@ const (
 	DocTypeOther      = "other"
 )
 
-// ValidDocumentTypes is the set of recognized document type values.
-var ValidDocumentTypes = map[string]bool{
+// validDocumentTypes is the set of recognized document type values.
+var validDocumentTypes = map[string]bool{
 	DocTypeQuote:      true,
 	DocTypeInvoice:    true,
 	DocTypeReceipt:    true,
@@ -75,8 +75,8 @@ const (
 	EntityHintServiceLog  = "service_log"
 )
 
-// ValidEntityKindHints is the set of recognized entity kind hint values.
-var ValidEntityKindHints = map[string]bool{
+// validEntityKindHints is the set of recognized entity kind hint values.
+var validEntityKindHints = map[string]bool{
 	EntityHintProject:     true,
 	EntityHintAppliance:   true,
 	EntityHintVendor:      true,

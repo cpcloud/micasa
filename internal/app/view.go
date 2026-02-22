@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	overlay "github.com/rmhubbert/bubbletea-overlay"
@@ -33,6 +34,7 @@ func (m *Model) buildView() string {
 		{m.calendar != nil, m.buildCalendarOverlay},
 		{m.showNotePreview, m.buildNotePreviewOverlay},
 		{m.columnFinder != nil, m.buildColumnFinderOverlay},
+		{m.extraction != nil && m.extraction.Visible, m.buildExtractionOverlay},
 		{m.chat != nil && m.chat.Visible, m.buildChatOverlay},
 		{m.helpViewport != nil, m.buildHelpOverlay},
 	}
@@ -250,7 +252,7 @@ func (m *Model) tabUnderline() string {
 
 func (m *Model) statusView() string {
 	if m.inlineInput != nil {
-		return m.inlineInputStatusView()
+		return m.withPullProgress(m.inlineInputStatusView())
 	}
 	if m.mode == modeForm {
 		if m.confirmDiscard {
@@ -260,7 +262,7 @@ func (m *Model) statusView() string {
 				m.helpItem("y", "discard"),
 				m.helpItem("n", "keep editing"),
 			)
-			return prompt + "  " + hints
+			return m.withPullProgress(prompt + "  " + hints)
 		}
 		dirtyIndicator := m.styles.FormClean.Render("○ saved")
 		if m.formDirty {
@@ -278,13 +280,13 @@ func (m *Model) statusView() string {
 			m.helpItem("ctrl+q", "quit"),
 		)
 		help := joinWithSeparator(m.helpSeparator(), parts...)
-		return m.withStatusMessage(help)
+		return m.withPullProgress(m.withStatusMessage(help))
 	}
 
 	// When overlays are active, don't show main tab keybindings since they're
 	// not accessible. Overlays show their own relevant hints.
 	if m.hasActiveOverlay() {
-		return m.withStatusMessage("")
+		return m.withPullProgress(m.withStatusMessage(""))
 	}
 
 	// Both badges render at the same width to prevent layout shift.
@@ -313,7 +315,7 @@ func (m *Model) statusView() string {
 		help = m.editModeStatusHelp(modeBadge)
 	}
 
-	return m.withStatusMessage(help)
+	return m.withPullProgress(m.withStatusMessage(help))
 }
 
 func (m *Model) inlineInputStatusView() string {
@@ -322,7 +324,7 @@ func (m *Model) inlineInputStatusView() string {
 	input := ii.Input.View()
 	hints := joinWithSeparator(
 		m.helpSeparator(),
-		m.helpItem("enter", "save"),
+		m.helpItem("\u21b5", "save"),
 		m.helpItem("esc", "cancel"),
 	)
 	prompt := title + " " + input + "  " + hints
@@ -356,8 +358,8 @@ func (m *Model) normalModeStatusHints(modeBadge string) []statusHint {
 	if hint := m.enterHint(); hint != "" {
 		hints = append(hints, statusHint{
 			id:       "enter",
-			full:     m.helpItem("enter", hint),
-			compact:  m.helpItem("enter", "open"),
+			full:     m.helpItem("\u21b5", hint),
+			compact:  m.helpItem("\u21b5", "open"),
 			priority: 2,
 		})
 	}
@@ -404,15 +406,22 @@ func (m *Model) normalModeStatusHints(modeBadge string) []statusHint {
 func (m *Model) editModeStatusHelp(modeBadge string) string {
 	hints := []statusHint{
 		{id: "mode", full: modeBadge, priority: 0, required: true},
-		{id: "add", full: m.helpItem("a", "add"), priority: 1},
-		{id: "edit", full: m.helpItem("e", m.editHint()), priority: 1},
-		{
+	}
+	if m.effectiveTab().isDocumentTab() {
+		hints = append(hints, statusHint{
+			id: "magicadd", full: m.helpItem("A", "\U0001FA84 add"), priority: 3,
+		})
+	}
+	hints = append(hints,
+		statusHint{id: "add", full: m.helpItem("a", "add"), priority: 1},
+		statusHint{id: "edit", full: m.helpItem("e", m.editHint()), priority: 1},
+		statusHint{
 			id:       "del",
 			full:     m.helpItem("d", "del/restore"),
 			compact:  m.helpItem("d", "del"),
 			priority: 2,
 		},
-	}
+	)
 	if m.effectiveTab().isDocumentTab() {
 		hints = append(hints, statusHint{
 			id: "open", full: m.helpItem("o", "open"), priority: 2,
@@ -525,6 +534,16 @@ func (m *Model) withStatusMessage(helpLine string) string {
 		style = m.styles.Error
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, style.Render(m.status.Text), helpLine)
+}
+
+// withPullProgress appends the model download progress line below the status
+// output when a pull is active.
+func (m *Model) withPullProgress(statusOutput string) string {
+	if m.pullDisplay == "" {
+		return statusOutput
+	}
+	progressLine := lipgloss.NewStyle().Foreground(textDim).Render(m.pullDisplay)
+	return lipgloss.JoinVertical(lipgloss.Left, statusOutput, progressLine)
 }
 
 func (m *Model) editHint() string {
@@ -708,7 +727,7 @@ func (m *Model) helpContent() string {
 				{"n", "Pin/unpin"},
 				{"!", "Invert filter"},
 				{keyCtrlN, "Clear pins and filter"},
-				{"enter", drilldownArrow + " drill / " + linkArrow + " follow / preview"},
+				{"\u21b5", drilldownArrow + " drill / " + linkArrow + " follow / preview"},
 				{"o", "Open document"},
 				{"tab", "House profile"},
 				{"D", "Summary"},
@@ -745,7 +764,7 @@ func (m *Model) helpContent() string {
 		{
 			title: "Chat (@)",
 			bindings: []binding{
-				{"enter", "Send message"},
+				{"\u21b5", "Send message"},
 				{"ctrl+s", "Toggle SQL display"},
 				{"\u2191/\u2193", "Prompt history"},
 				{"esc", "Hide chat"},
@@ -1018,9 +1037,10 @@ func (m *Model) renderKeys(keys string) string {
 }
 
 func (m *Model) keycap(value string) string {
-	// Detect bare uppercase letters and render as SHIFT+X.
-	if len(value) == 1 && value[0] >= 'A' && value[0] <= 'Z' {
-		return m.styles.Keycap.Render("SHIFT+" + value)
+	// Single letters: preserve case to distinguish A from a.
+	if len(value) == 1 &&
+		((value[0] >= 'A' && value[0] <= 'Z') || (value[0] >= 'a' && value[0] <= 'z')) {
+		return m.styles.Keycap.Render(value)
 	}
 	return m.styles.Keycap.Render(strings.ToUpper(value))
 }
@@ -1135,6 +1155,38 @@ func topLevelEmptyHint(kind TabKind) string {
 		return "No documents yet."
 	}
 	panic(fmt.Sprintf("unhandled TabKind: %d", kind))
+}
+
+// markdownRenderer caches a glamour terminal renderer keyed by width.
+// Embed or store a pointer in any state struct that needs markdown rendering.
+type markdownRenderer struct {
+	renderer *glamour.TermRenderer
+	width    int
+}
+
+// renderMarkdown renders markdown text for terminal display using glamour.
+// The renderer is cached and reused across calls at the same width,
+// avoiding repeated JSON stylesheet parsing during streaming.
+func (mr *markdownRenderer) renderMarkdown(text string, width int) string {
+	if width < 10 {
+		width = 10
+	}
+	if mr.renderer == nil || mr.width != width {
+		r, err := glamour.NewTermRenderer(
+			glamour.WithAutoStyle(),
+			glamour.WithWordWrap(width),
+		)
+		if err != nil {
+			return wordWrap(text, width)
+		}
+		mr.renderer = r
+		mr.width = width
+	}
+	out, err := mr.renderer.Render(text)
+	if err != nil {
+		return wordWrap(text, width)
+	}
+	return strings.TrimRight(out, "\n")
 }
 
 // wordWrap breaks text into lines of at most maxW visible columns, splitting

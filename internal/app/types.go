@@ -177,27 +177,41 @@ type llmConfig struct {
 	Model        string
 	ExtraContext string
 	Timeout      time.Duration
+	Thinking     *bool // nil = don't send; non-nil = send enable_thinking
 }
 
 // extractionConfig holds resolved extraction pipeline settings.
 type extractionConfig struct {
 	Model       string // overrides LLM model; empty = use chat model
 	MaxOCRPages int
-	Enabled     bool // LLM extraction enabled
+	TextTimeout time.Duration // pdftotext timeout; 0 = DefaultTextTimeout
+	Enabled     bool          // LLM extraction enabled
+	Thinking    bool          // enable model thinking mode (e.g. qwen3 <think>)
 }
 
 // SetExtraction configures the extraction pipeline on the Options.
-func (o *Options) SetExtraction(model string, maxOCRPages int, enabled bool) {
+func (o *Options) SetExtraction(
+	model string,
+	maxOCRPages int,
+	textTimeout time.Duration,
+	enabled, thinking bool,
+) {
 	o.ExtractionConfig = extractionConfig{
 		Model:       model,
 		MaxOCRPages: maxOCRPages,
+		TextTimeout: textTimeout,
 		Enabled:     enabled,
+		Thinking:    thinking,
 	}
 }
 
 // SetLLM configures the LLM backend on the Options. Pass empty strings to
 // disable the LLM feature.
-func (o *Options) SetLLM(baseURL, model, extraContext string, timeout time.Duration) {
+func (o *Options) SetLLM(
+	baseURL, model, extraContext string,
+	timeout time.Duration,
+	thinking *bool,
+) {
 	if baseURL == "" || model == "" {
 		o.LLMConfig = nil
 		return
@@ -207,6 +221,7 @@ func (o *Options) SetLLM(baseURL, model, extraContext string, timeout time.Durat
 		Model:        model,
 		ExtraContext: extraContext,
 		Timeout:      timeout,
+		Thinking:     thinking,
 	}
 }
 

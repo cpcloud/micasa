@@ -184,7 +184,7 @@ func TestCalendarRendersInView(t *testing.T) {
 
 	view := m.buildView()
 	assert.Contains(t, view, "February 2026")
-	assert.Contains(t, view, "enter pick")
+	assert.Contains(t, view, "\u21b5 pick")
 }
 
 func TestCalendarMonthNavigation(t *testing.T) {

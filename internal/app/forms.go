@@ -4,7 +4,6 @@
 package app
 
 import (
-	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -20,7 +19,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/cpcloud/micasa/internal/data"
 	"github.com/cpcloud/micasa/internal/extract"
-	"github.com/cpcloud/micasa/internal/llm"
 )
 
 type houseFormData struct {
@@ -123,13 +121,11 @@ type documentFormData struct {
 	Notes     string
 }
 
-// documentParseResult holds the parsed document, extraction hints from the
-// LLM (if available), and any non-fatal extraction error. The document is
-// always valid when err is nil; extractErr captures extraction failures
-// that should not block the upload.
+// documentParseResult holds the parsed document and any non-fatal extraction
+// error. LLM hints are extracted asynchronously after save (see
+// extractDocumentHintsCmd).
 type documentParseResult struct {
 	Doc        data.Document
-	Hints      *extract.ExtractionHints // nil when LLM unavailable or failed
 	ExtractErr error
 }
 
@@ -2297,15 +2293,27 @@ func (m *Model) startDocumentForm(entityKind string) error {
 	}
 
 	fields = append(fields,
-		huh.NewInput().
-			Title("File path").
-			Description("Local path to the file to attach").
-			Value(&values.FilePath).
-			Validate(optionalFilePath()),
+		m.newDocumentFilePicker("File to attach").
+			Value(&values.FilePath),
 		huh.NewText().Title("Notes").Value(&values.Notes),
 	)
 
 	form := huh.NewForm(huh.NewGroup(fields...))
+	m.activateForm(formDocument, form, values)
+	return nil
+}
+
+// startQuickDocumentForm opens a minimal document form that only asks for a
+// file path. Title and notes are auto-filled by the extraction pipeline on
+// submit, making this the fast path for ingesting files.
+func (m *Model) startQuickDocumentForm() error {
+	values := &documentFormData{}
+	form := huh.NewForm(
+		huh.NewGroup(
+			m.newDocumentFilePicker("File to attach").
+				Value(&values.FilePath),
+		),
+	)
 	m.activateForm(formDocument, form, values)
 	return nil
 }
@@ -2345,17 +2353,30 @@ func (m *Model) openEditDocumentForm(values *documentFormData, scoped bool) erro
 	}
 
 	fields = append(fields,
-		huh.NewInput().
-			Title("File path").
-			Description("Local path to a replacement file").
-			Value(&values.FilePath).
-			Validate(optionalFilePath()),
+		m.newDocumentFilePicker("Replacement file").
+			Value(&values.FilePath),
 		huh.NewText().Title("Notes").Value(&values.Notes),
 	)
 
 	form := huh.NewForm(huh.NewGroup(fields...))
 	m.activateForm(formDocument, form, values)
 	return nil
+}
+
+// newDocumentFilePicker creates a file picker pre-configured for document
+// uploads: files only, hidden files shown, height scaled to the terminal.
+func (m *Model) newDocumentFilePicker(title string) *huh.FilePicker {
+	h := m.height / 3
+	if h < 5 {
+		h = 5
+	}
+	return huh.NewFilePicker().
+		Title(title).
+		Picking(true).
+		FileAllowed(true).
+		DirAllowed(false).
+		ShowHidden(true).
+		Height(h)
 }
 
 func (m *Model) submitDocumentForm() error {
@@ -2451,75 +2472,33 @@ func (m *Model) parseDocumentFormData() (documentParseResult, error) {
 		doc.MIMEType = detectMIMEType(path, fileData)
 		doc.ChecksumSHA256 = fmt.Sprintf("%x", sha256.Sum256(fileData))
 
-		// Run the extraction pipeline.
-		pipeline := m.buildExtractionPipeline()
-		result := pipeline.Run(context.Background(), fileData, doc.FileName, doc.MIMEType)
-		doc.ExtractedText = result.ExtractedText
-		doc.OCRData = result.OCRData
+		// Run text extraction synchronously (instant, pure Go). OCR and
+		// LLM run asynchronously in the extraction overlay after save.
+		var extractErr error
+		text, err := extract.ExtractText(fileData, doc.MIMEType, m.textTimeout)
+		if err != nil {
+			extractErr = err
+		}
+		doc.ExtractedText = text
 
-		// Show one-time tesseract hint if OCR was needed but unavailable.
-		if extract.IsScanned(doc.ExtractedText) && !result.OCRUsed {
+		// Show one-time tesseract hint if OCR might help but isn't available.
+		if extract.IsScanned(doc.ExtractedText) && !extract.OCRAvailable() {
 			if extract.IsImageMIME(doc.MIMEType) || doc.MIMEType == "application/pdf" {
 				m.showTesseractHint()
 			}
 		}
 
-		// Auto-fill title: prefer LLM suggestion, fall back to filename.
+		// Title defaults to filename; LLM may improve it asynchronously.
 		if doc.Title == "" {
-			if result.Hints != nil && result.Hints.TitleSugg != "" {
-				doc.Title = result.Hints.TitleSugg
-			} else {
-				doc.Title = data.TitleFromFilename(doc.FileName)
-			}
-		}
-
-		// Pre-fill notes from LLM summary if user left notes blank.
-		if doc.Notes == "" && result.Hints != nil && result.Hints.Summary != "" {
-			doc.Notes = result.Hints.Summary
+			doc.Title = data.TitleFromFilename(doc.FileName)
 		}
 
 		return documentParseResult{
 			Doc:        doc,
-			Hints:      result.Hints,
-			ExtractErr: result.Err,
+			ExtractErr: extractErr,
 		}, nil
 	}
 	return documentParseResult{Doc: doc}, nil
-}
-
-// buildExtractionPipeline creates an extraction pipeline configured from
-// the current app state.
-func (m *Model) buildExtractionPipeline() *extract.Pipeline {
-	p := &extract.Pipeline{
-		MaxOCRPages: m.maxOCRPages,
-	}
-
-	// Only wire LLM if extraction is enabled and a client exists.
-	if m.extractionEnabled && m.llmClient != nil {
-		// Use the extraction-specific model if configured, otherwise the
-		// chat client is used as-is.
-		if m.extractionModel != "" && m.extractionModel != m.llmClient.Model() {
-			p.LLMClient = llm.NewClient(
-				m.llmClient.BaseURL(),
-				m.extractionModel,
-				m.llmClient.Timeout(),
-			)
-		} else {
-			p.LLMClient = m.llmClient
-		}
-	}
-
-	// Load entity context for LLM matching (best-effort).
-	vendors, projects, appliances, err := m.store.EntityNames()
-	if err == nil {
-		p.EntityContext = extract.EntityContext{
-			Vendors:    vendors,
-			Projects:   projects,
-			Appliances: appliances,
-		}
-	}
-
-	return p
 }
 
 // showTesseractHint displays a one-time status bar hint suggesting the

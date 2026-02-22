@@ -6,6 +6,7 @@ package extract
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/cpcloud/micasa/internal/llm"
 )
@@ -16,12 +17,15 @@ import (
 type Pipeline struct {
 	LLMClient     *llm.Client   // nil = skip LLM extraction
 	MaxOCRPages   int           // 0 = DefaultMaxOCRPages
+	TextTimeout   time.Duration // 0 = DefaultTextTimeout
 	EntityContext EntityContext // existing entities for LLM matching
 }
 
 // Result holds the output of a pipeline run.
 type Result struct {
-	ExtractedText string
+	ExtractedText string // best available text (pdftotext or OCR, merged)
+	PdfText       string // raw pdftotext output (PDFs only)
+	OCRText       string // raw OCR output (scanned PDFs and images)
 	OCRData       []byte
 	Hints         *ExtractionHints // nil if LLM unavailable or failed
 	OCRUsed       bool
@@ -48,29 +52,49 @@ func (p *Pipeline) Run(
 		maxPages = DefaultMaxOCRPages
 	}
 
-	// Layer 1: text extraction (always available).
-	text, textErr := ExtractText(data, mime)
+	isPDF := mime == "application/pdf"
+	isImage := IsImageMIME(mime)
+
+	// Layer 1: text extraction (PDFs and text files).
+	text, textErr := ExtractText(data, mime, p.TextTimeout)
 	if textErr != nil {
 		r.Err = fmt.Errorf("text extraction: %w", textErr)
 	} else {
 		r.ExtractedText = text
+		if isPDF {
+			r.PdfText = text
+		}
 	}
 
-	// Layer 2: OCR if text layer is empty/absent.
-	if IsScanned(r.ExtractedText) {
+	// Layer 2: OCR. For PDFs, always run (captures scanned pages that
+	// pdftotext misses). For images, always run. For text files, skip.
+	needsOCR := isPDF || isImage
+	if needsOCR {
 		ocrText, ocrData, ocrErr := p.tryOCR(ctx, data, mime, maxPages)
 		if ocrErr != nil {
 			r.Err = fmt.Errorf("ocr: %w", ocrErr)
 		} else if ocrText != "" {
-			r.ExtractedText = ocrText
+			r.OCRText = ocrText
 			r.OCRData = ocrData
 			r.OCRUsed = true
+			// For images (no pdftotext), OCR is the only text source.
+			if r.ExtractedText == "" {
+				r.ExtractedText = ocrText
+			}
 		}
 	}
 
-	// Layer 3: LLM extraction if client configured and text available.
-	if p.LLMClient != nil && r.ExtractedText != "" {
-		hints, llmErr := p.extractWithLLM(ctx, r.ExtractedText, filename, mime, int64(len(data)))
+	// Layer 3: LLM extraction if client configured and any text available.
+	if p.LLMClient != nil && (r.PdfText != "" || r.OCRText != "" || r.ExtractedText != "") {
+		hints, llmErr := p.extractWithLLM(
+			ctx,
+			r.PdfText,
+			r.OCRText,
+			r.ExtractedText,
+			filename,
+			mime,
+			int64(len(data)),
+		)
 		if llmErr != nil {
 			r.Err = fmt.Errorf("llm extraction: %w", llmErr)
 		} else if hints != nil {
@@ -106,19 +130,25 @@ func (p *Pipeline) tryOCR(
 	return OCR(ctx, data, mime, maxPages)
 }
 
-// extractWithLLM runs the LLM extraction model on the already-extracted text.
+// extractWithLLM runs the LLM extraction model on both text sources.
 func (p *Pipeline) extractWithLLM(
 	ctx context.Context,
+	pdfText string,
+	ocrText string,
 	extractedText string,
 	filename string,
 	mime string,
 	sizeBytes int64,
 ) (*ExtractionHints, error) {
-	messages := BuildExtractionPrompt(
-		filename, mime, sizeBytes,
-		p.EntityContext,
-		extractedText,
-	)
+	messages := BuildExtractionPrompt(ExtractionPromptInput{
+		Filename:  filename,
+		MIME:      mime,
+		SizeBytes: sizeBytes,
+		Entities:  p.EntityContext,
+		PdfText:   pdfText,
+		OCRText:   ocrText,
+		Text:      extractedText,
+	})
 
 	raw, err := p.LLMClient.ChatComplete(ctx, messages)
 	if err != nil {

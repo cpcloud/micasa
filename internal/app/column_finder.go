@@ -331,7 +331,7 @@ func (m *Model) buildColumnFinderOverlay() string {
 	b.WriteString("\n\n")
 	hints := joinWithSeparator(
 		m.helpSeparator(),
-		m.helpItem("enter", "jump"),
+		m.helpItem("\u21b5", "jump"),
 		m.helpItem("esc", "cancel"),
 	)
 	b.WriteString(hints)

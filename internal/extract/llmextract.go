@@ -15,19 +15,27 @@ import (
 	"github.com/cpcloud/micasa/internal/llm"
 )
 
+// ExtractionPromptInput holds the inputs for building an extraction prompt.
+type ExtractionPromptInput struct {
+	Filename  string
+	MIME      string
+	SizeBytes int64
+	Entities  EntityContext
+	PdfText   string // pdftotext output (PDFs only)
+	OCRText   string // tesseract output (scanned PDFs and images)
+	Text      string // fallback for non-PDF/non-image files (e.g. text/plain)
+}
+
 // BuildExtractionPrompt creates the system and user messages for document
 // extraction. The system prompt defines the JSON schema and rules; the user
-// message contains the document metadata and extracted text.
-func BuildExtractionPrompt(
-	filename string,
-	mime string,
-	sizeBytes int64,
-	entities EntityContext,
-	text string,
-) []llm.Message {
+// message contains the document metadata and extracted text from all sources.
+//
+// For PDFs, both PdfText and OCRText may be present. The LLM receives both
+// with source labels so it can reconcile differences.
+func BuildExtractionPrompt(in ExtractionPromptInput) []llm.Message {
 	return []llm.Message{
-		{Role: "system", Content: extractionSystemPrompt(entities)},
-		{Role: "user", Content: extractionUserMessage(filename, mime, sizeBytes, text)},
+		{Role: "system", Content: extractionSystemPrompt(in.Entities)},
+		{Role: "user", Content: extractionUserMessage(in)},
 	}
 }
 
@@ -62,17 +70,41 @@ func extractionSystemPrompt(entities EntityContext) string {
 	return b.String()
 }
 
-func extractionUserMessage(filename, mime string, sizeBytes int64, text string) string {
+func extractionUserMessage(in ExtractionPromptInput) string {
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("Filename: %s\n", filename))
-	b.WriteString(fmt.Sprintf("MIME: %s\n", mime))
-	b.WriteString(fmt.Sprintf("Size: %d bytes\n", sizeBytes))
-	b.WriteString("\n---\n\n")
-	b.WriteString(text)
+	b.WriteString(fmt.Sprintf("Filename: %s\n", in.Filename))
+	b.WriteString(fmt.Sprintf("MIME: %s\n", in.MIME))
+	b.WriteString(fmt.Sprintf("Size: %d bytes\n", in.SizeBytes))
+
+	hasPDF := strings.TrimSpace(in.PdfText) != ""
+	hasOCR := strings.TrimSpace(in.OCRText) != ""
+
+	if hasPDF && hasOCR {
+		b.WriteString("\n---\n\n## Source: pdftotext\n")
+		b.WriteString(
+			"Digital text extracted directly from the PDF. Accurate for pages with selectable text.\n\n",
+		)
+		b.WriteString(in.PdfText)
+		b.WriteString("\n\n## Source: tesseract OCR\n")
+		b.WriteString(
+			"Text recognized from rasterized page images. Covers scanned pages that pdftotext misses, but may contain OCR errors.\n\n",
+		)
+		b.WriteString(in.OCRText)
+	} else if hasOCR {
+		b.WriteString("\n---\n\n## Source: tesseract OCR\n")
+		b.WriteString("Text recognized from rasterized page images. May contain OCR errors.\n\n")
+		b.WriteString(in.OCRText)
+	} else {
+		b.WriteString("\n---\n\n")
+		b.WriteString(in.Text)
+	}
+
 	return b.String()
 }
 
-const extractionPreamble = `You are a document extraction assistant for a home management application. Given a document's metadata and extracted text, return a JSON object with structured fields. Fill only the fields you can confidently extract. Omit or null fields you cannot determine.`
+const extractionPreamble = `You are a document extraction assistant for a home management application. Given a document's metadata and extracted text, return a JSON object with structured fields. Fill only the fields you can confidently extract. Omit or null fields you cannot determine.
+
+For PDFs, you may receive text from two sources: pdftotext (accurate digital text) and tesseract OCR (covers scanned pages but may have errors). When both are present, prefer pdftotext for pages with clean digital text, and use OCR output for scanned pages. Reconcile any conflicts by trusting the more plausible reading.`
 
 const extractionSchema = `## Output schema
 
@@ -83,6 +115,7 @@ Return ONLY a JSON object with these fields (all optional):
   "title_suggestion": "short descriptive title for the document",
   "summary": "one-line summary for table display",
   "vendor_hint": "vendor or company name, matched against existing vendors if possible",
+  "currency_unit": "cents|dollars",
   "total_cents": 150000,
   "labor_cents": 80000,
   "materials_cents": 70000,
@@ -100,14 +133,15 @@ const extractionRules = `## Rules
 
 1. Return ONLY valid JSON. No markdown fences, no commentary, no explanation.
 2. All fields are optional. Omit fields you cannot determine. Do not guess.
-3. Money values are in CENTS (integer). $1,500.00 = 150000. Never use floats.
-4. Dates are ISO 8601: YYYY-MM-DD.
-5. For vendor_hint and entity_name_hint, prefer exact matches from the existing entities list.
-6. document_type must be one of: quote, invoice, receipt, manual, warranty, permit, inspection, contract, other.
-7. entity_kind_hint must be one of: project, appliance, vendor, maintenance, quote, service_log.
-8. maintenance_items: extract maintenance schedules from manuals (e.g. "replace filter every 3 months").
-9. Keep title_suggestion concise (under 60 characters).
-10. Keep summary to one sentence.`
+3. Money values MUST be in CENTS (integer). $1,500.00 = 150000. Never use floats.
+4. Set currency_unit to "cents" when money values are in cents, "dollars" when in dollars.
+5. Dates are ISO 8601: YYYY-MM-DD.
+6. For vendor_hint and entity_name_hint, prefer exact matches from the existing entities list.
+7. document_type must be one of: quote, invoice, receipt, manual, warranty, permit, inspection, contract, other.
+8. entity_kind_hint must be one of: project, appliance, vendor, maintenance, quote, service_log.
+9. maintenance_items: extract maintenance schedules from manuals (e.g. "replace filter every 3 months").
+10. Keep title_suggestion concise (under 60 characters).
+11. Keep summary to one sentence.`
 
 // rawExtractionResponse mirrors the JSON schema but uses flexible types
 // for parsing (strings for money/dates that need conversion).
@@ -116,6 +150,7 @@ type rawExtractionResponse struct {
 	TitleSugg      string `json:"title_suggestion"`
 	Summary        string `json:"summary"`
 	VendorHint     string `json:"vendor_hint"`
+	CurrencyUnit   string `json:"currency_unit"`
 	TotalCents     any    `json:"total_cents"`
 	LaborCents     any    `json:"labor_cents"`
 	MaterialsCents any    `json:"materials_cents"`
@@ -134,7 +169,7 @@ type rawExtractionResponse struct {
 // ExtractionHints. Tolerant of markdown fences, partial responses,
 // and minor format variations in money/date fields.
 func ParseExtractionResponse(raw string) (ExtractionHints, error) {
-	cleaned := stripCodeFences(raw)
+	cleaned := StripCodeFences(raw)
 
 	var resp rawExtractionResponse
 	if err := json.Unmarshal([]byte(cleaned), &resp); err != nil {
@@ -150,17 +185,19 @@ func ParseExtractionResponse(raw string) (ExtractionHints, error) {
 	}
 
 	// Validate enums.
-	if ValidDocumentTypes[resp.DocumentType] {
+	if validDocumentTypes[resp.DocumentType] {
 		hints.DocumentType = resp.DocumentType
 	}
-	if ValidEntityKindHints[resp.EntityKindHint] {
+	if validEntityKindHints[resp.EntityKindHint] {
 		hints.EntityKindHint = resp.EntityKindHint
 	}
 
-	// Parse money fields.
-	hints.TotalCents = parseCents(resp.TotalCents)
-	hints.LaborCents = parseCents(resp.LaborCents)
-	hints.MaterialsCents = parseCents(resp.MaterialsCents)
+	// Parse money fields. If the model reported currency_unit, use it
+	// to resolve the ambiguity between cents and dollars.
+	isDollars := strings.EqualFold(resp.CurrencyUnit, "dollars")
+	hints.TotalCents = parseCents(resp.TotalCents, isDollars)
+	hints.LaborCents = parseCents(resp.LaborCents, isDollars)
+	hints.MaterialsCents = parseCents(resp.MaterialsCents, isDollars)
 
 	// Parse date fields.
 	hints.Date = parseDate(resp.Date)
@@ -185,9 +222,9 @@ func ParseExtractionResponse(raw string) (ExtractionHints, error) {
 	return hints, nil
 }
 
-// stripCodeFences removes markdown code fences that LLMs sometimes wrap
+// StripCodeFences removes markdown code fences that LLMs sometimes wrap
 // around JSON output.
-func stripCodeFences(s string) string {
+func StripCodeFences(s string) string {
 	s = strings.TrimSpace(s)
 	if strings.HasPrefix(s, "```") {
 		lines := strings.Split(s, "\n")
@@ -208,17 +245,23 @@ func stripCodeFences(s string) string {
 }
 
 // parseCents converts a money value from the LLM response to cents.
-// Handles: integer (150000), float (1500.00 treated as dollars), and
-// string ("$1,500.00", "1500.00", "150000").
-func parseCents(v any) *int64 {
+// When isDollars is true (model reported currency_unit=dollars), numeric
+// values are multiplied by 100. Otherwise numbers are treated as cents.
+// Strings with dollar formatting ("$1,500.00") are always converted
+// regardless of isDollars.
+func parseCents(v any, isDollars bool) *int64 {
 	if v == nil {
 		return nil
 	}
 	switch val := v.(type) {
 	case float64:
-		// JSON numbers unmarshal as float64. If the value looks like it's
-		// already in cents (integer, >= 100), use it directly. If it has
-		// a fractional part suggesting dollars, convert.
+		if isDollars {
+			cents := int64(math.Round(val * 100))
+			if cents == 0 {
+				return nil
+			}
+			return &cents
+		}
 		cents := int64(math.Round(val))
 		if cents == 0 {
 			return nil
