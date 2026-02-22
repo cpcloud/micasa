@@ -366,6 +366,11 @@ func (m *Model) normalModeStatusHints(modeBadge string) []statusHint {
 	hints = append(hints,
 		statusHint{id: "edit", full: m.helpItem("i", "edit"), priority: 2},
 	)
+	if isDocumentTab(m.effectiveTab()) {
+		hints = append(hints, statusHint{
+			id: "open", full: m.helpItem("o", "open"), priority: 2,
+		})
+	}
 	if m.llmClient != nil {
 		hints = append(hints, statusHint{
 			id:       "ask",
@@ -408,7 +413,7 @@ func (m *Model) editModeStatusHelp(modeBadge string) string {
 			priority: 2,
 		},
 	}
-	if tab := m.effectiveTab(); tab != nil && tab.Kind == tabDocuments {
+	if isDocumentTab(m.effectiveTab()) {
 		hints = append(hints, statusHint{
 			id: "open", full: m.helpItem("o", "open"), priority: 2,
 		})
