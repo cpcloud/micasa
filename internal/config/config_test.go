@@ -320,3 +320,55 @@ func TestLLMTimeout(t *testing.T) {
 		assert.Contains(t, err.Error(), "must be positive")
 	})
 }
+
+func TestConfigGet(t *testing.T) {
+	cfg := Config{
+		LLM: LLM{
+			BaseURL:      "http://localhost:11434/v1",
+			Model:        "qwen3",
+			ExtraContext: "my house",
+			Timeout:      "10s",
+		},
+		Documents: Documents{
+			MaxFileSize: ByteSize(1024),
+		},
+	}
+
+	tests := []struct {
+		key  string
+		want string
+	}{
+		{"llm.base_url", "http://localhost:11434/v1"},
+		{"llm.model", "qwen3"},
+		{"llm.extra_context", "my house"},
+		{"llm.timeout", "10s"},
+		{"documents.max_file_size", "1024"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.key, func(t *testing.T) {
+			got, err := cfg.Get(tt.key)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+
+	t.Run("unknown key", func(t *testing.T) {
+		_, err := cfg.Get("no.such.key")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unknown config key")
+	})
+}
+
+func TestKeys(t *testing.T) {
+	keys := Keys()
+	assert.NotEmpty(t, keys)
+	assert.Contains(t, keys, "llm.model")
+	assert.Contains(t, keys, "llm.base_url")
+	assert.Contains(t, keys, "documents.max_file_size")
+	// Verify every key is resolvable against defaults.
+	cfg := defaults()
+	for _, k := range keys {
+		_, err := cfg.Get(k)
+		assert.NoError(t, err, "key %q should be resolvable", k)
+	}
+}

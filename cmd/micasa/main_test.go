@@ -130,6 +130,61 @@ func TestVersion_Injected(t *testing.T) {
 	assert.Equal(t, "1.2.3", strings.TrimSpace(string(verOut)))
 }
 
+func TestConfigCmd(t *testing.T) {
+	bin := buildTestBinary(t)
+
+	t.Run("DataDir", func(t *testing.T) {
+		dir := t.TempDir()
+		dbPath := filepath.Join(dir, "micasa.db")
+		cmd := exec.Command(bin, "config", "--get", "data_dir") //nolint:gosec // test binary
+		cmd.Env = append(os.Environ(), "MICASA_DB_PATH="+dbPath)
+		out, err := cmd.CombinedOutput()
+		require.NoError(t, err, "config --get data_dir failed: %s", out)
+		assert.Equal(t, dir, strings.TrimSpace(string(out)))
+	})
+
+	t.Run("DBPath", func(t *testing.T) {
+		dir := t.TempDir()
+		dbPath := filepath.Join(dir, "micasa.db")
+		cmd := exec.Command(bin, "config", "--get", "db_path") //nolint:gosec // test binary
+		cmd.Env = append(os.Environ(), "MICASA_DB_PATH="+dbPath)
+		out, err := cmd.CombinedOutput()
+		require.NoError(t, err, "config --get db_path failed: %s", out)
+		assert.Equal(t, dbPath, strings.TrimSpace(string(out)))
+	})
+
+	t.Run("ConfigPath", func(t *testing.T) {
+		cmd := exec.Command(bin, "config", "--get", "config_path") //nolint:gosec // test binary
+		out, err := cmd.CombinedOutput()
+		require.NoError(t, err, "config --get config_path failed: %s", out)
+		got := strings.TrimSpace(string(out))
+		assert.True(t, filepath.IsAbs(got), "expected absolute path, got %q", got)
+		assert.True(t, strings.HasSuffix(got, "config.toml"), "expected config.toml, got %q", got)
+	})
+
+	t.Run("LLMModel", func(t *testing.T) {
+		cmd := exec.Command(bin, "config", "--get", "llm.model") //nolint:gosec // test binary
+		out, err := cmd.CombinedOutput()
+		require.NoError(t, err, "config --get llm.model failed: %s", out)
+		got := strings.TrimSpace(string(out))
+		assert.NotEmpty(t, got)
+	})
+
+	t.Run("UnknownKey", func(t *testing.T) {
+		cmd := exec.Command(bin, "config", "--get", "bogus.key") //nolint:gosec // test binary
+		out, err := cmd.CombinedOutput()
+		require.Error(t, err)
+		assert.Contains(t, string(out), "unknown config key")
+	})
+
+	t.Run("MissingGet", func(t *testing.T) {
+		cmd := exec.Command(bin, "config") //nolint:gosec // test binary
+		out, err := cmd.CombinedOutput()
+		require.Error(t, err)
+		assert.Contains(t, string(out), "--get is required")
+	})
+}
+
 // createTestDB creates a migrated, seeded SQLite database file and returns
 // its path. The file lives in a test-scoped temp directory.
 func createTestDB(t *testing.T) string {

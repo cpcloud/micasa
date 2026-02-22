@@ -23,6 +23,16 @@ func DefaultDBPath() (string, error) {
 	return xdg.DataFile(filepath.Join(AppName, AppName+".db"))
 }
 
+// DefaultDataDir returns the platform-specific data directory that contains
+// the micasa database. It is the parent of DefaultDBPath.
+func DefaultDataDir() (string, error) {
+	dbPath, err := DefaultDBPath()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Dir(dbPath), nil
+}
+
 // DocumentCacheDir returns the directory used for extracted document BLOBs.
 // On Linux: $XDG_CACHE_HOME/micasa/documents (default ~/.cache/micasa/documents)
 func DocumentCacheDir() (string, error) {

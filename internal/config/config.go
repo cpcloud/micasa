@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -227,6 +228,146 @@ func applyEnvOverrides(cfg *Config) {
 			cfg.Documents.CacheTTLDays = &n
 		}
 	}
+}
+
+// Get resolves a dot-delimited config key to its string representation.
+// Keys mirror the TOML structure (e.g. "llm.model", "documents.max_file_size").
+// Uses struct reflection on `toml` tags to walk the config tree.
+func (c Config) Get(key string) (string, error) {
+	return getField(reflect.ValueOf(c), key)
+}
+
+// getField walks a struct value using dot-delimited TOML tag names and returns
+// the leaf value as a string.
+func getField(v reflect.Value, key string) (string, error) {
+	parts := strings.SplitN(key, ".", 2)
+	tag := parts[0]
+
+	t := v.Type()
+	for i := range t.NumField() {
+		f := t.Field(i)
+		tomlTag := tomlTagName(f)
+		if tomlTag != tag {
+			continue
+		}
+		fv := v.Field(i)
+
+		// Recurse into nested structs.
+		if len(parts) == 2 {
+			if fv.Kind() == reflect.Struct {
+				return getField(fv, parts[1])
+			}
+			if fv.Kind() == reflect.Pointer && !fv.IsNil() && fv.Elem().Kind() == reflect.Struct {
+				return getField(fv.Elem(), parts[1])
+			}
+			return "", fmt.Errorf("key %q: %q is not a section", key, tag)
+		}
+
+		// Leaf field — format the value.
+		return formatValue(fv)
+	}
+	return "", fmt.Errorf("unknown config key %q", key)
+}
+
+// tomlTagName extracts the TOML field name from a struct tag, ignoring
+// options like "omitempty".
+func tomlTagName(f reflect.StructField) string {
+	tag := f.Tag.Get("toml")
+	if tag == "" || tag == "-" {
+		return ""
+	}
+	if i := strings.IndexByte(tag, ','); i >= 0 {
+		return tag[:i]
+	}
+	return tag
+}
+
+// formatValue converts a reflected config field to its string representation.
+func formatValue(v reflect.Value) (string, error) {
+	// Dereference pointers.
+	if v.Kind() == reflect.Pointer {
+		if v.IsNil() {
+			return "", nil
+		}
+		v = v.Elem()
+	}
+
+	// Handle known types by interface.
+	iface := v.Interface()
+	switch val := iface.(type) {
+	case ByteSize:
+		return strconv.FormatUint(val.Bytes(), 10), nil
+	case Duration:
+		return val.String(), nil
+	case fmt.Stringer:
+		return val.String(), nil
+	}
+
+	switch v.Kind() {
+	case reflect.String:
+		return v.String(), nil
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return strconv.FormatInt(v.Int(), 10), nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return strconv.FormatUint(v.Uint(), 10), nil
+	case reflect.Float32, reflect.Float64:
+		return strconv.FormatFloat(v.Float(), 'f', -1, 64), nil
+	case reflect.Bool:
+		return strconv.FormatBool(v.Bool()), nil
+	case reflect.Slice:
+		var lines []string
+		for i := range v.Len() {
+			s, err := formatValue(v.Index(i))
+			if err != nil {
+				return "", err
+			}
+			lines = append(lines, s)
+		}
+		return strings.Join(lines, "\n"), nil
+	default:
+		return fmt.Sprintf("%v", iface), nil
+	}
+}
+
+// Keys returns the sorted list of valid dot-delimited config key names
+// by reflecting on the Config struct's TOML tags.
+func Keys() []string {
+	return collectKeys(reflect.TypeOf(Config{}), "")
+}
+
+func collectKeys(t reflect.Type, prefix string) []string {
+	var keys []string
+	for i := range t.NumField() {
+		f := t.Field(i)
+		tag := tomlTagName(f)
+		if tag == "" {
+			continue
+		}
+		full := tag
+		if prefix != "" {
+			full = prefix + "." + tag
+		}
+		ft := f.Type
+		if ft.Kind() == reflect.Pointer {
+			ft = ft.Elem()
+		}
+		if ft.Kind() == reflect.Struct && ft.PkgPath() != "" {
+			// Nested config section — but only recurse into our own types,
+			// not stdlib types like time.Duration.
+			if _, isBytes := reflect.New(ft).Interface().(*ByteSize); isBytes {
+				keys = append(keys, full)
+			} else if _, isDur := reflect.New(ft).Interface().(*Duration); isDur {
+				keys = append(keys, full)
+			} else if ft.NumField() > 0 && tomlTagName(ft.Field(0)) != "" {
+				keys = append(keys, collectKeys(ft, full)...)
+			} else {
+				keys = append(keys, full)
+			}
+		} else {
+			keys = append(keys, full)
+		}
+	}
+	return keys
 }
 
 // ExampleTOML returns a commented config file suitable for writing as a

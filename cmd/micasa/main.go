@@ -25,19 +25,23 @@ var version = "dev"
 type cli struct {
 	Run     runCmd           `cmd:"" default:"withargs" help:"Launch the TUI (default)."`
 	Backup  backupCmd        `cmd:""                    help:"Back up the database to a file."`
+	Config  configCmd        `cmd:""                    help:"Read configuration values."`
 	Version kong.VersionFlag `                          help:"Show version and exit."          name:"version"`
 }
 
 type runCmd struct {
-	DBPath    string `arg:"" optional:"" help:"SQLite database path. Pass with --demo to persist demo data."        env:"MICASA_DB_PATH"`
-	Demo      bool   `                   help:"Launch with sample data in an in-memory database."`
-	Years     int    `                   help:"Generate N years of simulated home ownership data. Requires --demo."`
-	PrintPath bool   `                   help:"Print the resolved database path and exit."`
+	DBPath string `arg:"" optional:"" help:"SQLite database path. Pass with --demo to persist demo data."        env:"MICASA_DB_PATH"`
+	Demo   bool   `                   help:"Launch with sample data in an in-memory database."`
+	Years  int    `                   help:"Generate N years of simulated home ownership data. Requires --demo."`
 }
 
 type backupCmd struct {
 	Dest   string `arg:"" optional:"" help:"Destination file path. Defaults to <source>.backup."`
 	Source string `                   help:"Source database path. Defaults to the standard location." default:"" env:"MICASA_DB_PATH"`
+}
+
+type configCmd struct {
+	Get string `help:"Print the value of a config key (dot-delimited, e.g. llm.model)." name:"get"`
 }
 
 func main() {
@@ -61,10 +65,6 @@ func (cmd *runCmd) Run() error {
 	dbPath, err := cmd.resolveDBPath()
 	if err != nil {
 		return fmt.Errorf("resolve db path: %w", err)
-	}
-	if cmd.PrintPath {
-		fmt.Println(dbPath)
-		return nil
 	}
 	if cmd.Years > 0 && !cmd.Demo {
 		return fmt.Errorf("--years requires --demo")
@@ -152,6 +152,44 @@ func (cmd *runCmd) resolveDBPath() (string, error) {
 		return ":memory:", nil
 	}
 	return data.DefaultDBPath()
+}
+
+func (cmd *configCmd) Run() error {
+	if cmd.Get == "" {
+		return fmt.Errorf("--get is required")
+	}
+
+	// Virtual keys for paths that aren't in the TOML file.
+	switch cmd.Get {
+	case "data_dir":
+		dir, err := data.DefaultDataDir()
+		if err != nil {
+			return err
+		}
+		fmt.Println(dir)
+		return nil
+	case "db_path":
+		p, err := data.DefaultDBPath()
+		if err != nil {
+			return err
+		}
+		fmt.Println(p)
+		return nil
+	case "config_path":
+		fmt.Println(config.Path())
+		return nil
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+	val, err := cfg.Get(cmd.Get)
+	if err != nil {
+		return err
+	}
+	fmt.Println(val)
+	return nil
 }
 
 func (cmd *backupCmd) Run() error {
