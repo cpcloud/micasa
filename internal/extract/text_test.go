@@ -52,7 +52,7 @@ func TestExtractText_OctetStream(t *testing.T) {
 
 func TestExtractText_InvalidPDF(t *testing.T) {
 	if !HasPDFToText() {
-		t.Skip("pdftotext not available")
+		skipOrFatalCI(t, "pdftotext not available")
 	}
 	_, err := ExtractText([]byte("not a pdf"), "application/pdf", 0)
 	assert.Error(t, err)
@@ -61,15 +61,12 @@ func TestExtractText_InvalidPDF(t *testing.T) {
 
 func TestExtractText_PDF(t *testing.T) {
 	if !HasPDFToText() {
-		t.Skip("pdftotext not available")
+		skipOrFatalCI(t, "pdftotext not available")
 	}
 	pdfPath := filepath.Join("testdata", "sample.pdf")
 	data, err := os.ReadFile(pdfPath) //nolint:gosec // test fixture path
 	if err != nil {
-		t.Skipf(
-			"test fixture %s not found: generate with `go generate ./internal/extract/`",
-			pdfPath,
-		)
+		skipOrFatalCI(t, "test fixture not found: "+pdfPath)
 	}
 	text, err := ExtractText(data, "application/pdf", 0)
 	require.NoError(t, err)
