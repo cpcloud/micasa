@@ -1,0 +1,27 @@
+# Copyright 2026 Phillip Cloud
+# Licensed under the Apache License, Version 2.0
+
+# Generates a minimal PDF with extractable text (Invoice #1234).
+# The PDF is pre-built and embedded as base64 to avoid runtime dependencies.
+
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")"
+
+mkdir -p testdata
+[[ -f testdata/sample.pdf ]] && exit 0
+
+base64 --decode <<'EOF' > testdata/sample.pdf
+JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2Jq
+CjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2Jq
+CjQgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0
+aWNhID4+CmVuZG9iago1IDAgb2JqCjw8IC9MZW5ndGggMTQ1ID4+CnN0cmVhbQpCVAovRjEgMTIg
+VGYKNzIgNzIwIFRkCihJbnZvaWNlICMxMjM0KSBUagowIC0yMCBUZAooRGF0ZTogMjAyNS0wMS0x
+NSkgVGoKMCAtMjAgVGQKKFZlbmRvcjogR2FyY2lhIFBsdW1iaW5nKSBUagowIC0yMCBUZAooVG90
+YWw6ICQxLDUwMC4wMCkgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagozIDAgb2JqCjw8IC9UeXBlIC9Q
+YWdlIC9QYXJlbnQgMiAwIFIgL01lZGlhQm94IFswIDAgNjEyIDc5Ml0gL0NvbnRlbnRzIDUgMCBS
+IC9SZXNvdXJjZXMgPDwgL0ZvbnQgPDwgL0YxIDQgMCBSID4+ID4+ID4+CmVuZG9iagp4cmVmCjAg
+NgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAw
+MCBuIAowMDAwMDAwMzgwIDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMDE4NSAw
+MDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDYgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjUwNgol
+JUVPRgo=
+EOF
