@@ -51,3 +51,41 @@ func TestWrapOpenerError_OtherError(t *testing.T) {
 	got := wrapOpenerError(other, "xdg-open")
 	assert.Equal(t, other, got, "non-ErrNotFound errors should pass through unchanged")
 }
+
+func TestIsDocumentTab(t *testing.T) {
+	tests := []struct {
+		name string
+		tab  *Tab
+		want bool
+	}{
+		{name: "nil tab", tab: nil, want: false},
+		{
+			name: "top-level documents tab",
+			tab:  &Tab{Kind: tabDocuments},
+			want: true,
+		},
+		{
+			name: "entity-scoped document sub-tab",
+			tab: &Tab{
+				Kind:    tabAppliances,
+				Handler: newEntityDocumentHandler("appliance", 1),
+			},
+			want: true,
+		},
+		{
+			name: "non-document tab",
+			tab:  &Tab{Kind: tabAppliances, Handler: applianceHandler{}},
+			want: false,
+		},
+		{
+			name: "nil handler non-document kind",
+			tab:  &Tab{Kind: tabProjects},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isDocumentTab(tt.tab))
+		})
+	}
+}

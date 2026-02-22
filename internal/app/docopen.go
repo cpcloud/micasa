@@ -16,12 +16,22 @@ import (
 // Bubble Tea event loop so the status bar can surface errors.
 type openFileResultMsg struct{ Err error }
 
+// isDocumentTab reports whether tab displays documents, covering both the
+// top-level Documents tab and entity-scoped document sub-tabs (e.g.
+// Appliances > Docs).
+func isDocumentTab(tab *Tab) bool {
+	if tab == nil {
+		return false
+	}
+	return tab.Kind == tabDocuments ||
+		(tab.Handler != nil && tab.Handler.FormKind() == formDocument)
+}
+
 // openSelectedDocument extracts the selected document to the cache and
-// launches the OS-appropriate viewer. Only operates on the Documents tab;
-// returns nil (no-op) on other tabs.
+// launches the OS-appropriate viewer. Only operates on document tabs
+// (top-level or entity-scoped); returns nil (no-op) on other tabs.
 func (m *Model) openSelectedDocument() tea.Cmd {
-	tab := m.effectiveTab()
-	if tab == nil || tab.Kind != tabDocuments {
+	if !isDocumentTab(m.effectiveTab()) {
 		return nil
 	}
 
