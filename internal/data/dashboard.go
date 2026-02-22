@@ -20,7 +20,7 @@ func (s *Store) ListMaintenanceWithSchedule() ([]MaintenanceItem, error) {
 		Preload("Appliance", func(q *gorm.DB) *gorm.DB {
 			return q.Unscoped()
 		}).
-		Order(ColUpdatedAt + " desc").
+		Order(ColUpdatedAt + " desc, " + ColID + " desc").
 		Find(&items).Error
 	return items, err
 }
@@ -32,7 +32,7 @@ func (s *Store) ListActiveProjects() ([]Project, error) {
 	err := s.db.
 		Where(ColStatus+" IN ?", []string{ProjectStatusInProgress, ProjectStatusDelayed}).
 		Preload("ProjectType").
-		Order(ColUpdatedAt + " desc").
+		Order(ColUpdatedAt + " desc, " + ColID + " desc").
 		Find(&projects).Error
 	return projects, err
 }
@@ -54,7 +54,7 @@ func (s *Store) ListOpenIncidents() ([]Incident, error) {
 			" WHEN 'urgent' THEN 0" +
 			" WHEN 'soon' THEN 1" +
 			" WHEN 'whenever' THEN 2" +
-			" ELSE 3 END, " + ColUpdatedAt + " desc").
+			" ELSE 3 END, " + ColUpdatedAt + " desc, " + ColID + " desc").
 		Find(&incidents).Error
 	return incidents, err
 }
@@ -70,7 +70,7 @@ func (s *Store) ListExpiringWarranties(
 	to := now.Add(horizon)
 	err := s.db.
 		Where(ColWarrantyExpiry+" IS NOT NULL AND "+ColWarrantyExpiry+" BETWEEN ? AND ?", from, to).
-		Order(ColWarrantyExpiry + " asc").
+		Order(ColWarrantyExpiry + " asc, " + ColID + " desc").
 		Find(&appliances).Error
 	return appliances, err
 }
