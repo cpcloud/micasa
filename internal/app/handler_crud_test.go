@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/cpcloud/micasa/internal/data"
+	"github.com/cpcloud/micasa/internal/locale"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -29,7 +30,7 @@ func TestProjectHandlerLoadDeleteRestoreRoundTrip(t *testing.T) {
 	require.NoError(t, h.SubmitForm(m))
 
 	// Load should return the project.
-	rows, meta, cells, err := h.Load(m.store, false)
+	rows, meta, cells, err := h.Load(m.store, false, m.currency)
 	require.NoError(t, err)
 	require.Len(t, rows, 1)
 	require.Len(t, meta, 1)
@@ -40,18 +41,18 @@ func TestProjectHandlerLoadDeleteRestoreRoundTrip(t *testing.T) {
 	require.NoError(t, h.Delete(m.store, id))
 
 	// Load without deleted should be empty.
-	rows, _, _, err = h.Load(m.store, false)
+	rows, _, _, err = h.Load(m.store, false, m.currency)
 	require.NoError(t, err)
 	assert.Empty(t, rows)
 
 	// Load with deleted should show it.
-	rows, _, _, err = h.Load(m.store, true)
+	rows, _, _, err = h.Load(m.store, true, m.currency)
 	require.NoError(t, err)
 	assert.Len(t, rows, 1)
 
 	// Restore.
 	require.NoError(t, h.Restore(m.store, id))
-	rows, _, _, _ = h.Load(m.store, false)
+	rows, _, _, _ = h.Load(m.store, false, m.currency)
 	assert.Len(t, rows, 1)
 }
 
@@ -66,7 +67,7 @@ func TestProjectHandlerEditRoundTrip(t *testing.T) {
 		Status:        data.ProjectStatusIdeating,
 	}
 	require.NoError(t, h.SubmitForm(m))
-	_, meta, _, _ := h.Load(m.store, false)
+	_, meta, _, _ := h.Load(m.store, false, m.currency)
 	id := meta[0].ID
 
 	// Edit via form data.
@@ -99,7 +100,7 @@ func TestProjectHandlerSnapshot(t *testing.T) {
 		Status:        data.ProjectStatusPlanned,
 	}
 	require.NoError(t, h.SubmitForm(m))
-	_, meta, _, _ := h.Load(m.store, false)
+	_, meta, _, _ := h.Load(m.store, false, m.currency)
 	id := meta[0].ID
 
 	entry, ok := h.Snapshot(m.store, id)
@@ -149,7 +150,7 @@ func TestProjectTabStatusFiltersRows(t *testing.T) {
 	// Pin only "planned" → filter shows only planned rows.
 	togglePin(tab, col, data.ProjectStatusPlanned)
 	tab.FilterActive = true
-	applyRowFilter(tab, false)
+	applyRowFilter(tab, false, locale.DefaultCurrency().Symbol())
 	assert.Len(t, tab.Rows, 1, "rows with only planned pinned")
 
 	// Clear and pin active statuses (what 't' does) → hides settled.
@@ -158,7 +159,7 @@ func TestProjectTabStatusFiltersRows(t *testing.T) {
 		togglePin(tab, col, s)
 	}
 	tab.FilterActive = true
-	applyRowFilter(tab, false)
+	applyRowFilter(tab, false, locale.DefaultCurrency().Symbol())
 	assert.Len(t, tab.Rows, 2, "rows with settled hidden")
 	for i, cells := range tab.CellRows {
 		if len(cells) > col {
@@ -170,7 +171,7 @@ func TestProjectTabStatusFiltersRows(t *testing.T) {
 
 	// Clear all pins → shows everything.
 	clearPins(tab)
-	applyRowFilter(tab, false)
+	applyRowFilter(tab, false, locale.DefaultCurrency().Symbol())
 	assert.Len(t, tab.Rows, 4, "rows after clearing all pins")
 }
 
@@ -218,17 +219,17 @@ func TestApplianceHandlerLoadDeleteRestoreRoundTrip(t *testing.T) {
 	m.formData = &applianceFormData{Name: "Washer"}
 	require.NoError(t, h.SubmitForm(m))
 
-	rows, meta, _, err := h.Load(m.store, false)
+	rows, meta, _, err := h.Load(m.store, false, m.currency)
 	require.NoError(t, err)
 	require.Len(t, rows, 1)
 	id := meta[0].ID
 
 	require.NoError(t, h.Delete(m.store, id))
-	rows, _, _, _ = h.Load(m.store, false)
+	rows, _, _, _ = h.Load(m.store, false, m.currency)
 	assert.Empty(t, rows)
 
 	require.NoError(t, h.Restore(m.store, id))
-	rows, _, _, _ = h.Load(m.store, false)
+	rows, _, _, _ = h.Load(m.store, false, m.currency)
 	assert.Len(t, rows, 1)
 }
 
@@ -238,7 +239,7 @@ func TestApplianceHandlerEditRoundTrip(t *testing.T) {
 
 	m.formData = &applianceFormData{Name: "Dryer"}
 	require.NoError(t, h.SubmitForm(m))
-	_, meta, _, _ := h.Load(m.store, false)
+	_, meta, _, _ := h.Load(m.store, false, m.currency)
 	id := meta[0].ID
 
 	editID := id
@@ -273,17 +274,17 @@ func TestMaintenanceHandlerLoadDeleteRestoreRoundTrip(t *testing.T) {
 	}
 	require.NoError(t, h.SubmitForm(m))
 
-	rows, meta, _, err := h.Load(m.store, false)
+	rows, meta, _, err := h.Load(m.store, false, m.currency)
 	require.NoError(t, err)
 	require.Len(t, rows, 1)
 	id := meta[0].ID
 
 	require.NoError(t, h.Delete(m.store, id))
-	rows, _, _, _ = h.Load(m.store, false)
+	rows, _, _, _ = h.Load(m.store, false, m.currency)
 	assert.Empty(t, rows)
 
 	require.NoError(t, h.Restore(m.store, id))
-	rows, _, _, _ = h.Load(m.store, false)
+	rows, _, _, _ = h.Load(m.store, false, m.currency)
 	assert.Len(t, rows, 1)
 }
 
@@ -301,7 +302,7 @@ func TestVendorHandlerLoadAndSubmit(t *testing.T) {
 	}
 	require.NoError(t, h.SubmitForm(m))
 
-	rows, meta, _, err := h.Load(m.store, false)
+	rows, meta, _, err := h.Load(m.store, false, m.currency)
 	require.NoError(t, err)
 	require.Len(t, rows, 1)
 
@@ -349,19 +350,19 @@ func TestQuoteHandlerRoundTrip(t *testing.T) {
 	}
 	require.NoError(t, h.SubmitForm(m))
 
-	rows, meta, _, err := h.Load(m.store, false)
+	rows, meta, _, err := h.Load(m.store, false, m.currency)
 	require.NoError(t, err)
 	require.Len(t, rows, 1)
 	id := meta[0].ID
 
 	// Delete.
 	require.NoError(t, h.Delete(m.store, id))
-	rows, _, _, _ = h.Load(m.store, false)
+	rows, _, _, _ = h.Load(m.store, false, m.currency)
 	assert.Empty(t, rows)
 
 	// Restore.
 	require.NoError(t, h.Restore(m.store, id))
-	rows, _, _, _ = h.Load(m.store, false)
+	rows, _, _, _ = h.Load(m.store, false, m.currency)
 	assert.Len(t, rows, 1)
 }
 
@@ -383,7 +384,7 @@ func TestQuoteHandlerSnapshot(t *testing.T) {
 		Total:      "200.00",
 	}
 	require.NoError(t, h.SubmitForm(m))
-	_, meta, _, _ := h.Load(m.store, false)
+	_, meta, _, _ := h.Load(m.store, false, m.currency)
 	id := meta[0].ID
 
 	entry, ok := h.Snapshot(m.store, id)
@@ -417,19 +418,19 @@ func TestServiceLogHandlerRoundTrip(t *testing.T) {
 	}
 	require.NoError(t, h.SubmitForm(m))
 
-	rows, meta, _, err := h.Load(m.store, false)
+	rows, meta, _, err := h.Load(m.store, false, m.currency)
 	require.NoError(t, err)
 	require.Len(t, rows, 1)
 	id := meta[0].ID
 
 	// Delete.
 	require.NoError(t, h.Delete(m.store, id))
-	rows, _, _, _ = h.Load(m.store, false)
+	rows, _, _, _ = h.Load(m.store, false, m.currency)
 	assert.Empty(t, rows)
 
 	// Restore.
 	require.NoError(t, h.Restore(m.store, id))
-	rows, _, _, _ = h.Load(m.store, false)
+	rows, _, _, _ = h.Load(m.store, false, m.currency)
 	assert.Len(t, rows, 1)
 }
 
@@ -451,7 +452,7 @@ func TestServiceLogHandlerSnapshot(t *testing.T) {
 		ServicedAt:        "2026-01-20",
 	}
 	require.NoError(t, h.SubmitForm(m))
-	_, meta, _, _ := h.Load(m.store, false)
+	_, meta, _, _ := h.Load(m.store, false, m.currency)
 	id := meta[0].ID
 
 	entry, ok := h.Snapshot(m.store, id)
@@ -550,7 +551,7 @@ func TestVendorJobsInlineEditNotesOpensTextarea(t *testing.T) {
 	))
 
 	h := newVendorJobsHandler(vendorID)
-	rows, meta, _, err := h.Load(m.store, false)
+	rows, meta, _, err := h.Load(m.store, false, m.currency)
 	require.NoError(t, err)
 	require.Len(t, rows, 1)
 
@@ -585,7 +586,7 @@ func TestVendorJobsInlineEditItemShowsStatusMessage(t *testing.T) {
 	))
 
 	h := newVendorJobsHandler(vendorID)
-	_, meta, _, err := h.Load(m.store, false)
+	_, meta, _, err := h.Load(m.store, false, m.currency)
 	require.NoError(t, err)
 
 	// Item is a FK reference; should set a status message.
@@ -610,7 +611,7 @@ func TestIncidentHandlerLoadDeleteRestoreRoundTrip(t *testing.T) {
 	}
 	require.NoError(t, h.SubmitForm(m))
 
-	rows, meta, cells, err := h.Load(m.store, false)
+	rows, meta, cells, err := h.Load(m.store, false, m.currency)
 	require.NoError(t, err)
 	require.Len(t, rows, 1)
 	require.Len(t, meta, 1)
@@ -619,18 +620,18 @@ func TestIncidentHandlerLoadDeleteRestoreRoundTrip(t *testing.T) {
 
 	// Delete.
 	require.NoError(t, h.Delete(m.store, id))
-	rows, _, _, err = h.Load(m.store, false)
+	rows, _, _, err = h.Load(m.store, false, m.currency)
 	require.NoError(t, err)
 	assert.Empty(t, rows)
 
 	// Load with deleted should show it.
-	rows, _, _, err = h.Load(m.store, true)
+	rows, _, _, err = h.Load(m.store, true, m.currency)
 	require.NoError(t, err)
 	assert.Len(t, rows, 1)
 
 	// Restore.
 	require.NoError(t, h.Restore(m.store, id))
-	rows, _, _, _ = h.Load(m.store, false)
+	rows, _, _, _ = h.Load(m.store, false, m.currency)
 	assert.Len(t, rows, 1)
 }
 
@@ -645,7 +646,7 @@ func TestIncidentHandlerEditRoundTrip(t *testing.T) {
 		DateNoticed: "2026-02-01",
 	}
 	require.NoError(t, h.SubmitForm(m))
-	_, meta, _, _ := h.Load(m.store, false)
+	_, meta, _, _ := h.Load(m.store, false, m.currency)
 	id := meta[0].ID
 
 	editID := id
@@ -679,7 +680,7 @@ func TestIncidentHandlerSnapshot(t *testing.T) {
 		DateNoticed: "2026-01-10",
 	}
 	require.NoError(t, h.SubmitForm(m))
-	_, meta, _, _ := h.Load(m.store, false)
+	_, meta, _, _ := h.Load(m.store, false, m.currency)
 	id := meta[0].ID
 
 	entry, ok := h.Snapshot(m.store, id)
@@ -768,7 +769,7 @@ func TestApplianceMaintenanceHandlerLoad(t *testing.T) {
 	}))
 
 	h := newApplianceMaintenanceHandler(appID)
-	rows, meta, _, err := h.Load(m.store, false)
+	rows, meta, _, err := h.Load(m.store, false, m.currency)
 	require.NoError(t, err)
 	require.Len(t, rows, 1)
 	assert.NotZero(t, meta[0].ID)

@@ -9,6 +9,7 @@ import (
 
 	"github.com/cpcloud/micasa/internal/data"
 	"github.com/cpcloud/micasa/internal/fake"
+	"github.com/cpcloud/micasa/internal/locale"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,7 +26,7 @@ func newTestModelWithDemoData(t *testing.T, seed uint64) *Model {
 	require.NoError(t, store.SeedDefaults())
 	h := fake.New(seed)
 	require.NoError(t, store.SeedDemoDataFrom(h))
-	m, err := NewModel(store, Options{DBPath: path})
+	m, err := NewModel(store, Options{DBPath: path, Currency: locale.DefaultCurrency()})
 	require.NoError(t, err)
 	m.width = 120
 	m.height = 40

@@ -268,7 +268,7 @@ func TestNaturalWidthsMultilineNotesFirstLine(t *testing.T) {
 	rows := [][]cell{
 		{{Value: "short\nvery long second line here", Kind: cellNotes}},
 	}
-	widths := naturalWidths(specs, rows)
+	widths := naturalWidths(specs, rows, "$")
 	// Width: first line ("short" = 5) + "…" (1) + gap (1) + "+1" (2) = 9.
 	// Not the longer second line (26).
 	require.Len(t, widths, 1)

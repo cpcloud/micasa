@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/cpcloud/micasa/internal/data"
+	"github.com/cpcloud/micasa/internal/locale"
 	"github.com/stretchr/testify/require"
 )
 
@@ -32,7 +33,7 @@ func newTestModelWithStore(t *testing.T) *Model {
 		Nickname: "Test House",
 	}))
 
-	m, err := NewModel(store, Options{DBPath: path})
+	m, err := NewModel(store, Options{DBPath: path, Currency: locale.DefaultCurrency()})
 	require.NoError(t, err)
 	m.width = 120
 	m.height = 40

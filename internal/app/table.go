@@ -136,7 +136,13 @@ type tableViewport struct {
 	VisToFull     []int // viewport column index → full tab.Specs index
 }
 
-func computeTableViewport(tab *Tab, termWidth int, normalSep string, styles Styles) tableViewport {
+func computeTableViewport(
+	tab *Tab,
+	termWidth int,
+	normalSep string,
+	styles Styles,
+	currencySymbol string,
+) tableViewport {
 	var vp tableViewport
 	if tab == nil {
 		return vp
@@ -148,7 +154,7 @@ func computeTableViewport(tab *Tab, termWidth int, normalSep string, styles Styl
 
 	// Compute natural widths once for visible columns, then reuse for both
 	// columnWidths calls below (avoids a duplicate O(rows*cols) measurement).
-	visNatural := naturalWidths(visSpecs, visCells)
+	visNatural := naturalWidths(visSpecs, visCells, currencySymbol)
 
 	sepW := lipgloss.Width(normalSep)
 	fullWidths := columnWidths(visSpecs, visCells, termWidth, sepW, visNatural)
@@ -178,7 +184,7 @@ func computeTableViewport(tab *Tab, termWidth int, normalSep string, styles Styl
 	if len(tab.Pins) > 0 && len(tab.FullCellRows) > 0 {
 		fullCells = projectCellRows(tab.FullCellRows, visToFull, start, end)
 		allFullCells := projectCellRows(tab.FullCellRows, visToFull, 0, len(visToFull))
-		fullNatural := naturalWidths(visSpecs, allFullCells)
+		fullNatural := naturalWidths(visSpecs, allFullCells, currencySymbol)
 		natSlice = fullNatural[start:end]
 	}
 	vp.LinkCells = fullCells
@@ -267,16 +273,18 @@ func sortIndicatorWidth(columnCount int) int {
 }
 
 // headerTitleWidth returns the rendered width of a column header including
-// any suffix added at render time (link arrow, drilldown arrow, money "$")
+// any suffix added at render time (link arrow, drilldown arrow, money symbol)
 // plus room for the worst-case sort indicator given the column count.
-func headerTitleWidth(spec columnSpec, columnCount int) int {
+// currencySymbol is the narrow currency glyph (e.g. "$", "EUR") used in
+// money header annotations.
+func headerTitleWidth(spec columnSpec, columnCount int, currencySymbol string) int {
 	w := lipgloss.Width(spec.Title)
 	if spec.Link != nil || spec.Kind == cellEntity {
 		w += 1 + lipgloss.Width(linkArrow) // " →"
 	} else if spec.Kind == cellDrilldown {
 		w += 1 + lipgloss.Width(drilldownArrow) // " ↘"
 	} else if spec.Kind == cellMoney {
-		w += 1 + 1 // " $" annotation added by annotateMoneyHeaders
+		w += 1 + lipgloss.Width(currencySymbol) // " $" / " €" / " £"
 	}
 	w += sortIndicatorWidth(columnCount)
 	return w
@@ -325,10 +333,11 @@ func renderDivider(
 // pinRenderContext carries pin state into the rendering pipeline so cells and
 // rows can be styled for pin preview / filter mode.
 type pinRenderContext struct {
-	Pins     []filterPin // nil when no pins are active
-	RawCells [][]cell    // pre-transform cells for pin matching (viewport coords)
-	MagMode  bool        // true when magnitude display is active
-	Inverted bool        // true when filter is inverted (highlight non-matching)
+	Pins           []filterPin // nil when no pins are active
+	RawCells       [][]cell    // pre-transform cells for pin matching (viewport coords)
+	MagMode        bool        // true when magnitude display is active
+	Inverted       bool        // true when filter is inverted (highlight non-matching)
+	CurrencySymbol string      // currency symbol for mag-mode formatting
 }
 
 func renderRows(
@@ -426,7 +435,13 @@ func renderRow(
 			if rowIdx < len(pinCtx.RawCells) && i < len(pinCtx.RawCells[rowIdx]) {
 				rawCell = pinCtx.RawCells[rowIdx][i]
 			}
-			pinMatch = cellMatchesPin(pinCtx.Pins, i, rawCell, pinCtx.MagMode)
+			pinMatch = cellMatchesPin(
+				pinCtx.Pins,
+				i,
+				rawCell,
+				pinCtx.MagMode,
+				pinCtx.CurrencySymbol,
+			)
 			// When inverted, highlight non-matching cells in pinned columns.
 			if pinCtx.Inverted && columnHasPin(pinCtx.Pins, i) {
 				pinMatch = !pinMatch
@@ -452,8 +467,8 @@ func columnHasPin(pins []filterPin, col int) bool {
 // (in the viewport's coordinate space). Uses the raw cell value (pre-display
 // transform) and applies mag formatting when magMode is true to stay
 // consistent with how pins were stored.
-func cellMatchesPin(pins []filterPin, col int, c cell, magMode bool) bool {
-	key := cellDisplayValue(c, magMode)
+func cellMatchesPin(pins []filterPin, col int, c cell, magMode bool, currencySymbol string) bool {
+	key := cellDisplayValue(c, magMode, currencySymbol)
 	for _, pin := range pins {
 		if pin.Col == col {
 			return pin.Values[key]
@@ -857,7 +872,7 @@ func columnWidths(
 
 	natural := precompNatural
 	if natural == nil {
-		natural = naturalWidths(specs, rows)
+		natural = naturalWidths(specs, rows, "$")
 	}
 
 	// If content-driven widths fit, use them — no truncation.
@@ -912,11 +927,11 @@ func columnWidths(
 
 // naturalWidths returns the content-driven width for each column (header,
 // fixed values, and actual cell values) floored by Min but NOT capped by Max.
-func naturalWidths(specs []columnSpec, rows [][]cell) []int {
+func naturalWidths(specs []columnSpec, rows [][]cell, currencySymbol string) []int {
 	widths := make([]int, len(specs))
 	colCount := len(specs)
 	for i, spec := range specs {
-		w := headerTitleWidth(spec, colCount)
+		w := headerTitleWidth(spec, colCount, currencySymbol)
 		for _, fv := range spec.FixedValues {
 			if fw := lipgloss.Width(fv); fw > w {
 				w = fw

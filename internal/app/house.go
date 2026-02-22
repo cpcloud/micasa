@@ -10,6 +10,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/cpcloud/micasa/internal/data"
+	"github.com/cpcloud/micasa/internal/locale"
 	"github.com/dustin/go-humanize"
 )
 
@@ -91,8 +92,8 @@ func (m *Model) houseExpanded() string {
 		m.hlv("renew", data.FormatDate(m.house.InsuranceRenewal)),
 	)
 	finLine2 := joinStyledParts(sep,
-		m.hlv("tax", data.FormatOptionalCents(m.house.PropertyTaxCents)),
-		m.hlv("hoa", hoaSummary(m.house)),
+		m.hlv("tax", m.currency.FormatOptionalCents(m.house.PropertyTaxCents)),
+		m.hlv("hoa", hoaSummary(m.house, m.currency)),
 	)
 	financial := m.houseSection("Financial", finLine1, finLine2)
 
@@ -250,11 +251,11 @@ func formatAddress(profile data.HouseProfile) string {
 	return joinWithSeparator(", ", parts...)
 }
 
-func hoaSummary(profile data.HouseProfile) string {
+func hoaSummary(profile data.HouseProfile, cur locale.Currency) string {
 	if profile.HOAName == "" && profile.HOAFeeCents == nil {
 		return ""
 	}
-	fee := data.FormatOptionalCents(profile.HOAFeeCents)
+	fee := cur.FormatOptionalCents(profile.HOAFeeCents)
 	if profile.HOAName == "" {
 		return fee
 	}

@@ -111,7 +111,7 @@ func BenchmarkNaturalWidths(b *testing.B) {
 	visSpecs, visCells, _, _, _ := visibleProjection(tab)
 	b.ResetTimer()
 	for b.Loop() {
-		_ = naturalWidths(visSpecs, visCells)
+		_ = naturalWidths(visSpecs, visCells, "$")
 	}
 }
 
@@ -130,7 +130,7 @@ func BenchmarkComputeTableViewport(b *testing.B) {
 	sep := m.styles.TableSeparator.Render(" │ ")
 	b.ResetTimer()
 	for b.Loop() {
-		_ = computeTableViewport(tab, 120, sep, m.styles)
+		_ = computeTableViewport(tab, 120, sep, m.styles, "$")
 	}
 }
 

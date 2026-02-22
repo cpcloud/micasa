@@ -18,6 +18,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/cpcloud/micasa/internal/data"
+	"github.com/cpcloud/micasa/internal/locale"
 )
 
 type houseFormData struct {
@@ -149,7 +150,7 @@ type applianceFormData struct {
 func (m *Model) startHouseForm() {
 	values := &houseFormData{}
 	if m.hasHouse {
-		values = houseFormValues(m.house)
+		values = houseFormValues(m.house, m.currency)
 	}
 
 	basicsGroup := huh.NewGroup(
@@ -221,13 +222,13 @@ func (m *Model) startHouseForm() {
 				Title("Property tax (annual)").
 				Placeholder("4200.00").
 				Value(&values.PropertyTax).
-				Validate(optionalMoney("property tax")),
+				Validate(optionalMoney("property tax", m.currency)),
 			huh.NewInput().Title("HOA name").Value(&values.HOAName),
 			huh.NewInput().
 				Title("HOA fee (monthly)").
 				Placeholder("250.00").
 				Value(&values.HOAFee).
-				Validate(optionalMoney("HOA fee")),
+				Validate(optionalMoney("HOA fee", m.currency)),
 		).Title("Financial"),
 	)
 	formWidth := 60
@@ -270,7 +271,7 @@ func (m *Model) startEditProjectForm(id uint) error {
 	if err != nil {
 		return fmt.Errorf("load project: %w", err)
 	}
-	values := projectFormValues(project)
+	values := projectFormValues(project, m.currency)
 	options := projectTypeOptions(m.projectTypes)
 	m.editID = &id
 	m.openProjectForm(values, options)
@@ -296,12 +297,12 @@ func (m *Model) openProjectForm(values *projectFormData, options []huh.Option[ui
 				Title("Budget").
 				Placeholder("1250.00").
 				Value(&values.Budget).
-				Validate(optionalMoney("budget")),
+				Validate(optionalMoney("budget", m.currency)),
 			huh.NewInput().
 				Title("Actual cost").
 				Placeholder("1400.00").
 				Value(&values.Actual).
-				Validate(optionalMoney("actual cost")),
+				Validate(optionalMoney("actual cost", m.currency)),
 		),
 		huh.NewGroup(
 			huh.NewInput().
@@ -345,7 +346,7 @@ func (m *Model) startQuoteForm() error {
 				Title(requiredTitle("Total")).
 				Placeholder("3250.00").
 				Value(&values.Total).
-				Validate(requiredMoney("total")),
+				Validate(requiredMoney("total", m.currency)),
 		),
 	)
 	m.activateForm(formQuote, form, values)
@@ -364,7 +365,7 @@ func (m *Model) startEditQuoteForm(id uint) error {
 	if len(projects) == 0 {
 		return fmt.Errorf("no projects available")
 	}
-	values := quoteFormValues(quote)
+	values := quoteFormValues(quote, m.currency)
 	options := projectOptions(projects)
 	m.editID = &id
 	m.openQuoteForm(values, options)
@@ -392,22 +393,22 @@ func (m *Model) openQuoteForm(values *quoteFormData, projectOpts []huh.Option[ui
 				Title(requiredTitle("Total")).
 				Placeholder("3250.00").
 				Value(&values.Total).
-				Validate(requiredMoney("total")),
+				Validate(requiredMoney("total", m.currency)),
 			huh.NewInput().
 				Title("Labor").
 				Placeholder("2000.00").
 				Value(&values.Labor).
-				Validate(optionalMoney("labor")),
+				Validate(optionalMoney("labor", m.currency)),
 			huh.NewInput().
 				Title("Materials").
 				Placeholder("1000.00").
 				Value(&values.Materials).
-				Validate(optionalMoney("materials")),
+				Validate(optionalMoney("materials", m.currency)),
 			huh.NewInput().
 				Title("Other").
 				Placeholder("250.00").
 				Value(&values.Other).
-				Validate(optionalMoney("other costs")),
+				Validate(optionalMoney("other costs", m.currency)),
 			huh.NewInput().
 				Title("Received date (YYYY-MM-DD)").
 				Value(&values.ReceivedDate).
@@ -456,7 +457,7 @@ func (m *Model) startEditMaintenanceForm(id uint) error {
 	if err != nil {
 		return fmt.Errorf("load maintenance item: %w", err)
 	}
-	values := maintenanceFormValues(item)
+	values := maintenanceFormValues(item, m.currency)
 	options := maintenanceOptions(m.maintenanceCategories)
 	appliances, _ := m.store.ListAppliances(false)
 	appOpts := applianceOptions(appliances)
@@ -502,7 +503,7 @@ func (m *Model) openMaintenanceForm(
 				Title("Cost").
 				Placeholder("125.00").
 				Value(&values.Cost).
-				Validate(optionalMoney("cost")),
+				Validate(optionalMoney("cost", m.currency)),
 			huh.NewText().Title("Notes").Value(&values.Notes),
 		).Title("Details"),
 	)
@@ -556,7 +557,7 @@ func (m *Model) startEditIncidentForm(id uint) error {
 	if err != nil {
 		return fmt.Errorf("load incident: %w", err)
 	}
-	values := incidentFormValues(item)
+	values := incidentFormValues(item, m.currency)
 	appliances, _ := m.store.ListAppliances(false)
 	appOpts := applianceOptions(appliances)
 	vendorOpts := optionalVendorOptions(m.vendors)
@@ -610,7 +611,7 @@ func (m *Model) openIncidentForm(
 				Title("Cost").
 				Placeholder("250.00").
 				Value(&values.Cost).
-				Validate(optionalMoney("cost")),
+				Validate(optionalMoney("cost", m.currency)),
 			huh.NewText().Title("Description").Value(&values.Description),
 			huh.NewText().Title("Notes").Value(&values.Notes),
 		).Title("Context"),
@@ -643,7 +644,7 @@ func (m *Model) parseIncidentFormData() (data.Incident, error) {
 	if err != nil {
 		return data.Incident{}, err
 	}
-	cost, err := data.ParseOptionalCents(values.Cost)
+	cost, err := m.currency.ParseOptionalCents(values.Cost)
 	if err != nil {
 		return data.Incident{}, err
 	}
@@ -675,7 +676,7 @@ func (m *Model) inlineEditIncident(id uint, col incidentCol) error {
 	if err != nil {
 		return fmt.Errorf("load incident: %w", err)
 	}
-	values := incidentFormValues(item)
+	values := incidentFormValues(item, m.currency)
 	switch col {
 	case incidentColTitle:
 		m.openInlineInput(
@@ -726,7 +727,7 @@ func (m *Model) inlineEditIncident(id uint, col incidentCol) error {
 			"Cost",
 			"250.00",
 			&values.Cost,
-			optionalMoney("cost"),
+			optionalMoney("cost", m.currency),
 			values,
 		)
 	case incidentColID, incidentColDocs:
@@ -735,7 +736,7 @@ func (m *Model) inlineEditIncident(id uint, col incidentCol) error {
 	return nil
 }
 
-func incidentFormValues(item data.Incident) *incidentFormData {
+func incidentFormValues(item data.Incident, cur locale.Currency) *incidentFormData {
 	var appID uint
 	if item.ApplianceID != nil {
 		appID = *item.ApplianceID
@@ -752,7 +753,7 @@ func incidentFormValues(item data.Incident) *incidentFormData {
 		DateNoticed:  item.DateNoticed.Format(data.DateLayout),
 		DateResolved: data.FormatDate(item.DateResolved),
 		Location:     item.Location,
-		Cost:         data.FormatOptionalCents(item.CostCents),
+		Cost:         cur.FormatOptionalCents(item.CostCents),
 		ApplianceID:  appID,
 		VendorID:     vendorID,
 		Notes:        item.Notes,
@@ -829,7 +830,7 @@ func (m *Model) startEditApplianceForm(id uint) error {
 	if err != nil {
 		return fmt.Errorf("load appliance: %w", err)
 	}
-	values := applianceFormValues(item)
+	values := applianceFormValues(item, m.currency)
 	m.editID = &id
 	m.openApplianceForm(values)
 	return nil
@@ -861,7 +862,7 @@ func (m *Model) openApplianceForm(values *applianceFormData) {
 				Title("Cost").
 				Placeholder("899.00").
 				Value(&values.Cost).
-				Validate(optionalMoney("cost")),
+				Validate(optionalMoney("cost", m.currency)),
 			huh.NewText().Title("Notes").Value(&values.Notes),
 		).Title("Details"),
 	)
@@ -898,7 +899,7 @@ func (m *Model) parseApplianceFormData() (data.Appliance, error) {
 	if err != nil {
 		return data.Appliance{}, err
 	}
-	cost, err := data.ParseOptionalCents(values.Cost)
+	cost, err := m.currency.ParseOptionalCents(values.Cost)
 	if err != nil {
 		return data.Appliance{}, err
 	}
@@ -1029,7 +1030,7 @@ func (m *Model) inlineEditProject(id uint, col projectCol) error {
 	if err != nil {
 		return fmt.Errorf("load project: %w", err)
 	}
-	values := projectFormValues(project)
+	values := projectFormValues(project, m.currency)
 	switch col {
 	case projectColType:
 		options := projectTypeOptions(m.projectTypes)
@@ -1059,7 +1060,7 @@ func (m *Model) inlineEditProject(id uint, col projectCol) error {
 			"Budget",
 			"1250.00",
 			&values.Budget,
-			optionalMoney("budget"),
+			optionalMoney("budget", m.currency),
 			values,
 		)
 	case projectColActual:
@@ -1069,7 +1070,7 @@ func (m *Model) inlineEditProject(id uint, col projectCol) error {
 			"Actual cost",
 			"1400.00",
 			&values.Actual,
-			optionalMoney("actual cost"),
+			optionalMoney("actual cost", m.currency),
 			values,
 		)
 	case projectColStart:
@@ -1091,7 +1092,7 @@ func (m *Model) inlineEditQuote(id uint, col quoteCol) error {
 	if err != nil {
 		return err
 	}
-	values := quoteFormValues(quote)
+	values := quoteFormValues(quote, m.currency)
 	switch col {
 	case quoteColProject:
 		projectOpts := projectOptions(projects)
@@ -1116,7 +1117,7 @@ func (m *Model) inlineEditQuote(id uint, col quoteCol) error {
 			"Total",
 			"3250.00",
 			&values.Total,
-			requiredMoney("total"),
+			requiredMoney("total", m.currency),
 			values,
 		)
 	case quoteColLabor:
@@ -1126,7 +1127,7 @@ func (m *Model) inlineEditQuote(id uint, col quoteCol) error {
 			"Labor",
 			"2000.00",
 			&values.Labor,
-			optionalMoney("labor"),
+			optionalMoney("labor", m.currency),
 			values,
 		)
 	case quoteColMat:
@@ -1136,7 +1137,7 @@ func (m *Model) inlineEditQuote(id uint, col quoteCol) error {
 			"Materials",
 			"1000.00",
 			&values.Materials,
-			optionalMoney("materials"),
+			optionalMoney("materials", m.currency),
 			values,
 		)
 	case quoteColOther:
@@ -1146,7 +1147,7 @@ func (m *Model) inlineEditQuote(id uint, col quoteCol) error {
 			"Other",
 			"250.00",
 			&values.Other,
-			optionalMoney("other costs"),
+			optionalMoney("other costs", m.currency),
 			values,
 		)
 	case quoteColRecv:
@@ -1162,7 +1163,7 @@ func (m *Model) inlineEditMaintenance(id uint, col maintenanceCol) error {
 	if err != nil {
 		return fmt.Errorf("load maintenance item: %w", err)
 	}
-	values := maintenanceFormValues(item)
+	values := maintenanceFormValues(item, m.currency)
 	switch col {
 	case maintenanceColItem:
 		m.openInlineInput(
@@ -1213,7 +1214,7 @@ func (m *Model) inlineEditAppliance(id uint, col applianceCol) error {
 	if err != nil {
 		return fmt.Errorf("load appliance: %w", err)
 	}
-	values := applianceFormValues(item)
+	values := applianceFormValues(item, m.currency)
 	switch col {
 	case applianceColName:
 		m.openInlineInput(id, formAppliance, "Name", "", &values.Name, requiredText("name"), values)
@@ -1236,7 +1237,7 @@ func (m *Model) inlineEditAppliance(id uint, col applianceCol) error {
 			"Cost",
 			"899.00",
 			&values.Cost,
-			optionalMoney("cost"),
+			optionalMoney("cost", m.currency),
 			values,
 		)
 	case applianceColID, applianceColAge, applianceColMaint, applianceColDocs:
@@ -1272,7 +1273,7 @@ func (m *Model) startEditServiceLogForm(id uint) error {
 	if err != nil {
 		return fmt.Errorf("load service log: %w", err)
 	}
-	values := serviceLogFormValues(entry)
+	values := serviceLogFormValues(entry, m.currency)
 	vendorOpts := vendorOptions(m.vendors)
 	m.editID = &id
 	m.openServiceLogForm(values, vendorOpts)
@@ -1297,7 +1298,7 @@ func (m *Model) openServiceLogForm(
 				Title("Cost").
 				Placeholder("125.00").
 				Value(&values.Cost).
-				Validate(optionalMoney("cost")),
+				Validate(optionalMoney("cost", m.currency)),
 			huh.NewText().Title("Notes").Value(&values.Notes),
 		),
 	)
@@ -1330,7 +1331,7 @@ func (m *Model) parseServiceLogFormData() (data.ServiceLogEntry, data.Vendor, er
 	if err != nil {
 		return data.ServiceLogEntry{}, data.Vendor{}, err
 	}
-	cost, err := data.ParseOptionalCents(values.Cost)
+	cost, err := m.currency.ParseOptionalCents(values.Cost)
 	if err != nil {
 		return data.ServiceLogEntry{}, data.Vendor{}, err
 	}
@@ -1358,7 +1359,7 @@ func (m *Model) inlineEditServiceLog(id uint, col serviceLogCol) error {
 	if err != nil {
 		return fmt.Errorf("load service log: %w", err)
 	}
-	values := serviceLogFormValues(entry)
+	values := serviceLogFormValues(entry, m.currency)
 	switch col {
 	case serviceLogColDate:
 		m.openDatePicker(id, formServiceLog, &values.ServicedAt, values)
@@ -1376,7 +1377,7 @@ func (m *Model) inlineEditServiceLog(id uint, col serviceLogCol) error {
 			"Cost",
 			"125.00",
 			&values.Cost,
-			optionalMoney("cost"),
+			optionalMoney("cost", m.currency),
 			values,
 		)
 	case serviceLogColNotes:
@@ -1387,7 +1388,7 @@ func (m *Model) inlineEditServiceLog(id uint, col serviceLogCol) error {
 	return nil
 }
 
-func serviceLogFormValues(entry data.ServiceLogEntry) *serviceLogFormData {
+func serviceLogFormValues(entry data.ServiceLogEntry, cur locale.Currency) *serviceLogFormData {
 	var vendorID uint
 	if entry.VendorID != nil {
 		vendorID = *entry.VendorID
@@ -1396,7 +1397,7 @@ func serviceLogFormValues(entry data.ServiceLogEntry) *serviceLogFormData {
 		MaintenanceItemID: entry.MaintenanceItemID,
 		ServicedAt:        entry.ServicedAt.Format(data.DateLayout),
 		VendorID:          vendorID,
-		Cost:              data.FormatOptionalCents(entry.CostCents),
+		Cost:              cur.FormatOptionalCents(entry.CostCents),
 		Notes:             entry.Notes,
 	}
 }
@@ -1756,11 +1757,11 @@ func (m *Model) submitHouseForm() error {
 	if err != nil {
 		return err
 	}
-	propertyTax, err := data.ParseOptionalCents(values.PropertyTax)
+	propertyTax, err := m.currency.ParseOptionalCents(values.PropertyTax)
 	if err != nil {
 		return err
 	}
-	hoaFee, err := data.ParseOptionalCents(values.HOAFee)
+	hoaFee, err := m.currency.ParseOptionalCents(values.HOAFee)
 	if err != nil {
 		return err
 	}
@@ -1829,11 +1830,11 @@ func (m *Model) parseProjectFormData() (data.Project, error) {
 	if !ok {
 		return data.Project{}, fmt.Errorf("unexpected project form data")
 	}
-	budget, err := data.ParseOptionalCents(values.Budget)
+	budget, err := m.currency.ParseOptionalCents(values.Budget)
 	if err != nil {
 		return data.Project{}, err
 	}
-	actual, err := data.ParseOptionalCents(values.Actual)
+	actual, err := m.currency.ParseOptionalCents(values.Actual)
 	if err != nil {
 		return data.Project{}, err
 	}
@@ -1879,19 +1880,19 @@ func (m *Model) parseQuoteFormData() (data.Quote, data.Vendor, error) {
 	if !ok {
 		return data.Quote{}, data.Vendor{}, fmt.Errorf("unexpected quote form data")
 	}
-	total, err := data.ParseRequiredCents(values.Total)
+	total, err := m.currency.ParseRequiredCents(values.Total)
 	if err != nil {
 		return data.Quote{}, data.Vendor{}, err
 	}
-	labor, err := data.ParseOptionalCents(values.Labor)
+	labor, err := m.currency.ParseOptionalCents(values.Labor)
 	if err != nil {
 		return data.Quote{}, data.Vendor{}, err
 	}
-	materials, err := data.ParseOptionalCents(values.Materials)
+	materials, err := m.currency.ParseOptionalCents(values.Materials)
 	if err != nil {
 		return data.Quote{}, data.Vendor{}, err
 	}
-	other, err := data.ParseOptionalCents(values.Other)
+	other, err := m.currency.ParseOptionalCents(values.Other)
 	if err != nil {
 		return data.Quote{}, data.Vendor{}, err
 	}
@@ -1949,7 +1950,7 @@ func (m *Model) parseMaintenanceFormData() (data.MaintenanceItem, error) {
 	if err != nil {
 		return data.MaintenanceItem{}, err
 	}
-	cost, err := data.ParseOptionalCents(values.Cost)
+	cost, err := m.currency.ParseOptionalCents(values.Cost)
 	if err != nil {
 		return data.MaintenanceItem{}, err
 	}
@@ -2109,44 +2110,44 @@ func optionalDate(label string) func(string) error {
 }
 
 func moneyError(label string, err error) error {
-	if errors.Is(err, data.ErrNegativeMoney) {
+	if errors.Is(err, locale.ErrNegativeMoney) {
 		return fmt.Errorf("%s must be a positive amount", label)
 	}
 	return fmt.Errorf("%s should look like 1250.00", label)
 }
 
-func optionalMoney(label string) func(string) error {
+func optionalMoney(label string, cur locale.Currency) func(string) error {
 	return func(input string) error {
-		if _, err := data.ParseOptionalCents(input); err != nil {
+		if _, err := cur.ParseOptionalCents(input); err != nil {
 			return moneyError(label, err)
 		}
 		return nil
 	}
 }
 
-func requiredMoney(label string) func(string) error {
+func requiredMoney(label string, cur locale.Currency) func(string) error {
 	return func(input string) error {
-		if _, err := data.ParseRequiredCents(input); err != nil {
+		if _, err := cur.ParseRequiredCents(input); err != nil {
 			return moneyError(label, err)
 		}
 		return nil
 	}
 }
 
-func projectFormValues(project data.Project) *projectFormData {
+func projectFormValues(project data.Project, cur locale.Currency) *projectFormData {
 	return &projectFormData{
 		Title:         project.Title,
 		ProjectTypeID: project.ProjectTypeID,
 		Status:        project.Status,
-		Budget:        data.FormatOptionalCents(project.BudgetCents),
-		Actual:        data.FormatOptionalCents(project.ActualCents),
+		Budget:        cur.FormatOptionalCents(project.BudgetCents),
+		Actual:        cur.FormatOptionalCents(project.ActualCents),
 		StartDate:     data.FormatDate(project.StartDate),
 		EndDate:       data.FormatDate(project.EndDate),
 		Description:   project.Description,
 	}
 }
 
-func quoteFormValues(quote data.Quote) *quoteFormData {
+func quoteFormValues(quote data.Quote, cur locale.Currency) *quoteFormData {
 	return &quoteFormData{
 		ProjectID:    quote.ProjectID,
 		VendorName:   quote.Vendor.Name,
@@ -2155,16 +2156,16 @@ func quoteFormValues(quote data.Quote) *quoteFormData {
 		Phone:        quote.Vendor.Phone,
 		Website:      quote.Vendor.Website,
 		VendorNotes:  quote.Vendor.Notes,
-		Total:        data.FormatCents(quote.TotalCents),
-		Labor:        data.FormatOptionalCents(quote.LaborCents),
-		Materials:    data.FormatOptionalCents(quote.MaterialsCents),
-		Other:        data.FormatOptionalCents(quote.OtherCents),
+		Total:        cur.FormatCents(quote.TotalCents),
+		Labor:        cur.FormatOptionalCents(quote.LaborCents),
+		Materials:    cur.FormatOptionalCents(quote.MaterialsCents),
+		Other:        cur.FormatOptionalCents(quote.OtherCents),
 		ReceivedDate: data.FormatDate(quote.ReceivedDate),
 		Notes:        quote.Notes,
 	}
 }
 
-func maintenanceFormValues(item data.MaintenanceItem) *maintenanceFormData {
+func maintenanceFormValues(item data.MaintenanceItem, cur locale.Currency) *maintenanceFormData {
 	var appID uint
 	if item.ApplianceID != nil {
 		appID = *item.ApplianceID
@@ -2177,12 +2178,12 @@ func maintenanceFormValues(item data.MaintenanceItem) *maintenanceFormData {
 		IntervalMonths: formatInterval(item.IntervalMonths),
 		ManualURL:      item.ManualURL,
 		ManualText:     item.ManualText,
-		Cost:           data.FormatOptionalCents(item.CostCents),
+		Cost:           cur.FormatOptionalCents(item.CostCents),
 		Notes:          item.Notes,
 	}
 }
 
-func applianceFormValues(item data.Appliance) *applianceFormData {
+func applianceFormValues(item data.Appliance, cur locale.Currency) *applianceFormData {
 	return &applianceFormData{
 		Name:           item.Name,
 		Brand:          item.Brand,
@@ -2191,12 +2192,12 @@ func applianceFormValues(item data.Appliance) *applianceFormData {
 		PurchaseDate:   data.FormatDate(item.PurchaseDate),
 		WarrantyExpiry: data.FormatDate(item.WarrantyExpiry),
 		Location:       item.Location,
-		Cost:           data.FormatOptionalCents(item.CostCents),
+		Cost:           cur.FormatOptionalCents(item.CostCents),
 		Notes:          item.Notes,
 	}
 }
 
-func houseFormValues(profile data.HouseProfile) *houseFormData {
+func houseFormValues(profile data.HouseProfile, cur locale.Currency) *houseFormData {
 	return &houseFormData{
 		Nickname:         profile.Nickname,
 		AddressLine1:     profile.AddressLine1,
@@ -2222,9 +2223,9 @@ func houseFormValues(profile data.HouseProfile) *houseFormData {
 		InsuranceCarrier: profile.InsuranceCarrier,
 		InsurancePolicy:  profile.InsurancePolicy,
 		InsuranceRenewal: data.FormatDate(profile.InsuranceRenewal),
-		PropertyTax:      data.FormatOptionalCents(profile.PropertyTaxCents),
+		PropertyTax:      cur.FormatOptionalCents(profile.PropertyTaxCents),
 		HOAName:          profile.HOAName,
-		HOAFee:           data.FormatOptionalCents(profile.HOAFeeCents),
+		HOAFee:           cur.FormatOptionalCents(profile.HOAFeeCents),
 	}
 }
 

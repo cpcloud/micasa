@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/cpcloud/micasa/internal/locale"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -17,12 +18,13 @@ import (
 func newTestModel() *Model {
 	styles := DefaultStyles()
 	m := &Model{
-		styles: styles,
-		tabs:   NewTabs(styles),
-		active: 0,
-		mode:   modeNormal,
-		width:  120,
-		height: 40,
+		styles:   styles,
+		tabs:     NewTabs(styles),
+		active:   0,
+		mode:     modeNormal,
+		width:    120,
+		height:   40,
+		currency: locale.DefaultCurrency(),
 	}
 	// Seed minimal rows so cursor operations don't panic.
 	for i := range m.tabs {
