@@ -204,7 +204,7 @@ func (m Migrator) CreateConstraint(value interface{}, name string) error {
 		constraint, table := m.GuessConstraintInterfaceAndTable(stmt, name)
 
 		return m.recreateTable(value, &table,
-			func(d *ddl, stmt *gorm.Statement) (*ddl, []interface{}, error) {
+			func(d *ddl, _ *gorm.Statement) (*ddl, []interface{}, error) {
 				var (
 					constraintName   string
 					constraintSQL    string
@@ -232,7 +232,7 @@ func (m Migrator) DropConstraint(value interface{}, name string) error {
 		}
 
 		return m.recreateTable(value, &table,
-			func(d *ddl, stmt *gorm.Statement) (*ddl, []interface{}, error) {
+			func(d *ddl, _ *gorm.Statement) (*ddl, []interface{}, error) {
 				d.removeConstraint(name)
 				return d, nil, nil
 			})

@@ -42,8 +42,11 @@ linters:
       ignore-tests: true
 
     revive:
+      enable-default-rules: true
       rules:
         - name: exported
+          disabled: true
+        - name: package-comments
           disabled: true
 
     gocritic:

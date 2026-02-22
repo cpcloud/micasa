@@ -959,7 +959,7 @@ var (
 		handler: func(id uint) TabHandler {
 			return newEntityDocumentHandler(data.DocumentEntityServiceLog, id)
 		},
-		breadcrumb: func(m *Model, parentName string) string {
+		breadcrumb: func(_ *Model, parentName string) string {
 			// Service log docs are always opened from within a service log
 			// detail, so the parent breadcrumb is already on the stack.
 			return parentName + breadcrumbSep + tabDocuments.String()
@@ -1997,13 +1997,13 @@ func visibleCount(specs []columnSpec) int {
 
 // nextHideOrder returns the next sequence number for hiding a column.
 func nextHideOrder(specs []columnSpec) int {
-	max := 0
+	maxOrder := 0
 	for _, s := range specs {
-		if s.HideOrder > max {
-			max = s.HideOrder
+		if s.HideOrder > maxOrder {
+			maxOrder = s.HideOrder
 		}
 	}
-	return max + 1
+	return maxOrder + 1
 }
 
 func (m *Model) togglePinAtCursor() {

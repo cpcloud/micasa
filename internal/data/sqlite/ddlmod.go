@@ -237,8 +237,7 @@ func parseDDL(strs ...string) (*ddl, error) {
 					result.columns = append(result.columns, columnType)
 				}
 			}
-		} else if matches := indexRegexp.FindStringSubmatch(str); len(matches) > 0 {
-			// don't report Unique by UniqueIndex
+		} else if matches := indexRegexp.FindStringSubmatch(str); len(matches) > 0 { //nolint:revive // intentionally ignored: don't report Unique by UniqueIndex
 		} else {
 			return nil, errors.New("invalid DDL")
 		}

@@ -117,8 +117,7 @@ func TestChatStreamCancellation(t *testing.T) {
 
 	// Cancel and drain -- channel should close promptly.
 	cancel()
-	for range ch {
-		// drain
+	for range ch { //nolint:revive // drain remaining items
 	}
 	<-handlerDone
 }

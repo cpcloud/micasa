@@ -484,7 +484,7 @@ func renderCell(
 		value = "\u2014" // —
 		style = styles.Empty
 	} else if cellValue.Kind == cellDrilldown && value != "0" {
-		return renderPillCell(value, spec, width, hl, deleted, dimmed, styles)
+		return renderPillCell(value, width, hl, deleted, dimmed, styles)
 	} else if cellValue.Kind == cellDrilldown {
 		// Zero count: dim instead of pill to keep the grid quiet.
 		style = styles.Empty
@@ -598,7 +598,6 @@ func renderCell(
 // right-aligned within the column width.
 func renderPillCell(
 	value string,
-	spec columnSpec,
 	width int,
 	hl cellHighlight,
 	deleted bool,

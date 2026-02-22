@@ -14,7 +14,7 @@ import (
 // signal a collapsed region. Returns one separator per gap (len(visToFull)-1).
 func gapSeparators(
 	visToFull []int,
-	totalCols int,
+	_ int,
 	normalSep string,
 	styles Styles,
 ) (plainSeps, collapsedSeps []string) {
