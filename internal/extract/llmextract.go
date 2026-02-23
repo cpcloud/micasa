@@ -4,13 +4,8 @@
 package extract
 
 import (
-	"encoding/json"
 	"fmt"
-	"math"
-	"regexp"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/cpcloud/micasa/internal/llm"
 )
@@ -127,85 +122,6 @@ Example (output exactly like this, with NO wrapping):
 
 No other tables may be written to.`
 
-// rawExtractionResponse mirrors the JSON schema but uses flexible types
-// for parsing (strings for money/dates that need conversion).
-type rawExtractionResponse struct {
-	DocumentType   string `json:"document_type"`
-	TitleSugg      string `json:"title_suggestion"`
-	Summary        string `json:"summary"`
-	VendorHint     string `json:"vendor_hint"`
-	CurrencyUnit   string `json:"currency_unit"`
-	TotalCents     any    `json:"total_cents"`
-	LaborCents     any    `json:"labor_cents"`
-	MaterialsCents any    `json:"materials_cents"`
-	Date           string `json:"date"`
-	WarrantyExpiry string `json:"warranty_expiry"`
-	EntityKindHint string `json:"entity_kind_hint"`
-	EntityNameHint string `json:"entity_name_hint"`
-	Maintenance    []struct {
-		Name           string `json:"name"`
-		IntervalMonths any    `json:"interval_months"`
-	} `json:"maintenance_items"`
-	Notes string `json:"notes"`
-}
-
-// ParseExtractionResponse parses the LLM's JSON response into
-// ExtractionHints. Tolerant of markdown fences, partial responses,
-// and minor format variations in money/date fields.
-func ParseExtractionResponse(raw string) (ExtractionHints, error) {
-	cleaned := StripCodeFences(raw)
-
-	var resp rawExtractionResponse
-	if err := json.Unmarshal([]byte(cleaned), &resp); err != nil {
-		return ExtractionHints{}, fmt.Errorf("parse extraction json: %w", err)
-	}
-
-	hints := ExtractionHints{
-		TitleSugg:      resp.TitleSugg,
-		Summary:        resp.Summary,
-		VendorHint:     resp.VendorHint,
-		EntityNameHint: resp.EntityNameHint,
-		Notes:          resp.Notes,
-	}
-
-	// Validate enums.
-	if validDocumentTypes[resp.DocumentType] {
-		hints.DocumentType = resp.DocumentType
-	}
-	if validEntityKindHints[resp.EntityKindHint] {
-		hints.EntityKindHint = resp.EntityKindHint
-	}
-
-	// Parse money fields. If the model reported currency_unit, use it
-	// to resolve the ambiguity between cents and dollars.
-	isDollars := strings.EqualFold(resp.CurrencyUnit, "dollars")
-	hints.TotalCents = parseCents(resp.TotalCents, isDollars)
-	hints.LaborCents = parseCents(resp.LaborCents, isDollars)
-	hints.MaterialsCents = parseCents(resp.MaterialsCents, isDollars)
-
-	// Parse date fields.
-	hints.Date = parseDate(resp.Date)
-	hints.WarrantyExpiry = parseDate(resp.WarrantyExpiry)
-
-	// Parse maintenance items.
-	for _, item := range resp.Maintenance {
-		name := strings.TrimSpace(item.Name)
-		if name == "" {
-			continue
-		}
-		months := parsePositiveInt(item.IntervalMonths)
-		if months <= 0 {
-			continue
-		}
-		hints.Maintenance = append(hints.Maintenance, MaintenanceHint{
-			Name:           name,
-			IntervalMonths: months,
-		})
-	}
-
-	return hints, nil
-}
-
 // StripCodeFences removes markdown code fences that LLMs sometimes wrap
 // around JSON output. Handles fences anywhere in the text (not just at
 // the start), since LLMs may produce commentary before the fenced block.
@@ -240,109 +156,4 @@ func StripCodeFences(s string) string {
 	}
 
 	return strings.TrimSpace(strings.Join(lines[fenceStart+1:fenceEnd], "\n"))
-}
-
-// parseCents converts a money value from the LLM response to cents.
-// When isDollars is true (model reported currency_unit=dollars), numeric
-// values are multiplied by 100. Otherwise numbers are treated as cents.
-// Strings with dollar formatting ("$1,500.00") are always converted
-// regardless of isDollars.
-func parseCents(v any, isDollars bool) *int64 {
-	if v == nil {
-		return nil
-	}
-	switch val := v.(type) {
-	case float64:
-		if isDollars {
-			cents := int64(math.Round(val * 100))
-			if cents == 0 {
-				return nil
-			}
-			return &cents
-		}
-		cents := int64(math.Round(val))
-		if cents == 0 {
-			return nil
-		}
-		return &cents
-	case string:
-		return parseCentsFromString(val)
-	default:
-		return nil
-	}
-}
-
-// dollarPattern matches dollar amounts like "$1,234.56" or "1234.56".
-var dollarPattern = regexp.MustCompile(`^\$?([\d,]+)\.(\d{2})$`)
-
-// parseCentsFromString parses a money string into cents.
-func parseCentsFromString(s string) *int64 {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return nil
-	}
-
-	// Try dollar format: "$1,234.56" or "1,234.56" or "1234.56"
-	if m := dollarPattern.FindStringSubmatch(s); m != nil {
-		whole := strings.ReplaceAll(m[1], ",", "")
-		w, err := strconv.ParseInt(whole, 10, 64)
-		if err != nil {
-			return nil
-		}
-		f, err := strconv.ParseInt(m[2], 10, 64)
-		if err != nil {
-			return nil
-		}
-		cents := w*100 + f
-		return &cents
-	}
-
-	// Try bare integer (already cents).
-	if n, err := strconv.ParseInt(s, 10, 64); err == nil && n > 0 {
-		return &n
-	}
-
-	return nil
-}
-
-// dateFormats are the date layouts to try when parsing LLM date output.
-var dateFormats = []string{
-	"2006-01-02",       // ISO 8601
-	"01/02/2006",       // US format
-	"1/2/2006",         // US format short
-	"January 2, 2006",  // long form
-	"Jan 2, 2006",      // abbreviated
-	"2006-01-02T15:04", // datetime without seconds
-}
-
-// parseDate tries multiple date formats and returns the first successful
-// parse as a pointer to time.Time, or nil if no format matches.
-func parseDate(s string) *time.Time {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return nil
-	}
-	for _, layout := range dateFormats {
-		if t, err := time.Parse(layout, s); err == nil {
-			return &t
-		}
-	}
-	return nil
-}
-
-// parsePositiveInt extracts a positive integer from a JSON value that
-// could be float64 (from JSON number) or string.
-func parsePositiveInt(v any) int {
-	switch val := v.(type) {
-	case float64:
-		n := int(math.Round(val))
-		if n > 0 {
-			return n
-		}
-	case string:
-		if n, err := strconv.Atoi(strings.TrimSpace(val)); err == nil && n > 0 {
-			return n
-		}
-	}
-	return 0
 }

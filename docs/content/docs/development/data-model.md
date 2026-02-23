@@ -132,8 +132,8 @@ Documents store extraction results alongside the file data:
 - `OCRData` -- raw tesseract TSV output (bounding boxes, confidence scores)
 
 These columns are populated by the extraction pipeline (text -> OCR). The LLM
-layer produces `ExtractionHints` (document type, costs, dates, vendor matches)
-that pre-fill the edit form but are not stored as separate columns.
+layer produces structured operations (create/update) dispatched through the
+Store API to create related entities (vendors, quotes, maintenance items).
 
 ## Vendors
 

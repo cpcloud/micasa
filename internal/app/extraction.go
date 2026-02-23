@@ -134,6 +134,20 @@ func (ex *extractionLogState) cursorStep() extractionStep {
 	return stepText
 }
 
+// cursorExpanded returns true when the focused step is expanded and the
+// viewport content overflows. Used to decide whether j/k scroll the viewport
+// instead of moving between steps.
+func (ex *extractionLogState) cursorExpanded() bool {
+	si := ex.cursorStep()
+	info := ex.Steps[si]
+	expanded := info.Status == stepRunning || info.Status == stepFailed ||
+		(si == stepLLM && info.Status == stepDone)
+	if toggled, ok := ex.expanded[si]; ok {
+		expanded = toggled
+	}
+	return expanded && ex.Viewport.TotalLineCount() > ex.Viewport.Height
+}
+
 // advanceCursor moves the cursor to the latest settled (done/failed) step.
 func (ex *extractionLogState) advanceCursor() {
 	active := ex.activeSteps()
@@ -891,6 +905,11 @@ func (m *Model) handleExtractionPipelineKey(msg tea.KeyMsg) tea.Cmd {
 	case keyEsc:
 		m.cancelExtraction()
 	case "j", keyDown:
+		if ex.cursorExpanded() && !ex.Viewport.AtBottom() {
+			vp, cmd := ex.Viewport.Update(msg)
+			ex.Viewport = vp
+			return cmd
+		}
 		active := ex.activeSteps()
 		for next := ex.cursor + 1; next < len(active); next++ {
 			s := ex.Steps[active[next]].Status
@@ -900,6 +919,11 @@ func (m *Model) handleExtractionPipelineKey(msg tea.KeyMsg) tea.Cmd {
 			}
 		}
 	case "k", "up":
+		if ex.cursorExpanded() && !ex.Viewport.AtTop() {
+			vp, cmd := ex.Viewport.Update(msg)
+			ex.Viewport = vp
+			return cmd
+		}
 		active := ex.activeSteps()
 		for prev := ex.cursor - 1; prev >= 0; prev-- {
 			s := ex.Steps[active[prev]].Status

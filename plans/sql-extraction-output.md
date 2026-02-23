@@ -107,16 +107,14 @@ creation. On cancel, nothing touches the database.
 - `internal/app/forms.go` -- DeferCreate flag for magic-add
 - `internal/app/model.go` -- saveDeferredDocumentForm intercept
 
-## What remains from the old system
+## Legacy cleanup (done)
 
-- `hints.go` -- ExtractionHints types still used by Pipeline.Result; will be
-  removed when Pipeline is updated to return operations directly.
-- `ParseExtractionResponse` -- still referenced by pipeline tests; removal
-  deferred to cleanup pass.
+`hints.go`, `ExtractionHints`, `ParseExtractionResponse`, and all associated
+helpers (parseCents, parseDate, parsePositiveInt) have been removed. The
+Pipeline no longer references the old hints types.
 
 ## Next steps
 
 - Cross-referencing newly created entities (e.g., link document to a
   just-created vendor) needs a dependency ordering system (future issue)
 - shift+R to rerun the entire extraction pipeline (issue #499)
-- Remove legacy ExtractionHints once Pipeline returns operations directly
