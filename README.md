@@ -49,15 +49,19 @@ See the [LLM chat guide](https://micasa.dev/docs/guide/llm-chat/) and [configura
 
 ## Install
 
-Requires Go 1.25+:
+[Homebrew](https://brew.sh) (macOS and Linux):
+
+```sh
+brew install micasa
+```
+
+Or with Go (1.25+):
 
 ```sh
 go install github.com/cpcloud/micasa/cmd/micasa@latest
 ```
 
-Or grab a binary from the [latest release](https://github.com/cpcloud/micasa/releases/latest).
-
-Linux, macOS, and Windows binaries are available for amd64 and arm64.
+Or grab a binary from the [latest release](https://github.com/cpcloud/micasa/releases/latest). Linux, macOS, and Windows binaries are available for amd64 and arm64.
 
 ```sh
 micasa --demo         # poke around with sample data
@@ -67,7 +71,7 @@ micasa --print-path   # show where the database lives
 
 > One SQLite file. Your data, your machine. Back it up with `cp`.
 
-Need Nix or container install options? Use the full [installation guide](https://micasa.dev/docs/getting-started/installation/).
+Need Nix or container install options? See the full [installation guide](https://micasa.dev/docs/getting-started/installation/).
 
 ## Documentation
 

@@ -137,6 +137,20 @@ When typing `/model `, an autocomplete picker appears:
 | `esc`     | Cancel form (return to previous mode) |
 | `1`-`9`   | Jump to Nth option in a select field |
 
+### File picker
+
+When a form field opens a file picker (e.g., `A` on the Docs tab):
+
+| Key       | Action |
+|-----------|--------|
+| `j` / `down` | Move down the file list |
+| `k` / `up`   | Move up the file list |
+| `h` / `left` / `backspace` | Navigate to parent directory |
+| `enter`   | Open directory or select file |
+| `g` / `G` | Jump to first/last entry |
+
+The picker title shows the current directory path.
+
 ## Dashboard
 
 When the dashboard overlay is open:
@@ -144,7 +158,11 @@ When the dashboard overlay is open:
 | Key       | Action |
 |-----------|--------|
 | `j`/`k`   | Move cursor down/up through items |
+| `J` / `shift+down` | Jump to next section |
+| `K` / `shift+up`   | Jump to previous section |
 | `g`/`G`   | Jump to first/last item |
+| `e`       | Toggle expand/collapse current section |
+| `E`       | Toggle expand/collapse all sections |
 | `enter`   | Jump to highlighted item in its tab |
 | `D`       | Close dashboard |
 | `b`/`f`   | Dismiss dashboard and switch tab |
