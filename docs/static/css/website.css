@@ -368,6 +368,13 @@ section + section {
   padding: 0.15em 0.4em;
 }
 
+.keys-ref {
+  text-align: center;
+  color: var(--warm-gray);
+  font-size: 0.85rem;
+  margin-top: 1rem;
+}
+
 /* --- Install --- */
 .install-steps {
   display: flex;

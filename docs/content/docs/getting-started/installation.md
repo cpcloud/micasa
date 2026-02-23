@@ -8,6 +8,14 @@ linkTitle = "Installation"
 micasa is a single static binary with no runtime dependencies. Pick whichever
 method suits you.
 
+## Homebrew
+
+Available on macOS and Linux via [Homebrew](https://brew.sh):
+
+```sh
+brew install micasa
+```
+
 ## Go install
 
 Requires Go 1.25+:
