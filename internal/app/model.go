@@ -419,6 +419,7 @@ func (m *Model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if ok {
 		m.form = form
 	}
+	syncFilePickerTitle(m.form)
 	m.checkFormDirty()
 	switch m.form.State {
 	case huh.StateCompleted:

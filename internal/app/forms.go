@@ -1690,12 +1690,15 @@ func formTheme() *huh.Theme {
 	t.Focused.PrevIndicator = t.Focused.PrevIndicator.Foreground(accent)
 	t.Focused.Option = t.Focused.Option.Foreground(textBright)
 	t.Focused.MultiSelectSelector = t.Focused.MultiSelectSelector.Foreground(accent)
-	t.Focused.SelectedOption = t.Focused.SelectedOption.Foreground(success)
+	t.Focused.SelectedOption = t.Focused.SelectedOption.Foreground(success).Bold(true)
 	t.Focused.SelectedPrefix = lipgloss.NewStyle().Foreground(success).SetString("[•] ")
 	t.Focused.UnselectedPrefix = lipgloss.NewStyle().Foreground(textMid).SetString("[ ] ")
 	t.Focused.UnselectedOption = t.Focused.UnselectedOption.Foreground(textBright)
 	t.Focused.FocusedButton = t.Focused.FocusedButton.Foreground(onAccent).Background(accent)
 	t.Focused.BlurredButton = t.Focused.BlurredButton.Foreground(textMid).Background(surface)
+
+	t.Focused.Directory = lipgloss.NewStyle().Foreground(accent).Bold(true)
+	t.Focused.File = lipgloss.NewStyle().Foreground(textBright)
 
 	t.Focused.TextInput.Cursor = t.Focused.TextInput.Cursor.Foreground(accent)
 	t.Focused.TextInput.Placeholder = t.Focused.TextInput.Placeholder.Foreground(textDim)
@@ -2370,12 +2373,24 @@ func (m *Model) newDocumentFilePicker(title string) *huh.FilePicker {
 	if h < 5 {
 		h = 5
 	}
+	// Resolve to absolute path so filepath.Dir can compute the real parent;
+	// the default "." stays stuck (filepath.Dir(".") == ".").
+	dir, err := os.Getwd()
+	if err != nil {
+		dir = "."
+	}
+	short := "\x1b[22m" + dimPath.Render("in "+shortenHome(dir))
 	return huh.NewFilePicker().
-		Title(title).
+		Key(title).
+		Title(title + " " + short).
+		Description("h/\u2190 back \u00b7 enter open").
+		Cursor("\u25b8").
+		CurrentDirectory(dir).
 		Picking(true).
 		FileAllowed(true).
 		DirAllowed(false).
 		ShowHidden(true).
+		ShowPermissions(false).
 		Height(h)
 }
 
