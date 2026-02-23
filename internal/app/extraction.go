@@ -577,7 +577,17 @@ func (m *Model) handleExtractionKey(msg tea.KeyMsg) tea.Cmd {
 		}
 	case keyEnter:
 		si := ex.cursorStep()
-		ex.expanded[si] = !ex.expanded[si]
+		status := ex.Steps[si].Status
+		if status == stepDone || status == stepFailed {
+			// Toggle relative to effective state (auto-expand + override),
+			// not just the override map, to avoid a no-op first press.
+			effective := status == stepRunning || status == stepFailed ||
+				(si == stepLLM && status == stepDone)
+			if toggled, ok := ex.expanded[si]; ok {
+				effective = toggled
+			}
+			ex.expanded[si] = !effective
+		}
 	case "r":
 		if ex.Done && ex.hasLLM && ex.cursorStep() == stepLLM {
 			return m.rerunLLMExtraction()
@@ -719,16 +729,17 @@ func (m *Model) buildExtractionOverlay() string {
 		rule = ruleStyle.Render(strings.Repeat("\u2500", innerW))
 	}
 
-	// Hint line.
+	// Hint line: always show navigate/expand since completed steps are
+	// immediately inspectable even while later steps are still running.
 	var hints []string
+	hints = append(hints, m.helpItem("j/k", "navigate"), m.helpItem("\u21b5", "expand"))
 	if ex.Done {
-		hints = append(hints, m.helpItem("j/k", "navigate"), m.helpItem("\u21b5", "expand"))
 		if !ex.HasError {
 			hints = append(hints, m.helpItem("a", "accept"))
 		}
 		hints = append(hints, m.helpItem("esc", "discard"))
 	} else {
-		hints = append(hints, m.helpItem("esc", "hide"))
+		hints = append(hints, m.helpItem("esc", "cancel"))
 	}
 	hintStr := joinWithSeparator(m.helpSeparator(), hints...)
 
@@ -792,9 +803,11 @@ func (m *Model) renderExtractionStep(
 		expanded = toggled
 	}
 
-	// Cursor indicator: right triangle when collapsed, down when expanded.
+	// Cursor indicator: show as soon as the step itself is done/failed,
+	// so users can inspect completed steps while later steps still run.
 	cursor := "  "
-	if focused && ex.Done {
+	stepSettled := info.Status == stepDone || info.Status == stepFailed
+	if focused && (ex.Done || stepSettled) {
 		if expanded {
 			cursor = lipgloss.NewStyle().Foreground(accent).Render("\u25be ")
 		} else {
