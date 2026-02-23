@@ -429,10 +429,12 @@ func (m *Model) handleExtractionProgress(msg extractionProgressMsg) tea.Cmd {
 
 	if !p.Done {
 		switch p.Phase {
-		case "rasterize":
-			step.Detail = fmt.Sprintf("rasterizing %d/%d", p.Page, p.Total)
-		case "images":
-			step.Detail = fmt.Sprintf("%d images", p.Total)
+		case "pdfimages":
+			step.Detail = fmt.Sprintf("pdfimages: %d images", p.Total)
+		case "pdftohtml":
+			step.Detail = fmt.Sprintf("pdftohtml: %d images", p.Total)
+		case "pdftoppm":
+			step.Detail = fmt.Sprintf("pdftoppm: %d images", p.Total)
 		case "extract":
 			step.Detail = fmt.Sprintf("page %d/%d", p.Page, p.Total)
 		}
@@ -980,12 +982,12 @@ func (m *Model) handleExtractionExploreKey(msg tea.KeyMsg) tea.Cmd {
 		if ex.previewRow > 0 {
 			ex.previewRow--
 		}
-	case "h", "left":
+	case "h", keyLeft:
 		g := ex.activePreviewGroup()
 		if g != nil && ex.previewCol > 0 {
 			ex.previewCol--
 		}
-	case "l", "right":
+	case "l", keyRight:
 		g := ex.activePreviewGroup()
 		if g != nil && ex.previewCol < len(g.specs)-1 {
 			ex.previewCol++

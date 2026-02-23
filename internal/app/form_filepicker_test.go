@@ -22,7 +22,7 @@ func sendBackKey(m *Model, key string) {
 		msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'h'}}
 	case "backspace":
 		msg = tea.KeyMsg{Type: tea.KeyBackspace}
-	case "left":
+	case keyLeft:
 		msg = tea.KeyMsg{Type: tea.KeyLeft}
 	}
 	m.Update(msg)
@@ -57,7 +57,7 @@ func TestFilePickerBackNavigatesUp(t *testing.T) {
 	assert.Equal(t, child, filePickerCurrentDir(fp),
 		"file picker should start in the CWD")
 
-	for _, key := range []string{"h", "backspace", "left"} {
+	for _, key := range []string{"h", "backspace", keyLeft} {
 		// Reset to child before each iteration.
 		t.Chdir(child)
 		require.NoError(t, m.startQuickDocumentForm())

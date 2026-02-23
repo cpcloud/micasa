@@ -30,6 +30,8 @@ const (
 	keyEsc   = "esc"
 	keyEnter = "enter"
 	keyDown  = "down"
+	keyLeft  = "left"
+	keyRight = "right"
 	keyCtrlN = "ctrl+n"
 )
 
@@ -489,7 +491,7 @@ func (m *Model) handleDashboardKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 	case "tab":
 		// Block house profile toggle on dashboard.
 		return nil, true
-	case "h", "l", "left", "right":
+	case "h", "l", keyLeft, keyRight:
 		// Block column movement on dashboard.
 		return nil, true
 	case "s", "S", "c", "C", "i", "/", "n", "N", "!":
@@ -536,13 +538,13 @@ func (m *Model) handleCommonKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 			m.updateTabViewport(tab)
 		}
 		return nil, true
-	case "h", "left":
+	case "h", keyLeft:
 		if tab := m.effectiveTab(); tab != nil {
 			tab.ColCursor = nextVisibleCol(tab.Specs, tab.ColCursor, false)
 			m.updateTabViewport(tab)
 		}
 		return nil, true
-	case "l", "right":
+	case "l", keyRight:
 		if tab := m.effectiveTab(); tab != nil {
 			tab.ColCursor = nextVisibleCol(tab.Specs, tab.ColCursor, true)
 			m.updateTabViewport(tab)
@@ -792,9 +794,9 @@ func (m *Model) handleEditKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 
 func (m *Model) handleCalendarKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch key.String() {
-	case "h", "left":
+	case "h", keyLeft:
 		calendarMove(m.calendar, -1)
-	case "l", "right":
+	case "l", keyRight:
 		calendarMove(m.calendar, 1)
 	case "j", keyDown:
 		calendarMove(m.calendar, 7)

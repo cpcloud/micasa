@@ -117,8 +117,8 @@ func ocrPDFWithProgress(
 		return
 	}
 
-	// Acquire images: pdfimages (fast) with pdftoppm fallback.
-	images, err := acquireImages(ctx, pdfPath, tmpDir, maxPages)
+	// Acquire images: pdfimages → pdftohtml → pdftoppm.
+	images, acquireTool, err := acquireImages(ctx, pdfPath, tmpDir, maxPages)
 	if err != nil {
 		ch <- ExtractProgress{Err: err, Done: true}
 		return
@@ -131,9 +131,9 @@ func ocrPDFWithProgress(
 
 	total := len(images)
 
-	// Send image acquisition complete.
+	// Send image acquisition complete with the tool that produced them.
 	select {
-	case ch <- ExtractProgress{Phase: "images", Page: total, Total: total}:
+	case ch <- ExtractProgress{Phase: acquireTool, Page: total, Total: total}:
 	case <-ctx.Done():
 		ch <- ExtractProgress{Err: ctx.Err(), Done: true}
 		return

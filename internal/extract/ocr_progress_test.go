@@ -127,15 +127,16 @@ func TestExtractWithProgress_PDF_Integration(t *testing.T) {
 	}
 
 	// Should see an image acquisition phase and an extract phase.
-	// The acquisition phase is "images" (pdfimages) or "rasterize" (pdftoppm fallback).
+	// The acquisition phase is the tool name: "pdfimages", "pdftohtml", or "pdftoppm".
+	acquirePhases := map[string]bool{"pdfimages": true, "pdftohtml": true, "pdftoppm": true}
 	hasAcquire := false
 	for _, p := range phases {
-		if p == "images" || p == "rasterize" {
+		if acquirePhases[p] {
 			hasAcquire = true
 			break
 		}
 	}
-	assert.True(t, hasAcquire, "should see an images or rasterize phase, got: %v", phases)
+	assert.True(t, hasAcquire, "should see an acquire phase, got: %v", phases)
 	assert.Contains(t, phases, "extract")
 	assert.NotEmpty(t, finalText, "should extract text from the scanned PDF")
 }

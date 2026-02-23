@@ -48,7 +48,7 @@ func ocrPDF(ctx context.Context, data []byte, maxPages int) (string, []byte, err
 		return "", nil, fmt.Errorf("write temp pdf: %w", err)
 	}
 
-	images, err := acquireImages(ctx, pdfPath, tmpDir, maxPages)
+	images, _, err := acquireImages(ctx, pdfPath, tmpDir, maxPages)
 	if err != nil {
 		return "", nil, err
 	}
@@ -63,42 +63,43 @@ func ocrPDF(ctx context.Context, data []byte, maxPages int) (string, []byte, err
 
 // acquireImages tries increasingly expensive strategies to get page images:
 // pdfimages (extracts embedded blobs), pdftohtml (renders to images), then
-// pdftoppm (full rasterization at 300 DPI).
+// pdftoppm (full rasterization at 300 DPI). Returns the images, the tool
+// name that produced them, and any error.
 func acquireImages(
 	ctx context.Context,
 	pdfPath string,
 	tmpDir string,
 	maxPages int,
-) ([]string, error) {
+) ([]string, string, error) {
 	if HasPDFImages() {
 		images, err := extractPDFImages(ctx, pdfPath, tmpDir, maxPages)
 		if err == nil && len(images) > 0 {
-			return images, nil
+			return images, "pdfimages", nil
 		}
 	}
 
 	if HasPDFToHTML() {
 		images, err := extractPDFToHTMLImages(ctx, pdfPath, tmpDir, maxPages)
 		if err == nil && len(images) > 0 {
-			return images, nil
+			return images, "pdftohtml", nil
 		}
 	}
 
 	if !HasPDFToPPM() {
-		return nil, fmt.Errorf("no PDF image extraction tool available")
+		return nil, "", fmt.Errorf("no PDF image extraction tool available")
 	}
 
 	outputPrefix := filepath.Join(tmpDir, "page")
 	if err := rasterize(ctx, pdfPath, outputPrefix, maxPages); err != nil {
-		return nil, fmt.Errorf("pdftoppm: %w", err)
+		return nil, "", fmt.Errorf("pdftoppm: %w", err)
 	}
 
 	images, err := filepath.Glob(outputPrefix + "*.png")
 	if err != nil {
-		return nil, fmt.Errorf("glob page images: %w", err)
+		return nil, "", fmt.Errorf("glob page images: %w", err)
 	}
 	sort.Strings(images)
-	return images, nil
+	return images, "pdftoppm", nil
 }
 
 // extractPDFImages uses pdfimages to extract embedded images from a PDF,
