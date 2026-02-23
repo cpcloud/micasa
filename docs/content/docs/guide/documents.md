@@ -66,7 +66,7 @@ The `Docs` column appears on the **Projects** and **Appliances** tabs, showing
 how many documents are linked to each record. In Nav mode, press `enter` to
 drill into a scoped document list for that record.
 
-## Extraction pipeline <span class="badge-experimental" title="Experimental feature"><span class="badge-pot"><svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle class="bubble-1" cx="5" cy="4" r="1" fill="currentColor"/><circle class="bubble-2" cx="8" cy="3" r="0.8" fill="currentColor"/><circle class="bubble-3" cx="11" cy="4.5" r="0.9" fill="currentColor"/><path d="M3 8h10v4a3 3 0 01-3 3H6a3 3 0 01-3-3V8z" fill="currentColor" opacity="0.25"/><path d="M3 8h10v4a3 3 0 01-3 3H6a3 3 0 01-3-3V8z" stroke="currentColor" stroke-width="1.2" fill="none"/><line x1="2" y1="8" x2="14" y2="8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span></span>
+## Extraction pipeline <span class="badge-experimental"><span class="badge-pot"><svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle class="bubble-1" cx="5" cy="4" r="1" fill="currentColor"/><circle class="bubble-2" cx="8" cy="3" r="0.8" fill="currentColor"/><circle class="bubble-3" cx="11" cy="4.5" r="0.9" fill="currentColor"/><path d="M3 8h10v4a3 3 0 01-3 3H6a3 3 0 01-3-3V8z" fill="currentColor" opacity="0.25"/><path d="M3 8h10v4a3 3 0 01-3 3H6a3 3 0 01-3-3V8z" stroke="currentColor" stroke-width="1.2" fill="none"/><line x1="2" y1="8" x2="14" y2="8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="badge-label">brewing</span></span>
 
 When you save a document with file data, micasa runs a three-layer extraction
 pipeline to pull structured information out of the file. **This pipeline is
