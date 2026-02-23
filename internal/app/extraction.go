@@ -555,6 +555,17 @@ func (m *Model) rerunLLMExtraction() tea.Cmd {
 		}
 	}
 
+	// Move cursor to the nearest earlier settled step so it stays visible
+	// while LLM re-runs (running steps hide the triangle indicator).
+	active := ex.activeSteps()
+	for i := len(active) - 1; i >= 0; i-- {
+		s := ex.Steps[active[i]].Status
+		if s == stepDone || s == stepFailed {
+			ex.cursor = i
+			break
+		}
+	}
+
 	return tea.Batch(m.llmExtractCmd(ex.ctx), ex.Spinner.Tick)
 }
 
