@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -33,11 +35,11 @@ type LLM struct {
 	// BaseURL is the root of an OpenAI-compatible API.
 	// The client appends /chat/completions, /models, etc.
 	// Default: http://localhost:11434/v1 (Ollama)
-	BaseURL string `toml:"base_url"`
+	BaseURL string `toml:"base_url" env:"OLLAMA_HOST"`
 
 	// Model is the model identifier passed in chat requests.
 	// Default: qwen3
-	Model string `toml:"model"`
+	Model string `toml:"model" env:"MICASA_LLM_MODEL"`
 
 	// ExtraContext is custom text appended to all system prompts.
 	// Useful for domain-specific details: house style, currency, location, etc.
@@ -47,11 +49,11 @@ type LLM struct {
 	// Timeout is the maximum time to wait for quick LLM server operations
 	// (ping, model listing, auto-detect). Go duration string, e.g. "5s",
 	// "10s", "500ms". Default: "5s".
-	Timeout string `toml:"timeout"`
+	Timeout string `toml:"timeout" env:"MICASA_LLM_TIMEOUT"`
 
 	// Thinking enables the model's internal reasoning mode for chat
 	// (e.g. qwen3 <think> blocks). Default: unset (not sent to server).
-	Thinking *bool `toml:"thinking,omitempty"`
+	Thinking *bool `toml:"thinking,omitempty" env:"MICASA_LLM_THINKING"`
 }
 
 // TimeoutDuration returns the parsed LLM timeout, falling back to
@@ -72,15 +74,15 @@ type Documents struct {
 	// MaxFileSize is the largest file that can be imported as a document
 	// attachment. Accepts unitized strings ("50 MiB") or bare integers
 	// (bytes). Default: 50 MiB.
-	MaxFileSize ByteSize `toml:"max_file_size"`
+	MaxFileSize ByteSize `toml:"max_file_size" env:"MICASA_MAX_DOCUMENT_SIZE"`
 
 	// CacheTTL is the preferred cache lifetime setting. Accepts unitized
 	// strings ("30d", "720h") or bare integers (seconds). Default: 30d.
-	CacheTTL *Duration `toml:"cache_ttl,omitempty"`
+	CacheTTL *Duration `toml:"cache_ttl,omitempty" env:"MICASA_CACHE_TTL"`
 
 	// CacheTTLDays is deprecated; use CacheTTL instead. Kept for backward
 	// compatibility. Bare integer interpreted as days.
-	CacheTTLDays *int `toml:"cache_ttl_days,omitempty"`
+	CacheTTLDays *int `toml:"cache_ttl_days,omitempty" env:"MICASA_CACHE_TTL_DAYS"`
 }
 
 // CacheTTLDuration returns the resolved cache TTL as a time.Duration.
@@ -101,26 +103,26 @@ type Extraction struct {
 	// Model overrides llm.model for extraction. Extraction wants a small,
 	// fast model optimized for structured JSON output. Defaults to the
 	// chat model if empty.
-	Model string `toml:"model"`
+	Model string `toml:"model" env:"MICASA_EXTRACTION_MODEL"`
 
 	// MaxOCRPages is the maximum number of pages to OCR for scanned
 	// documents. Front-loaded info (specs, warranty) is typically in the
 	// first pages. Default: 20.
-	MaxOCRPages int `toml:"max_ocr_pages"`
+	MaxOCRPages int `toml:"max_ocr_pages" env:"MICASA_MAX_OCR_PAGES"`
 
 	// Enabled controls whether LLM-powered extraction runs when a document
 	// is uploaded. Text extraction and OCR are independent and always
 	// available. Default: true.
-	Enabled *bool `toml:"enabled,omitempty"`
+	Enabled *bool `toml:"enabled,omitempty" env:"MICASA_EXTRACTION_ENABLED"`
 
 	// TextTimeout is the maximum time to wait for pdftotext. Go duration
 	// string, e.g. "30s", "1m". Default: "30s".
-	TextTimeout string `toml:"text_timeout"`
+	TextTimeout string `toml:"text_timeout" env:"MICASA_TEXT_TIMEOUT"`
 
 	// Thinking enables the model's internal reasoning mode (e.g. qwen3
 	// <think> blocks). Disable for faster responses when structured output
 	// is all you need. Default: false.
-	Thinking *bool `toml:"thinking,omitempty"`
+	Thinking *bool `toml:"thinking,omitempty" env:"MICASA_EXTRACTION_THINKING"`
 }
 
 // IsEnabled returns whether LLM extraction is enabled. Defaults to true
@@ -211,10 +213,15 @@ func LoadFromPath(path string) (Config, error) {
 		}
 	}
 
-	applyEnvOverrides(&cfg)
+	if err := applyEnvOverrides(&cfg); err != nil {
+		return cfg, err
+	}
 
-	// Normalize: strip trailing slash from base URL.
+	// Normalize OLLAMA_HOST: strip trailing slash and append /v1 if needed.
 	cfg.LLM.BaseURL = strings.TrimRight(cfg.LLM.BaseURL, "/")
+	if os.Getenv("OLLAMA_HOST") != "" && !strings.HasSuffix(cfg.LLM.BaseURL, "/v1") {
+		cfg.LLM.BaseURL += "/v1"
+	}
 
 	if cfg.LLM.Timeout != "" {
 		d, err := time.ParseDuration(cfg.LLM.Timeout)
@@ -295,65 +302,267 @@ func LoadFromPath(path string) (Config, error) {
 	return cfg, nil
 }
 
-// applyEnvOverrides lets environment variables override config-file values.
-// OLLAMA_HOST sets the base URL (with /v1 appended if missing).
-// MICASA_LLM_MODEL sets the model.
-func applyEnvOverrides(cfg *Config) {
-	if host := os.Getenv("OLLAMA_HOST"); host != "" {
-		host = strings.TrimRight(host, "/")
-		if !strings.HasSuffix(host, "/v1") {
-			host += "/v1"
+// applyEnvOverrides walks the Config struct and applies environment variable
+// overrides for every field carrying an `env` struct tag. Returns an error
+// if an env var is set but its value cannot be parsed for the target type.
+func applyEnvOverrides(cfg *Config) error {
+	return walkEnvFields(reflect.ValueOf(cfg).Elem())
+}
+
+func walkEnvFields(v reflect.Value) error {
+	t := v.Type()
+	for i := range t.NumField() {
+		f := t.Field(i)
+		fv := v.Field(i)
+
+		envVar := f.Tag.Get("env")
+		if envVar == "" {
+			// No env tag -- recurse into nested config sections.
+			if fv.Kind() == reflect.Struct && tomlTagName(f) != "" {
+				if err := walkEnvFields(fv); err != nil {
+					return err
+				}
+			}
+			continue
 		}
-		cfg.LLM.BaseURL = host
-	}
-	if model := os.Getenv("MICASA_LLM_MODEL"); model != "" {
-		cfg.LLM.Model = model
-	}
-	if timeout := os.Getenv("MICASA_LLM_TIMEOUT"); timeout != "" {
-		cfg.LLM.Timeout = timeout
-	}
-	if maxSize := os.Getenv("MICASA_MAX_DOCUMENT_SIZE"); maxSize != "" {
-		if parsed, err := ParseByteSize(maxSize); err == nil {
-			cfg.Documents.MaxFileSize = parsed
+		val := os.Getenv(envVar)
+		if val == "" {
+			continue
+		}
+		if err := setFieldFromEnv(fv, envVar, val); err != nil {
+			return err
 		}
 	}
-	if ttl := os.Getenv("MICASA_CACHE_TTL"); ttl != "" {
-		if parsed, err := ParseDuration(ttl); err == nil {
+	return nil
+}
+
+// setFieldFromEnv assigns a string value from an environment variable to a
+// reflected config field, converting types as needed.
+func setFieldFromEnv(fv reflect.Value, envVar, val string) error {
+	switch fv.Kind() { //nolint:exhaustive // only config-relevant kinds
+	case reflect.String:
+		fv.SetString(val)
+	case reflect.Int:
+		n, err := strconv.Atoi(val)
+		if err != nil {
+			return fmt.Errorf("%s=%q: expected integer", envVar, val)
+		}
+		fv.SetInt(int64(n))
+	case reflect.Uint64:
+		parsed, err := ParseByteSize(val)
+		if err != nil {
+			return fmt.Errorf("%s=%q: expected byte size (e.g. \"50 MiB\" or 1048576)", envVar, val)
+		}
+		fv.SetUint(uint64(parsed))
+	case reflect.Pointer:
+		return setFieldFromEnvPtr(fv, envVar, val)
+	}
+	return nil
+}
+
+func setFieldFromEnvPtr(fv reflect.Value, envVar, val string) error {
+	switch fv.Type().Elem().Kind() {
+	case reflect.Bool:
+		b, err := strconv.ParseBool(val)
+		if err != nil {
+			return fmt.Errorf("%s=%q: expected true or false", envVar, val)
+		}
+		fv.Set(reflect.ValueOf(&b))
+	case reflect.Int:
+		n, err := strconv.Atoi(val)
+		if err != nil {
+			return fmt.Errorf("%s=%q: expected integer", envVar, val)
+		}
+		fv.Set(reflect.ValueOf(&n))
+	default:
+		if fv.Type() == reflect.TypeFor[*Duration]() {
+			parsed, err := ParseDuration(val)
+			if err != nil {
+				return fmt.Errorf(
+					"%s=%q: expected duration (e.g. \"30d\", \"720h\", or seconds)",
+					envVar, val,
+				)
+			}
 			d := Duration{parsed}
-			cfg.Documents.CacheTTL = &d
+			fv.Set(reflect.ValueOf(&d))
+			return nil
+		}
+		return fmt.Errorf("%s: unsupported pointer type %s", envVar, fv.Type())
+	}
+	return nil
+}
+
+// EnvVars returns a mapping from environment variable names to their
+// dot-delimited config keys, derived from the `env` struct tags.
+func EnvVars() map[string]string {
+	m := make(map[string]string)
+	collectEnvVars(reflect.TypeOf(Config{}), "", m)
+	return m
+}
+
+func collectEnvVars(t reflect.Type, prefix string, m map[string]string) {
+	for i := range t.NumField() {
+		f := t.Field(i)
+		toml := tomlTagName(f)
+		if toml == "" {
+			continue
+		}
+		key := toml
+		if prefix != "" {
+			key = prefix + "." + toml
+		}
+		ft := f.Type
+		if ft.Kind() == reflect.Pointer {
+			ft = ft.Elem()
+		}
+
+		if envVar := f.Tag.Get("env"); envVar != "" {
+			m[envVar] = key
+		} else if ft.Kind() == reflect.Struct && ft.NumField() > 0 && tomlTagName(ft.Field(0)) != "" {
+			collectEnvVars(ft, key, m)
 		}
 	}
-	if ttl := os.Getenv("MICASA_CACHE_TTL_DAYS"); ttl != "" {
-		if n, err := strconv.Atoi(ttl); err == nil {
-			cfg.Documents.CacheTTLDays = &n
+}
+
+// Get resolves a dot-delimited config key to its string representation.
+// Keys mirror the TOML structure (e.g. "llm.model", "documents.max_file_size").
+func (c Config) Get(key string) (string, error) {
+	return getField(reflect.ValueOf(c), key)
+}
+
+// getField walks a struct value using dot-delimited TOML tag names and returns
+// the leaf value as a string.
+func getField(v reflect.Value, key string) (string, error) {
+	parts := strings.SplitN(key, ".", 2)
+	tag := parts[0]
+
+	t := v.Type()
+	for i := range t.NumField() {
+		f := t.Field(i)
+		tomlTag := tomlTagName(f)
+		if tomlTag != tag {
+			continue
+		}
+		fv := v.Field(i)
+
+		// Recurse into nested structs.
+		if len(parts) == 2 {
+			if fv.Kind() == reflect.Struct {
+				return getField(fv, parts[1])
+			}
+			if fv.Kind() == reflect.Pointer && !fv.IsNil() && fv.Elem().Kind() == reflect.Struct {
+				return getField(fv.Elem(), parts[1])
+			}
+			return "", fmt.Errorf("key %q: %q is not a section", key, tag)
+		}
+
+		// Leaf field — format the value.
+		return formatValue(fv)
+	}
+	return "", fmt.Errorf("unknown config key %q", key)
+}
+
+// tomlTagName extracts the TOML field name from a struct tag, ignoring
+// options like "omitempty".
+func tomlTagName(f reflect.StructField) string {
+	tag := f.Tag.Get("toml")
+	if tag == "" || tag == "-" {
+		return ""
+	}
+	if i := strings.IndexByte(tag, ','); i >= 0 {
+		return tag[:i]
+	}
+	return tag
+}
+
+// formatValue converts a reflected config field to its string representation.
+func formatValue(v reflect.Value) (string, error) {
+	// Dereference pointers.
+	if v.Kind() == reflect.Pointer {
+		if v.IsNil() {
+			return "", nil
+		}
+		v = v.Elem()
+	}
+
+	// Handle known types by interface.
+	iface := v.Interface()
+	switch val := iface.(type) {
+	case ByteSize:
+		return strconv.FormatUint(val.Bytes(), 10), nil
+	case Duration:
+		return val.String(), nil
+	case fmt.Stringer:
+		return val.String(), nil
+	}
+
+	switch v.Kind() {
+	case reflect.String:
+		return v.String(), nil
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return strconv.FormatInt(v.Int(), 10), nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return strconv.FormatUint(v.Uint(), 10), nil
+	case reflect.Float32, reflect.Float64:
+		return strconv.FormatFloat(v.Float(), 'f', -1, 64), nil
+	case reflect.Bool:
+		return strconv.FormatBool(v.Bool()), nil
+	case reflect.Slice:
+		var lines []string
+		for i := range v.Len() {
+			s, err := formatValue(v.Index(i))
+			if err != nil {
+				return "", err
+			}
+			lines = append(lines, s)
+		}
+		return strings.Join(lines, "\n"), nil
+	default:
+		return fmt.Sprintf("%v", iface), nil
+	}
+}
+
+// Keys returns the sorted list of valid dot-delimited config key names
+// by reflecting on the Config struct's TOML tags.
+func Keys() []string {
+	keys := collectKeys(reflect.TypeOf(Config{}), "")
+	slices.Sort(keys)
+	return keys
+}
+
+func collectKeys(t reflect.Type, prefix string) []string {
+	var keys []string
+	for i := range t.NumField() {
+		f := t.Field(i)
+		tag := tomlTagName(f)
+		if tag == "" {
+			continue
+		}
+		full := tag
+		if prefix != "" {
+			full = prefix + "." + tag
+		}
+		ft := f.Type
+		if ft.Kind() == reflect.Pointer {
+			ft = ft.Elem()
+		}
+		if ft.Kind() == reflect.Struct && ft.PkgPath() != "" {
+			// Nested config section — but only recurse into our own types,
+			// not stdlib types like time.Duration.
+			if _, isBytes := reflect.New(ft).Interface().(*ByteSize); isBytes {
+				keys = append(keys, full)
+			} else if _, isDur := reflect.New(ft).Interface().(*Duration); isDur {
+				keys = append(keys, full)
+			} else if ft.NumField() > 0 && tomlTagName(ft.Field(0)) != "" {
+				keys = append(keys, collectKeys(ft, full)...)
+			} else {
+				keys = append(keys, full)
+			}
+		} else {
+			keys = append(keys, full)
 		}
 	}
-	if timeout := os.Getenv("MICASA_TEXT_TIMEOUT"); timeout != "" {
-		cfg.Extraction.TextTimeout = timeout
-	}
-	if model := os.Getenv("MICASA_EXTRACTION_MODEL"); model != "" {
-		cfg.Extraction.Model = model
-	}
-	if pages := os.Getenv("MICASA_MAX_OCR_PAGES"); pages != "" {
-		if n, err := strconv.Atoi(pages); err == nil {
-			cfg.Extraction.MaxOCRPages = n
-		}
-	}
-	if enabled := os.Getenv("MICASA_EXTRACTION_ENABLED"); enabled != "" {
-		if val, err := strconv.ParseBool(enabled); err == nil {
-			cfg.Extraction.Enabled = &val
-		}
-	}
-	if thinking := os.Getenv("MICASA_LLM_THINKING"); thinking != "" {
-		if val, err := strconv.ParseBool(thinking); err == nil {
-			cfg.LLM.Thinking = &val
-		}
-	}
-	if thinking := os.Getenv("MICASA_EXTRACTION_THINKING"); thinking != "" {
-		if val, err := strconv.ParseBool(thinking); err == nil {
-			cfg.Extraction.Thinking = &val
-		}
-	}
+	return keys
 }
 
 // ExampleTOML returns a commented config file suitable for writing as a

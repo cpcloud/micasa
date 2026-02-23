@@ -375,3 +375,120 @@ func TestExtractionRejectsNegativePages(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "must be non-negative")
 }
+
+// --- Invalid env values ---
+
+func TestInvalidEnvVarReturnsError(t *testing.T) {
+	tests := []struct {
+		envVar  string
+		value   string
+		wantMsg string
+	}{
+		{"MICASA_MAX_OCR_PAGES", "not-a-number", "expected integer"},
+		{"MICASA_EXTRACTION_ENABLED", "maybe", "expected true or false"},
+		{"MICASA_LLM_THINKING", "dunno", "expected true or false"},
+		{"MICASA_MAX_DOCUMENT_SIZE", "lots", "expected byte size"},
+		{"MICASA_CACHE_TTL", "forever", "expected duration"},
+		{"MICASA_CACHE_TTL_DAYS", "many", "expected integer"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.envVar, func(t *testing.T) {
+			t.Setenv(tt.envVar, tt.value)
+			_, err := LoadFromPath(noConfig(t))
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.envVar+"=")
+			assert.Contains(t, err.Error(), tt.wantMsg)
+		})
+	}
+}
+
+// --- Config Get ---
+
+func TestConfigGet(t *testing.T) {
+	cfg := Config{
+		LLM: LLM{
+			BaseURL:      "http://localhost:11434/v1",
+			Model:        "qwen3",
+			ExtraContext: "my house",
+			Timeout:      "10s",
+		},
+		Documents: Documents{
+			MaxFileSize: ByteSize(1024),
+		},
+	}
+
+	tests := []struct {
+		key  string
+		want string
+	}{
+		{"llm.base_url", "http://localhost:11434/v1"},
+		{"llm.model", "qwen3"},
+		{"llm.extra_context", "my house"},
+		{"llm.timeout", "10s"},
+		{"documents.max_file_size", "1024"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.key, func(t *testing.T) {
+			got, err := cfg.Get(tt.key)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+
+	t.Run("unknown key", func(t *testing.T) {
+		_, err := cfg.Get("no.such.key")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unknown config key")
+	})
+}
+
+func TestKeys(t *testing.T) {
+	keys := Keys()
+	assert.NotEmpty(t, keys)
+	assert.Contains(t, keys, "llm.model")
+	assert.Contains(t, keys, "llm.base_url")
+	assert.Contains(t, keys, "documents.max_file_size")
+	assert.Contains(t, keys, "extraction.max_ocr_pages")
+	// Verify every key is resolvable against defaults.
+	cfg := defaults()
+	for _, k := range keys {
+		_, err := cfg.Get(k)
+		assert.NoError(t, err, "key %q should be resolvable", k)
+	}
+}
+
+// --- EnvVars ---
+
+func TestEnvVars(t *testing.T) {
+	m := EnvVars()
+	assert.NotEmpty(t, m)
+
+	want := map[string]string{
+		"OLLAMA_HOST":                "llm.base_url",
+		"MICASA_LLM_MODEL":           "llm.model",
+		"MICASA_LLM_TIMEOUT":         "llm.timeout",
+		"MICASA_LLM_THINKING":        "llm.thinking",
+		"MICASA_MAX_DOCUMENT_SIZE":   "documents.max_file_size",
+		"MICASA_CACHE_TTL":           "documents.cache_ttl",
+		"MICASA_CACHE_TTL_DAYS":      "documents.cache_ttl_days",
+		"MICASA_EXTRACTION_MODEL":    "extraction.model",
+		"MICASA_MAX_OCR_PAGES":       "extraction.max_ocr_pages",
+		"MICASA_EXTRACTION_ENABLED":  "extraction.enabled",
+		"MICASA_TEXT_TIMEOUT":        "extraction.text_timeout",
+		"MICASA_EXTRACTION_THINKING": "extraction.thinking",
+	}
+	assert.Equal(t, want, m)
+}
+
+func TestEnvVarsCoverAllKeys(t *testing.T) {
+	// Every env-mapped key must be a valid config key.
+	keys := Keys()
+	keySet := make(map[string]bool, len(keys))
+	for _, k := range keys {
+		keySet[k] = true
+	}
+	for envVar, configKey := range EnvVars() {
+		assert.True(t, keySet[configKey],
+			"env var %s maps to %q which is not a valid config key", envVar, configKey)
+	}
+}
