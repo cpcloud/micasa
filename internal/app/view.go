@@ -759,6 +759,7 @@ func (m *Model) helpContent() string {
 			title: "Edit Mode",
 			bindings: []binding{
 				{"a", "Add entry"},
+				{"A", "Add document with extraction"},
 				{"e", "Edit cell or row"},
 				{"d", "Delete / restore"},
 				{"u/r", "Undo / redo"},
