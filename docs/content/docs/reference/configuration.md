@@ -9,14 +9,16 @@ micasa has minimal configuration -- it's designed to work out of the box.
 
 ## CLI
 
-micasa has two subcommands. `run` is the default and launches the TUI;
-`backup` creates a database snapshot.
+micasa has three subcommands. `run` is the default and launches the TUI;
+`config` prints resolved configuration values; `backup` creates a database
+snapshot.
 
 ```
 Usage: micasa <command> [flags]
 
 Commands:
   run [<db-path>]    Launch the TUI (default).
+  config <key>       Print the value of a config key.
   backup [<dest>]    Back up the database to a file.
 
 Flags:
@@ -45,14 +47,18 @@ micasa --demo /tmp/my-demo.db   # creates and populates
 micasa /tmp/my-demo.db          # reopens with the demo data
 ```
 
-`--print-path` is useful for scripting:
+### `config`
+
+```
+micasa config <key>
+```
+
+Print the resolved value of a configuration key (dot-delimited TOML path):
 
 ```sh
-micasa --print-path                               # platform default
-MICASA_DB_PATH=/tmp/foo.db micasa --print-path    # /tmp/foo.db
-micasa --print-path /custom/path.db               # /custom/path.db
-micasa --demo --print-path                        # :memory:
-micasa --demo --print-path /tmp/d.db              # /tmp/d.db
+micasa config llm.model             # current model name
+micasa config llm.base_url          # LLM API endpoint
+micasa config documents.max_file_size  # max doc size in bytes
 ```
 
 ### `backup`

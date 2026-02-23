@@ -25,7 +25,8 @@ var version = "dev"
 type cli struct {
 	Run     runCmd           `cmd:"" default:"withargs" help:"Launch the TUI (default)."`
 	Backup  backupCmd        `cmd:""                    help:"Back up the database to a file."`
-	Version kong.VersionFlag `                          help:"Show version and exit."          name:"version"`
+	Config  configCmd        `cmd:""                    help:"Print the value of a config key."`
+	Version kong.VersionFlag `                          help:"Show version and exit."           name:"version"`
 }
 
 type runCmd struct {
@@ -38,6 +39,10 @@ type runCmd struct {
 type backupCmd struct {
 	Dest   string `arg:"" optional:"" help:"Destination file path. Defaults to <source>.backup."`
 	Source string `                   help:"Source database path. Defaults to the standard location." default:"" env:"MICASA_DB_PATH"`
+}
+
+type configCmd struct {
+	Key string `arg:"" help:"Dot-delimited config key (e.g. llm.model, documents.max_file_size)."`
 }
 
 func main() {
@@ -165,6 +170,19 @@ func (cmd *runCmd) resolveDBPath() (string, error) {
 		return ":memory:", nil
 	}
 	return data.DefaultDBPath()
+}
+
+func (cmd *configCmd) Run() error {
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+	val, err := cfg.Get(cmd.Key)
+	if err != nil {
+		return err
+	}
+	fmt.Println(val)
+	return nil
 }
 
 func (cmd *backupCmd) Run() error {

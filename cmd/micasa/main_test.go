@@ -130,6 +130,32 @@ func TestVersion_Injected(t *testing.T) {
 	assert.Equal(t, "1.2.3", strings.TrimSpace(string(verOut)))
 }
 
+func TestConfigCmd(t *testing.T) {
+	bin := buildTestBinary(t)
+
+	t.Run("LLMModel", func(t *testing.T) {
+		cmd := exec.Command(bin, "config", "llm.model") //nolint:gosec // test binary
+		out, err := cmd.CombinedOutput()
+		require.NoError(t, err, "config llm.model failed: %s", out)
+		got := strings.TrimSpace(string(out))
+		assert.NotEmpty(t, got)
+	})
+
+	t.Run("UnknownKey", func(t *testing.T) {
+		cmd := exec.Command(bin, "config", "bogus.key") //nolint:gosec // test binary
+		out, err := cmd.CombinedOutput()
+		require.Error(t, err)
+		assert.Contains(t, string(out), "unknown config key")
+	})
+
+	t.Run("MissingKey", func(t *testing.T) {
+		cmd := exec.Command(bin, "config") //nolint:gosec // test binary
+		out, err := cmd.CombinedOutput()
+		require.Error(t, err)
+		assert.Contains(t, string(out), "expected \"<key>\"")
+	})
+}
+
 // createTestDB creates a migrated, seeded SQLite database file and returns
 // its path. The file lives in a test-scoped temp directory.
 func createTestDB(t *testing.T) string {
