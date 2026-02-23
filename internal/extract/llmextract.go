@@ -83,20 +83,20 @@ You may receive text from multiple extraction sources. Each source is labeled wi
 
 const operationExtractionRules = `## Output format
 
-Output ONLY a raw JSON array. No code fences, no markdown, no commentary.
+Output ONLY a JSON object with an "operations" key containing an array. No code fences, no markdown, no commentary.
 
 Each operation has:
 - "action": "create" or "update"
 - "table": one of the allowed tables below
 - "data": object mapping column names to values
 
-Example (output exactly like this, with NO wrapping):
+Example:
 
-[
+{"operations": [
   {"action": "create", "table": "vendors", "data": {"name": "Garcia Plumbing"}},
   {"action": "update", "table": "documents", "data": {"id": 42, "title": "Invoice", "notes": "Repair"}},
   {"action": "create", "table": "quotes", "data": {"total_cents": 150000, "vendor_id": 1}}
-]
+]}
 
 ## Rules
 

@@ -50,16 +50,29 @@ type chatRequest struct {
 }
 
 type responseFormat struct {
-	Type string `json:"type"`
+	Type       string      `json:"type"`
+	JSONSchema *jsonSchema `json:"json_schema,omitempty"`
+}
+
+type jsonSchema struct {
+	Name   string         `json:"name"`
+	Schema map[string]any `json:"schema"`
 }
 
 // ChatOption configures a chat completion request.
 type ChatOption func(*chatRequest)
 
-// WithJSON constrains the model output to valid JSON.
-func WithJSON() ChatOption {
+// WithJSONSchema constrains the model output to match the given JSON Schema.
+// Ollama's OpenAI-compatible endpoint maps this to the native format parameter.
+func WithJSONSchema(name string, schema map[string]any) ChatOption {
 	return func(r *chatRequest) {
-		r.ResponseFormat = &responseFormat{Type: "json_object"}
+		r.ResponseFormat = &responseFormat{
+			Type: "json_schema",
+			JSONSchema: &jsonSchema{
+				Name:   name,
+				Schema: schema,
+			},
+		}
 	}
 }
 

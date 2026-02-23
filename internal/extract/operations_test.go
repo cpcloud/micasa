@@ -13,10 +13,10 @@ import (
 // --- ParseOperations ---
 
 func TestParseOperations_Valid(t *testing.T) {
-	raw := `[
+	raw := `{"operations": [
 		{"action": "create", "table": "vendors", "data": {"name": "Garcia Plumbing"}},
 		{"action": "update", "table": "documents", "data": {"title": "Invoice", "notes": "Repair"}}
-	]`
+	]}`
 	ops, err := ParseOperations(raw)
 	require.NoError(t, err)
 	require.Len(t, ops, 2)
@@ -31,9 +31,9 @@ func TestParseOperations_Valid(t *testing.T) {
 }
 
 func TestParseOperations_RejectsCodeFences(t *testing.T) {
-	raw := "```json\n" + `[{"action": "create", "table": "vendors", "data": {"name": "Test"}}]` + "\n```"
+	raw := "```json\n" + `{"operations": [{"action": "create", "table": "vendors", "data": {"name": "Test"}}]}` + "\n```"
 	_, err := ParseOperations(raw)
-	assert.Error(t, err, "code fences should be rejected; use llm.WithJSON() to constrain output")
+	assert.Error(t, err)
 }
 
 func TestParseOperations_Empty(t *testing.T) {
@@ -49,9 +49,52 @@ func TestParseOperations_InvalidJSON(t *testing.T) {
 }
 
 func TestParseOperations_EmptyArray(t *testing.T) {
-	_, err := ParseOperations("[]")
+	_, err := ParseOperations(`{"operations": []}`)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no operations found")
+}
+
+func TestParseOperations_InvalidWrapper(t *testing.T) {
+	_, err := ParseOperations(`{"operations": "not an array"}`)
+	assert.Error(t, err)
+}
+
+func TestParseOperations_RawArrayRejected(t *testing.T) {
+	raw := `[{"action": "create", "table": "vendors", "data": {"name": "Test"}}]`
+	_, err := ParseOperations(raw)
+	assert.Error(t, err, "raw arrays should be rejected; schema requires object wrapper")
+}
+
+// --- OperationsSchema ---
+
+func TestOperationsSchema(t *testing.T) {
+	schema := OperationsSchema()
+	assert.Equal(t, "object", schema["type"])
+
+	props, ok := schema["properties"].(map[string]any)
+	require.True(t, ok)
+
+	opsProp, ok := props["operations"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "array", opsProp["type"])
+
+	items, ok := opsProp["items"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "object", items["type"])
+
+	itemProps, ok := items["properties"].(map[string]any)
+	require.True(t, ok)
+
+	actionProp, ok := itemProps["action"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "string", actionProp["type"])
+
+	tableProp, ok := itemProps["table"].(map[string]any)
+	require.True(t, ok)
+	tableEnum, ok := tableProp["enum"].([]any)
+	require.True(t, ok)
+	assert.Contains(t, tableEnum, "documents")
+	assert.Contains(t, tableEnum, "vendors")
 }
 
 // --- ValidateOperations ---

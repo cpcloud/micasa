@@ -34,9 +34,8 @@ type OperationPreviewRow struct {
 	Values  []string
 }
 
-// ParseOperations unmarshals a JSON array of operations from the LLM response.
-// The caller should use llm.WithJSON() to constrain the model output to valid
-// JSON, making code-fence stripping unnecessary.
+// ParseOperations unmarshals the schema-constrained {"operations": [...]}
+// response from the LLM.
 func ParseOperations(raw string) ([]Operation, error) {
 	cleaned := strings.TrimSpace(raw)
 
@@ -46,19 +45,58 @@ func ParseOperations(raw string) ([]Operation, error) {
 
 	// UseNumber preserves JSON numbers as json.Number strings instead of
 	// float64, avoiding precision loss on large integers (IDs, cents).
+	var wrapper struct {
+		Operations []Operation `json:"operations"`
+	}
 	dec := json.NewDecoder(strings.NewReader(cleaned))
 	dec.UseNumber()
-
-	var ops []Operation
-	if err := dec.Decode(&ops); err != nil {
+	if err := dec.Decode(&wrapper); err != nil {
 		return nil, fmt.Errorf("parse operations json: %w", err)
 	}
 
-	if len(ops) == 0 {
+	if len(wrapper.Operations) == 0 {
 		return nil, fmt.Errorf("no operations found in LLM output")
 	}
 
-	return ops, nil
+	return wrapper.Operations, nil
+}
+
+// OperationsSchema returns the JSON Schema for structured extraction output.
+// The schema constrains model output to {"operations": [...]}, where each
+// operation has action, table, and data fields.
+func OperationsSchema() map[string]any {
+	tables := make([]any, 0, len(ExtractionAllowedOps))
+	for t := range ExtractionAllowedOps {
+		tables = append(tables, t)
+	}
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"operations": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type":     "object",
+					"required": []any{"action", "table", "data"},
+					"properties": map[string]any{
+						"action": map[string]any{
+							"type": "string",
+							"enum": []any{ActionCreate, ActionUpdate},
+						},
+						"table": map[string]any{
+							"type": "string",
+							"enum": tables,
+						},
+						"data": map[string]any{
+							"type": "object",
+						},
+					},
+					"additionalProperties": false,
+				},
+			},
+		},
+		"required":             []any{"operations"},
+		"additionalProperties": false,
+	}
 }
 
 // ValidateOperations checks each operation against the allowed tables and

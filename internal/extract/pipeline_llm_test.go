@@ -46,10 +46,10 @@ func mustMarshalJSON(t *testing.T, s string) string {
 // text extraction runs, OCR is skipped (not a PDF/image), then the LLM
 // receives the text and returns JSON operations.
 func TestPipeline_LLMExtractsOperationsFromText(t *testing.T) {
-	opsJSON := `[
+	opsJSON := `{"operations": [
 		{"action": "update", "table": "documents", "data": {"id": 42, "title": "Garcia Plumbing Invoice", "notes": "Plumbing repair invoice"}},
 		{"action": "create", "table": "vendors", "data": {"name": "Garcia Plumbing"}}
-	]`
+	]}`
 	_, client := newTestLLMServer(t, opsJSON)
 
 	p := &Pipeline{
@@ -139,7 +139,7 @@ func TestPipeline_LLMSkippedWithoutText(t *testing.T) {
 // TestPipeline_LLMForbiddenAction verifies that a forbidden action from the
 // LLM is caught by validation and reported as an error.
 func TestPipeline_LLMForbiddenAction(t *testing.T) {
-	opsJSON := `[{"action": "delete", "table": "vendors", "data": {"id": 1}}]`
+	opsJSON := `{"operations": [{"action": "delete", "table": "vendors", "data": {"id": 1}}]}`
 	_, client := newTestLLMServer(t, opsJSON)
 
 	p := &Pipeline{LLMClient: client, DocID: 1}
@@ -154,7 +154,7 @@ func TestPipeline_LLMForbiddenAction(t *testing.T) {
 // TestPipeline_LLMForbiddenTable verifies that writing to an unknown table
 // is caught by validation.
 func TestPipeline_LLMForbiddenTable(t *testing.T) {
-	opsJSON := `[{"action": "create", "table": "users", "data": {"name": "hacker"}}]`
+	opsJSON := `{"operations": [{"action": "create", "table": "users", "data": {"name": "hacker"}}]}`
 	_, client := newTestLLMServer(t, opsJSON)
 
 	p := &Pipeline{LLMClient: client, DocID: 1}

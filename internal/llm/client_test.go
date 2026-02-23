@@ -207,26 +207,37 @@ func TestChatCompleteSuccess(t *testing.T) {
 	assert.Equal(t, "SELECT COUNT(*) FROM projects", result)
 }
 
-func TestChatCompleteWithJSON(t *testing.T) {
+func TestChatCompleteWithJSONSchema(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
 		rf, ok := body["response_format"].(map[string]any)
 		require.True(t, ok, "request should include response_format")
-		assert.Equal(t, "json_object", rf["type"])
-		_, _ = fmt.Fprint(w, `{"choices":[{"message":{"content":"[{\"ok\":true}]"}}]}`)
+		assert.Equal(t, "json_schema", rf["type"])
+		js, ok := rf["json_schema"].(map[string]any)
+		require.True(t, ok, "response_format should include json_schema")
+		assert.Equal(t, "test_schema", js["name"])
+		schema, ok := js["schema"].(map[string]any)
+		require.True(t, ok, "json_schema should include schema")
+		assert.Equal(t, "object", schema["type"])
+		_, _ = fmt.Fprint(w, `{"choices":[{"message":{"content":"{\"ok\":true}"}}]}`)
 	}))
 	defer srv.Close()
 
+	schema := map[string]any{
+		"type":       "object",
+		"properties": map[string]any{"ok": map[string]any{"type": "boolean"}},
+		"required":   []any{"ok"},
+	}
 	client := NewClient(srv.URL+"/v1", "test-model", testTimeout)
 	result, err := client.ChatComplete(context.Background(), []Message{
 		{Role: "user", Content: "extract"},
-	}, WithJSON())
+	}, WithJSONSchema("test_schema", schema))
 	require.NoError(t, err)
 	assert.Contains(t, result, "ok")
 }
 
-func TestChatCompleteWithoutJSON(t *testing.T) {
+func TestChatCompleteWithoutJSONSchema(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
