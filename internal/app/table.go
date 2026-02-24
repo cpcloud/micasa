@@ -84,7 +84,7 @@ func renderHeaderRow(
 ) string {
 	cells := make([]string, 0, len(specs))
 	last := len(specs) - 1
-	arrow := lipgloss.NewStyle().Foreground(secondary)
+	arrow := styles.SortArrow
 	for i, spec := range specs {
 		width := safeWidth(widths, i)
 		title := spec.Title
@@ -500,7 +500,7 @@ func renderCell(
 			style = entityCellStyle(value)
 			value = value[2:]
 		} else {
-			style = lipgloss.NewStyle().Foreground(textDim)
+			style = styles.CellDim
 		}
 	} else if cellValue.Kind == cellUrgency {
 		style = urgencyStyle(value)
@@ -606,13 +606,10 @@ func renderPillCell(
 ) string {
 	style := styles.Drilldown
 	if dimmed && !deleted {
-		style = lipgloss.NewStyle().Foreground(textDim)
+		style = styles.CellDim
 	}
 	if deleted {
-		style = lipgloss.NewStyle().
-			Foreground(textDim).
-			Strikethrough(true).
-			Italic(true)
+		style = styles.DeletedCell
 		pill := style.Render(value)
 		pillW := lipgloss.Width(pill)
 		if pad := width - pillW; pad > 0 {
