@@ -843,7 +843,7 @@ func (m *Model) openCalendar(fieldPtr *string, onConfirm func()) {
 	var selected time.Time
 	hasValue := false
 	if fieldPtr != nil && *fieldPtr != "" {
-		if t, err := time.Parse("2006-01-02", *fieldPtr); err == nil {
+		if t, err := time.ParseInLocation("2006-01-02", *fieldPtr, time.Local); err == nil {
 			cursor = t
 			selected = t
 			hasValue = true

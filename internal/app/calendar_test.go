@@ -372,17 +372,17 @@ func TestCalendarTodayKeyNavigation(t *testing.T) {
 		"confirmed date should be today")
 }
 
-func TestCalendarTodayFromUTCCursor(t *testing.T) {
-	// openCalendar parses dates via time.Parse which returns UTC.
-	// Pressing "t" must still land on the correct local day.
+func TestCalendarTodayFromParsedCursor(t *testing.T) {
+	// openCalendar parses dates via time.ParseInLocation (local).
+	// Pressing "t" must land on the correct local day.
 	m := newTestModel()
 	dateVal := "2020-06-15"
 	m.openCalendar(&dateVal, nil)
 	require.NotNil(t, m.calendar)
 
-	// Verify the parsed cursor is in UTC (from time.Parse).
-	require.Equal(t, time.UTC, m.calendar.Cursor.Location(),
-		"precondition: parsed date should be UTC")
+	// Parsed cursor should be in local timezone.
+	require.Equal(t, time.Local, m.calendar.Cursor.Location(),
+		"precondition: parsed date should be local")
 
 	sendKey(m, "t")
 	now := time.Now()
@@ -391,6 +391,18 @@ func TestCalendarTodayFromUTCCursor(t *testing.T) {
 	assert.Equal(t, now.Day(), m.calendar.Cursor.Day())
 	assert.Equal(t, time.Local, m.calendar.Cursor.Location(),
 		"cursor should be in local timezone after pressing t")
+}
+
+func TestOpenCalendarParsesInLocalTimezone(t *testing.T) {
+	m := newTestModel()
+	dateVal := "2026-02-15"
+	m.openCalendar(&dateVal, nil)
+	require.NotNil(t, m.calendar)
+
+	assert.Equal(t, time.Local, m.calendar.Cursor.Location(),
+		"parsed cursor should use local timezone")
+	assert.Equal(t, time.Local, m.calendar.Selected.Location(),
+		"parsed selected should use local timezone")
 }
 
 func TestOpenCalendarWithEmptyValue(t *testing.T) {
