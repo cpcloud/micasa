@@ -15,6 +15,7 @@ linters:
     - errchkjson
 
     # Bug prevention
+    - govet
     - gocritic
     - gosec
     - durationcheck

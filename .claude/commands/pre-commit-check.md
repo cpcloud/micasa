@@ -7,13 +7,12 @@ pass before proceeding to `git commit`. Fix any failures inline.
 Run these steps in this order (parallelize where independent):
 
 1. `go mod tidy` -- clean up go.mod/go.sum
-2. `nix run '.#pre-commit'` -- linters, formatters, golines
+2. `nix run '.#pre-commit'` -- linters, formatters, golines (includes govet)
 3. `nix run '.#deadcode'` -- whole-program reachability analysis
-4. `go vet ./...` -- common Go errors
-5. `nix run '.#osv-scanner'` -- security vulnerabilities
-6. `go test -shuffle=on ./...` -- all packages, shuffled, no `-v`
+4. `nix run '.#osv-scanner'` -- security vulnerabilities
+5. `go test -shuffle=on ./...` -- all packages, shuffled, no `-v`
 
-Steps 2-5 can run in parallel. Step 6 depends on nothing but is usually the
+Steps 2-4 can run in parallel. Step 5 depends on nothing but is usually the
 slowest -- start it in the background while fixing issues from earlier steps.
 
 If `osv-scanner` finds vulnerabilities, try updating the dependency first. Only
