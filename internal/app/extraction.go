@@ -1391,7 +1391,7 @@ func (m *Model) renderPreviewTable(
 	}
 
 	header := renderHeaderRow(
-		g.specs, widths, seps, colCursor, nil, false, false, g.cells, m.styles,
+		g.specs, widths, seps, colCursor, nil, false, false, g.cells,
 	)
 	divider := renderDivider(widths, seps, divSep, m.styles.TableSeparator)
 
@@ -1404,7 +1404,7 @@ func (m *Model) renderPreviewTable(
 	}
 	rows := renderRows(
 		g.specs, g.cells, g.meta, widths,
-		seps, seps, rowCursor, colCursor, 0, m.styles, pinRenderContext{},
+		seps, seps, rowCursor, colCursor, 0, pinRenderContext{},
 	)
 
 	parts := []string{header, divider}

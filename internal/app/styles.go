@@ -124,8 +124,13 @@ var (
 	border     = lipgloss.AdaptiveColor{Light: "#D1D5DB", Dark: "#374151"}
 )
 
-func DefaultStyles() Styles {
-	return Styles{
+// appStyles is the package-level singleton. Created once at init; never
+// mutated. All rendering code reads from this pointer instead of copying
+// the 86-field struct through function parameters.
+var appStyles = DefaultStyles()
+
+func DefaultStyles() *Styles {
+	return &Styles{
 		Header: lipgloss.NewStyle().Bold(true),
 		HeaderBox: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
