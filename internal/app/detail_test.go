@@ -1027,20 +1027,25 @@ func TestNestedVendorQuoteDocuments(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, vendors)
 
+	projects, err := m.store.ListProjects(false)
+	require.NoError(t, err)
+	require.NotEmpty(t, projects)
+
+	// Explicitly create a quote so the test doesn't depend on demo data randomness.
+	vendor := vendors[0]
+	quote := data.Quote{ProjectID: projects[0].ID, TotalCents: 10000}
+	require.NoError(t, m.store.CreateQuote(&quote, vendor))
+
 	// Level 1: Vendor → Quotes
 	tab := m.activeTab()
-	require.NoError(t, m.openDetailForRow(tab, vendors[0].ID, tabQuotes.String()))
+	require.NoError(t, m.openDetailForRow(tab, vendor.ID, tabQuotes.String()))
 	require.Len(t, m.detailStack, 1)
 
 	require.NoError(t, m.reloadDetailTab())
 
 	// Level 2: Quote → Documents (should use quoteDocumentDef, not vendorDocumentDef).
 	detailTab := &m.detail().Tab
-	quotes, err := m.store.ListQuotesByVendor(vendors[0].ID, false)
-	require.NoError(t, err)
-	require.NotEmpty(t, quotes, "demo data must have vendor with quotes")
-
-	require.NoError(t, m.openDetailForRow(detailTab, quotes[0].ID, tabDocuments.String()))
+	require.NoError(t, m.openDetailForRow(detailTab, quote.ID, tabDocuments.String()))
 	require.Len(t, m.detailStack, 2)
 	assert.Equal(t, tabDocuments.String(), m.detail().Tab.Name)
 	assert.Contains(t, m.detail().Breadcrumb, "Quotes")
@@ -1054,20 +1059,25 @@ func TestNestedProjectQuoteDocuments(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, projects)
 
+	vendors, err := m.store.ListVendors(false)
+	require.NoError(t, err)
+	require.NotEmpty(t, vendors)
+
+	// Explicitly create a quote so the test doesn't depend on demo data randomness.
+	project := projects[0]
+	quote := data.Quote{ProjectID: project.ID, TotalCents: 10000}
+	require.NoError(t, m.store.CreateQuote(&quote, vendors[0]))
+
 	// Level 1: Project → Quotes
 	tab := m.activeTab()
-	require.NoError(t, m.openDetailForRow(tab, projects[0].ID, tabQuotes.String()))
+	require.NoError(t, m.openDetailForRow(tab, project.ID, tabQuotes.String()))
 	require.Len(t, m.detailStack, 1)
 
 	require.NoError(t, m.reloadDetailTab())
 
 	// Level 2: Quote → Documents (should use quoteDocumentDef, not projectDocumentDef).
 	detailTab := &m.detail().Tab
-	quotes, err := m.store.ListQuotesByProject(projects[0].ID, false)
-	require.NoError(t, err)
-	require.NotEmpty(t, quotes, "demo data must have project with quotes")
-
-	require.NoError(t, m.openDetailForRow(detailTab, quotes[0].ID, tabDocuments.String()))
+	require.NoError(t, m.openDetailForRow(detailTab, quote.ID, tabDocuments.String()))
 	require.Len(t, m.detailStack, 2)
 	assert.Equal(t, tabDocuments.String(), m.detail().Tab.Name)
 	assert.Contains(t, m.detail().Breadcrumb, "Quotes")
