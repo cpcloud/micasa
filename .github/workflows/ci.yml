@@ -26,7 +26,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+          - macos-latest
+          - macos-15-intel
+          - windows-latest
+          - windows-11-arm
         go-version: ["1.25"]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -39,26 +45,45 @@ jobs:
 
       - name: Install extraction tools (Linux)
         if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update && sudo apt-get install -y poppler-utils tesseract-ocr imagemagick
-          if ! command -v magick &>/dev/null; then
-            sudo ln -s "$(command -v convert)" /usr/local/bin/magick
-          fi
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils tesseract-ocr imagemagick
+
+      - name: Symlink magick to convert (Linux)
+        if: runner.os == 'Linux'
+        run: command -v magick || sudo ln -s "$(command -v convert)" /usr/local/bin/magick
 
       - name: Install extraction tools (macOS)
         if: runner.os == 'macOS'
         run: brew install poppler tesseract imagemagick ghostscript
 
-      - name: Add MSYS2 to PATH (Windows)
+      - name: Disable winget progress bar (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          Add-Content $env:GITHUB_PATH "C:\msys64\usr\bin"
-          Add-Content $env:GITHUB_PATH "C:\msys64\mingw64\bin"
+          $settingsDir = "$env:LOCALAPPDATA\Packages\Microsoft.DesktopAppInstaller_8wekyb3d8bbwe\LocalState"
+          New-Item -ItemType Directory -Path $settingsDir -Force | Out-Null
+          '{"visual":{"progressBar":"disabled"}}' | Set-Content "$settingsDir\settings.json"
 
       - name: Install extraction tools (Windows)
         if: runner.os == 'Windows'
-        run: pacman -S --noconfirm mingw-w64-x86_64-poppler mingw-w64-x86_64-tesseract-ocr mingw-w64-x86_64-tesseract-data-eng mingw-w64-x86_64-imagemagick
+        shell: pwsh
+        run: |
+          $flags = @('--accept-source-agreements', '--accept-package-agreements', '--disable-interactivity', '--silent')
+          winget install --id oschwartz10612.Poppler @flags
+          winget install --id tesseract-ocr.tesseract @flags
+          winget install --id ImageMagick.ImageMagick @flags
+
+      - name: Add extraction tools to PATH (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Add-Content $env:GITHUB_PATH "$env:LOCALAPPDATA\Microsoft\WinGet\Links"
+          Get-ChildItem "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\oschwartz10612.Poppler_*\poppler-*\Library\bin" |
+            Select-Object -First 1 -ExpandProperty FullName |
+            Add-Content $env:GITHUB_PATH
+          Add-Content $env:GITHUB_PATH "$env:ProgramFiles\Tesseract-OCR"
+          Get-ChildItem "$env:ProgramFiles\ImageMagick-*" -Directory |
+            Select-Object -First 1 -ExpandProperty FullName |
+            Add-Content $env:GITHUB_PATH
 
       - name: Download dependencies
         run: go mod download
@@ -79,10 +104,13 @@ jobs:
         run: echo "MICASA_TEST_SEED=${{ github.run_id }}"
 
       - name: Test
-        run: go test -race -shuffle on -timeout 5m -coverprofile coverage.txt ./...
         env:
-          CGO_ENABLED: "1"
+          CGO_ENABLED: ${{ (runner.os != 'Windows' || runner.arch != 'ARM64') && '1' || '0' }}
           MICASA_TEST_SEED: ${{ github.run_id }}
+        shell: bash
+        run: |
+          race=; [ "$CGO_ENABLED" = "1" ] && race="-race"
+          go test $race -shuffle on -timeout 5m -coverprofile coverage.txt ./...
 
       - name: Benchmarks (smoke)
         run: go test -bench . -benchtime 1x -timeout 5m -run '^$' ./...

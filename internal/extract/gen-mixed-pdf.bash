@@ -7,6 +7,8 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 mkdir -p testdata
 [[ -f testdata/mixed-inspection.pdf ]] && exit 0
 command -v pdfunite &>/dev/null || { echo "pdfunite not found, skipping"; exit 0; }
+[[ -f testdata/sample.pdf ]] || { echo "sample.pdf not found, skipping"; exit 0; }
+[[ -f testdata/scanned-invoice.pdf ]] || { echo "scanned-invoice.pdf not found, skipping"; exit 0; }
 pdfunite \
   testdata/sample.pdf \
   testdata/scanned-invoice.pdf \
