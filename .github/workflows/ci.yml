@@ -66,9 +66,11 @@ jobs:
       - name: Install extraction tools (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: >-
-          winget install --id oschwartz10612.Poppler --id tesseract-ocr.tesseract --id ImageMagick.ImageMagick
-          --accept-source-agreements --accept-package-agreements --disable-interactivity --silent
+        run: |
+          $flags = @('--accept-source-agreements', '--accept-package-agreements', '--disable-interactivity', '--silent')
+          winget install --id oschwartz10612.Poppler @flags
+          winget install --id tesseract-ocr.tesseract @flags
+          winget install --id ImageMagick.ImageMagick @flags
 
       - name: Add extraction tools to PATH (Windows)
         if: runner.os == 'Windows'
