@@ -66,6 +66,7 @@ jobs:
 
       - name: Install extraction tools (Windows)
         if: runner.os == 'Windows'
+        shell: bash
         env:
           PKG_PREFIX: ${{ runner.arch == 'ARM64' && 'mingw-w64-clang-aarch64' || 'mingw-w64-x86_64' }}
         run: pacman -S --noconfirm "${PKG_PREFIX}-poppler" "${PKG_PREFIX}-tesseract-ocr" "${PKG_PREFIX}-tesseract-data-eng" "${PKG_PREFIX}-imagemagick"
