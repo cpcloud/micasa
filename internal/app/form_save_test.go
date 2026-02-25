@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/cpcloud/micasa/internal/data"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -171,6 +172,175 @@ func TestUserCreatesMaintenanceWithCombinedInterval(t *testing.T) {
 	require.Len(t, items, 1)
 	assert.Equal(t, 30, items[0].IntervalMonths)
 	assert.Equal(t, "2y 6m", maintenanceFormValues(items[0]).IntervalMonths)
+}
+
+// Step 1: Create maintenance with interval -- existing behavior unchanged.
+func TestUserCreatesMaintenanceWithIntervalOnly(t *testing.T) {
+	m := newTestModelWithStore(t)
+	m.active = tabIndex(tabMaintenance)
+	openAddForm(m)
+
+	values, ok := m.formData.(*maintenanceFormData)
+	require.True(t, ok)
+	values.Name = "HVAC Filter"
+	values.IntervalMonths = "3"
+	sendKey(m, "ctrl+s")
+	sendKey(m, "esc")
+
+	items, err := m.store.ListMaintenance(false)
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	assert.Equal(t, 3, items[0].IntervalMonths)
+	assert.Nil(t, items[0].DueDate)
+
+	// Verify table row display: "Every" shows 3m, "Next" is empty (no last serviced).
+	m.reloadAll()
+	require.NoError(t, m.reloadActiveTab())
+	tab := m.activeTab()
+	require.NotNil(t, tab)
+	require.NotEmpty(t, tab.CellRows)
+	cells := tab.CellRows[0]
+	assert.Equal(t, "3m", cells[int(maintenanceColEvery)].Value)
+}
+
+// Step 2: Create maintenance with due date.
+func TestUserCreatesMaintenanceWithDueDate(t *testing.T) {
+	m := newTestModelWithStore(t)
+	m.active = tabIndex(tabMaintenance)
+	openAddForm(m)
+
+	values, ok := m.formData.(*maintenanceFormData)
+	require.True(t, ok)
+	values.Name = "Inspect Roof"
+	values.DueDate = "2025-11-01"
+	sendKey(m, "ctrl+s")
+	sendKey(m, "esc")
+
+	items, err := m.store.ListMaintenance(false)
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.NotNil(t, items[0].DueDate)
+	assert.Equal(t, "2025-11-01", items[0].DueDate.Format(data.DateLayout))
+	assert.Zero(t, items[0].IntervalMonths)
+
+	// Verify table row display: "Next" shows due date, "Every" shows "--".
+	m.reloadAll()
+	require.NoError(t, m.reloadActiveTab())
+	tab := m.activeTab()
+	require.NotNil(t, tab)
+	require.NotEmpty(t, tab.CellRows)
+	cells := tab.CellRows[0]
+	assert.Equal(t, "2025-11-01", cells[int(maintenanceColNext)].Value)
+	assert.Equal(t, "--", cells[int(maintenanceColEvery)].Value)
+	assert.Equal(t, cellUrgency, cells[int(maintenanceColNext)].Kind)
+}
+
+// Steps 3-4: Reject both interval and due date set simultaneously.
+func TestUserCannotSetBothIntervalAndDueDate(t *testing.T) {
+	m := newTestModelWithStore(t)
+	m.active = tabIndex(tabMaintenance)
+	openAddForm(m)
+
+	values, ok := m.formData.(*maintenanceFormData)
+	require.True(t, ok)
+	values.Name = "Conflicting"
+	values.IntervalMonths = "6"
+	values.DueDate = "2025-11-01"
+	sendKey(m, "ctrl+s")
+
+	status := m.statusView()
+	assert.Contains(t, status, "interval or due date")
+
+	items, err := m.store.ListMaintenance(false)
+	require.NoError(t, err)
+	assert.Empty(t, items, "no item should be created when both interval and due date are set")
+}
+
+// Step 5: Create maintenance with neither interval nor due date (unscheduled).
+func TestUserCreatesMaintenanceUnscheduled(t *testing.T) {
+	m := newTestModelWithStore(t)
+	m.active = tabIndex(tabMaintenance)
+	openAddForm(m)
+
+	values, ok := m.formData.(*maintenanceFormData)
+	require.True(t, ok)
+	values.Name = "Unscheduled Task"
+	sendKey(m, "ctrl+s")
+	sendKey(m, "esc")
+
+	items, err := m.store.ListMaintenance(false)
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	assert.Zero(t, items[0].IntervalMonths)
+	assert.Nil(t, items[0].DueDate)
+
+	// Verify table row: "Next" and "Every" are both empty.
+	m.reloadAll()
+	require.NoError(t, m.reloadActiveTab())
+	tab := m.activeTab()
+	require.NotNil(t, tab)
+	require.NotEmpty(t, tab.CellRows)
+	cells := tab.CellRows[0]
+	assert.Empty(t, cells[int(maintenanceColNext)].Value)
+	assert.Empty(t, cells[int(maintenanceColEvery)].Value)
+}
+
+// Step 6: Edit existing interval item via full form, change to due date.
+func TestUserEditsMaintenanceFromIntervalToDueDate(t *testing.T) {
+	m := newTestModelWithStore(t)
+	m.active = tabIndex(tabMaintenance)
+
+	// Create an item with an interval.
+	openAddForm(m)
+	values, ok := m.formData.(*maintenanceFormData)
+	require.True(t, ok)
+	values.Name = "HVAC Filter"
+	values.IntervalMonths = "3"
+	sendKey(m, "ctrl+s")
+	sendKey(m, "esc")
+
+	// Reload and select the row.
+	m.reloadAll()
+	require.NoError(t, m.reloadActiveTab())
+	tab := m.activeTab()
+	require.NotNil(t, tab)
+	require.NotEmpty(t, tab.Rows)
+	tab.Table.SetCursor(0)
+	id := tab.Rows[0].ID
+
+	// Open the full edit form (via the ID column fallback).
+	sendKey(m, "i")
+	tab.ColCursor = int(maintenanceColID)
+	sendKey(m, "e")
+	require.Equal(t, modeForm, m.mode, "should open full edit form")
+
+	// Verify current form values show the interval.
+	editValues, ok := m.formData.(*maintenanceFormData)
+	require.True(t, ok)
+	assert.Equal(t, "3m", editValues.IntervalMonths)
+	assert.Empty(t, editValues.DueDate)
+
+	// Change to due date, clear interval.
+	editValues.IntervalMonths = ""
+	editValues.DueDate = "2026-06-01"
+	sendKey(m, "ctrl+s")
+	sendKey(m, "esc")
+
+	// Verify DB state.
+	item, err := m.store.GetMaintenance(id)
+	require.NoError(t, err)
+	assert.Zero(t, item.IntervalMonths)
+	require.NotNil(t, item.DueDate)
+	assert.Equal(t, "2026-06-01", item.DueDate.Format(data.DateLayout))
+
+	// Verify table display after reload.
+	m.reloadAll()
+	require.NoError(t, m.reloadActiveTab())
+	tab = m.activeTab()
+	require.NotEmpty(t, tab.CellRows)
+	cells := tab.CellRows[0]
+	assert.Equal(t, "2026-06-01", cells[int(maintenanceColNext)].Value)
+	assert.Equal(t, "--", cells[int(maintenanceColEvery)].Value)
 }
 
 func TestUserCancelsFormWithEscAfterSaving(t *testing.T) {

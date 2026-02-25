@@ -84,6 +84,7 @@ type maintenanceFormData struct {
 	ApplianceID    uint // 0 means none
 	LastServiced   string
 	IntervalMonths string
+	DueDate        string
 	ManualURL      string
 	ManualText     string
 	Cost           string
@@ -455,10 +456,15 @@ func (m *Model) startMaintenanceForm() error {
 				Value(&values.ApplianceID),
 			huh.NewInput().
 				Title("Interval").
-				Description("e.g. 6 (months), 6m, 1y, 2y 6m; blank for one-time").
+				Description("set an interval OR a due date, not both").
 				Placeholder("6m").
 				Value(&values.IntervalMonths).
 				Validate(optionalInterval("interval")),
+			huh.NewInput().
+				Title("Due date (YYYY-MM-DD)").
+				Description("fixed date; use instead of interval for one-time tasks").
+				Value(&values.DueDate).
+				Validate(optionalDate("due date")),
 		),
 	)
 	m.activateForm(formMaintenance, form, values)
@@ -507,10 +513,15 @@ func (m *Model) openMaintenanceForm(
 				Validate(optionalDate("last serviced")),
 			huh.NewInput().
 				Title("Interval").
-				Description("e.g. 6 (months), 6m, 1y, 2y 6m; blank for one-time").
+				Description("set an interval OR a due date, not both").
 				Placeholder("6m").
 				Value(&values.IntervalMonths).
 				Validate(optionalInterval("interval")),
+			huh.NewInput().
+				Title("Due date (YYYY-MM-DD)").
+				Description("fixed date; use instead of interval for one-time tasks").
+				Value(&values.DueDate).
+				Validate(optionalDate("due date")),
 		).Title("Schedule"),
 		huh.NewGroup(
 			huh.NewInput().Title("Manual URL").Value(&values.ManualURL),
@@ -1217,6 +1228,7 @@ func (m *Model) inlineEditMaintenance(id uint, col maintenanceCol) error {
 	case maintenanceColLast:
 		m.openDatePicker(id, formMaintenance, &values.LastServiced, values)
 	case maintenanceColEvery:
+		values.DueDate = "" // clear due date when setting interval
 		m.openInlineInput(
 			id,
 			formMaintenance,
@@ -1226,7 +1238,10 @@ func (m *Model) inlineEditMaintenance(id uint, col maintenanceCol) error {
 			optionalInterval("interval"),
 			values,
 		)
-	case maintenanceColID, maintenanceColNext, maintenanceColLog, maintenanceColDocs:
+	case maintenanceColNext:
+		values.IntervalMonths = "" // clear interval when setting due date
+		m.openDatePicker(id, formMaintenance, &values.DueDate, values)
+	case maintenanceColID, maintenanceColLog, maintenanceColDocs:
 		return m.startEditMaintenanceForm(id)
 	}
 	return nil
@@ -1976,6 +1991,13 @@ func (m *Model) parseMaintenanceFormData() (data.MaintenanceItem, error) {
 	if err != nil {
 		return data.MaintenanceItem{}, err
 	}
+	dueDate, err := data.ParseOptionalDate(values.DueDate)
+	if err != nil {
+		return data.MaintenanceItem{}, err
+	}
+	if interval > 0 && dueDate != nil {
+		return data.MaintenanceItem{}, data.ErrIntervalAndDueDate
+	}
 	cost, err := data.ParseOptionalCents(values.Cost)
 	if err != nil {
 		return data.MaintenanceItem{}, err
@@ -1990,6 +2012,7 @@ func (m *Model) parseMaintenanceFormData() (data.MaintenanceItem, error) {
 		ApplianceID:    appID,
 		LastServicedAt: lastServiced,
 		IntervalMonths: interval,
+		DueDate:        dueDate,
 		ManualURL:      strings.TrimSpace(values.ManualURL),
 		ManualText:     strings.TrimSpace(values.ManualText),
 		CostCents:      cost,
@@ -2202,6 +2225,7 @@ func maintenanceFormValues(item data.MaintenanceItem) *maintenanceFormData {
 		ApplianceID:    appID,
 		LastServiced:   data.FormatDate(item.LastServicedAt),
 		IntervalMonths: formatInterval(item.IntervalMonths),
+		DueDate:        data.FormatDate(item.DueDate),
 		ManualURL:      item.ManualURL,
 		ManualText:     item.ManualText,
 		Cost:           data.FormatOptionalCents(item.CostCents),

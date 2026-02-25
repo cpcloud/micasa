@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/cpcloud/micasa/internal/data"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -627,6 +628,112 @@ func TestMaintenanceHandlerInlineEditColumns(t *testing.T) {
 	require.NoError(t, h.InlineEdit(m, id, int(maintenanceColID)))
 	assert.Equal(t, modeForm, m.mode)
 	require.NotNil(t, m.editID)
+}
+
+// Step 7: Inline edit "Next" column sets due date via calendar, clears interval,
+// and persists the change to the database.
+func TestMaintenanceInlineEditNextSetsDueDateAndSaves(t *testing.T) {
+	m := newTestModelWithStore(t)
+
+	// Create a maintenance item with an interval via the form.
+	m.active = tabIndex(tabMaintenance)
+	openAddForm(m)
+	values, ok := m.formData.(*maintenanceFormData)
+	require.True(t, ok)
+	values.Name = "Gutter Check"
+	values.IntervalMonths = "6"
+	sendKey(m, "ctrl+s")
+	sendKey(m, "esc")
+
+	// Reload and position on the maintenance tab.
+	m.reloadAll()
+	require.NoError(t, m.reloadActiveTab())
+	tab := m.activeTab()
+	require.NotNil(t, tab)
+	require.NotEmpty(t, tab.Rows)
+	tab.Table.SetCursor(0)
+	id := tab.Rows[0].ID
+
+	// Enter edit mode, position on the "Next" column, press 'e'.
+	sendKey(m, "i")
+	tab.ColCursor = int(maintenanceColNext)
+	sendKey(m, "e")
+
+	require.NotNil(t, m.calendar, "Next column should open a date picker")
+
+	// The form data should have cleared the interval.
+	fd, ok := m.formData.(*maintenanceFormData)
+	require.True(t, ok)
+	assert.Empty(t, fd.IntervalMonths, "interval should be cleared when editing due date")
+
+	// Pick a date and confirm.
+	m.calendar.Cursor = time.Date(2026, 9, 15, 0, 0, 0, 0, time.Local)
+	sendKey(m, "enter")
+	assert.Nil(t, m.calendar, "calendar should be dismissed after confirm")
+
+	// Verify the DB was updated.
+	item, err := m.store.GetMaintenance(id)
+	require.NoError(t, err)
+	require.NotNil(t, item.DueDate, "due date should be saved")
+	assert.Equal(t, "2026-09-15", item.DueDate.Format(data.DateLayout))
+	assert.Zero(t, item.IntervalMonths, "interval should be cleared in DB")
+}
+
+// Step 8: Inline edit "Every" column sets interval, clears due date,
+// and persists the change to the database.
+func TestMaintenanceInlineEditEverySetIntervalAndSaves(t *testing.T) {
+	m := newTestModelWithStore(t)
+
+	// Create a maintenance item with a due date via the form.
+	m.active = tabIndex(tabMaintenance)
+	openAddForm(m)
+	values, ok := m.formData.(*maintenanceFormData)
+	require.True(t, ok)
+	values.Name = "Roof Inspect"
+	values.DueDate = "2025-11-01"
+	sendKey(m, "ctrl+s")
+	sendKey(m, "esc")
+
+	// Reload and position on the maintenance tab.
+	m.reloadAll()
+	require.NoError(t, m.reloadActiveTab())
+	tab := m.activeTab()
+	require.NotNil(t, tab)
+	require.NotEmpty(t, tab.Rows)
+	tab.Table.SetCursor(0)
+	id := tab.Rows[0].ID
+
+	// Enter edit mode, position on "Every" column, press 'e'.
+	sendKey(m, "i")
+	tab.ColCursor = int(maintenanceColEvery)
+	sendKey(m, "e")
+
+	require.NotNil(t, m.inlineInput, "Every column should open inline input")
+	assert.Equal(t, "Interval", m.inlineInput.Title)
+
+	fd, ok := m.formData.(*maintenanceFormData)
+	require.True(t, ok)
+	assert.Empty(t, fd.DueDate, "due date should be cleared when editing interval")
+
+	// Type "12" and press enter to save.
+	for _, ch := range "12" {
+		m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{ch}})
+	}
+	sendKey(m, "enter")
+
+	// Verify the DB was updated.
+	item, err := m.store.GetMaintenance(id)
+	require.NoError(t, err)
+	assert.Equal(t, 12, item.IntervalMonths, "interval should be saved as 12 months")
+	assert.Nil(t, item.DueDate, "due date should be cleared in DB")
+
+	// Verify table display after reload.
+	m.reloadAll()
+	require.NoError(t, m.reloadActiveTab())
+	tab = m.activeTab()
+	require.NotEmpty(t, tab.CellRows)
+	cells := tab.CellRows[0]
+	assert.Equal(t, "1y", cells[int(maintenanceColEvery)].Value)
 }
 
 func TestMaintenanceHandlerInlineEditNonExistent(t *testing.T) {
