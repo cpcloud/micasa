@@ -360,15 +360,18 @@ func TestCalendarTodayKeyNavigation(t *testing.T) {
 	require.NotNil(t, m.calendar)
 	assert.Equal(t, 2020, m.calendar.Cursor.Year())
 
+	// Capture now before sending keys to avoid midnight-boundary flakes.
+	now := time.Now()
+
 	// Press t to jump to today, then enter to confirm.
 	sendKey(m, "t")
-	assert.True(t, sameDay(m.calendar.Cursor, time.Now()),
+	assert.True(t, sameDay(m.calendar.Cursor, now),
 		"pressing t should jump cursor to today")
 
 	sendKey(m, "enter")
 	assert.True(t, confirmed, "OnConfirm should have been called")
 	assert.Nil(t, m.calendar, "calendar should be dismissed")
-	assert.Equal(t, time.Now().Format("2006-01-02"), dateVal,
+	assert.Equal(t, now.Format("2006-01-02"), dateVal,
 		"confirmed date should be today")
 }
 

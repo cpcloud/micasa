@@ -177,7 +177,8 @@ func padLines(s string, width int) string {
 
 // calendarToday jumps the calendar cursor to today's date.
 func calendarToday(cal *calendarState) {
-	cal.Cursor = time.Now()
+	now := time.Now()
+	cal.Cursor = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
 }
 
 // calendarMove adjusts the calendar cursor by the given number of days.
