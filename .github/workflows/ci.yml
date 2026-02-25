@@ -75,6 +75,10 @@ jobs:
           Get-ChildItem "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\oschwartz10612.Poppler_*\poppler-*\Library\bin" |
             Select-Object -First 1 -ExpandProperty FullName |
             Add-Content $env:GITHUB_PATH
+          Add-Content $env:GITHUB_PATH "$env:ProgramFiles\Tesseract-OCR"
+          Get-ChildItem "$env:ProgramFiles\ImageMagick-*" -Directory |
+            Select-Object -First 1 -ExpandProperty FullName |
+            Add-Content $env:GITHUB_PATH
 
       - name: Download dependencies
         run: go mod download
