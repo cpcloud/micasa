@@ -56,18 +56,27 @@ func TestEntityRows_ExcludesDeleted(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, before.Vendors)
 
-	// Soft-delete a vendor (pick one without dependents).
-	// Find a vendor with no quotes or incidents.
+	// Pick the first vendor and remove its dependents so we can delete it.
 	vendors, err := store.ListVendors(false)
 	require.NoError(t, err)
-	var deletedID uint
-	for _, v := range vendors {
-		if err := store.DeleteVendor(v.ID); err == nil {
-			deletedID = v.ID
-			break
+	target := vendors[0]
+
+	quotes, err := store.ListQuotesByVendor(target.ID, false)
+	require.NoError(t, err)
+	for _, q := range quotes {
+		require.NoError(t, store.DeleteQuote(q.ID))
+	}
+
+	incidents, err := store.ListIncidents(false)
+	require.NoError(t, err)
+	for _, inc := range incidents {
+		if inc.VendorID != nil && *inc.VendorID == target.ID {
+			require.NoError(t, store.DeleteIncident(inc.ID))
 		}
 	}
-	require.NotZero(t, deletedID, "should have deleted at least one vendor")
+
+	require.NoError(t, store.DeleteVendor(target.ID))
+	deletedID := target.ID
 
 	after, err := store.EntityRows()
 	require.NoError(t, err)
