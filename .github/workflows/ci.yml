@@ -72,6 +72,9 @@ jobs:
           winget install --id UB-Mannheim.TesseractOCR @flags
           winget install --id ImageMagick.ImageMagick @flags
           Add-Content $env:GITHUB_PATH "$env:LOCALAPPDATA\Microsoft\WinGet\Links"
+          Get-ChildItem "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\oschwartz10612.Poppler_*\poppler-*\Library\bin" |
+            Select-Object -First 1 -ExpandProperty FullName |
+            Add-Content $env:GITHUB_PATH
 
       - name: Download dependencies
         run: go mod download
