@@ -78,10 +78,19 @@ type quoteFormData struct {
 	Notes        string
 }
 
+type scheduleType int
+
+const (
+	schedNone scheduleType = iota
+	schedInterval
+	schedDueDate
+)
+
 type maintenanceFormData struct {
 	Name           string
 	CategoryID     uint
 	ApplianceID    uint // 0 means none
+	ScheduleType   scheduleType
 	LastServiced   string
 	IntervalMonths string
 	DueDate        string
@@ -429,8 +438,16 @@ func (m *Model) openQuoteForm(values *quoteFormData, projectOpts []huh.Option[ui
 	m.activateForm(formQuote, form, values)
 }
 
+func scheduleTypeOptions() []huh.Option[scheduleType] {
+	return []huh.Option[scheduleType]{
+		huh.NewOption("None", schedNone),
+		huh.NewOption("Recurring interval", schedInterval),
+		huh.NewOption("Fixed due date", schedDueDate),
+	}
+}
+
 func (m *Model) startMaintenanceForm() error {
-	values := &maintenanceFormData{}
+	values := &maintenanceFormData{ScheduleType: schedNone}
 	catOptions := maintenanceOptions(m.maintenanceCategories)
 	if len(catOptions) > 0 {
 		values.CategoryID = catOptions[0].Value
@@ -454,18 +471,24 @@ func (m *Model) startMaintenanceForm() error {
 				Title("Appliance").
 				Options(appOpts...).
 				Value(&values.ApplianceID),
+			huh.NewSelect[scheduleType]().
+				Title("Schedule").
+				Options(scheduleTypeOptions()...).
+				Value(&values.ScheduleType),
+		),
+		huh.NewGroup(
 			huh.NewInput().
 				Title("Interval").
-				Description("set an interval OR a due date, not both").
 				Placeholder("6m").
 				Value(&values.IntervalMonths).
 				Validate(optionalInterval("interval")),
+		).WithHideFunc(func() bool { return values.ScheduleType != schedInterval }),
+		huh.NewGroup(
 			huh.NewInput().
 				Title("Due date (YYYY-MM-DD)").
-				Description("fixed date; use instead of interval for one-time tasks").
 				Value(&values.DueDate).
 				Validate(optionalDate("due date")),
-		),
+		).WithHideFunc(func() bool { return values.ScheduleType != schedDueDate }),
 	)
 	m.activateForm(formMaintenance, form, values)
 	return nil
@@ -511,18 +534,24 @@ func (m *Model) openMaintenanceForm(
 				Title("Last serviced (YYYY-MM-DD)").
 				Value(&values.LastServiced).
 				Validate(optionalDate("last serviced")),
+			huh.NewSelect[scheduleType]().
+				Title("Schedule").
+				Options(scheduleTypeOptions()...).
+				Value(&values.ScheduleType),
+		).Title("Schedule"),
+		huh.NewGroup(
 			huh.NewInput().
 				Title("Interval").
-				Description("set an interval OR a due date, not both").
 				Placeholder("6m").
 				Value(&values.IntervalMonths).
 				Validate(optionalInterval("interval")),
+		).WithHideFunc(func() bool { return values.ScheduleType != schedInterval }),
+		huh.NewGroup(
 			huh.NewInput().
 				Title("Due date (YYYY-MM-DD)").
-				Description("fixed date; use instead of interval for one-time tasks").
 				Value(&values.DueDate).
 				Validate(optionalDate("due date")),
-		).Title("Schedule"),
+		).WithHideFunc(func() bool { return values.ScheduleType != schedDueDate }),
 		huh.NewGroup(
 			huh.NewInput().Title("Manual URL").Value(&values.ManualURL),
 			huh.NewText().Title("Manual notes").Value(&values.ManualText),
@@ -1228,7 +1257,8 @@ func (m *Model) inlineEditMaintenance(id uint, col maintenanceCol) error {
 	case maintenanceColLast:
 		m.openDatePicker(id, formMaintenance, &values.LastServiced, values)
 	case maintenanceColEvery:
-		values.DueDate = "" // clear due date when setting interval
+		values.ScheduleType = schedInterval
+		values.DueDate = ""
 		m.openInlineInput(
 			id,
 			formMaintenance,
@@ -1239,7 +1269,8 @@ func (m *Model) inlineEditMaintenance(id uint, col maintenanceCol) error {
 			values,
 		)
 	case maintenanceColNext:
-		values.IntervalMonths = "" // clear interval when setting due date
+		values.ScheduleType = schedDueDate
+		values.IntervalMonths = ""
 		m.openDatePicker(id, formMaintenance, &values.DueDate, values)
 	case maintenanceColID, maintenanceColLog, maintenanceColDocs:
 		return m.startEditMaintenanceForm(id)
@@ -1987,17 +2018,26 @@ func (m *Model) parseMaintenanceFormData() (data.MaintenanceItem, error) {
 	if err != nil {
 		return data.MaintenanceItem{}, err
 	}
-	interval, err := data.ParseIntervalMonths(values.IntervalMonths)
-	if err != nil {
-		return data.MaintenanceItem{}, err
+
+	// The schedule type selector enforces mutual exclusion at the UI level:
+	// only the field matching the selected type is parsed.
+	var interval int
+	var dueDate *time.Time
+
+	switch values.ScheduleType {
+	case schedNone:
+	case schedInterval:
+		interval, err = data.ParseIntervalMonths(values.IntervalMonths)
+		if err != nil {
+			return data.MaintenanceItem{}, err
+		}
+	case schedDueDate:
+		dueDate, err = data.ParseOptionalDate(values.DueDate)
+		if err != nil {
+			return data.MaintenanceItem{}, err
+		}
 	}
-	dueDate, err := data.ParseOptionalDate(values.DueDate)
-	if err != nil {
-		return data.MaintenanceItem{}, err
-	}
-	if interval > 0 && dueDate != nil {
-		return data.MaintenanceItem{}, data.ErrIntervalAndDueDate
-	}
+
 	cost, err := data.ParseOptionalCents(values.Cost)
 	if err != nil {
 		return data.MaintenanceItem{}, err
@@ -2219,10 +2259,18 @@ func maintenanceFormValues(item data.MaintenanceItem) *maintenanceFormData {
 	if item.ApplianceID != nil {
 		appID = *item.ApplianceID
 	}
+	sched := schedNone
+	switch {
+	case item.IntervalMonths > 0:
+		sched = schedInterval
+	case item.DueDate != nil:
+		sched = schedDueDate
+	}
 	return &maintenanceFormData{
 		Name:           item.Name,
 		CategoryID:     item.CategoryID,
 		ApplianceID:    appID,
+		ScheduleType:   sched,
 		LastServiced:   data.FormatDate(item.LastServicedAt),
 		IntervalMonths: formatInterval(item.IntervalMonths),
 		DueDate:        data.FormatDate(item.DueDate),

@@ -199,8 +199,9 @@ func TestMaintenanceHandlerStartEditForm(t *testing.T) {
 	cats, _ := m.store.MaintenanceCategories()
 
 	m.formData = &maintenanceFormData{
-		Name:       "Edit Maint",
-		CategoryID: cats[0].ID,
+		Name:         "Edit Maint",
+		CategoryID:   cats[0].ID,
+		ScheduleType: schedNone,
 	}
 	require.NoError(t, h.SubmitForm(m))
 	_, meta, _, _ := h.Load(m.store, false)
@@ -581,6 +582,7 @@ func TestMaintenanceHandlerInlineEditColumns(t *testing.T) {
 	m.formData = &maintenanceFormData{
 		Name:           "InlineM Item",
 		CategoryID:     cats[0].ID,
+		ScheduleType:   schedInterval,
 		IntervalMonths: "6",
 	}
 	require.NoError(t, h.SubmitForm(m))
@@ -641,6 +643,7 @@ func TestMaintenanceInlineEditNextSetsDueDateAndSaves(t *testing.T) {
 	values, ok := m.formData.(*maintenanceFormData)
 	require.True(t, ok)
 	values.Name = "Gutter Check"
+	values.ScheduleType = schedInterval
 	values.IntervalMonths = "6"
 	sendKey(m, "ctrl+s")
 	sendKey(m, "esc")
@@ -661,9 +664,10 @@ func TestMaintenanceInlineEditNextSetsDueDateAndSaves(t *testing.T) {
 
 	require.NotNil(t, m.calendar, "Next column should open a date picker")
 
-	// The form data should have cleared the interval.
+	// The form data should have switched to due date mode and cleared interval.
 	fd, ok := m.formData.(*maintenanceFormData)
 	require.True(t, ok)
+	assert.Equal(t, schedDueDate, fd.ScheduleType)
 	assert.Empty(t, fd.IntervalMonths, "interval should be cleared when editing due date")
 
 	// Pick a date and confirm.
@@ -690,6 +694,7 @@ func TestMaintenanceInlineEditEverySetIntervalAndSaves(t *testing.T) {
 	values, ok := m.formData.(*maintenanceFormData)
 	require.True(t, ok)
 	values.Name = "Roof Inspect"
+	values.ScheduleType = schedDueDate
 	values.DueDate = "2025-11-01"
 	sendKey(m, "ctrl+s")
 	sendKey(m, "esc")
@@ -711,8 +716,10 @@ func TestMaintenanceInlineEditEverySetIntervalAndSaves(t *testing.T) {
 	require.NotNil(t, m.inlineInput, "Every column should open inline input")
 	assert.Equal(t, "Interval", m.inlineInput.Title)
 
+	// The form data should have switched to interval mode and cleared due date.
 	fd, ok := m.formData.(*maintenanceFormData)
 	require.True(t, ok)
+	assert.Equal(t, schedInterval, fd.ScheduleType)
 	assert.Empty(t, fd.DueDate, "due date should be cleared when editing interval")
 
 	// Type "12" and press enter to save.
@@ -1399,6 +1406,7 @@ func TestStartEditMaintenanceFormPopulatesAllFields(t *testing.T) {
 	assert.Equal(t, "Full Maint", fd.Name)
 	assert.Equal(t, cats[0].ID, fd.CategoryID)
 	assert.Equal(t, appID, fd.ApplianceID)
+	assert.Equal(t, schedInterval, fd.ScheduleType)
 	assert.Equal(t, "2026-01-01", fd.LastServiced)
 	assert.Equal(t, "6m", fd.IntervalMonths)
 	assert.Equal(t, "https://manual.com", fd.ManualURL)
