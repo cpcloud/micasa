@@ -6,6 +6,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 
 mkdir -p testdata
 [[ -f testdata/sample-text.png ]] && exit 0
+magick -size 1x1 xc:white null: 2>/dev/null || { echo "magick xc: delegate unavailable, skipping"; exit 0; }
 magick -size 612x200 xc:white \
   -pointsize 24 \
   -fill black \
