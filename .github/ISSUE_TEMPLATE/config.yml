@@ -1,0 +1,11 @@
+# Copyright 2026 Phillip Cloud
+# Licensed under the Apache License, Version 2.0
+
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://micasa.dev/docs/
+    about: Check the docs before opening an issue.
+  - name: Security vulnerability
+    url: https://github.com/cpcloud/micasa/security/advisories/new
+    about: Report security issues privately, not as public issues.
