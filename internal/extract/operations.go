@@ -157,7 +157,7 @@ func OperationPreview(op Operation) *OperationPreviewRow {
 
 	// Extract row ID from "id" key if present (for updates).
 	if idVal, ok := op.Data["id"]; ok {
-		row.RowID = parseUintFromAny(idVal)
+		row.RowID = ParseUint(idVal)
 	}
 
 	// Sort keys for deterministic display. Exclude "id" from column list
@@ -174,8 +174,9 @@ func OperationPreview(op Operation) *OperationPreviewRow {
 	return row
 }
 
-// parseUintFromAny extracts a uint from a JSON value (json.Number or string).
-func parseUintFromAny(v any) uint {
+// ParseUint extracts a uint from a JSON value (json.Number, float64, or
+// string). Returns 0 for nil, negative, or unparsable values.
+func ParseUint(v any) uint {
 	switch val := v.(type) {
 	case json.Number:
 		if n, err := strconv.ParseUint(val.String(), 10, strconv.IntSize); err == nil {
@@ -186,7 +187,7 @@ func parseUintFromAny(v any) uint {
 			return uint(val)
 		}
 	case string:
-		if n, err := strconv.ParseUint(val, 10, strconv.IntSize); err == nil {
+		if n, err := strconv.ParseUint(strings.TrimSpace(val), 10, strconv.IntSize); err == nil {
 			return uint(n)
 		}
 	}

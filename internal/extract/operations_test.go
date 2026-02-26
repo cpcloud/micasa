@@ -222,12 +222,13 @@ func TestFormatValue(t *testing.T) {
 	assert.Equal(t, "null", formatValue(nil))
 }
 
-// --- parseUintFromAny ---
+// --- ParseUint ---
 
-func TestParseUintFromAny(t *testing.T) {
-	assert.Equal(t, uint(42), parseUintFromAny(float64(42)))
-	assert.Equal(t, uint(42), parseUintFromAny("42"))
-	assert.Equal(t, uint(0), parseUintFromAny(float64(-1)))
-	assert.Equal(t, uint(0), parseUintFromAny("abc"))
-	assert.Equal(t, uint(0), parseUintFromAny(nil))
+func TestParseUint(t *testing.T) {
+	assert.Equal(t, uint(42), ParseUint(float64(42)))
+	assert.Equal(t, uint(42), ParseUint("42"))
+	assert.Equal(t, uint(42), ParseUint(" 42 "))
+	assert.Equal(t, uint(0), ParseUint(float64(-1)))
+	assert.Equal(t, uint(0), ParseUint("abc"))
+	assert.Equal(t, uint(0), ParseUint(nil))
 }

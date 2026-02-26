@@ -592,7 +592,7 @@ func (m *Model) dispatchCreateDocument(op extract.Operation) error {
 	applyStringField(op.Data, "notes", &doc.Notes)
 	applyStringField(op.Data, "entity_kind", &doc.EntityKind)
 	if v, ok := op.Data["entity_id"]; ok {
-		if n := parseUintFromData(v); n > 0 {
+		if n := extract.ParseUint(v); n > 0 {
 			doc.EntityID = n
 		}
 	}
@@ -600,7 +600,7 @@ func (m *Model) dispatchCreateDocument(op extract.Operation) error {
 }
 
 func (m *Model) dispatchUpdateDocument(op extract.Operation) error {
-	rowID := parseUintFromData(op.Data["id"])
+	rowID := extract.ParseUint(op.Data["id"])
 	if rowID == 0 {
 		return fmt.Errorf("update documents requires id in data")
 	}
@@ -612,7 +612,7 @@ func (m *Model) dispatchUpdateDocument(op extract.Operation) error {
 	applyStringField(op.Data, "notes", &doc.Notes)
 	applyStringField(op.Data, "entity_kind", &doc.EntityKind)
 	if v, ok := op.Data["entity_id"]; ok {
-		if n := parseUintFromData(v); n > 0 {
+		if n := extract.ParseUint(v); n > 0 {
 			doc.EntityID = n
 		}
 	}
@@ -636,7 +636,7 @@ func (m *Model) dispatchCreateVendor(op extract.Operation) error {
 func (m *Model) dispatchCreateQuote(op extract.Operation) error {
 	quote := data.Quote{}
 	if v, ok := op.Data["project_id"]; ok {
-		if n := parseUintFromData(v); n > 0 {
+		if n := extract.ParseUint(v); n > 0 {
 			quote.ProjectID = n
 		}
 	}
@@ -656,7 +656,7 @@ func (m *Model) dispatchCreateQuote(op extract.Operation) error {
 	// Resolve vendor: by vendor_id or inline vendor name.
 	var vendor data.Vendor
 	if v, ok := op.Data["vendor_id"]; ok {
-		if n := parseUintFromData(v); n > 0 {
+		if n := extract.ParseUint(v); n > 0 {
 			got, err := m.store.GetVendor(n)
 			if err != nil {
 				return fmt.Errorf("get vendor %d: %w", n, err)
@@ -680,12 +680,12 @@ func (m *Model) dispatchCreateMaintenance(op extract.Operation) error {
 	item := data.MaintenanceItem{}
 	applyStringField(op.Data, "name", &item.Name)
 	if v, ok := op.Data["category_id"]; ok {
-		if n := parseUintFromData(v); n > 0 {
+		if n := extract.ParseUint(v); n > 0 {
 			item.CategoryID = n
 		}
 	}
 	if v, ok := op.Data["appliance_id"]; ok {
-		if n := parseUintFromData(v); n > 0 {
+		if n := extract.ParseUint(v); n > 0 {
 			item.ApplianceID = &n
 		}
 	}
@@ -722,25 +722,6 @@ func applyStringField(data map[string]any, key string, dst *string) {
 			*dst = s
 		}
 	}
-}
-
-// parseUintFromData extracts a uint from a JSON value (float64 or string).
-func parseUintFromData(v any) uint {
-	switch val := v.(type) {
-	case json.Number:
-		if n, err := strconv.ParseUint(val.String(), 10, strconv.IntSize); err == nil {
-			return uint(n)
-		}
-	case float64:
-		if val > 0 && val <= math.MaxUint {
-			return uint(val)
-		}
-	case string:
-		if n, err := strconv.ParseUint(strings.TrimSpace(val), 10, strconv.IntSize); err == nil {
-			return uint(n)
-		}
-	}
-	return 0
 }
 
 // parseIntFromData extracts an int from a JSON value.
@@ -817,7 +798,7 @@ func (m *Model) acceptDeferredExtraction() error {
 			applyStringField(op.Data, "notes", &doc.Notes)
 			applyStringField(op.Data, "entity_kind", &doc.EntityKind)
 			if v, ok := op.Data["entity_id"]; ok {
-				if n := parseUintFromData(v); n > 0 {
+				if n := extract.ParseUint(v); n > 0 {
 					doc.EntityID = n
 				}
 			}
