@@ -51,9 +51,9 @@ func (s *Store) ListOpenIncidents() ([]Incident, error) {
 			return q.Unscoped()
 		}).
 		Order("CASE " + ColSeverity +
-			" WHEN 'urgent' THEN 0" +
-			" WHEN 'soon' THEN 1" +
-			" WHEN 'whenever' THEN 2" +
+			" WHEN '" + IncidentSeverityUrgent + "' THEN 0" +
+			" WHEN '" + IncidentSeveritySoon + "' THEN 1" +
+			" WHEN '" + IncidentSeverityWhenever + "' THEN 2" +
 			" ELSE 3 END, " + ColUpdatedAt + " desc, " + ColID + " desc").
 		Find(&incidents).Error
 	return incidents, err

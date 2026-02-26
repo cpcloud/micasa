@@ -894,7 +894,10 @@ func (s *Store) ListIncidents(includeDeleted bool) ([]Incident, error) {
 
 func (s *Store) GetIncident(id uint) (Incident, error) {
 	var item Incident
-	err := s.db.Preload("Appliance").Preload("Vendor").First(&item, id).Error
+	err := s.db.
+		Preload("Appliance", func(db *gorm.DB) *gorm.DB { return db.Unscoped() }).
+		Preload("Vendor", func(db *gorm.DB) *gorm.DB { return db.Unscoped() }).
+		First(&item, id).Error
 	return item, err
 }
 
