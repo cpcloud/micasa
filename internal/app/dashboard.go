@@ -29,7 +29,7 @@ const (
 // ---------------------------------------------------------------------------
 
 func (m *Model) dashboardHeader() string {
-	return m.styles.DashSubtitle.Render(time.Now().Format("Monday, Jan 2, 2006"))
+	return m.styles.DashSubtitle().Render(time.Now().Format("Monday, Jan 2, 2006"))
 }
 
 // ---------------------------------------------------------------------------
@@ -504,7 +504,7 @@ func (m *Model) dashboardView(budget, maxWidth int) string {
 	}
 
 	// Render sections. Collapsed ones show only a header with count.
-	sel := m.styles.TableSelected
+	sel := m.styles.TableSelected()
 	colGap := 3
 	navIdx := 0
 	var lines []string
@@ -540,7 +540,7 @@ func (m *Model) dashboardView(budget, maxWidth int) string {
 		// Expanded: render data rows below the header.
 		localCursor := m.dash.cursor - navIdx
 		tbl := renderMiniTable(
-			s.headers, s.rows, colGap, maxWidth, localCursor, sel, m.styles.DashLabel,
+			s.headers, s.rows, colGap, maxWidth, localCursor, sel, m.styles.DashLabel(),
 		)
 		// Column header row (if present) offsets data rows by 1.
 		headerOffset := len(tbl) - len(s.rows)
@@ -601,12 +601,12 @@ func (m *Model) dashboardView(budget, maxWidth int) string {
 		visible := lines[m.dash.scrollOffset:end]
 		var result []string
 		if m.dash.scrollOffset > 0 {
-			result = append(result, m.styles.DashLabel.Render(
+			result = append(result, m.styles.DashLabel().Render(
 				fmt.Sprintf("  %s %d more", symTriUp, m.dash.scrollOffset)))
 		}
 		result = append(result, visible...)
 		if end < len(lines) {
-			result = append(result, m.styles.DashLabel.Render(
+			result = append(result, m.styles.DashLabel().Render(
 				fmt.Sprintf("  %s %d more", symTriDown, len(lines)-end)))
 		}
 		lines = result
@@ -624,20 +624,20 @@ func (m *Model) dashboardView(budget, maxWidth int) string {
 func (m *Model) dashSectionHeader(
 	title string, count int, dimmed bool,
 ) string {
-	style := m.styles.DashSection
+	style := m.styles.DashSection()
 	switch title {
 	case dashSectionIncidents:
-		style = m.styles.DashSectionWarn
+		style = m.styles.DashSectionWarn()
 	case dashSectionOverdue:
-		style = m.styles.DashSectionAlert
+		style = m.styles.DashSectionAlert()
 	}
 	if dimmed {
-		style = appStyles.Base.
+		style = appStyles.Base().
 			Foreground(style.GetBackground()).
 			Padding(0, 1)
 	}
 	badge := style.Render(title)
-	dim := m.styles.DashLabel.Render(fmt.Sprintf(" %d", count))
+	dim := m.styles.DashLabel().Render(fmt.Sprintf(" %d", count))
 	return badge + dim
 }
 
@@ -649,8 +649,8 @@ func (m *Model) dashSectionHeader(
 // Duration cells use the section's accent color: warning for overdue,
 // upcoming style for due-soon.
 func (m *Model) dashMaintSplitRows() (overdue, upcoming []dashRow) {
-	overdue = m.maintUrgencyRows(m.dash.data.Overdue, m.styles.DashOverdue)
-	upcoming = m.maintUrgencyRows(m.dash.data.Upcoming, m.styles.DashUpcoming)
+	overdue = m.maintUrgencyRows(m.dash.data.Overdue, m.styles.DashOverdue())
+	upcoming = m.maintUrgencyRows(m.dash.data.Upcoming, m.styles.DashUpcoming())
 	return overdue, upcoming
 }
 
@@ -664,7 +664,7 @@ func (m *Model) maintUrgencyRows(
 	for _, e := range items {
 		rows = append(rows, dashRow{
 			Cells: []dashCell{
-				{Text: e.Item.Name, Style: m.styles.DashValue},
+				{Text: e.Item.Name, Style: m.styles.DashValue()},
 				{Text: daysText(e.DaysFromNow), Style: durStyle, Align: alignRight},
 			},
 			Target: &dashNavEntry{Tab: tabMaintenance, ID: e.Item.ID},
@@ -678,14 +678,14 @@ func (m *Model) dashProjectRows() []dashRow {
 	now := time.Now()
 	rows := make([]dashRow, 0, len(d.ActiveProjects))
 	for _, p := range d.ActiveProjects {
-		statusStyle := m.styles.StatusStyles[p.Status]
+		statusStyle, _ := m.styles.StatusStyle(p.Status)
 		statusText := statusLabel(p.Status)
 		started := pastDur(now.Sub(p.CreatedAt))
 		rows = append(rows, dashRow{
 			Cells: []dashCell{
-				{Text: p.Title, Style: m.styles.DashValue},
+				{Text: p.Title, Style: m.styles.DashValue()},
 				{Text: statusText, Style: statusStyle},
-				{Text: started, Style: m.styles.DashLabel, Align: alignRight},
+				{Text: started, Style: m.styles.DashLabel(), Align: alignRight},
 			},
 			Target: &dashNavEntry{Tab: tabProjects, ID: p.ID},
 		})
@@ -698,15 +698,15 @@ func (m *Model) dashIncidentRows() []dashRow {
 	now := time.Now()
 	rows := make([]dashRow, 0, len(d.OpenIncidents))
 	for _, inc := range d.OpenIncidents {
-		sevStyle := m.styles.StatusStyles[inc.Severity]
+		sevStyle, _ := m.styles.StatusStyle(inc.Severity)
 		sevText := statusLabel(inc.Severity)
 		rows = append(rows, dashRow{
 			Cells: []dashCell{
-				{Text: inc.Title, Style: m.styles.DashValue},
+				{Text: inc.Title, Style: m.styles.DashValue()},
 				{Text: sevText, Style: sevStyle},
 				{
 					Text:  pastDur(now.Sub(inc.DateNoticed)),
-					Style: m.styles.DashOverdue,
+					Style: m.styles.DashOverdue(),
 					Align: alignRight,
 				},
 			},
@@ -726,7 +726,7 @@ func (m *Model) dashExpiringRows() []dashRow {
 		overdue := w.DaysFromNow < 0
 		rows = append(rows, dashRow{
 			Cells: []dashCell{
-				{Text: w.Appliance.Name + " warranty", Style: m.styles.DashValue},
+				{Text: w.Appliance.Name + " warranty", Style: m.styles.DashValue()},
 				{
 					Text:  daysText(w.DaysFromNow),
 					Style: m.daysStyle(w.DaysFromNow, overdue),
@@ -746,7 +746,7 @@ func (m *Model) dashExpiringRows() []dashRow {
 		}
 		rows = append(rows, dashRow{
 			Cells: []dashCell{
-				{Text: label, Style: m.styles.DashHouseValue},
+				{Text: label, Style: m.styles.DashHouseValue()},
 				{
 					Text:  daysText(ins.DaysFromNow),
 					Style: m.daysStyle(ins.DaysFromNow, overdue),
@@ -895,9 +895,9 @@ func daysText(days int) string {
 // Styles struct to stay consistent with the colorblind-safe palette.
 func (m *Model) daysStyle(days int, overdue bool) lipgloss.Style {
 	if days == 0 || overdue {
-		return m.styles.DashOverdue
+		return m.styles.DashOverdue()
 	}
-	return m.styles.DashUpcoming
+	return m.styles.DashUpcoming()
 }
 
 // pastDur returns a compressed past-duration string. Sub-minute is "<1m".

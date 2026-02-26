@@ -11,7 +11,7 @@ import (
 
 // dimPath renders a shortened path in the dim text color so it visually
 // recedes next to the bold title label.
-var dimPath = appStyles.DimPath
+var dimPath = appStyles.DimPath()
 
 // filePickerCurrentDir returns the bubbles filepicker's CurrentDirectory from
 // a huh.FilePicker field via reflection (the picker field is unexported).

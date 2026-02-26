@@ -19,9 +19,9 @@ func gapSeparators(
 	if n <= 1 {
 		return nil, nil
 	}
-	collapsedSep := appStyles.TableSeparator.Render(" ") +
-		appStyles.SecondaryText.Render("⋯") +
-		appStyles.TableSeparator.Render(" ")
+	collapsedSep := appStyles.TableSeparator().Render(" ") +
+		appStyles.SecondaryText().Render("⋯") +
+		appStyles.TableSeparator().Render(" ")
 
 	plainSeps = make([]string, n-1)
 	collapsedSeps = make([]string, n-1)
@@ -59,7 +59,7 @@ func renderHiddenBadges(
 	specs []columnSpec,
 	colCursor int,
 ) string {
-	sep := appStyles.HeaderHint.Render(" · ")
+	sep := appStyles.HeaderHint().Render(" · ")
 
 	var leftParts, rightParts []string
 	for i, spec := range specs {
@@ -94,7 +94,7 @@ func renderHiddenBadges(
 		if len(rightParts) == 0 && i == len(leftParts)-1 {
 			name += rightMarker
 		}
-		allParts = append(allParts, appStyles.HiddenLeft.Render(name))
+		allParts = append(allParts, appStyles.HiddenLeft().Render(name))
 	}
 	for i, name := range rightParts {
 		// Reserve left marker slot when all hidden columns are right of cursor.
@@ -104,7 +104,7 @@ func renderHiddenBadges(
 		if i == len(rightParts)-1 {
 			name += rightMarker
 		}
-		allParts = append(allParts, appStyles.HiddenRight.Render(name))
+		allParts = append(allParts, appStyles.HiddenRight().Render(name))
 	}
 	return strings.Join(allParts, sep)
 }

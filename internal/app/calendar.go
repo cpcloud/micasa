@@ -33,11 +33,11 @@ func calendarGrid(cal calendarState) string {
 	year, month := cursor.Year(), cursor.Month()
 
 	// Header: month name + year, centered over the day grid.
-	header := appStyles.CalHeader.
+	header := appStyles.CalHeader().
 		Render(fmt.Sprintf(" %s %d ", month.String(), year))
 
 	// Day-of-week labels.
-	dayLabels := appStyles.CalDayLabel.
+	dayLabels := appStyles.CalDayLabel().
 		Render("Su Mo Tu We Th Fr Sa")
 
 	calW := lipgloss.Width(dayLabels) // 20
@@ -65,13 +65,13 @@ func calendarGrid(cal calendarState) string {
 		var style lipgloss.Style
 		switch {
 		case isCursor:
-			style = appStyles.CalCursor
+			style = appStyles.CalCursor()
 		case isSelected:
-			style = appStyles.CalSelected
+			style = appStyles.CalSelected()
 		case isToday:
-			style = appStyles.CalToday
+			style = appStyles.CalToday()
 		default:
-			style = appStyles.Base
+			style = appStyles.Base()
 		}
 
 		row.WriteString(style.Render(label))
@@ -120,8 +120,8 @@ func calendarGrid(cal calendarState) string {
 
 // calendarHints renders the key legend as a two-column vertical list.
 func calendarHints() string {
-	dim := appStyles.CalDayLabel
-	key := appStyles.CalHintKey
+	dim := appStyles.CalDayLabel()
+	key := appStyles.CalHintKey()
 
 	type hint struct{ k, v string }
 	items := []hint{

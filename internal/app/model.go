@@ -251,7 +251,7 @@ func NewModel(store *data.Store, options Options) (*Model, error) {
 		progress.WithGradient(textDim.Dark, accent.Dark),
 		progress.WithFillCharacters('━', '┄'),
 	)
-	pprog.PercentageStyle = appStyles.TextDim
+	pprog.PercentageStyle = appStyles.TextDim()
 
 	model := &Model{
 		store:              store,
@@ -2377,7 +2377,7 @@ func (m *Model) scrollRule(
 	ch string,
 ) string {
 	if totalLines <= viewportH {
-		return m.styles.Rule.Render(strings.Repeat(ch, width))
+		return m.styles.Rule().Render(strings.Repeat(ch, width))
 	}
 	var label string
 	switch {
@@ -2388,10 +2388,10 @@ func (m *Model) scrollRule(
 	default:
 		label = fmt.Sprintf("%d%%", int(pct*100))
 	}
-	indicator := m.styles.TextDim.Render(" " + label + " ")
+	indicator := m.styles.TextDim().Render(" " + label + " ")
 	indicatorW := lipgloss.Width(indicator)
 	rightW := max(0, width-indicatorW)
-	return m.styles.Rule.Render(strings.Repeat(ch, rightW)) + indicator
+	return m.styles.Rule().Render(strings.Repeat(ch, rightW)) + indicator
 }
 
 func (m *Model) terminalTooSmall() bool {

@@ -44,7 +44,7 @@ func annotateMoneyHeaders(specs []columnSpec) []columnSpec {
 	copy(out, specs)
 	for i, spec := range out {
 		if spec.Kind == cellMoney {
-			out[i].Title = spec.Title + " " + appStyles.Money.Render("$")
+			out[i].Title = spec.Title + " " + appStyles.Money().Render("$")
 		}
 	}
 	return out

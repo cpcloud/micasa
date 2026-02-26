@@ -491,10 +491,10 @@ func TestTabSwitchKeysBlockedInEditMode(t *testing.T) {
 
 func TestModeBadgeFixedWidth(t *testing.T) {
 	styles := DefaultStyles()
-	normalBadge := styles.ModeNormal.Render("NAV")
+	normalBadge := styles.ModeNormal().Render("NAV")
 	normalWidth := lipgloss.Width(normalBadge)
 
-	editBadge := styles.ModeEdit.
+	editBadge := styles.ModeEdit().
 		Width(normalWidth).
 		Align(lipgloss.Center).
 		Render("EDIT")

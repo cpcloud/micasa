@@ -18,11 +18,11 @@ func (m *Model) houseView() string {
 		content := lipgloss.JoinVertical(
 			lipgloss.Left,
 			joinInline(
-				m.styles.HeaderTitle.Render("House"),
-				m.styles.HeaderBadge.Render("setup"),
+				m.styles.HeaderTitle().Render("House"),
+				m.styles.HeaderBadge().Render("setup"),
 				m.keycap("H"),
 			),
-			m.styles.HeaderHint.Render("Complete the form to add a house profile."),
+			m.styles.HeaderHint().Render("Complete the form to add a house profile."),
 		)
 		return m.headerBox(content)
 	}
@@ -33,11 +33,11 @@ func (m *Model) houseView() string {
 }
 
 func (m *Model) houseCollapsed() string {
-	title := m.styles.HeaderTitle.Render("House")
-	badge := m.styles.HeaderBadge.Render("▸")
-	sep := m.styles.HeaderHint.Render(" · ")
-	hint := m.styles.HeaderHint
-	val := m.styles.HeaderValue
+	title := m.styles.HeaderTitle().Render("House")
+	badge := m.styles.HeaderBadge().Render("▸")
+	sep := m.styles.HeaderHint().Render(" · ")
+	hint := m.styles.HeaderHint()
+	val := m.styles.HeaderValue()
 	stats := joinStyledParts(sep,
 		styledPart(val, m.house.Nickname),
 		styledPart(hint, formatCityState(m.house)),
@@ -49,10 +49,10 @@ func (m *Model) houseCollapsed() string {
 }
 
 func (m *Model) houseExpanded() string {
-	title := m.styles.HeaderTitle.Render("House")
-	badge := m.styles.HeaderBadge.Render("▾")
-	hint := m.styles.HeaderHint
-	val := m.styles.HeaderValue
+	title := m.styles.HeaderTitle().Render("House")
+	badge := m.styles.HeaderBadge().Render("▾")
+	hint := m.styles.HeaderHint()
+	val := m.styles.HeaderValue()
 	sep := hint.Render(" · ")
 
 	identity := joinStyledParts(sep,
@@ -105,7 +105,7 @@ func (m *Model) houseExpanded() string {
 }
 
 func (m *Model) headerBox(content string) string {
-	return m.styles.HeaderBox.Render(content)
+	return m.styles.HeaderBox().Render(content)
 }
 
 // houseArt renders a retro pixel-art house for the expanded profile.
@@ -115,10 +115,10 @@ func (m *Model) houseArt() string {
 	if m.effectiveWidth() < 80 {
 		return ""
 	}
-	rf := m.styles.HouseRoof   // roof
-	wl := m.styles.HouseWall   // walls
-	wn := m.styles.HouseWindow // windows (lit)
-	dr := m.styles.HouseDoor   // door
+	rf := m.styles.HouseRoof()   // roof
+	wl := m.styles.HouseWall()   // walls
+	wn := m.styles.HouseWindow() // windows (lit)
+	dr := m.styles.HouseDoor()   // door
 	lines := []string{
 		rf.Render("      ▄▓▄"),
 		rf.Render("    ▄▓▓▓▓▓▄"),
@@ -158,12 +158,12 @@ func (m *Model) hlv(label, value string) string {
 	if strings.TrimSpace(value) == "" {
 		return ""
 	}
-	return m.styles.HeaderLabel.Render(label) + " " + m.styles.HeaderValue.Render(value)
+	return m.styles.HeaderLabel().Render(label) + " " + m.styles.HeaderValue().Render(value)
 }
 
 // houseSection renders a section header with values, indenting continuation lines.
 func (m *Model) houseSection(header string, lines ...string) string {
-	label := m.styles.HeaderSection.Render(header)
+	label := m.styles.HeaderSection().Render(header)
 	labelWidth := lipgloss.Width(label)
 	indent := strings.Repeat(" ", labelWidth+1)
 	filtered := make([]string, 0, len(lines))

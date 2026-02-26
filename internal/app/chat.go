@@ -167,7 +167,7 @@ func (m *Model) openChat() {
 	vp.KeyMap.Right.SetEnabled(false)
 
 	sp := spinner.New(spinner.WithSpinner(spinner.Dot))
-	sp.Style = m.styles.AccentText
+	sp.Style = m.styles.AccentText()
 
 	// Load persisted prompt history from the database.
 	var history []string
@@ -454,7 +454,7 @@ func (m *Model) handleModelsListMsg(msg modelsListMsg) {
 	for _, name := range msg.Models {
 		if name == current {
 			// Use accent-colored bullet to indicate active model.
-			marker := m.styles.AccentText.Render("• ")
+			marker := m.styles.AccentText().Render("• ")
 			b.WriteString(marker + name + "\n")
 		} else {
 			b.WriteString("  " + name + "\n")
@@ -837,9 +837,9 @@ func (m *Model) sqlHintItem() string {
 	label := "sql"
 	var style lipgloss.Style
 	if m.chat != nil && m.chat.ShowSQL {
-		style = m.styles.AccentBold
+		style = m.styles.AccentBold()
 	} else {
-		style = m.styles.HeaderHint
+		style = m.styles.HeaderHint()
 	}
 	return strings.TrimSpace(keycaps + " " + style.Render(label))
 }
@@ -1153,13 +1153,13 @@ func (m *Model) renderChatMessages() string {
 		var rendered string
 		switch msg.Role {
 		case roleUser:
-			label := m.styles.ChatUser.Render("›")
+			label := m.styles.ChatUser().Render("›")
 			// Inline compact: label then content on same line.
 			textW := innerW - lipgloss.Width(label) - 1
 			text := wordWrap(msg.Content, textW)
 			rendered = label + " " + text
 		case roleAssistant:
-			label := m.styles.ChatAssistant.Render(m.llmModelLabel())
+			label := m.styles.ChatAssistant().Render(m.llmModelLabel())
 			text := msg.Content
 			sql := msg.SQL
 			isLastMessage := i == len(m.chat.Messages)-1
@@ -1195,12 +1195,13 @@ func (m *Model) renderChatMessages() string {
 			// Only show spinner for the currently streaming message (last one).
 			if isLastMessage && m.chat.StreamingSQL && sql == "" {
 				// Stage 1: generating SQL query
-				rendered = label + "  " + m.chat.Spinner.View() + " " + m.styles.HeaderHint.Render(
-					"generating query",
-				)
+				rendered = label + "  " + m.chat.Spinner.View() + " " + m.styles.HeaderHint().
+					Render(
+						"generating query",
+					)
 			} else if isLastMessage && text == "" && m.chat.Streaming && !m.chat.StreamingSQL {
 				// Stage 2: thinking about response (may have SQL already)
-				labelLine := label + "  " + m.chat.Spinner.View() + " " + m.styles.HeaderHint.Render("thinking")
+				labelLine := label + "  " + m.chat.Spinner.View() + " " + m.styles.HeaderHint().Render("thinking")
 				if body != "" {
 					rendered = labelLine + "\n" + body
 				} else {
@@ -1216,19 +1217,19 @@ func (m *Model) renderChatMessages() string {
 			// Skip if it's the last message to avoid trailing separator.
 			if i < len(m.chat.Messages)-1 && text != "" {
 				sep := strings.Repeat("─", innerW)
-				rendered += "\n" + m.styles.TextDim.Render(sep)
+				rendered += "\n" + m.styles.TextDim().Render(sep)
 			}
 		case roleError:
-			rendered = m.styles.Error.Render("error: " + wordWrap(msg.Content, innerW-9))
+			rendered = m.styles.Error().Render("error: " + wordWrap(msg.Content, innerW-9))
 		case roleNotice:
 			// Skip "generating query" notice - status is shown inline with model label.
 			if msg.Content == "generating query" {
 				continue
 			}
 			if msg.Content == "Interrupted" || msg.Content == "Pull cancelled" {
-				rendered = m.styles.ChatInterrupted.Render(msg.Content)
+				rendered = m.styles.ChatInterrupted().Render(msg.Content)
 			} else {
-				rendered = m.styles.ChatNotice.Render(msg.Content)
+				rendered = m.styles.ChatNotice().Render(msg.Content)
 			}
 		}
 		parts = append(parts, rendered)
@@ -1358,7 +1359,7 @@ func (m *Model) buildChatOverlay() string {
 	if m.llmClient != nil {
 		titleText = " " + m.llmClient.Model() + " "
 	}
-	title := m.styles.HeaderSection.Render(titleText)
+	title := m.styles.HeaderSection().Render(titleText)
 
 	vpH := m.chatViewportHeight()
 	m.chat.Viewport.Width = innerW
@@ -1402,7 +1403,7 @@ func (m *Model) buildChatOverlay() string {
 		maxH = 12
 	}
 
-	return m.styles.OverlayBox.
+	return m.styles.OverlayBox().
 		Width(contentW).
 		MaxHeight(maxH).
 		Render(boxContent)
@@ -1419,7 +1420,7 @@ func (m *Model) renderModelCompleter(innerW int) string {
 	lines := make([]string, completerMaxLines)
 
 	if mc.Loading {
-		lines[0] = m.styles.HeaderHint.Render("  loading models" + symEllipsis)
+		lines[0] = m.styles.HeaderHint().Render("  loading models" + symEllipsis)
 		for i := 1; i < completerMaxLines; i++ {
 			lines[i] = ""
 		}
@@ -1429,9 +1430,9 @@ func (m *Model) renderModelCompleter(innerW int) string {
 	if len(mc.Matches) == 0 {
 		query, _ := m.completerQuery()
 		if query != "" {
-			lines[0] = m.styles.Empty.Render("  no matching models")
+			lines[0] = m.styles.Empty().Render("  no matching models")
 		} else {
-			lines[0] = m.styles.Empty.Render("  no models available")
+			lines[0] = m.styles.Empty().Render("  no models available")
 		}
 		for i := 1; i < completerMaxLines; i++ {
 			lines[i] = ""
@@ -1456,7 +1457,7 @@ func (m *Model) renderModelCompleter(innerW int) string {
 		}
 	}
 
-	pointer := m.styles.AccentBold
+	pointer := m.styles.AccentBold()
 	lineIdx := 0
 	for i := start; i < end; i++ {
 		entry := mc.Matches[i]
@@ -1472,7 +1473,7 @@ func (m *Model) renderModelCompleter(innerW int) string {
 		}
 
 		if lipgloss.Width(line) > innerW {
-			line = m.styles.Base.MaxWidth(innerW).Render(line)
+			line = m.styles.Base().MaxWidth(innerW).Render(line)
 		}
 		lines[lineIdx] = line
 		lineIdx++
@@ -1496,14 +1497,14 @@ func (m *Model) highlightModelMatch(match modelCompleterMatch) string {
 	var baseStyle, highlightStyle lipgloss.Style
 	switch {
 	case match.Active:
-		baseStyle = m.styles.ModelActive
-		highlightStyle = m.styles.ModelActiveHL
+		baseStyle = m.styles.ModelActive()
+		highlightStyle = m.styles.ModelActiveHL()
 	case match.Local:
-		baseStyle = m.styles.ModelLocal
-		highlightStyle = m.styles.ModelLocalHL
+		baseStyle = m.styles.ModelLocal()
+		highlightStyle = m.styles.ModelLocalHL()
 	default:
-		baseStyle = m.styles.ModelRemote
-		highlightStyle = m.styles.ModelRemoteHL
+		baseStyle = m.styles.ModelRemote()
+		highlightStyle = m.styles.ModelRemoteHL()
 	}
 
 	if len(match.Positions) == 0 {

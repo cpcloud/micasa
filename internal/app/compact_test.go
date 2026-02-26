@@ -75,7 +75,7 @@ func TestStatusLabelsAreDistinct(t *testing.T) {
 func TestStatusStylesExistForAll(t *testing.T) {
 	styles := DefaultStyles()
 	for status := range statusLabels {
-		_, ok := styles.StatusStyles[status]
+		_, ok := styles.StatusStyle(status)
 		assert.True(t, ok, "missing StatusStyle for %q", status)
 	}
 }

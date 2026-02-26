@@ -41,7 +41,7 @@ func TestDashMaintSplitRows(t *testing.T) {
 	assert.Equal(t, "14d", overdueRows[0].Cells[1].Text)
 	assert.Equal(
 		t,
-		m.styles.DashOverdue,
+		m.styles.DashOverdue(),
 		overdueRows[0].Cells[1].Style,
 		"overdue duration uses DashOverdue style",
 	)
@@ -52,7 +52,7 @@ func TestDashMaintSplitRows(t *testing.T) {
 	assert.Equal(t, "10d", upcomingRows[0].Cells[1].Text)
 	assert.Equal(
 		t,
-		m.styles.DashUpcoming,
+		m.styles.DashUpcoming(),
 		upcomingRows[0].Cells[1].Style,
 		"upcoming duration uses DashUpcoming style",
 	)

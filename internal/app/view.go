@@ -73,9 +73,9 @@ func (m *Model) buildTerminalTooSmallView() string {
 
 	panel := lipgloss.JoinVertical(
 		lipgloss.Center,
-		m.styles.Error.Render("Terminal too small"),
+		m.styles.Error().Render("Terminal too small"),
 		"",
-		m.styles.HeaderHint.Render(
+		m.styles.HeaderHint().Render(
 			fmt.Sprintf(
 				"%dx%d — need at least %dx%d",
 				width,
@@ -126,7 +126,7 @@ func (m *Model) buildBaseView() string {
 		available := m.effectiveWidth() - tabsW - minGap
 		if available > 5 {
 			path := truncateLeft(shortenHome(m.dbPath), available)
-			label := m.styles.HeaderHint.Render(path)
+			label := m.styles.HeaderHint().Render(path)
 			gap := m.effectiveWidth() - tabsW - lipgloss.Width(label)
 			if gap > 0 {
 				tabs += strings.Repeat(" ", gap) + label
@@ -168,7 +168,7 @@ func (m *Model) buildDashboardOverlay() string {
 		m.helpItem(keyQuestion, "help"),
 	}
 	if m.dash.flash != "" {
-		hintParts = append(hintParts, m.styles.DashHouseValue.Render(m.dash.flash))
+		hintParts = append(hintParts, m.styles.DashHouseValue().Render(m.dash.flash))
 	}
 	hints := joinWithSeparator(m.helpSeparator(), hintParts...)
 
@@ -186,12 +186,12 @@ func (m *Model) buildDashboardOverlay() string {
 	m.prepareDashboardView()
 	content := m.dashboardView(contentBudget, innerW)
 
-	rule := m.styles.DashRule.Render(strings.Repeat("─", innerW))
+	rule := m.styles.DashRule().Render(strings.Repeat("─", innerW))
 	boxContent := lipgloss.JoinVertical(
 		lipgloss.Left, header, rule, content, "", hints,
 	)
 
-	return m.styles.OverlayBox.
+	return m.styles.OverlayBox().
 		Width(contentW).
 		MaxHeight(maxH).
 		Render(boxContent)
@@ -209,11 +209,11 @@ func (m *Model) tabsView() string {
 	parts := make([]string, 0, len(m.tabs)*2)
 	for i, tab := range m.tabs {
 		if i == m.active {
-			parts = append(parts, m.styles.TabActive.Render(tab.Name))
+			parts = append(parts, m.styles.TabActive().Render(tab.Name))
 		} else if pinned {
-			parts = append(parts, m.styles.TabLocked.Render(tab.Name))
+			parts = append(parts, m.styles.TabLocked().Render(tab.Name))
 		} else {
-			parts = append(parts, m.styles.TabInactive.Render(tab.Name))
+			parts = append(parts, m.styles.TabInactive().Render(tab.Name))
 		}
 		// Gap between tabs: triangle indicates filter state.
 		// Filled/hollow = active/preview, down/up = normal/inverted.
@@ -229,7 +229,7 @@ func (m *Model) tabsView() string {
 			mark = filterMarkPreview
 		}
 		if mark != "" {
-			parts = append(parts, " "+m.styles.FilterMark.Render(mark)+" ")
+			parts = append(parts, " "+m.styles.FilterMark().Render(mark)+" ")
 		} else {
 			parts = append(parts, "   ")
 		}
@@ -242,7 +242,7 @@ func (m *Model) breadcrumbView() string {
 		return ""
 	}
 
-	arrow := m.styles.BreadcrumbArrow.Render(breadcrumbSep)
+	arrow := m.styles.BreadcrumbArrow().Render(breadcrumbSep)
 
 	// Collect all breadcrumb segments from the stack.
 	var parts []string
@@ -253,20 +253,20 @@ func (m *Model) breadcrumbView() string {
 	rendered := make([]string, len(parts))
 	for i, p := range parts {
 		if i < len(parts)-1 {
-			rendered[i] = m.styles.HeaderHint.Render(p)
+			rendered[i] = m.styles.HeaderHint().Render(p)
 		} else {
-			rendered[i] = m.styles.Breadcrumb.Render(p)
+			rendered[i] = m.styles.Breadcrumb().Render(p)
 		}
 	}
 	crumb := strings.Join(rendered, arrow)
-	back := m.styles.HeaderHint.Render(" (")
+	back := m.styles.HeaderHint().Render(" (")
 	back += m.keycap("esc")
-	back += m.styles.HeaderHint.Render(" back)")
+	back += m.styles.HeaderHint().Render(" back)")
 	return crumb + back
 }
 
 func (m *Model) tabUnderline() string {
-	return m.styles.TabUnderline.Render(strings.Repeat("━", m.effectiveWidth()))
+	return m.styles.TabUnderline().Render(strings.Repeat("━", m.effectiveWidth()))
 }
 
 func (m *Model) statusView() string {
@@ -275,7 +275,7 @@ func (m *Model) statusView() string {
 	}
 	if m.mode == modeForm {
 		if m.confirmDiscard {
-			prompt := m.styles.FormDirty.Render("Discard unsaved changes?")
+			prompt := m.styles.FormDirty().Render("Discard unsaved changes?")
 			hints := joinWithSeparator(
 				m.helpSeparator(),
 				m.helpItem(keyY, "discard"),
@@ -283,9 +283,9 @@ func (m *Model) statusView() string {
 			)
 			return m.withPullProgress(prompt + "  " + hints)
 		}
-		dirtyIndicator := m.styles.FormClean.Render("○ saved")
+		dirtyIndicator := m.styles.FormClean().Render("○ saved")
 		if m.formDirty {
-			dirtyIndicator = m.styles.FormDirty.Render("● unsaved")
+			dirtyIndicator = m.styles.FormDirty().Render("● unsaved")
 		}
 		parts := []string{
 			dirtyIndicator,
@@ -310,18 +310,18 @@ func (m *Model) statusView() string {
 
 	// Both badges render at the same width to prevent layout shift.
 	// Anchor to the wider label so the narrower one gets padded, not squeezed.
-	navW := lipgloss.Width(m.styles.ModeNormal.Render("NAV"))
-	editW := lipgloss.Width(m.styles.ModeEdit.Render("EDIT"))
+	navW := lipgloss.Width(m.styles.ModeNormal().Render("NAV"))
+	editW := lipgloss.Width(m.styles.ModeEdit().Render("EDIT"))
 	badgeWidth := navW
 	if editW > badgeWidth {
 		badgeWidth = editW
 	}
-	modeBadge := m.styles.ModeNormal.
+	modeBadge := m.styles.ModeNormal().
 		Width(badgeWidth).
 		Align(lipgloss.Center).
 		Render("NAV")
 	if m.mode == modeEdit {
-		modeBadge = m.styles.ModeEdit.
+		modeBadge = m.styles.ModeEdit().
 			Width(badgeWidth).
 			Align(lipgloss.Center).
 			Render("EDIT")
@@ -339,7 +339,7 @@ func (m *Model) statusView() string {
 
 func (m *Model) inlineInputStatusView() string {
 	ii := m.inlineInput
-	title := m.styles.HeaderLabel.Render(ii.Title + ":")
+	title := m.styles.HeaderLabel().Render(ii.Title + ":")
 	input := ii.Input.View()
 	hints := joinWithSeparator(
 		m.helpSeparator(),
@@ -547,9 +547,9 @@ func (m *Model) withStatusMessage(helpLine string) string {
 	if m.status.Text == "" {
 		return helpLine
 	}
-	style := m.styles.Info
+	style := m.styles.Info()
 	if m.status.Kind == statusError {
-		style = m.styles.Error
+		style = m.styles.Error()
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, style.Render(m.status.Text), helpLine)
 }
@@ -560,7 +560,7 @@ func (m *Model) withPullProgress(statusOutput string) string {
 	if m.pull.display == "" {
 		return statusOutput
 	}
-	progressLine := m.styles.TextDim.Render(m.pull.display)
+	progressLine := m.styles.TextDim().Render(m.pull.display)
 	return lipgloss.JoinVertical(lipgloss.Left, statusOutput, progressLine)
 }
 
@@ -633,7 +633,7 @@ func (m *Model) buildCalendarOverlay() string {
 		return ""
 	}
 	grid := calendarGrid(*m.calendar)
-	return m.styles.OverlayBox.Render(grid)
+	return m.styles.OverlayBox().Render(grid)
 }
 
 func (m *Model) buildNotePreviewOverlay() string {
@@ -644,7 +644,7 @@ func (m *Model) buildNotePreviewOverlay() string {
 	if title == "" {
 		title = "Notes"
 	}
-	b.WriteString(m.styles.HeaderSection.Render(" " + title + " "))
+	b.WriteString(m.styles.HeaderSection().Render(" " + title + " "))
 	b.WriteString("\n\n")
 
 	// Word-wrap the note text to fit within the box.
@@ -653,14 +653,14 @@ func (m *Model) buildNotePreviewOverlay() string {
 	b.WriteString(wordWrap(text, innerW))
 	b.WriteString("\n\n")
 
-	b.WriteString(m.styles.HeaderHint.Render("Press any key to close"))
+	b.WriteString(m.styles.HeaderHint().Render("Press any key to close"))
 
 	maxH := m.effectiveHeight() - 4
 	if maxH < 10 {
 		maxH = 10
 	}
 
-	return m.styles.OverlayBox.
+	return m.styles.OverlayBox().
 		Width(contentW).
 		MaxHeight(maxH).
 		Render(b.String())
@@ -786,14 +786,14 @@ func (m *Model) helpContent() string {
 	}
 
 	var b strings.Builder
-	b.WriteString(m.styles.HeaderTitle.Render(" Keyboard Shortcuts "))
+	b.WriteString(m.styles.HeaderTitle().Render(" Keyboard Shortcuts "))
 	b.WriteString("\n\n")
 	for i, section := range sections {
-		b.WriteString(m.styles.HeaderSection.Render(" " + section.title + " "))
+		b.WriteString(m.styles.HeaderSection().Render(" " + section.title + " "))
 		b.WriteString("\n")
 		for _, bind := range section.bindings {
 			keys := m.renderKeys(bind.key)
-			desc := m.styles.HeaderHint.Render(bind.desc)
+			desc := m.styles.HeaderHint().Render(bind.desc)
 			b.WriteString(fmt.Sprintf("  %s  %s\n", keys, desc))
 		}
 		if i < len(sections)-1 {
@@ -821,7 +821,7 @@ func (m *Model) helpView() string {
 	}
 	closeHintStr := joinWithSeparator(m.helpSeparator(), hints...)
 
-	return m.styles.OverlayBox.
+	return m.styles.OverlayBox().
 		Render(content + "\n\n" + rule + "\n" + closeHintStr)
 }
 
@@ -834,8 +834,8 @@ func (m *Model) tableView(tab *Tab) string {
 	}
 
 	width := m.effectiveWidth()
-	normalSep := m.styles.TableSeparator.Render(" │ ")
-	normalDiv := m.styles.TableSeparator.Render("─┼─")
+	normalSep := m.styles.TableSeparator().Render(" │ ")
+	normalDiv := m.styles.TableSeparator().Render("─┼─")
 	sepW := lipgloss.Width(normalSep)
 
 	vp := computeTableViewport(tab, width, normalSep)
@@ -853,7 +853,7 @@ func (m *Model) tableView(tab *Tab) string {
 		vp.HasRight,
 		vp.LinkCells,
 	)
-	divider := renderDivider(vp.Widths, vp.PlainSeps, normalDiv, m.styles.TableSeparator)
+	divider := renderDivider(vp.Widths, vp.PlainSeps, normalDiv, m.styles.TableSeparator())
 
 	// Badge line accounts for 1 row of vertical space when visible.
 	badges := renderHiddenBadges(tab.Specs, tab.ColCursor)
@@ -900,9 +900,9 @@ func (m *Model) tableView(tab *Tab) string {
 	bodyParts := []string{header, divider}
 	if len(rows) == 0 {
 		if tab.FilterActive && hasPins(tab) {
-			bodyParts = append(bodyParts, m.styles.Empty.Render("No matches."))
+			bodyParts = append(bodyParts, m.styles.Empty().Render("No matches."))
 		} else {
-			bodyParts = append(bodyParts, m.styles.Empty.Render(m.emptyHint(tab)))
+			bodyParts = append(bodyParts, m.styles.Empty().Render(m.emptyHint(tab)))
 		}
 	} else {
 		bodyParts = append(bodyParts, strings.Join(rows, "\n"))
@@ -930,10 +930,10 @@ func (m *Model) tableView(tab *Tab) string {
 			}
 			if nd > 0 {
 				suffix := fmt.Sprintf("%d deleted", nd)
-				label += " · " + m.styles.DeletedLabel.Render(suffix)
+				label += " · " + m.styles.DeletedLabel().Render(suffix)
 			}
 		}
-		bodyParts = append(bodyParts, m.styles.Empty.Render(label))
+		bodyParts = append(bodyParts, m.styles.Empty().Render(label))
 	}
 	return joinVerticalNonEmpty(bodyParts...)
 }
@@ -1034,12 +1034,12 @@ func cancelFaint(s string) string {
 
 func (m *Model) helpItem(keys, label string) string {
 	keycaps := m.renderKeys(keys)
-	desc := m.styles.HeaderHint.Render(label)
+	desc := m.styles.HeaderHint().Render(label)
 	return strings.TrimSpace(fmt.Sprintf("%s %s", keycaps, desc))
 }
 
 func (m *Model) helpSeparator() string {
-	return m.styles.HeaderHint.Render(" · ")
+	return m.styles.HeaderHint().Render(" · ")
 }
 
 func (m *Model) renderKeys(keys string) string {
@@ -1056,16 +1056,16 @@ func (m *Model) renderKeys(keys string) string {
 		}
 		rendered = append(rendered, m.keycap(part))
 	}
-	return joinWithSeparator(m.styles.HeaderHint.Render(" · "), rendered...)
+	return joinWithSeparator(m.styles.HeaderHint().Render(" · "), rendered...)
 }
 
 func (m *Model) keycap(value string) string {
 	// Single letters: preserve case to distinguish A from a.
 	if len(value) == 1 &&
 		((value[0] >= 'A' && value[0] <= 'Z') || (value[0] >= 'a' && value[0] <= 'z')) {
-		return m.styles.Keycap.Render(value)
+		return m.styles.Keycap().Render(value)
 	}
-	return m.styles.Keycap.Render(strings.ToUpper(value))
+	return m.styles.Keycap().Render(strings.ToUpper(value))
 }
 
 // --- General view utilities ---

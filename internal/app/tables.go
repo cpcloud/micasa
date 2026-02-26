@@ -618,8 +618,8 @@ func newTable(columns []table.Column) table.Model {
 		table.WithFocused(true),
 	)
 	tbl.SetStyles(table.Styles{
-		Header:   appStyles.TableHeader,
-		Selected: appStyles.TableSelected,
+		Header:   appStyles.TableHeader(),
+		Selected: appStyles.TableSelected(),
 	})
 	return tbl
 }

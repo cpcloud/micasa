@@ -127,7 +127,7 @@ func BenchmarkVisibleProjection(b *testing.B) {
 func BenchmarkComputeTableViewport(b *testing.B) {
 	m := benchModel(b)
 	tab := m.activeTab()
-	sep := m.styles.TableSeparator.Render(" │ ")
+	sep := m.styles.TableSeparator().Render(" │ ")
 	b.ResetTimer()
 	for b.Loop() {
 		_ = computeTableViewport(tab, 120, sep)
@@ -141,7 +141,7 @@ func BenchmarkComputeTableViewportPins(b *testing.B) {
 	// Pin the first cell value in the first column.
 	pinVal := tab.CellRows[0][0].Value
 	tab.Pins = []filterPin{{Col: 0, Values: map[string]bool{pinVal: true}}}
-	sep := m.styles.TableSeparator.Render(" │ ")
+	sep := m.styles.TableSeparator().Render(" │ ")
 	b.ResetTimer()
 	for b.Loop() {
 		_ = computeTableViewport(tab, 120, sep)

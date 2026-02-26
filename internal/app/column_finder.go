@@ -264,22 +264,22 @@ func (m *Model) buildColumnFinderOverlay() string {
 	var b strings.Builder
 
 	// Title.
-	b.WriteString(m.styles.HeaderSection.Render(" Jump to Column "))
+	b.WriteString(m.styles.HeaderSection().Render(" Jump to Column "))
 	b.WriteString("\n\n")
 
 	// Input line with "/" prompt.
-	prompt := m.styles.Keycap.Render("/")
-	cursor := m.styles.HeaderHint.Render("│")
+	prompt := m.styles.Keycap().Render("/")
+	cursor := m.styles.HeaderHint().Render("│")
 	queryText := cf.Query + cursor
 	if cf.Query == "" {
-		queryText = m.styles.Empty.Render("type to filter") + cursor
+		queryText = m.styles.Empty().Render("type to filter") + cursor
 	}
 	b.WriteString(prompt + " " + queryText)
 	b.WriteString("\n\n")
 
 	// Match list.
 	if len(cf.Matches) == 0 {
-		b.WriteString(m.styles.Empty.Render("No matching columns"))
+		b.WriteString(m.styles.Empty().Render("No matching columns"))
 	} else {
 		// Show up to 10 matches, centered around the cursor.
 		maxVisible := 10
@@ -307,18 +307,18 @@ func (m *Model) buildColumnFinderOverlay() string {
 
 			// Hidden indicator.
 			if match.Entry.Hidden {
-				title += " " + m.styles.HeaderHint.Render("(hidden)")
+				title += " " + m.styles.HeaderHint().Render("(hidden)")
 			}
 
 			line := "  " + title
 			if selected {
-				pointer := appStyles.AccentBold.Render("▸ ")
+				pointer := appStyles.AccentBold().Render("▸ ")
 				line = pointer + title
 			}
 
 			// Truncate to fit.
 			if lipgloss.Width(line) > innerW {
-				line = appStyles.Base.MaxWidth(innerW).Render(line)
+				line = appStyles.Base().MaxWidth(innerW).Render(line)
 			}
 
 			b.WriteString(line)
@@ -336,7 +336,7 @@ func (m *Model) buildColumnFinderOverlay() string {
 	)
 	b.WriteString(hints)
 
-	return appStyles.OverlayBox.
+	return appStyles.OverlayBox().
 		Width(contentW).
 		Render(b.String())
 }
@@ -346,7 +346,7 @@ func (m *Model) buildColumnFinderOverlay() string {
 func highlightFuzzyMatch(match columnFinderMatch) string {
 	title := match.Entry.Title
 	if len(match.Positions) == 0 {
-		return appStyles.HeaderHint.Render(title)
+		return appStyles.HeaderHint().Render(title)
 	}
 
 	posSet := make(map[int]bool, len(match.Positions))
@@ -354,8 +354,8 @@ func highlightFuzzyMatch(match columnFinderMatch) string {
 		posSet[p] = true
 	}
 
-	matchStyle := appStyles.AccentBold
-	dimStyle := appStyles.HeaderHint
+	matchStyle := appStyles.AccentBold()
+	dimStyle := appStyles.HeaderHint()
 
 	runes := []rune(title)
 	var b strings.Builder
