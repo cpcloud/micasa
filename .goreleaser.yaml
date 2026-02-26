@@ -56,5 +56,8 @@ dockers_v2:
       "org.opencontainers.image.licenses": Apache-2.0
       "org.opencontainers.image.version": "{{ .Version }}"
 
+sboms:
+  - artifacts: archive
+
 release:
   mode: keep-existing
