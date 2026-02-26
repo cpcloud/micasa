@@ -577,7 +577,7 @@ func (m *Model) startIncidentForm() error {
 		return fmt.Errorf("list appliances: %w", err)
 	}
 	appOpts := applianceOptions(appliances)
-	vendorOpts := optionalVendorOptions(m.vendors)
+	vendorOpts := vendorOpts("(none)", m.vendors)
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
@@ -623,7 +623,7 @@ func (m *Model) startEditIncidentForm(id uint) error {
 		return fmt.Errorf("list appliances: %w", err)
 	}
 	appOpts := applianceOptions(appliances)
-	vendorOpts := optionalVendorOptions(m.vendors)
+	vendorOpts := vendorOpts("(none)", m.vendors)
 	m.editID = &id
 	m.openIncidentForm(values, appOpts, vendorOpts)
 	return nil
@@ -774,7 +774,7 @@ func (m *Model) inlineEditIncident(id uint, col incidentCol) error {
 			Value(&values.ApplianceID)
 		m.openInlineEdit(id, formIncident, field, values)
 	case incidentColVendor:
-		vendorOpts := optionalVendorOptions(m.vendors)
+		vendorOpts := vendorOpts("(none)", m.vendors)
 		field := huh.NewSelect[uint]().Title("Vendor").
 			Options(vendorOpts...).
 			Value(&values.VendorID)
@@ -861,15 +861,22 @@ func incidentSeverityOptions() []huh.Option[string] {
 }
 
 // optionalVendorOptions is like vendorOptions but with "(none)" instead of "Self".
-func optionalVendorOptions(vendors []data.Vendor) []huh.Option[uint] {
+// labelWithDetail returns "name (detail)" when detail is non-empty,
+// otherwise just "name".
+func labelWithDetail(name, detail string) string {
+	if detail != "" {
+		return fmt.Sprintf("%s (%s)", name, detail)
+	}
+	return name
+}
+
+// vendorOpts builds a vendor option list with noneLabel as the leading
+// zero-value entry.
+func vendorOpts(noneLabel string, vendors []data.Vendor) []huh.Option[uint] {
 	options := make([]huh.Option[uint], 0, len(vendors)+1)
-	options = append(options, huh.NewOption("(none)", uint(0)))
+	options = append(options, huh.NewOption(noneLabel, uint(0)))
 	for _, v := range vendors {
-		label := v.Name
-		if v.ContactName != "" {
-			label = fmt.Sprintf("%s (%s)", v.Name, v.ContactName)
-		}
-		options = append(options, huh.NewOption(label, v.ID))
+		options = append(options, huh.NewOption(labelWithDetail(v.Name, v.ContactName), v.ID))
 	}
 	return withOrdinals(options)
 }
@@ -1320,7 +1327,7 @@ func (m *Model) startServiceLogForm(maintenanceItemID uint) error {
 		MaintenanceItemID: maintenanceItemID,
 		ServicedAt:        time.Now().Format(data.DateLayout),
 	}
-	vendorOpts := vendorOptions(m.vendors)
+	vendorOpts := vendorOpts("Self (homeowner)", m.vendors)
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
@@ -1343,7 +1350,7 @@ func (m *Model) startEditServiceLogForm(id uint) error {
 		return fmt.Errorf("load service log: %w", err)
 	}
 	values := serviceLogFormValues(entry)
-	vendorOpts := vendorOptions(m.vendors)
+	vendorOpts := vendorOpts("Self (homeowner)", m.vendors)
 	m.editID = &id
 	m.openServiceLogForm(values, vendorOpts)
 	return nil
@@ -1433,7 +1440,7 @@ func (m *Model) inlineEditServiceLog(id uint, col serviceLogCol) error {
 	case serviceLogColDate:
 		m.openDatePicker(id, formServiceLog, &values.ServicedAt, values)
 	case serviceLogColPerformedBy:
-		vendorOpts := vendorOptions(m.vendors)
+		vendorOpts := vendorOpts("Self (homeowner)", m.vendors)
 		field := huh.NewSelect[uint]().
 			Title("Performed by").
 			Options(vendorOpts...).
@@ -1471,19 +1478,6 @@ func serviceLogFormValues(entry data.ServiceLogEntry) *serviceLogFormData {
 	}
 }
 
-func vendorOptions(vendors []data.Vendor) []huh.Option[uint] {
-	options := make([]huh.Option[uint], 0, len(vendors)+1)
-	options = append(options, huh.NewOption("Self (homeowner)", uint(0)))
-	for _, v := range vendors {
-		label := v.Name
-		if v.ContactName != "" {
-			label = fmt.Sprintf("%s (%s)", v.Name, v.ContactName)
-		}
-		options = append(options, huh.NewOption(label, v.ID))
-	}
-	return withOrdinals(options)
-}
-
 func requiredDate(label string) func(string) error {
 	return func(input string) error {
 		if strings.TrimSpace(input) == "" {
@@ -1500,11 +1494,10 @@ func applianceOptions(appliances []data.Appliance) []huh.Option[uint] {
 	options := make([]huh.Option[uint], 0, len(appliances)+1)
 	options = append(options, huh.NewOption("(none)", uint(0)))
 	for _, appliance := range appliances {
-		label := appliance.Name
-		if appliance.Brand != "" {
-			label = fmt.Sprintf("%s (%s)", appliance.Name, appliance.Brand)
-		}
-		options = append(options, huh.NewOption(label, appliance.ID))
+		options = append(
+			options,
+			huh.NewOption(labelWithDetail(appliance.Name, appliance.Brand), appliance.ID),
+		)
 	}
 	return withOrdinals(options)
 }

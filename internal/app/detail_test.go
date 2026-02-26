@@ -157,7 +157,7 @@ func TestApplianceColumnsIncludeMaintAndDocs(t *testing.T) {
 
 func TestVendorOptions(t *testing.T) {
 	m := newTestModel()
-	opts := vendorOptions(m.vendors)
+	opts := vendorOpts("Self (homeowner)", m.vendors)
 	require.NotEmpty(t, opts, "expected at least 1 vendor option (Self)")
 	assert.Equal(t, uint(0), opts[0].Value, "expected first vendor option value=0 (Self)")
 }
