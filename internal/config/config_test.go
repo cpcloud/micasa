@@ -100,7 +100,12 @@ func TestProviderAutoDetection(t *testing.T) {
 		{"anthropic URL", "https://api.anthropic.com", "sk-ant-key", "anthropic"},
 		{"openai URL", "https://api.openai.com", "sk-key", "openai"},
 		{"openrouter URL", "https://openrouter.ai", "sk-key", "openrouter"},
+		{"deepseek URL", "https://api.deepseek.com", "sk-key", "deepseek"},
+		{"gemini googleapis URL", "https://generativelanguage.googleapis.com", "key", "gemini"},
+		{"groq URL", "https://api.groq.com", "gsk-key", "groq"},
+		{"mistral URL", "https://api.mistral.ai", "key", "mistral"},
 		{"unknown with key defaults to openai", "https://custom.api.com", "key", "openai"},
+		{"empty URL with key defaults to openai", "", "sk-key", "openai"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
