@@ -1491,15 +1491,10 @@ func requiredDate(label string) func(string) error {
 }
 
 func applianceOptions(appliances []data.Appliance) []huh.Option[uint] {
-	options := make([]huh.Option[uint], 0, len(appliances)+1)
-	options = append(options, huh.NewOption("(none)", uint(0)))
-	for _, appliance := range appliances {
-		options = append(
-			options,
-			huh.NewOption(labelWithDetail(appliance.Name, appliance.Brand), appliance.ID),
-		)
-	}
-	return withOrdinals(options)
+	opts := buildOptions(appliances, func(a data.Appliance) (string, uint) {
+		return labelWithDetail(a.Name, a.Brand), a.ID
+	})
+	return append([]huh.Option[uint]{huh.NewOption("(none)", uint(0))}, opts...)
 }
 
 // entityOptionLabel colors the entire label using the kind's color from the
@@ -2055,34 +2050,34 @@ func (m *Model) parseMaintenanceFormData() (data.MaintenanceItem, error) {
 	}, nil
 }
 
-func projectTypeOptions(types []data.ProjectType) []huh.Option[uint] {
-	options := make([]huh.Option[uint], 0, len(types))
-	for _, projectType := range types {
-		options = append(options, huh.NewOption(projectType.Name, projectType.ID))
+func buildOptions[T any](items []T, entry func(T) (string, uint)) []huh.Option[uint] {
+	opts := make([]huh.Option[uint], 0, len(items))
+	for _, item := range items {
+		label, id := entry(item)
+		opts = append(opts, huh.NewOption(label, id))
 	}
-	return withOrdinals(options)
+	return withOrdinals(opts)
 }
 
-func maintenanceOptions(
-	categories []data.MaintenanceCategory,
-) []huh.Option[uint] {
-	options := make([]huh.Option[uint], 0, len(categories))
-	for _, category := range categories {
-		options = append(options, huh.NewOption(category.Name, category.ID))
-	}
-	return withOrdinals(options)
+func projectTypeOptions(types []data.ProjectType) []huh.Option[uint] {
+	return buildOptions(types, func(t data.ProjectType) (string, uint) { return t.Name, t.ID })
+}
+
+func maintenanceOptions(categories []data.MaintenanceCategory) []huh.Option[uint] {
+	return buildOptions(
+		categories,
+		func(c data.MaintenanceCategory) (string, uint) { return c.Name, c.ID },
+	)
 }
 
 func projectOptions(projects []data.Project) []huh.Option[uint] {
-	options := make([]huh.Option[uint], 0, len(projects))
-	for _, project := range projects {
-		label := project.Title
+	return buildOptions(projects, func(p data.Project) (string, uint) {
+		label := p.Title
 		if label == "" {
-			label = fmt.Sprintf("Project %d", project.ID)
+			label = fmt.Sprintf("Project %d", p.ID)
 		}
-		options = append(options, huh.NewOption(label, project.ID))
-	}
-	return withOrdinals(options)
+		return label, p.ID
+	})
 }
 
 func statusOptions() []huh.Option[string] {
