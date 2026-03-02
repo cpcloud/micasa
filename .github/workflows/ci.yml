@@ -225,9 +225,10 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: trufflesecurity/trufflehog@7635b24fd512a2e817dd3e9dd661caaf035a079d # v3.93.1
-        with:
-          extra_args: --only-verified
+      - uses: cachix/install-nix-action@4e002c8ec80594ecd40e759629461e26c8abed15 # v31
+
+      - name: Run trufflehog
+        run: nix run '.#trufflehog'
 
   vuln-scan:
     name: Vulnerability Scan

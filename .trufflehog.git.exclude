@@ -1,0 +1,4 @@
+# Paths excluded from trufflehog secret scanning.
+# One regex per line, matched against file paths.
+flake\.lock
+go\.sum

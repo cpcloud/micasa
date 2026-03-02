@@ -430,6 +430,20 @@
               deadcode -test ./...
             '';
           };
+          run-trufflehog = pkgs.writeShellApplication {
+            name = "run-trufflehog";
+            runtimeInputs = [
+              pkgs.trufflehog
+              pkgs.git
+            ];
+            text = ''
+              # Resolve the main checkout so this works in worktrees too
+              # (trufflehog can't handle worktree .git files).
+              repo="$(git rev-parse --git-common-dir)"
+              repo="$(cd "$repo" && pwd)/.."
+              trufflehog git --fail --exclude-paths .trufflehog.git.exclude "file://$repo" "$@"
+            '';
+          };
           run-osv-scanner = pkgs.writeShellApplication {
             name = "run-osv-scanner";
             runtimeInputs = [ pkgs.osv-scanner ];
@@ -483,6 +497,7 @@
             gen-mixed-pdf = app (pkg "gen-mixed-pdf") "Generate mixed-inspection.pdf test fixture";
             gen-testdata = app (pkg "gen-testdata") "Generate all test document fixtures";
             deadcode = app (pkg "run-deadcode") "Run whole-program dead code analysis";
+            trufflehog = app (pkg "run-trufflehog") "Scan for leaked secrets";
             osv-scanner = app (pkg "run-osv-scanner") "Scan for known vulnerabilities";
             pre-commit = app (pkg "run-pre-commit") "Run all pre-commit hooks";
           };
