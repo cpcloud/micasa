@@ -388,70 +388,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.handleEditorFinished(typed)
 	}
 
-	// Help overlay: delegate scrolling to the viewport, esc or ? dismisses.
-	if m.helpViewport != nil {
-		if keyMsg, ok := msg.(tea.KeyMsg); ok {
-			switch {
-			case keyMsg.String() == keyEsc || keyMsg.String() == keyQuestion:
-				m.helpViewport = nil
-			case key.Matches(keyMsg, helpGotoTop):
-				m.helpViewport.GotoTop()
-			case key.Matches(keyMsg, helpGotoBottom):
-				m.helpViewport.GotoBottom()
-			default:
-				vp, _ := m.helpViewport.Update(keyMsg)
-				m.helpViewport = &vp
-			}
-		}
-		return m, nil
-	}
-
-	// Extraction overlay: absorb all keys when visible.
-	if m.ex.extraction != nil && m.ex.extraction.Visible {
-		if typed, ok := msg.(tea.KeyMsg); ok {
-			return m, m.handleExtractionKey(typed)
-		}
-		return m, nil
-	}
-
-	// Chat overlay: absorb all keys when visible.
-	if m.chat != nil && m.chat.Visible {
-		if typed, ok := msg.(tea.KeyMsg); ok {
-			return m.handleChatKey(typed)
-		}
-		return m, nil
-	}
-
-	// Note preview overlay: any key dismisses it.
-	if m.notePreview != nil {
-		if _, ok := msg.(tea.KeyMsg); ok {
-			m.notePreview = nil
-		}
-		return m, nil
-	}
-
-	// Calendar date picker: absorb all keys.
-	if m.calendar != nil {
-		if keyMsg, ok := msg.(tea.KeyMsg); ok {
-			return m.handleCalendarKey(keyMsg)
-		}
-		return m, nil
-	}
-
-	// Column finder overlay: absorb all keys.
-	if m.columnFinder != nil {
-		if keyMsg, ok := msg.(tea.KeyMsg); ok {
-			return m, m.handleColumnFinderKey(keyMsg)
-		}
-		return m, nil
-	}
-
-	// Inline text input: absorb all keys.
-	if m.inlineInput != nil {
-		if keyMsg, ok := msg.(tea.KeyMsg); ok {
-			return m.handleInlineInputKey(keyMsg)
-		}
-		return m, nil
+	if cmd, handled := m.dispatchOverlay(msg); handled {
+		return m, cmd
 	}
 
 	if m.mode == modeForm && m.fs.form != nil {
@@ -927,7 +865,7 @@ func (m *Model) handleEditKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 	return nil, false
 }
 
-func (m *Model) handleCalendarKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handleCalendarKey(key tea.KeyMsg) tea.Cmd {
 	switch key.String() {
 	case keyH, keyLeft:
 		calendarMove(m.calendar, -1)
@@ -953,7 +891,7 @@ func (m *Model) handleCalendarKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.calendar = nil
 		m.resetFormState()
 	}
-	return m, nil
+	return nil
 }
 
 func (m *Model) confirmCalendar() {
@@ -2261,18 +2199,18 @@ func (m *Model) openHelp() {
 	m.helpViewport = &vp
 }
 
-func (m *Model) handleInlineInputKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handleInlineInputKey(key tea.KeyMsg) tea.Cmd {
 	switch key.String() {
 	case keyEsc:
 		m.closeInlineInput()
-		return m, nil
+		return nil
 	case keyEnter:
 		m.submitInlineInput()
-		return m, nil
+		return nil
 	}
 	var cmd tea.Cmd
 	m.inlineInput.Input, cmd = m.inlineInput.Input.Update(key)
-	return m, cmd
+	return cmd
 }
 
 func (m *Model) submitInlineInput() {
@@ -2453,6 +2391,48 @@ func (m *Model) hasActiveOverlay() bool {
 		m.columnFinder != nil ||
 		(m.ex.extraction != nil && m.ex.extraction.Visible) ||
 		m.helpViewport != nil
+}
+
+func (m *Model) dispatchOverlay(msg tea.Msg) (tea.Cmd, bool) {
+	var handler func(tea.KeyMsg) tea.Cmd
+	switch {
+	case m.helpViewport != nil:
+		handler = m.helpOverlayKey
+	case m.ex.extraction != nil && m.ex.extraction.Visible:
+		handler = m.handleExtractionKey
+	case m.chat != nil && m.chat.Visible:
+		handler = m.handleChatKey
+	case m.notePreview != nil:
+		handler = func(tea.KeyMsg) tea.Cmd { m.notePreview = nil; return nil }
+	case m.calendar != nil:
+		handler = m.handleCalendarKey
+	case m.columnFinder != nil:
+		handler = m.handleColumnFinderKey
+	case m.inlineInput != nil:
+		handler = m.handleInlineInputKey
+	default:
+		return nil, false
+	}
+	keyMsg, ok := msg.(tea.KeyMsg)
+	if !ok {
+		return nil, true
+	}
+	return handler(keyMsg), true
+}
+
+func (m *Model) helpOverlayKey(keyMsg tea.KeyMsg) tea.Cmd {
+	switch {
+	case keyMsg.String() == keyEsc || keyMsg.String() == keyQuestion:
+		m.helpViewport = nil
+	case key.Matches(keyMsg, helpGotoTop):
+		m.helpViewport.GotoTop()
+	case key.Matches(keyMsg, helpGotoBottom):
+		m.helpViewport.GotoBottom()
+	default:
+		vp, _ := m.helpViewport.Update(keyMsg)
+		m.helpViewport = &vp
+	}
+	return nil
 }
 
 func selectRowByID(tab *Tab, id uint) bool {

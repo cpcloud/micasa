@@ -1212,7 +1212,7 @@ func (m *Model) llmModelLabel() string {
 }
 
 // handleChatKey processes keys when the chat overlay is active.
-func (m *Model) handleChatKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handleChatKey(key tea.KeyMsg) tea.Cmd {
 	// Completer navigation takes priority over normal input handling.
 	if mc := m.chat.Completer; mc != nil && !mc.Loading {
 		switch key.String() {
@@ -1220,59 +1220,59 @@ func (m *Model) handleChatKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// Dismiss completer but keep "/model " in the input so the user
 			// can edit and re-trigger.
 			m.deactivateCompleter()
-			return m, nil
+			return nil
 		case keyUp, keyCtrlP:
 			if mc.Cursor > 0 {
 				mc.Cursor--
 			}
-			return m, nil
+			return nil
 		case keyDown, keyCtrlN:
 			if mc.Cursor < len(mc.Matches)-1 {
 				mc.Cursor++
 			}
-			return m, nil
+			return nil
 		case keyEnter:
 			if len(mc.Matches) > 0 {
 				selected := mc.Matches[mc.Cursor].Name
 				m.deactivateCompleter()
 				m.chat.Input.SetValue("")
-				return m, m.cmdSwitchModel(selected)
+				return m.cmdSwitchModel(selected)
 			}
 			m.deactivateCompleter()
-			return m, nil
+			return nil
 		case keyCtrlQ:
-			return m, tea.Quit
+			return tea.Quit
 		}
 	}
 
 	switch key.String() {
 	case keyEsc:
 		m.hideChat()
-		return m, nil
+		return nil
 	case keyEnter:
 		if m.chat.Streaming {
-			return m, nil
+			return nil
 		}
-		return m, m.submitChat()
+		return m.submitChat()
 	case keyCtrlS:
 		m.toggleSQL()
-		return m, nil
+		return nil
 	case keyCtrlO:
 		m.toggleMagMode()
-		return m, nil
+		return nil
 	case keyCtrlC:
 		// Handled by the global ctrl+c handler in model.Update which calls
 		// cancelChatOperations. This case is unreachable but kept for clarity.
-		return m, nil
+		return nil
 	case keyUp, keyCtrlP:
 		if m.chat.Input.Focused() && !m.chat.Streaming {
 			m.historyBack()
-			return m, nil
+			return nil
 		}
 	case keyDown, keyCtrlN:
 		if m.chat.Input.Focused() && !m.chat.Streaming {
 			m.historyForward()
-			return m, nil
+			return nil
 		}
 	}
 
@@ -1281,12 +1281,12 @@ func (m *Model) handleChatKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.chat.Input.Focused() {
 		var cmd tea.Cmd
 		m.chat.Input, cmd = m.chat.Input.Update(key)
-		return m, m.syncCompleter(cmd)
+		return m.syncCompleter(cmd)
 	}
 
 	var cmd tea.Cmd
 	m.chat.Viewport, cmd = m.chat.Viewport.Update(key)
-	return m, cmd
+	return cmd
 }
 
 // syncCompleter checks the current input value and activates/deactivates
