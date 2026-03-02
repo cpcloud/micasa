@@ -171,50 +171,42 @@ type notePreviewState struct {
 }
 
 type Model struct {
-	store                  *data.Store
-	dbPath                 string
-	configPath             string
-	llmClient              *llm.Client
-	llmExtraContext        string              // user-provided context appended to prompts
-	extractionModel        string              // model for extraction; empty = same as chat
-	extractionEnabled      bool                // LLM extraction on document upload
-	extractionThinking     bool                // enable model thinking mode
-	extractionClient       *llm.Client         // cached extraction LLM client
-	extractors             []extract.Extractor // configured extractors
-	extractionReady        bool                // true once extraction model confirmed available
-	pendingExtractionDocID *uint               // doc saved without LLM; extract after pull
-	pull                   pullState
-	extraction             *extractionLogState   // non-nil when extraction overlay is active
-	bgExtractions          []*extractionLogState // backgrounded extractions (running or done)
-	chat                   *chatState            // non-nil when chat overlay is open
-	styles                 *Styles
-	tabs                   []Tab
-	active                 int
-	detailStack            []*detailContext // drilldown stack; top is active detail view
-	width                  int
-	height                 int
-	helpViewport           *viewport.Model
-	showHouse              bool
-	showDashboard          bool
-	notePreview            *notePreviewState
-	calendar               *calendarState
-	columnFinder           *columnFinderState
-	dash                   dashState
-	unitSystem             data.UnitSystem
-	hasHouse               bool
-	house                  data.HouseProfile
-	mode                   Mode
-	prevMode               Mode // mode to restore after form closes
-	fs                     formState
-	inlineInput            *inlineInputState
-	undoStack              []undoEntry
-	redoStack              []undoEntry
-	magMode                bool // easter egg: display numbers as order-of-magnitude
-	cur                    locale.Currency
-	status                 statusMsg
-	projectTypes           []data.ProjectType
-	maintenanceCategories  []data.MaintenanceCategory
-	vendors                []data.Vendor
+	store                 *data.Store
+	dbPath                string
+	configPath            string
+	llmClient             *llm.Client
+	llmExtraContext       string // user-provided context appended to prompts
+	ex                    extractState
+	pull                  pullState
+	chat                  *chatState // non-nil when chat overlay is open
+	styles                *Styles
+	tabs                  []Tab
+	active                int
+	detailStack           []*detailContext // drilldown stack; top is active detail view
+	width                 int
+	height                int
+	helpViewport          *viewport.Model
+	showHouse             bool
+	showDashboard         bool
+	notePreview           *notePreviewState
+	calendar              *calendarState
+	columnFinder          *columnFinderState
+	dash                  dashState
+	unitSystem            data.UnitSystem
+	hasHouse              bool
+	house                 data.HouseProfile
+	mode                  Mode
+	prevMode              Mode // mode to restore after form closes
+	fs                    formState
+	inlineInput           *inlineInputState
+	undoStack             []undoEntry
+	redoStack             []undoEntry
+	magMode               bool // easter egg: display numbers as order-of-magnitude
+	cur                   locale.Currency
+	status                statusMsg
+	projectTypes          []data.ProjectType
+	maintenanceCategories []data.MaintenanceCategory
+	vendors               []data.Vendor
 }
 
 func NewModel(store *data.Store, options Options) (*Model, error) {
@@ -248,22 +240,24 @@ func NewModel(store *data.Store, options Options) (*Model, error) {
 	pprog.PercentageStyle = appStyles.TextDim()
 
 	model := &Model{
-		store:              store,
-		dbPath:             options.DBPath,
-		configPath:         options.ConfigPath,
-		llmClient:          client,
-		llmExtraContext:    extraContext,
-		extractionModel:    options.ExtractionConfig.Model,
-		extractionEnabled:  options.ExtractionConfig.Enabled,
-		extractionThinking: options.ExtractionConfig.Thinking,
-		extractors:         options.ExtractionConfig.Extractors,
-		pull:               pullState{progress: pprog},
-		styles:             appStyles,
-		tabs:               NewTabs(),
-		active:             0,
-		showHouse:          false,
-		mode:               modeNormal,
-		cur:                store.Currency(),
+		store:           store,
+		dbPath:          options.DBPath,
+		configPath:      options.ConfigPath,
+		llmClient:       client,
+		llmExtraContext: extraContext,
+		ex: extractState{
+			extractionModel:    options.ExtractionConfig.Model,
+			extractionEnabled:  options.ExtractionConfig.Enabled,
+			extractionThinking: options.ExtractionConfig.Thinking,
+			extractors:         options.ExtractionConfig.Extractors,
+		},
+		pull:      pullState{progress: pprog},
+		styles:    appStyles,
+		tabs:      NewTabs(),
+		active:    0,
+		showHouse: false,
+		mode:      modeNormal,
+		cur:       store.Currency(),
 	}
 	// Best-effort: fall back to locale detection if setting unreadable.
 	model.unitSystem, _ = store.GetUnitSystem()
@@ -350,7 +344,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.handleExtractionLLMChunk(typed)
 	case modelsListMsg:
 		// Feed the extraction model picker first if it's waiting.
-		if ex := m.extraction; ex != nil && ex.modelPicker != nil && ex.modelPicker.Loading {
+		if ex := m.ex.extraction; ex != nil && ex.modelPicker != nil && ex.modelPicker.Loading {
 			ex.modelPicker.Loading = false
 			if typed.Err == nil {
 				ex.modelPicker.All = mergeModelLists(typed.Models)
@@ -372,12 +366,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.refreshChatViewport()
 			cmds = append(cmds, cmd)
 		}
-		if m.extraction != nil && !m.extraction.Done {
+		if m.ex.extraction != nil && !m.ex.extraction.Done {
 			var cmd tea.Cmd
-			m.extraction.Spinner, cmd = m.extraction.Spinner.Update(msg)
+			m.ex.extraction.Spinner, cmd = m.ex.extraction.Spinner.Update(msg)
 			cmds = append(cmds, cmd)
 		}
-		for _, bg := range m.bgExtractions {
+		for _, bg := range m.ex.bgExtractions {
 			if !bg.Done {
 				var cmd tea.Cmd
 				bg.Spinner, cmd = bg.Spinner.Update(msg)
@@ -413,7 +407,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// Extraction overlay: absorb all keys when visible.
-	if m.extraction != nil && m.extraction.Visible {
+	if m.ex.extraction != nil && m.ex.extraction.Visible {
 		if typed, ok := msg.(tea.KeyMsg); ok {
 			return m, m.handleExtractionKey(typed)
 		}
@@ -692,7 +686,7 @@ func (m *Model) handleCommonKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 		}
 		return nil, true
 	case keyCtrlB:
-		if len(m.bgExtractions) > 0 {
+		if len(m.ex.bgExtractions) > 0 {
 			m.foregroundExtraction()
 			return nil, true
 		}
@@ -1874,12 +1868,12 @@ func (m *Model) statusLines() int {
 // checkExtractionModelCmd returns a tea.Cmd that checks whether the extraction
 // model is available on the Ollama server. If missing, it initiates a pull.
 func (m *Model) checkExtractionModelCmd() tea.Cmd {
-	if !m.extractionEnabled || m.llmClient == nil {
+	if !m.ex.extractionEnabled || m.llmClient == nil {
 		return nil
 	}
 
 	// Resolve which model to check: extraction-specific or chat model.
-	model := m.extractionModel
+	model := m.ex.extractionModel
 	if model == "" {
 		model = m.llmClient.Model()
 	}
@@ -1936,12 +1930,12 @@ func (m *Model) handlePullProgress(msg pullProgressMsg) tea.Cmd {
 		m.clearPullState()
 		m.status = statusMsg{}
 		// Mark extraction model as ready if it matches.
-		exModel := m.extractionModel
+		exModel := m.ex.extractionModel
 		if exModel == "" && m.llmClient != nil {
 			exModel = m.llmClient.Model()
 		}
 		if msg.Model != "" && (msg.Model == exModel || strings.HasPrefix(msg.Model, exModel+":")) {
-			m.extractionReady = true
+			m.ex.extractionReady = true
 		}
 		// Chat-initiated pulls switch the active model.
 		if fromChat {
@@ -1959,9 +1953,9 @@ func (m *Model) handlePullProgress(msg pullProgressMsg) tea.Cmd {
 		}
 		m.resizeTables()
 		// Extract hints for the pending document now that the model is available.
-		if m.extractionReady && m.pendingExtractionDocID != nil {
-			docID := *m.pendingExtractionDocID
-			m.pendingExtractionDocID = nil
+		if m.ex.extractionReady && m.ex.pendingExtractionDocID != nil {
+			docID := *m.ex.pendingExtractionDocID
+			m.ex.pendingExtractionDocID = nil
 			doc, err := m.store.GetDocument(docID)
 			if err == nil {
 				return m.startExtractionOverlay(
@@ -1971,7 +1965,7 @@ func (m *Model) handlePullProgress(msg pullProgressMsg) tea.Cmd {
 		}
 		// Auto-rerun extraction if the overlay is open and waiting for a
 		// model that just finished pulling.
-		if m.extractionReady && m.extraction != nil && m.extraction.Done && !fromChat {
+		if m.ex.extractionReady && m.ex.extraction != nil && m.ex.extraction.Done && !fromChat {
 			return m.rerunLLMExtraction()
 		}
 		return nil
@@ -2014,13 +2008,13 @@ func (m *Model) formatPullProgress(msg pullProgressMsg) string {
 // extractionLLMClient returns the LLM client configured for extraction,
 // or nil if extraction is not available. The client is created once and cached.
 func (m *Model) extractionLLMClient() *llm.Client {
-	if m.extractionClient != nil {
-		return m.extractionClient
+	if m.ex.extractionClient != nil {
+		return m.ex.extractionClient
 	}
 	if m.llmClient == nil {
 		return nil
 	}
-	model := m.extractionModel
+	model := m.ex.extractionModel
 	if model == "" {
 		model = m.llmClient.Model()
 	}
@@ -2029,8 +2023,8 @@ func (m *Model) extractionLLMClient() *llm.Client {
 		model,
 		m.llmClient.Timeout(),
 	)
-	c.SetThinking(m.extractionThinking)
-	m.extractionClient = c
+	c.SetThinking(m.ex.extractionThinking)
+	m.ex.extractionClient = c
 	return c
 }
 
@@ -2051,16 +2045,16 @@ func (m *Model) afterDocumentSave() tea.Cmd {
 	}
 
 	// Check if LLM extraction is configured and ready.
-	llmReady := m.extractionEnabled && m.extractionLLMClient() != nil && m.extractionReady
+	llmReady := m.ex.extractionEnabled && m.extractionLLMClient() != nil && m.ex.extractionReady
 
 	// Determine if async extraction is needed.
-	needsExtract := extract.NeedsOCR(m.extractors, doc.MIMEType)
+	needsExtract := extract.NeedsOCR(m.ex.extractors, doc.MIMEType)
 
 	// If nothing async is needed, bail early.
 	if !needsExtract && !llmReady {
 		// If LLM is configured but model not ready, queue for after pull.
-		if m.extractionEnabled && m.llmClient != nil && !m.extractionReady {
-			m.pendingExtractionDocID = &docID
+		if m.ex.extractionEnabled && m.llmClient != nil && !m.ex.extractionReady {
+			m.ex.pendingExtractionDocID = &docID
 			if !m.pull.active {
 				m.setStatusInfo("checking extraction model" + symEllipsis)
 				return m.checkExtractionModelCmd()
@@ -2180,7 +2174,7 @@ func (m *Model) saveDeferredDocumentForm() tea.Cmd {
 		m.reloadAfterMutation()
 		return nil
 	}
-	m.extraction.pendingDoc = &doc
+	m.ex.extraction.pendingDoc = &doc
 	if result.ExtractErr != nil {
 		m.setStatusInfo(fmt.Sprintf("extraction incomplete: %s", result.ExtractErr))
 	}
@@ -2457,7 +2451,7 @@ func (m *Model) hasActiveOverlay() bool {
 		m.calendar != nil ||
 		m.notePreview != nil ||
 		m.columnFinder != nil ||
-		(m.extraction != nil && m.extraction.Visible) ||
+		(m.ex.extraction != nil && m.ex.extraction.Visible) ||
 		m.helpViewport != nil
 }
 

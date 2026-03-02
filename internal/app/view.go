@@ -34,7 +34,7 @@ func (m *Model) buildView() string {
 		{m.calendar != nil, m.buildCalendarOverlay},
 		{m.notePreview != nil, m.buildNotePreviewOverlay},
 		{m.columnFinder != nil, m.buildColumnFinderOverlay},
-		{m.extraction != nil && m.extraction.Visible, m.buildExtractionOverlay},
+		{m.ex.extraction != nil && m.ex.extraction.Visible, m.buildExtractionOverlay},
 		{m.chat != nil && m.chat.Visible, m.buildChatOverlay},
 		{m.helpViewport != nil, m.buildHelpOverlay},
 	}
@@ -337,12 +337,12 @@ func (m *Model) statusView() string {
 // withBgExtractionIndicator prepends a background extraction indicator when
 // extractions are running or awaiting review in the background.
 func (m *Model) withBgExtractionIndicator(statusOutput string) string {
-	n := len(m.bgExtractions)
+	n := len(m.ex.bgExtractions)
 	if n == 0 {
 		return statusOutput
 	}
 	var running, ready int
-	for _, bg := range m.bgExtractions {
+	for _, bg := range m.ex.bgExtractions {
 		if bg.Done {
 			ready++
 		} else {
@@ -351,7 +351,7 @@ func (m *Model) withBgExtractionIndicator(statusOutput string) string {
 	}
 	var parts []string
 	if running > 0 {
-		sp := m.bgExtractions[0].Spinner.View()
+		sp := m.ex.bgExtractions[0].Spinner.View()
 		parts = append(parts, appStyles.AccentText().Render(
 			fmt.Sprintf("%s %d extracting", sp, running),
 		))

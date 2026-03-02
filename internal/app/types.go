@@ -12,6 +12,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/cpcloud/micasa/internal/extract"
+	"github.com/cpcloud/micasa/internal/llm"
 )
 
 type Mode int
@@ -51,6 +52,18 @@ type formState struct {
 	notesEditMode   bool
 	notesFieldPtr   *string
 	pendingEditor   *editorState
+}
+
+type extractState struct {
+	extractionModel        string
+	extractionEnabled      bool
+	extractionThinking     bool
+	extractionClient       *llm.Client
+	extractors             []extract.Extractor
+	extractionReady        bool
+	pendingExtractionDocID *uint
+	extraction             *extractionLogState
+	bgExtractions          []*extractionLogState
 }
 
 type TabKind int

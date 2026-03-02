@@ -2573,7 +2573,7 @@ func (m *Model) parseDocumentFormData() (documentParseResult, error) {
 		text, err := extract.ExtractText(
 			fileData,
 			doc.MIMEType,
-			extract.ExtractorTimeout(m.extractors),
+			extract.ExtractorTimeout(m.ex.extractors),
 		)
 		if err != nil {
 			extractErr = err
