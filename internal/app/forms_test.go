@@ -12,6 +12,29 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestFormDataAsSuccess(t *testing.T) {
+	m := newTestModel()
+	m.formData = &projectFormData{}
+	v, err := formDataAs[projectFormData](m)
+	require.NoError(t, err)
+	assert.NotNil(t, v)
+}
+
+func TestFormDataAsWrongType(t *testing.T) {
+	m := newTestModel()
+	m.formData = &vendorFormData{}
+	_, err := formDataAs[projectFormData](m)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unexpected form data")
+}
+
+func TestFormDataAsNilFormData(t *testing.T) {
+	m := newTestModel()
+	m.formData = nil
+	_, err := formDataAs[projectFormData](m)
+	require.Error(t, err)
+}
+
 func TestOptionalFilePathExpandsTilde(t *testing.T) {
 	home, err := os.UserHomeDir()
 	require.NoError(t, err)

@@ -960,13 +960,17 @@ func TestEmptyHintPerTab(t *testing.T) {
 		{tabProjects, "No projects yet", "edit mode"},
 		{tabQuotes, "No quotes yet", "Create a project first"},
 		{tabMaintenance, "No maintenance items yet", "edit mode"},
+		{tabIncidents, "No incidents yet", "edit mode"},
 		{tabAppliances, "No appliances yet", "edit mode"},
 		{tabVendors, "No vendors yet", "edit mode"},
+		{tabDocuments, "No documents yet", ""},
 	}
 	for _, tt := range tests {
 		hint := topLevelEmptyHint(tt.kind)
 		assert.Contains(t, hint, tt.want)
-		assert.Contains(t, hint, tt.wantSub)
+		if tt.wantSub != "" {
+			assert.Contains(t, hint, tt.wantSub)
+		}
 	}
 }
 
@@ -1137,4 +1141,60 @@ func TestEditHouseFormHidesHint(t *testing.T) {
 	output := m.buildView()
 	assert.NotContains(t, output, "edit the rest anytime",
 		"editing existing house profile should not show first-run hint")
+}
+
+func TestOverlayMaxHeightClampsSmallTerminal(t *testing.T) {
+	m := newTestModel()
+	m.height = 10
+	h := m.overlayMaxHeight()
+	assert.Equal(t, 10, h, "should clamp to minimum of 10")
+}
+
+func TestOverlayMaxHeightNormalTerminal(t *testing.T) {
+	m := newTestModel()
+	m.height = 40
+	h := m.overlayMaxHeight()
+	assert.Equal(t, m.effectiveHeight()-4, h)
+}
+
+func TestNaturalWidthsIndirectMatchesDirect(t *testing.T) {
+	specs := []columnSpec{
+		{Title: "ID", Min: 2, Max: 6},
+		{Title: "Name", Min: 4, Max: 20},
+	}
+	fullRows := [][]cell{
+		{{Value: "1"}, {Value: "alpha"}, {Value: "extra"}},
+		{{Value: "2"}, {Value: "beta"}, {Value: "extra"}},
+	}
+	visToFull := []int{0, 1}
+	indirect := naturalWidthsIndirect(specs, fullRows, visToFull, "$")
+	direct := naturalWidths(specs, fullRows, "$")
+	assert.Equal(t, direct, indirect)
+}
+
+func TestNaturalWidthsIndirectRemappedColumns(t *testing.T) {
+	specs := []columnSpec{
+		{Title: "Name", Min: 4, Max: 20},
+	}
+	fullRows := [][]cell{
+		{{Value: "1"}, {Value: "alpha"}, {Value: "extra"}},
+	}
+	visToFull := []int{1}
+	widths := naturalWidthsIndirect(specs, fullRows, visToFull, "$")
+	require.Len(t, widths, 1)
+	assert.GreaterOrEqual(t, widths[0], lipgloss.Width("alpha"))
+}
+
+func TestComputeNaturalWidthsSkipsShortRows(t *testing.T) {
+	specs := []columnSpec{
+		{Title: "A", Min: 2, Max: 10},
+		{Title: "B", Min: 2, Max: 10},
+	}
+	rows := [][]cell{
+		{{Value: "x"}},
+	}
+	widths := naturalWidths(specs, rows, "$")
+	require.Len(t, widths, 2)
+	assert.GreaterOrEqual(t, widths[0], 2)
+	assert.GreaterOrEqual(t, widths[1], 2)
 }
