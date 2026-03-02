@@ -292,7 +292,7 @@ func (m *Model) startEditProjectForm(id uint) error {
 	}
 	values := projectFormValues(project, m.cur)
 	options := projectTypeOptions(m.projectTypes)
-	m.editID = &id
+	m.fs.editID = &id
 	m.openProjectForm(values, options)
 	return nil
 }
@@ -386,7 +386,7 @@ func (m *Model) startEditQuoteForm(id uint) error {
 	}
 	values := quoteFormValues(quote, m.cur)
 	options := projectOptions(projects)
-	m.editID = &id
+	m.fs.editID = &id
 	m.openQuoteForm(values, options)
 	return nil
 }
@@ -506,7 +506,7 @@ func (m *Model) startEditMaintenanceForm(id uint) error {
 		return fmt.Errorf("list appliances: %w", err)
 	}
 	appOpts := applianceOptions(appliances)
-	m.editID = &id
+	m.fs.editID = &id
 	m.openMaintenanceForm(values, options, appOpts)
 	return nil
 }
@@ -624,7 +624,7 @@ func (m *Model) startEditIncidentForm(id uint) error {
 	}
 	appOpts := applianceOptions(appliances)
 	vendorOpts := vendorOpts("(none)", m.vendors)
-	m.editID = &id
+	m.fs.editID = &id
 	m.openIncidentForm(values, appOpts, vendorOpts)
 	return nil
 }
@@ -687,8 +687,8 @@ func (m *Model) submitIncidentForm() error {
 	if err != nil {
 		return err
 	}
-	if m.editID != nil {
-		item.ID = *m.editID
+	if m.fs.editID != nil {
+		item.ID = *m.fs.editID
 		return m.store.UpdateIncident(item)
 	}
 	return m.store.CreateIncident(&item)
@@ -901,7 +901,7 @@ func (m *Model) startEditApplianceForm(id uint) error {
 		return fmt.Errorf("load appliance: %w", err)
 	}
 	values := applianceFormValues(item, m.cur)
-	m.editID = &id
+	m.fs.editID = &id
 	m.openApplianceForm(values)
 	return nil
 }
@@ -944,15 +944,15 @@ func (m *Model) submitApplianceForm() error {
 	if err != nil {
 		return err
 	}
-	if m.editID != nil {
-		item.ID = *m.editID
+	if m.fs.editID != nil {
+		item.ID = *m.fs.editID
 		return m.store.UpdateAppliance(item)
 	}
 	if err := m.store.CreateAppliance(&item); err != nil {
 		return err
 	}
 	id := item.ID
-	m.editID = &id
+	m.fs.editID = &id
 	return nil
 }
 
@@ -1006,7 +1006,7 @@ func (m *Model) startEditVendorForm(id uint) error {
 		return fmt.Errorf("load vendor: %w", err)
 	}
 	values := vendorFormValues(vendor)
-	m.editID = &id
+	m.fs.editID = &id
 	m.openVendorForm(values)
 	return nil
 }
@@ -1034,15 +1034,15 @@ func (m *Model) submitVendorForm() error {
 	if err != nil {
 		return err
 	}
-	if m.editID != nil {
-		vendor.ID = *m.editID
+	if m.fs.editID != nil {
+		vendor.ID = *m.fs.editID
 		return m.store.UpdateVendor(vendor)
 	}
 	if err := m.store.CreateVendor(&vendor); err != nil {
 		return err
 	}
 	id := vendor.ID
-	m.editID = &id
+	m.fs.editID = &id
 	return nil
 }
 
@@ -1351,7 +1351,7 @@ func (m *Model) startEditServiceLogForm(id uint) error {
 	}
 	values := serviceLogFormValues(entry, m.cur)
 	vendorOpts := vendorOpts("Self (homeowner)", m.vendors)
-	m.editID = &id
+	m.fs.editID = &id
 	m.openServiceLogForm(values, vendorOpts)
 	return nil
 }
@@ -1386,15 +1386,15 @@ func (m *Model) submitServiceLogForm() error {
 	if err != nil {
 		return err
 	}
-	if m.editID != nil {
-		entry.ID = *m.editID
+	if m.fs.editID != nil {
+		entry.ID = *m.fs.editID
 		return m.store.UpdateServiceLog(entry, vendor)
 	}
 	if err := m.store.CreateServiceLog(&entry, vendor); err != nil {
 		return err
 	}
 	id := entry.ID
-	m.editID = &id
+	m.fs.editID = &id
 	return nil
 }
 
@@ -1610,9 +1610,9 @@ func (m *Model) openDatePicker(
 	dateField *string,
 	values any,
 ) {
-	m.editID = &id
-	m.formKind = kind
-	m.formData = values
+	m.fs.editID = &id
+	m.fs.formKind = kind
+	m.fs.formData = values
 	savedKind := kind
 	m.openCalendar(dateField, func() {
 		m.snapshotForUndo()
@@ -1622,9 +1622,9 @@ func (m *Model) openDatePicker(
 			m.setStatusSaved(true) // calendar inline edits are always edits
 			m.reloadAfterFormSave(savedKind)
 		}
-		m.formKind = formNone
-		m.formData = nil
-		m.editID = nil
+		m.fs.formKind = formNone
+		m.fs.formData = nil
+		m.fs.editID = nil
 	})
 }
 
@@ -1649,28 +1649,28 @@ func (m *Model) activateForm(kind FormKind, form *huh.Form, values any) {
 	}
 	m.prevMode = m.mode
 	m.mode = modeForm
-	m.formKind = kind
-	m.form = form
-	m.formData = values
-	m.formHasRequired = true
-	m.pendingFormInit = form.Init()
+	m.fs.formKind = kind
+	m.fs.form = form
+	m.fs.formData = values
+	m.fs.formHasRequired = true
+	m.fs.pendingFormInit = form.Init()
 	m.snapshotForm()
 }
 
 // openInlineEdit sets up a single-field inline edit form (overlay).
 // Used for Select fields where a list picker is needed.
 func (m *Model) openInlineEdit(id uint, kind FormKind, field huh.Field, values any) {
-	m.editID = &id
+	m.fs.editID = &id
 	m.activateForm(kind, huh.NewForm(huh.NewGroup(field)), values)
-	m.formHasRequired = false
+	m.fs.formHasRequired = false
 }
 
 // openNotesEdit opens a standalone textarea overlay for editing a notes field.
 // On submit the form data is saved via the handler, just like openInlineEdit
 // for select fields. The textarea supports ctrl+e to escalate to $EDITOR.
 func (m *Model) openNotesEdit(id uint, kind FormKind, fieldPtr *string, values any) {
-	m.editID = &id
-	m.formData = values
+	m.fs.editID = &id
+	m.fs.formData = values
 	m.openNotesTextarea(kind, fieldPtr, values)
 }
 
@@ -1681,9 +1681,9 @@ func (m *Model) openNotesTextarea(kind FormKind, fieldPtr *string, values any) {
 	field := huh.NewText().Title("Notes").Value(fieldPtr)
 	form := huh.NewForm(huh.NewGroup(field))
 	m.activateForm(kind, form, values)
-	m.formHasRequired = false
-	m.notesEditMode = true
-	m.notesFieldPtr = fieldPtr
+	m.fs.formHasRequired = false
+	m.fs.notesEditMode = true
+	m.fs.notesFieldPtr = fieldPtr
 }
 
 // openInlineInput sets up a single-field text edit rendered in the status bar,
@@ -1702,9 +1702,9 @@ func (m *Model) openInlineInput(
 	ti.Focus()
 	ti.Prompt = ""
 	ti.CharLimit = 256
-	m.editID = &id
-	m.formKind = kind
-	m.formData = values
+	m.fs.editID = &id
+	m.fs.formKind = kind
+	m.fs.formData = values
 	m.inlineInput = &inlineInputState{
 		Input:    ti,
 		Title:    title,
@@ -1783,12 +1783,12 @@ func formKeyMap() *huh.KeyMap {
 }
 
 func (m *Model) handleFormSubmit() error {
-	if m.formKind == formHouse {
+	if m.fs.formKind == formHouse {
 		return m.submitHouseForm()
 	}
-	handler := m.handlerForFormKind(m.formKind)
+	handler := m.handlerForFormKind(m.fs.formKind)
 	if handler == nil {
-		return fmt.Errorf("no handler for form kind %v", m.formKind)
+		return fmt.Errorf("no handler for form kind %v", m.fs.formKind)
 	}
 	return handler.SubmitForm(m)
 }
@@ -1880,15 +1880,15 @@ func (m *Model) submitProjectForm() error {
 	if err != nil {
 		return err
 	}
-	if m.editID != nil {
-		project.ID = *m.editID
+	if m.fs.editID != nil {
+		project.ID = *m.fs.editID
 		return m.store.UpdateProject(project)
 	}
 	if err := m.store.CreateProject(&project); err != nil {
 		return err
 	}
 	id := project.ID
-	m.editID = &id
+	m.fs.editID = &id
 	return nil
 }
 
@@ -1930,15 +1930,15 @@ func (m *Model) submitQuoteForm() error {
 	if err != nil {
 		return err
 	}
-	if m.editID != nil {
-		quote.ID = *m.editID
+	if m.fs.editID != nil {
+		quote.ID = *m.fs.editID
 		return m.store.UpdateQuote(quote, vendor)
 	}
 	if err := m.store.CreateQuote(&quote, vendor); err != nil {
 		return err
 	}
 	id := quote.ID
-	m.editID = &id
+	m.fs.editID = &id
 	return nil
 }
 
@@ -1992,15 +1992,15 @@ func (m *Model) submitMaintenanceForm() error {
 	if err != nil {
 		return err
 	}
-	if m.editID != nil {
-		item.ID = *m.editID
+	if m.fs.editID != nil {
+		item.ID = *m.fs.editID
 		return m.store.UpdateMaintenance(item)
 	}
 	if err := m.store.CreateMaintenance(&item); err != nil {
 		return err
 	}
 	id := item.ID
-	m.editID = &id
+	m.fs.editID = &id
 	return nil
 }
 
@@ -2312,14 +2312,14 @@ func (m *Model) houseFormValues(profile data.HouseProfile) *houseFormData {
 }
 
 // requiredTitle appends a colored ∗ (U+2217) to a form field label.
-// formDataAs asserts m.formData to the given pointer type, returning a
+// formDataAs asserts m.fs.formData to the given pointer type, returning a
 // typed error on mismatch. Eliminates the repeated type-assertion boilerplate
 // in every parse* function.
 func formDataAs[T any](m *Model) (*T, error) {
-	v, ok := m.formData.(*T)
+	v, ok := m.fs.formData.(*T)
 	if !ok {
 		var zero T
-		return nil, fmt.Errorf("unexpected form data: want *%T, got %T", zero, m.formData)
+		return nil, fmt.Errorf("unexpected form data: want *%T, got %T", zero, m.fs.formData)
 	}
 	return v, nil
 }
@@ -2331,7 +2331,7 @@ func requiredTitle(label string) string {
 // requiredLegend returns the "∗ required" legend line for forms that have
 // required fields. Returns empty string when the form has none.
 func (m *Model) requiredLegend() string {
-	if !m.formHasRequired {
+	if !m.fs.formHasRequired {
 		return ""
 	}
 	return appStyles.SecondaryText().Render("∗") + appStyles.TextDim().Render(" required")
@@ -2407,7 +2407,7 @@ func (m *Model) startEditDocumentForm(id uint) error {
 		return fmt.Errorf("load document: %w", err)
 	}
 	values := documentFormValues(doc)
-	m.editID = &id
+	m.fs.editID = &id
 
 	scoped := len(m.detailStack) > 0
 	return m.openEditDocumentForm(values, scoped)
@@ -2480,8 +2480,8 @@ func (m *Model) submitDocumentForm() error {
 		return err
 	}
 	doc := result.Doc
-	if m.editID != nil {
-		doc.ID = *m.editID
+	if m.fs.editID != nil {
+		doc.ID = *m.fs.editID
 		if err := m.store.UpdateDocument(doc); err != nil {
 			return err
 		}
@@ -2490,7 +2490,7 @@ func (m *Model) submitDocumentForm() error {
 			return err
 		}
 		id := doc.ID
-		m.editID = &id
+		m.fs.editID = &id
 	}
 	if result.ExtractErr != nil {
 		m.setStatusInfo(fmt.Sprintf("extraction incomplete: %s", result.ExtractErr))
@@ -2507,8 +2507,8 @@ func (m *Model) submitScopedDocumentForm(entityKind string, entityID uint) error
 	doc := result.Doc
 	doc.EntityKind = entityKind
 	doc.EntityID = entityID
-	if m.editID != nil {
-		doc.ID = *m.editID
+	if m.fs.editID != nil {
+		doc.ID = *m.fs.editID
 		if err := m.store.UpdateDocument(doc); err != nil {
 			return err
 		}
@@ -2517,7 +2517,7 @@ func (m *Model) submitScopedDocumentForm(entityKind string, entityID uint) error
 			return err
 		}
 		id := doc.ID
-		m.editID = &id
+		m.fs.editID = &id
 	}
 	if result.ExtractErr != nil {
 		m.setStatusInfo(fmt.Sprintf("extraction incomplete: %s", result.ExtractErr))

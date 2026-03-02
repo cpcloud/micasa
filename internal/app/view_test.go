@@ -1061,7 +1061,7 @@ func TestRequiredLegendShownOnMultiFieldForm(t *testing.T) {
 	m.width = 120
 	m.height = 40
 	m.startProjectForm()
-	m.form.Init()
+	m.fs.form.Init()
 
 	output := m.buildView()
 	assert.Contains(t, output, "required",
@@ -1073,7 +1073,7 @@ func TestRequiredLegendShownOnFullScreenHouseForm(t *testing.T) {
 	m.width = 120
 	m.height = 40
 	m.startHouseForm()
-	m.form.Init()
+	m.fs.form.Init()
 
 	// House form renders via formFullScreen, not buildBaseView.
 	output := m.buildView()
@@ -1088,8 +1088,8 @@ func TestRequiredLegendHiddenOnInlineEdit(t *testing.T) {
 
 	// Create a project so we can inline-edit it.
 	m.startProjectForm()
-	m.form.Init()
-	values, ok := m.formData.(*projectFormData)
+	m.fs.form.Init()
+	values, ok := m.fs.formData.(*projectFormData)
 	require.True(t, ok)
 	values.Title = testProjectTitle
 	require.NoError(t, m.submitProjectForm())
@@ -1099,7 +1099,7 @@ func TestRequiredLegendHiddenOnInlineEdit(t *testing.T) {
 	// Inline-edit the Status column -- a Select via openInlineEdit.
 	require.NoError(t, m.inlineEditProject(1, projectColStatus))
 	require.Equal(t, modeForm, m.mode, "inline edit should activate form mode")
-	m.form.Init()
+	m.fs.form.Init()
 
 	output := m.buildView()
 	assert.NotContains(t, output, "required",
@@ -1125,7 +1125,7 @@ func TestFirstRunHouseFormShowsHint(t *testing.T) {
 	// Simulate first run: no house profile exists yet.
 	m.hasHouse = false
 	m.startHouseForm()
-	m.form.Init()
+	m.fs.form.Init()
 
 	output := m.buildView()
 	assert.Contains(t, output, "edit the rest anytime",
@@ -1136,7 +1136,7 @@ func TestEditHouseFormHidesHint(t *testing.T) {
 	m := newTestModelWithStore(t)
 	// Model already has a house from newTestModelWithStore.
 	openHouseForm(m)
-	m.form.Init()
+	m.fs.form.Init()
 
 	output := m.buildView()
 	assert.NotContains(t, output, "edit the rest anytime",

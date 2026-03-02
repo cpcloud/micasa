@@ -205,20 +205,8 @@ type Model struct {
 	house                  data.HouseProfile
 	mode                   Mode
 	prevMode               Mode // mode to restore after form closes
-	formKind               FormKind
-	form                   *huh.Form
-	formData               any
-	formSnapshot           any
-	formDirty              bool
-	confirmDiscard         bool // true when showing "discard unsaved changes?" prompt
-	confirmQuit            bool // true when discard was triggered by ctrl+q (quit after confirm)
-	formHasRequired        bool
-	pendingFormInit        tea.Cmd // cached Init cmd from activateForm
-	editID                 *uint
+	fs                     formState
 	inlineInput            *inlineInputState
-	notesEditMode          bool    // true when a notes textarea overlay is active
-	notesFieldPtr          *string // pointer into formData for the notes field
-	pendingEditor          *editorState
 	undoStack              []undoEntry
 	redoStack              []undoEntry
 	magMode                bool // easter egg: display numbers as order-of-magnitude
@@ -315,9 +303,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.updateAllViewports()
 	case tea.KeyMsg:
 		if typed.String() == keyCtrlQ {
-			if m.mode == modeForm && m.formDirty {
-				m.confirmDiscard = true
-				m.confirmQuit = true
+			if m.mode == modeForm && m.fs.formDirty {
+				m.fs.confirmDiscard = true
+				m.fs.confirmQuit = true
 				return m, nil
 			}
 			m.cancelChatOperations()
@@ -472,7 +460,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if m.mode == modeForm && m.form != nil {
+	if m.mode == modeForm && m.fs.form != nil {
 		return m.updateForm(msg)
 	}
 
@@ -517,7 +505,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // updateForm handles input while a form is active.
 func (m *Model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Handle confirm-discard dialog: only y/n/esc are active.
-	if m.confirmDiscard {
+	if m.fs.confirmDiscard {
 		if keyMsg, ok := msg.(tea.KeyMsg); ok {
 			return m.handleConfirmDiscard(keyMsg)
 		}
@@ -526,7 +514,7 @@ func (m *Model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == keyCtrlS {
 		return m, m.saveFormInPlace()
 	}
-	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == keyCtrlE && m.notesEditMode {
+	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == keyCtrlE && m.fs.notesEditMode {
 		return m, m.launchExternalEditor()
 	}
 	// Block huh's deferred WindowSizeMsg from reaching the form. Without
@@ -539,31 +527,31 @@ func (m *Model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	// Intercept 1-9 on Select fields to jump to the Nth option.
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		if n, isOrdinal := selectOrdinal(keyMsg); isOrdinal && isSelectField(m.form) {
+		if n, isOrdinal := selectOrdinal(keyMsg); isOrdinal && isSelectField(m.fs.form) {
 			m.jumpSelectToOrdinal(n)
 			return m, nil
 		}
 	}
 	// Intercept ESC on dirty forms to confirm before discarding.
 	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == keyEsc {
-		mandatoryHouse := m.formKind == formHouse && !m.hasHouse
-		if m.formDirty && !mandatoryHouse {
-			m.confirmDiscard = true
+		mandatoryHouse := m.fs.formKind == formHouse && !m.hasHouse
+		if m.fs.formDirty && !mandatoryHouse {
+			m.fs.confirmDiscard = true
 			return m, nil
 		}
 	}
-	updated, cmd := m.form.Update(msg)
+	updated, cmd := m.fs.form.Update(msg)
 	form, ok := updated.(*huh.Form)
 	if ok {
-		m.form = form
+		m.fs.form = form
 	}
-	syncFilePickerTitle(m.form)
+	syncFilePickerTitle(m.fs.form)
 	m.checkFormDirty()
-	switch m.form.State {
+	switch m.fs.form.State {
 	case huh.StateCompleted:
 		return m, m.saveForm()
 	case huh.StateAborted:
-		if m.formKind == formHouse && !m.hasHouse {
+		if m.fs.formKind == formHouse && !m.hasHouse {
 			m.setStatusError("House profile required.")
 			m.startHouseForm()
 			return m, m.formInitCmd()
@@ -579,17 +567,17 @@ func (m *Model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) handleConfirmDiscard(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch key.String() {
 	case keyY:
-		m.confirmDiscard = false
-		if m.confirmQuit {
-			m.confirmQuit = false
+		m.fs.confirmDiscard = false
+		if m.fs.confirmQuit {
+			m.fs.confirmQuit = false
 			m.cancelChatOperations()
 			m.cancelPull()
 			return m, tea.Quit
 		}
 		m.exitForm()
 	case keyN, keyEsc:
-		m.confirmDiscard = false
-		m.confirmQuit = false
+		m.fs.confirmDiscard = false
+		m.fs.confirmQuit = false
 	}
 	return m, nil
 }
@@ -2051,10 +2039,10 @@ func (m *Model) extractionLLMClient() *llm.Client {
 // steps are needed. If the LLM model isn't ready yet, it queues the doc for
 // extraction after the model pull completes.
 func (m *Model) afterDocumentSave() tea.Cmd {
-	if m.editID == nil {
+	if m.fs.editID == nil {
 		return nil
 	}
-	docID := *m.editID
+	docID := *m.fs.editID
 
 	// Load the saved document to get its current state.
 	doc, err := m.store.GetDocument(docID)
@@ -2105,13 +2093,13 @@ func (m *Model) clearPullState() {
 
 func (m *Model) saveForm() tea.Cmd {
 	// Deferred document creation: hold doc in memory, open extraction overlay.
-	if fd, ok := m.formData.(*documentFormData); ok && fd.DeferCreate {
+	if fd, ok := m.fs.formData.(*documentFormData); ok && fd.DeferCreate {
 		return m.saveDeferredDocumentForm()
 	}
 
-	isFirstHouse := m.formKind == formHouse && !m.hasHouse
+	isFirstHouse := m.fs.formKind == formHouse && !m.hasHouse
 	m.snapshotForUndo()
-	kind := m.formKind
+	kind := m.fs.formKind
 	err := m.handleFormSubmit()
 	if err != nil {
 		m.setStatusError(err.Error())
@@ -2132,12 +2120,12 @@ func (m *Model) saveForm() tea.Cmd {
 // so the user can continue editing after a Ctrl+S save.
 func (m *Model) saveFormInPlace() tea.Cmd {
 	// Deferred creation: Ctrl+S acts the same as Enter for quick-add.
-	if fd, ok := m.formData.(*documentFormData); ok && fd.DeferCreate {
+	if fd, ok := m.fs.formData.(*documentFormData); ok && fd.DeferCreate {
 		return m.saveDeferredDocumentForm()
 	}
 	m.snapshotForUndo()
-	kind := m.formKind
-	isCreate := m.editID == nil
+	kind := m.fs.formKind
+	isCreate := m.fs.editID == nil
 	err := m.handleFormSubmit()
 	if err != nil {
 		m.setStatusError(err.Error())
@@ -2148,9 +2136,9 @@ func (m *Model) saveFormInPlace() tea.Cmd {
 	m.reloadAfterFormSave(kind)
 	// After a create, position the cursor on the new row so that
 	// subsequent Esc leaves the user on the item they just created.
-	if isCreate && m.editID != nil {
+	if isCreate && m.fs.editID != nil {
 		if tab := m.effectiveTab(); tab != nil {
-			selectRowByID(tab, *m.editID)
+			selectRowByID(tab, *m.fs.editID)
 		}
 	}
 	return m.afterDocumentSaveIfNeeded(kind)
@@ -2219,12 +2207,12 @@ func (m *Model) reloadAfterFormSave(kind FormKind) {
 }
 
 func (m *Model) snapshotForm() {
-	m.formSnapshot = cloneFormData(m.formData)
-	m.formDirty = false
+	m.fs.formSnapshot = cloneFormData(m.fs.formData)
+	m.fs.formDirty = false
 }
 
 func (m *Model) checkFormDirty() {
-	m.formDirty = !reflect.DeepEqual(m.formData, m.formSnapshot)
+	m.fs.formDirty = !reflect.DeepEqual(m.fs.formData, m.fs.formSnapshot)
 }
 
 // cloneFormData makes a shallow copy of the struct behind a form-data
@@ -2317,16 +2305,16 @@ func (m *Model) submitInlineInput() {
 // resetFormState zeroes all form-related fields. Every path that exits a
 // form, inline edit, or calendar overlay should call this to prevent drift.
 func (m *Model) resetFormState() {
-	m.formKind = formNone
-	m.form = nil
-	m.formData = nil
-	m.formSnapshot = nil
-	m.formDirty = false
-	m.confirmDiscard = false
-	m.pendingFormInit = nil
-	m.editID = nil
-	m.notesEditMode = false
-	m.notesFieldPtr = nil
+	m.fs.formKind = formNone
+	m.fs.form = nil
+	m.fs.formData = nil
+	m.fs.formSnapshot = nil
+	m.fs.formDirty = false
+	m.fs.confirmDiscard = false
+	m.fs.pendingFormInit = nil
+	m.fs.editID = nil
+	m.fs.notesEditMode = false
+	m.fs.notesFieldPtr = nil
 }
 
 func (m *Model) closeInlineInput() {
@@ -2338,7 +2326,7 @@ func (m *Model) closeInlineInput() {
 // set (item was saved at least once), the cursor moves to that row so the
 // user lands on the item they were just editing/creating.
 func (m *Model) exitForm() {
-	savedID := m.editID
+	savedID := m.fs.editID
 	m.mode = m.prevMode
 	// Restore correct table key bindings for the returning mode.
 	if m.mode == modeEdit {
@@ -2381,8 +2369,8 @@ func (m *Model) surfaceError(err error) {
 }
 
 func (m *Model) formInitCmd() tea.Cmd {
-	cmd := m.pendingFormInit
-	m.pendingFormInit = nil
+	cmd := m.fs.pendingFormInit
+	m.fs.pendingFormInit = nil
 	return cmd
 }
 
@@ -2735,7 +2723,7 @@ func (m *Model) launchExternalEditor() tea.Cmd {
 		m.setStatusError("Set $EDITOR or $VISUAL to use an external editor.")
 		return nil
 	}
-	if m.notesFieldPtr == nil {
+	if m.fs.notesFieldPtr == nil {
 		return nil
 	}
 
@@ -2744,7 +2732,7 @@ func (m *Model) launchExternalEditor() tea.Cmd {
 		m.setStatusError(fmt.Sprintf("create temp file: %s", err))
 		return nil
 	}
-	if _, err := f.WriteString(*m.notesFieldPtr); err != nil {
+	if _, err := f.WriteString(*m.fs.notesFieldPtr); err != nil {
 		_ = f.Close()
 		_ = os.Remove(f.Name())
 		m.setStatusError(fmt.Sprintf("write temp file: %s", err))
@@ -2752,15 +2740,15 @@ func (m *Model) launchExternalEditor() tea.Cmd {
 	}
 	_ = f.Close()
 
-	m.pendingEditor = &editorState{
+	m.fs.pendingEditor = &editorState{
 		EditID:   0,
-		FormKind: m.formKind,
-		FormData: m.formData,
-		FieldPtr: m.notesFieldPtr,
+		FormKind: m.fs.formKind,
+		FormData: m.fs.formData,
+		FieldPtr: m.fs.notesFieldPtr,
 		TempFile: f.Name(),
 	}
-	if m.editID != nil {
-		m.pendingEditor.EditID = *m.editID
+	if m.fs.editID != nil {
+		m.fs.pendingEditor.EditID = *m.fs.editID
 	}
 
 	m.exitForm()
@@ -2774,8 +2762,8 @@ func (m *Model) launchExternalEditor() tea.Cmd {
 // handleEditorFinished reads the edited temp file, updates the field pointer,
 // and reopens the textarea so the user can review before saving.
 func (m *Model) handleEditorFinished(msg editorFinishedMsg) tea.Cmd {
-	pe := m.pendingEditor
-	m.pendingEditor = nil
+	pe := m.fs.pendingEditor
+	m.fs.pendingEditor = nil
 	if pe == nil {
 		return nil
 	}
@@ -2807,9 +2795,9 @@ func (m *Model) handleEditorFinished(msg editorFinishedMsg) tea.Cmd {
 func (m *Model) reopenNotesEdit(pe *editorState) {
 	if pe.EditID > 0 {
 		id := pe.EditID
-		m.editID = &id
+		m.fs.editID = &id
 	}
-	m.formData = pe.FormData
+	m.fs.formData = pe.FormData
 	m.openNotesTextarea(pe.FormKind, pe.FieldPtr, pe.FormData)
 }
 

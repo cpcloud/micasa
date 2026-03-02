@@ -19,7 +19,7 @@ func (m *Model) buildView() string {
 		return m.buildTerminalTooSmallView()
 	}
 
-	if m.mode == modeForm && m.form != nil && m.formKind == formHouse {
+	if m.mode == modeForm && m.fs.form != nil && m.fs.formKind == formHouse {
 		return m.formFullScreen()
 	}
 
@@ -108,11 +108,11 @@ func (m *Model) buildBaseView() string {
 	tabLine := m.tabUnderline()
 
 	var content string
-	if m.mode == modeForm && m.form != nil {
+	if m.mode == modeForm && m.fs.form != nil {
 		if legend := m.requiredLegend(); legend != "" {
-			content = legend + "\n\n" + m.form.View()
+			content = legend + "\n\n" + m.fs.form.View()
 		} else {
-			content = m.form.View()
+			content = m.fs.form.View()
 		}
 	} else if tab := m.effectiveTab(); tab != nil {
 		content = m.tableView(tab)
@@ -271,7 +271,7 @@ func (m *Model) statusView() string {
 		return m.withPullProgress(m.inlineInputStatusView())
 	}
 	if m.mode == modeForm {
-		if m.confirmDiscard {
+		if m.fs.confirmDiscard {
 			prompt := m.styles.FormDirty().Render("Discard unsaved changes?")
 			hints := joinWithSeparator(
 				m.helpSeparator(),
@@ -281,14 +281,14 @@ func (m *Model) statusView() string {
 			return m.withPullProgress(prompt + "  " + hints)
 		}
 		dirtyIndicator := m.styles.FormClean().Render("○ saved")
-		if m.formDirty {
+		if m.fs.formDirty {
 			dirtyIndicator = m.styles.FormDirty().Render("● unsaved")
 		}
 		parts := []string{
 			dirtyIndicator,
 			m.helpItem(keyCtrlS, "save"),
 		}
-		if m.notesEditMode {
+		if m.fs.notesEditMode {
 			parts = append(parts, m.helpItem(keyCtrlE, "editor"))
 		}
 		parts = append(parts,
@@ -647,7 +647,7 @@ func (m *Model) drilldownHint(_ *Tab, _ columnSpec) string {
 }
 
 func (m *Model) formFullScreen() string {
-	formContent := m.form.View()
+	formContent := m.fs.form.View()
 	if legend := m.requiredLegend(); legend != "" {
 		formContent = legend + "\n\n" + formContent
 	}

@@ -9,6 +9,8 @@ import (
 
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/huh"
 	"github.com/cpcloud/micasa/internal/extract"
 )
 
@@ -34,6 +36,22 @@ const (
 	formVendor
 	formDocument
 )
+
+type formState struct {
+	formKind        FormKind
+	form            *huh.Form
+	formData        any
+	formSnapshot    any
+	formDirty       bool
+	confirmDiscard  bool
+	confirmQuit     bool
+	formHasRequired bool
+	pendingFormInit tea.Cmd
+	editID          *uint
+	notesEditMode   bool
+	notesFieldPtr   *string
+	pendingEditor   *editorState
+}
 
 type TabKind int
 
