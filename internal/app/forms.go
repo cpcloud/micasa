@@ -2288,6 +2288,23 @@ func (m *Model) createOrUpdate(
 }
 
 // formDataAs asserts m.fs.formData to the given pointer type, returning a
+func (m *Model) createOrUpdate(
+	idPtr *uint,
+	create func() error,
+	update func() error,
+) error {
+	if m.fs.editID != nil {
+		*idPtr = *m.fs.editID
+		return update()
+	}
+	if err := create(); err != nil {
+		return err
+	}
+	id := *idPtr
+	m.fs.editID = &id
+	return nil
+}
+
 // typed error on mismatch. Eliminates the repeated type-assertion boilerplate
 // in every parse* function.
 func formDataAs[T any](m *Model) (*T, error) {
