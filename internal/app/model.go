@@ -256,9 +256,13 @@ func NewModel(store *data.Store, options Options) (*Model, error) {
 		llmConfig:       options.LLMConfig,
 		llmExtraContext: extraContext,
 		ex: extractState{
+			extractionProvider: options.ExtractionConfig.Provider,
+			extractionBaseURL:  options.ExtractionConfig.BaseURL,
 			extractionModel:    options.ExtractionConfig.Model,
-			extractionEnabled:  options.ExtractionConfig.Enabled,
+			extractionAPIKey:   options.ExtractionConfig.APIKey,
+			extractionTimeout:  options.ExtractionConfig.Timeout,
 			extractionThinking: options.ExtractionConfig.Thinking,
+			extractionEnabled:  options.ExtractionConfig.Enabled,
 			extractors:         options.ExtractionConfig.Extractors,
 		},
 		pull:      pullState{progress: pprog},
@@ -1870,22 +1874,23 @@ func (m *Model) statusLines() int {
 }
 
 // checkExtractionModelCmd returns a tea.Cmd that checks whether the extraction
-// model is available on the Ollama server. If missing, it initiates a pull.
+// model is available. For local servers it verifies availability and initiates
+// a pull if missing; for cloud providers it trusts the config.
 func (m *Model) checkExtractionModelCmd() tea.Cmd {
-	if !m.ex.extractionEnabled || m.llmClient == nil {
+	if !m.ex.extractionEnabled {
 		return nil
 	}
 
-	// Resolve which model to check: extraction-specific or chat model.
-	model := m.ex.extractionModel
-	if model == "" {
-		model = m.llmClient.Model()
+	client := m.extractionLLMClient()
+	if client == nil {
+		return nil
 	}
+
+	model := client.Model()
 	if model == "" {
 		return nil
 	}
 
-	client := m.llmClient
 	timeout := client.Timeout()
 
 	// Cloud providers that don't support model listing: trust the config.
@@ -1942,9 +1947,10 @@ func (m *Model) handlePullProgress(msg pullProgressMsg) tea.Cmd {
 		m.clearPullState()
 		m.status = statusMsg{}
 		// Mark extraction model as ready if it matches.
-		exModel := m.ex.extractionModel
-		if exModel == "" && m.llmClient != nil {
-			exModel = m.llmClient.Model()
+		exClient := m.extractionLLMClient()
+		exModel := ""
+		if exClient != nil {
+			exModel = exClient.Model()
 		}
 		if msg.Model != "" && (msg.Model == exModel || strings.HasPrefix(msg.Model, exModel+":")) {
 			m.ex.extractionReady = true
@@ -2019,27 +2025,51 @@ func (m *Model) formatPullProgress(msg pullProgressMsg) string {
 
 // extractionLLMClient returns the LLM client configured for extraction,
 // or nil if extraction is not available. The client is created once and cached.
+// When extraction has its own provider/connection settings, a fully independent
+// client is created; otherwise it clones the chat client with a model override.
 func (m *Model) extractionLLMClient() *llm.Client {
 	if m.ex.extractionClient != nil {
 		return m.ex.extractionClient
 	}
-	if m.llmClient == nil {
-		return nil
-	}
-	if m.llmConfig == nil {
-		return nil
-	}
+
+	provider := m.ex.extractionProvider
+	baseURL := m.ex.extractionBaseURL
+	apiKey := m.ex.extractionAPIKey
+	timeout := m.ex.extractionTimeout
 	model := m.ex.extractionModel
-	if model == "" {
-		model = m.llmClient.Model()
+
+	// Fill gaps from the chat client config when extraction doesn't have
+	// its own connection settings.
+	if provider == "" || baseURL == "" || apiKey == "" || timeout == 0 {
+		if m.llmConfig == nil {
+			return nil
+		}
+		if provider == "" {
+			provider = m.llmConfig.Provider
+		}
+		if baseURL == "" {
+			baseURL = m.llmConfig.BaseURL
+		}
+		if apiKey == "" {
+			apiKey = m.llmConfig.APIKey
+		}
+		if timeout == 0 {
+			timeout = m.llmConfig.Timeout
+		}
 	}
-	c, err := llm.NewClient(
-		m.llmConfig.Provider,
-		m.llmConfig.BaseURL,
-		model,
-		m.llmConfig.APIKey,
-		m.llmConfig.Timeout,
-	)
+
+	if model == "" {
+		if m.llmClient != nil {
+			model = m.llmClient.Model()
+		} else if m.llmConfig != nil {
+			model = m.llmConfig.Model
+		}
+	}
+	if model == "" {
+		return nil
+	}
+
+	c, err := llm.NewClient(provider, baseURL, model, apiKey, timeout)
 	if err != nil {
 		return nil
 	}
@@ -2075,7 +2105,7 @@ func (m *Model) afterDocumentSave() tea.Cmd {
 	// If nothing async is needed, bail early.
 	if !needsExtract && !llmReady {
 		// If LLM is configured but model not ready, queue for after pull.
-		if m.ex.extractionEnabled && m.llmClient != nil && !m.ex.extractionReady {
+		if m.ex.extractionEnabled && m.extractionLLMClient() != nil && !m.ex.extractionReady {
 			m.ex.pendingExtractionDocID = &docID
 			if !m.pull.active {
 				m.setStatusInfo("checking extraction model" + symEllipsis)

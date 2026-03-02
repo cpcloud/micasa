@@ -6,6 +6,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -590,6 +591,22 @@ func TestEnvVars(t *testing.T) {
 		"MICASA_EXTRACTION_ENABLED":  "extraction.enabled",
 		"MICASA_TEXT_TIMEOUT":        "extraction.text_timeout",
 		"MICASA_EXTRACTION_THINKING": "extraction.thinking",
+
+		// Per-pipeline chat overrides.
+		"MICASA_LLM_CHAT_PROVIDER": "llm.chat.provider",
+		"MICASA_LLM_CHAT_BASE_URL": "llm.chat.base_url",
+		"MICASA_LLM_CHAT_MODEL":    "llm.chat.model",
+		"MICASA_LLM_CHAT_API_KEY":  "llm.chat.api_key",
+		"MICASA_LLM_CHAT_TIMEOUT":  "llm.chat.timeout",
+		"MICASA_LLM_CHAT_THINKING": "llm.chat.thinking",
+
+		// Per-pipeline extraction overrides.
+		"MICASA_LLM_EXTRACTION_PROVIDER": "llm.extraction.provider",
+		"MICASA_LLM_EXTRACTION_BASE_URL": "llm.extraction.base_url",
+		"MICASA_LLM_EXTRACTION_MODEL":    "llm.extraction.model",
+		"MICASA_LLM_EXTRACTION_API_KEY":  "llm.extraction.api_key",
+		"MICASA_LLM_EXTRACTION_TIMEOUT":  "llm.extraction.timeout",
+		"MICASA_LLM_EXTRACTION_THINKING": "llm.extraction.thinking",
 	}
 	assert.Equal(t, want, m)
 }
@@ -635,4 +652,432 @@ func TestMaxOCRPagesEnvIgnoredWhenNewEnvSet(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 25, cfg.Extraction.MaxExtractPages)
 	assert.Empty(t, cfg.Warnings)
+}
+
+// --- Per-pipeline LLM config ---
+
+func TestChatConfigInheritsBase(t *testing.T) {
+	path := writeConfig(t, `[llm]
+provider = "ollama"
+base_url = "http://localhost:11434"
+model = "qwen3"
+timeout = "5s"
+thinking = "medium"
+extra_context = "My house is old."
+`)
+	cfg, err := LoadFromPath(path)
+	require.NoError(t, err)
+
+	chat := cfg.LLM.ChatConfig()
+	assert.Equal(t, "ollama", chat.Provider)
+	assert.Equal(t, "http://localhost:11434", chat.BaseURL)
+	assert.Equal(t, "qwen3", chat.Model)
+	assert.Equal(t, 5*time.Second, chat.Timeout)
+	assert.Equal(t, "medium", chat.Thinking)
+	assert.Equal(t, "My house is old.", chat.ExtraContext)
+}
+
+func TestExtractionConfigInheritsBase(t *testing.T) {
+	path := writeConfig(t, `[llm]
+provider = "ollama"
+base_url = "http://localhost:11434"
+model = "qwen3"
+api_key = ""
+timeout = "5s"
+extra_context = "Portland house."
+`)
+	cfg, err := LoadFromPath(path)
+	require.NoError(t, err)
+
+	ex := cfg.LLM.ExtractionConfig()
+	assert.Equal(t, "ollama", ex.Provider)
+	assert.Equal(t, "http://localhost:11434", ex.BaseURL)
+	assert.Equal(t, "qwen3", ex.Model)
+	assert.Equal(t, 5*time.Second, ex.Timeout)
+	assert.Equal(t, "Portland house.", ex.ExtraContext)
+}
+
+func TestChatOverridesTakeEffect(t *testing.T) {
+	path := writeConfig(t, `[llm]
+provider = "ollama"
+model = "qwen3"
+
+[llm.chat]
+provider = "anthropic"
+model = "claude-sonnet-4-5-20250929"
+api_key = "sk-ant-test"
+timeout = "10s"
+thinking = "high"
+`)
+	cfg, err := LoadFromPath(path)
+	require.NoError(t, err)
+
+	chat := cfg.LLM.ChatConfig()
+	assert.Equal(t, "anthropic", chat.Provider)
+	assert.Equal(t, "claude-sonnet-4-5-20250929", chat.Model)
+	assert.Equal(t, "sk-ant-test", chat.APIKey)
+	assert.Equal(t, 10*time.Second, chat.Timeout)
+	assert.Equal(t, "high", chat.Thinking)
+
+	// Extraction should still inherit the base.
+	ex := cfg.LLM.ExtractionConfig()
+	assert.Equal(t, "ollama", ex.Provider)
+	assert.Equal(t, "qwen3", ex.Model)
+}
+
+func TestExtractionOverridesTakeEffect(t *testing.T) {
+	path := writeConfig(t, `[llm]
+provider = "ollama"
+model = "qwen3"
+
+[llm.extraction]
+provider = "anthropic"
+model = "claude-haiku-3-5-20241022"
+api_key = "sk-ant-test"
+timeout = "15s"
+thinking = "low"
+`)
+	cfg, err := LoadFromPath(path)
+	require.NoError(t, err)
+
+	ex := cfg.LLM.ExtractionConfig()
+	assert.Equal(t, "anthropic", ex.Provider)
+	assert.Equal(t, "claude-haiku-3-5-20241022", ex.Model)
+	assert.Equal(t, "sk-ant-test", ex.APIKey)
+	assert.Equal(t, 15*time.Second, ex.Timeout)
+	assert.Equal(t, "low", ex.Thinking)
+
+	// Chat should still inherit the base.
+	chat := cfg.LLM.ChatConfig()
+	assert.Equal(t, "ollama", chat.Provider)
+	assert.Equal(t, "qwen3", chat.Model)
+}
+
+func TestBothPipelinesOverridden(t *testing.T) {
+	path := writeConfig(t, `[llm]
+model = "default-model"
+
+[llm.chat]
+provider = "openai"
+model = "gpt-4o"
+api_key = "sk-openai"
+
+[llm.extraction]
+provider = "anthropic"
+model = "claude-haiku-3-5-20241022"
+api_key = "sk-ant"
+`)
+	cfg, err := LoadFromPath(path)
+	require.NoError(t, err)
+
+	chat := cfg.LLM.ChatConfig()
+	assert.Equal(t, "openai", chat.Provider)
+	assert.Equal(t, "gpt-4o", chat.Model)
+	assert.Equal(t, "sk-openai", chat.APIKey)
+
+	ex := cfg.LLM.ExtractionConfig()
+	assert.Equal(t, "anthropic", ex.Provider)
+	assert.Equal(t, "claude-haiku-3-5-20241022", ex.Model)
+	assert.Equal(t, "sk-ant", ex.APIKey)
+}
+
+func TestExtractionAutoDetectsProviderFromOverride(t *testing.T) {
+	path := writeConfig(t, `[llm]
+provider = "ollama"
+model = "qwen3"
+
+[llm.extraction]
+base_url = "https://api.anthropic.com"
+model = "claude-haiku-3-5-20241022"
+api_key = "sk-ant-test"
+`)
+	cfg, err := LoadFromPath(path)
+	require.NoError(t, err)
+
+	ex := cfg.LLM.ExtractionConfig()
+	assert.Equal(t, "anthropic", ex.Provider,
+		"provider should be auto-detected from extraction base_url")
+}
+
+func TestOverrideBaseURLNormalized(t *testing.T) {
+	path := writeConfig(t, `[llm]
+model = "qwen3"
+
+[llm.chat]
+base_url = "http://localhost:8080/v1"
+
+[llm.extraction]
+base_url = "https://api.example.com/"
+api_key = "key"
+`)
+	cfg, err := LoadFromPath(path)
+	require.NoError(t, err)
+
+	assert.Equal(t, "http://localhost:8080", cfg.LLM.Chat.BaseURL,
+		"chat override base_url /v1 suffix should be stripped")
+	assert.Equal(t, "https://api.example.com", cfg.LLM.Extraction.BaseURL,
+		"extraction override trailing slash should be stripped")
+}
+
+func TestOverrideInvalidProviderReturnsError(t *testing.T) {
+	t.Run("chat", func(t *testing.T) {
+		path := writeConfig(t, `[llm.chat]
+provider = "bogus"
+`)
+		_, err := LoadFromPath(path)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "llm.chat.provider")
+		assert.Contains(t, err.Error(), "bogus")
+	})
+	t.Run("extraction", func(t *testing.T) {
+		path := writeConfig(t, `[llm.extraction]
+provider = "bogus"
+`)
+		_, err := LoadFromPath(path)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "llm.extraction.provider")
+		assert.Contains(t, err.Error(), "bogus")
+	})
+}
+
+func TestOverrideInvalidThinkingReturnsError(t *testing.T) {
+	t.Run("chat", func(t *testing.T) {
+		path := writeConfig(t, `[llm.chat]
+thinking = "bogus"
+`)
+		_, err := LoadFromPath(path)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "llm.chat.thinking")
+	})
+	t.Run("extraction", func(t *testing.T) {
+		path := writeConfig(t, `[llm.extraction]
+thinking = "bogus"
+`)
+		_, err := LoadFromPath(path)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "llm.extraction.thinking")
+	})
+}
+
+func TestOverrideInvalidTimeoutReturnsError(t *testing.T) {
+	t.Run("chat invalid", func(t *testing.T) {
+		path := writeConfig(t, `[llm.chat]
+timeout = "nope"
+`)
+		_, err := LoadFromPath(path)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "llm.chat.timeout")
+	})
+	t.Run("chat negative", func(t *testing.T) {
+		path := writeConfig(t, `[llm.chat]
+timeout = "-1s"
+`)
+		_, err := LoadFromPath(path)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "must be positive")
+	})
+	t.Run("extraction invalid", func(t *testing.T) {
+		path := writeConfig(t, `[llm.extraction]
+timeout = "nope"
+`)
+		_, err := LoadFromPath(path)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "llm.extraction.timeout")
+	})
+}
+
+func TestOverrideEnvVars(t *testing.T) {
+	t.Setenv("MICASA_LLM_EXTRACTION_PROVIDER", "anthropic")
+	t.Setenv("MICASA_LLM_EXTRACTION_MODEL", "claude-haiku-3-5-20241022")
+	t.Setenv("MICASA_LLM_EXTRACTION_API_KEY", "sk-ant-from-env")
+
+	cfg, err := LoadFromPath(noConfig(t))
+	require.NoError(t, err)
+	assert.Equal(t, "anthropic", cfg.LLM.Extraction.Provider)
+	assert.Equal(t, "claude-haiku-3-5-20241022", cfg.LLM.Extraction.Model)
+	assert.Equal(t, "sk-ant-from-env", cfg.LLM.Extraction.APIKey)
+
+	ex := cfg.LLM.ExtractionConfig()
+	assert.Equal(t, "anthropic", ex.Provider)
+	assert.Equal(t, "claude-haiku-3-5-20241022", ex.Model)
+}
+
+func TestOverrideChatEnvVars(t *testing.T) {
+	t.Setenv("MICASA_LLM_CHAT_PROVIDER", "openai")
+	t.Setenv("MICASA_LLM_CHAT_MODEL", "gpt-4o")
+	t.Setenv("MICASA_LLM_CHAT_API_KEY", "sk-openai-from-env")
+
+	cfg, err := LoadFromPath(noConfig(t))
+	require.NoError(t, err)
+
+	chat := cfg.LLM.ChatConfig()
+	assert.Equal(t, "openai", chat.Provider)
+	assert.Equal(t, "gpt-4o", chat.Model)
+	assert.Equal(t, "sk-openai-from-env", chat.APIKey)
+}
+
+// --- Deprecation: extraction.model -> llm.extraction.model ---
+
+func TestExtractionModelTOMLMigration(t *testing.T) {
+	path := writeConfig(t, `[llm]
+model = "qwen3"
+
+[extraction]
+model = "qwen2.5:7b"
+`)
+	cfg, err := LoadFromPath(path)
+	require.NoError(t, err)
+	assert.Equal(t, "qwen2.5:7b", cfg.LLM.Extraction.Model)
+	require.NotEmpty(t, cfg.Warnings)
+	assert.Contains(t, cfg.Warnings[len(cfg.Warnings)-1], "extraction.model")
+	assert.Contains(t, cfg.Warnings[len(cfg.Warnings)-1], "llm.extraction.model")
+}
+
+func TestExtractionModelTOMLMigrationNotOverrideNew(t *testing.T) {
+	path := writeConfig(t, `[llm]
+model = "qwen3"
+
+[llm.extraction]
+model = "new-model"
+
+[extraction]
+model = "old-model"
+`)
+	cfg, err := LoadFromPath(path)
+	require.NoError(t, err)
+	assert.Equal(t, "new-model", cfg.LLM.Extraction.Model,
+		"new config should take precedence over deprecated")
+	// No deprecation warning for model since the new key is set.
+	for _, w := range cfg.Warnings {
+		assert.NotContains(t, w, "extraction.model is deprecated")
+	}
+}
+
+func TestExtractionModelEnvMigration(t *testing.T) {
+	t.Setenv("MICASA_EXTRACTION_MODEL", "old-model")
+
+	cfg, err := LoadFromPath(noConfig(t))
+	require.NoError(t, err)
+	assert.Equal(t, "old-model", cfg.LLM.Extraction.Model)
+	require.NotEmpty(t, cfg.Warnings)
+	found := false
+	for _, w := range cfg.Warnings {
+		if strings.Contains(w, "MICASA_EXTRACTION_MODEL") {
+			found = true
+		}
+	}
+	assert.True(t, found, "should warn about deprecated env var")
+}
+
+func TestExtractionModelEnvMigrationNotOverrideNew(t *testing.T) {
+	t.Setenv("MICASA_EXTRACTION_MODEL", "old")
+	t.Setenv("MICASA_LLM_EXTRACTION_MODEL", "new")
+
+	cfg, err := LoadFromPath(noConfig(t))
+	require.NoError(t, err)
+	assert.Equal(t, "new", cfg.LLM.Extraction.Model)
+}
+
+func TestExtractionThinkingTOMLMigration(t *testing.T) {
+	path := writeConfig(t, `[extraction]
+thinking = "low"
+`)
+	cfg, err := LoadFromPath(path)
+	require.NoError(t, err)
+	assert.Equal(t, "low", cfg.LLM.Extraction.Thinking)
+	require.NotEmpty(t, cfg.Warnings)
+	found := false
+	for _, w := range cfg.Warnings {
+		if strings.Contains(w, "extraction.thinking") &&
+			strings.Contains(w, "llm.extraction.thinking") {
+			found = true
+		}
+	}
+	assert.True(t, found, "should warn about deprecated TOML key")
+}
+
+func TestExtractionThinkingEnvMigration(t *testing.T) {
+	t.Setenv("MICASA_EXTRACTION_THINKING", "high")
+
+	cfg, err := LoadFromPath(noConfig(t))
+	require.NoError(t, err)
+	assert.Equal(t, "high", cfg.LLM.Extraction.Thinking)
+	found := false
+	for _, w := range cfg.Warnings {
+		if strings.Contains(w, "MICASA_EXTRACTION_THINKING") {
+			found = true
+		}
+	}
+	assert.True(t, found, "should warn about deprecated env var")
+}
+
+func TestConfigGetPipelineKeys(t *testing.T) {
+	cfg := Config{
+		LLM: LLM{
+			Model: "base-model",
+			Chat: LLMChatOverride{
+				Provider: "openai",
+				Model:    "gpt-4o",
+			},
+			Extraction: LLMExtractionOverride{
+				Provider: "anthropic",
+				Model:    "claude-haiku",
+			},
+		},
+	}
+
+	got, err := cfg.Get("llm.chat.provider")
+	require.NoError(t, err)
+	assert.Equal(t, "openai", got)
+
+	got, err = cfg.Get("llm.chat.model")
+	require.NoError(t, err)
+	assert.Equal(t, "gpt-4o", got)
+
+	got, err = cfg.Get("llm.extraction.provider")
+	require.NoError(t, err)
+	assert.Equal(t, "anthropic", got)
+
+	got, err = cfg.Get("llm.extraction.model")
+	require.NoError(t, err)
+	assert.Equal(t, "claude-haiku", got)
+}
+
+func TestKeysPipelineKeys(t *testing.T) {
+	keys := Keys()
+	assert.Contains(t, keys, "llm.chat.provider")
+	assert.Contains(t, keys, "llm.chat.model")
+	assert.Contains(t, keys, "llm.extraction.provider")
+	assert.Contains(t, keys, "llm.extraction.model")
+}
+
+func TestExampleTOMLPipelineSections(t *testing.T) {
+	example := ExampleTOML()
+	assert.Contains(t, example, "[llm.chat]")
+	assert.Contains(t, example, "[llm.extraction]")
+}
+
+func TestNoOverridesBackwardCompatible(t *testing.T) {
+	path := writeConfig(t, `[llm]
+provider = "anthropic"
+model = "claude-sonnet-4-5-20250929"
+api_key = "sk-ant-test"
+timeout = "10s"
+thinking = "high"
+extra_context = "Portland house."
+`)
+	cfg, err := LoadFromPath(path)
+	require.NoError(t, err)
+
+	// Both pipelines should get the same settings.
+	chat := cfg.LLM.ChatConfig()
+	ex := cfg.LLM.ExtractionConfig()
+
+	assert.Equal(t, chat.Provider, ex.Provider)
+	assert.Equal(t, chat.BaseURL, ex.BaseURL)
+	assert.Equal(t, chat.Model, ex.Model)
+	assert.Equal(t, chat.APIKey, ex.APIKey)
+	assert.Equal(t, chat.Timeout, ex.Timeout)
+	assert.Equal(t, chat.Thinking, ex.Thinking)
+	assert.Equal(t, chat.ExtraContext, ex.ExtraContext)
 }

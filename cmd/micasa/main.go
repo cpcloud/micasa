@@ -144,24 +144,32 @@ func (cmd *runCmd) Run() error {
 		DBPath:     dbPath,
 		ConfigPath: config.Path(),
 	}
+
+	chatCfg := cfg.LLM.ChatConfig()
 	opts.SetLLM(
-		cfg.LLM.Provider,
-		cfg.LLM.BaseURL,
-		cfg.LLM.Model,
-		cfg.LLM.APIKey,
-		cfg.LLM.ExtraContext,
-		cfg.LLM.TimeoutDuration(),
-		cfg.LLM.Thinking,
+		chatCfg.Provider,
+		chatCfg.BaseURL,
+		chatCfg.Model,
+		chatCfg.APIKey,
+		chatCfg.ExtraContext,
+		chatCfg.Timeout,
+		chatCfg.Thinking,
 	)
+
+	exCfg := cfg.LLM.ExtractionConfig()
 	extractors := extract.DefaultExtractors(
 		cfg.Extraction.MaxExtractPages,
 		cfg.Extraction.TextTimeoutDuration(),
 	)
 	opts.SetExtraction(
-		cfg.Extraction.ResolvedModel(cfg.LLM.Model),
+		exCfg.Provider,
+		exCfg.BaseURL,
+		exCfg.Model,
+		exCfg.APIKey,
+		exCfg.Timeout,
+		exCfg.Thinking,
 		extractors,
 		cfg.Extraction.IsEnabled(),
-		cfg.Extraction.ThinkingLevel(),
 	)
 
 	model, err := app.NewModel(store, opts)

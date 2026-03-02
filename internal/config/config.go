@@ -73,6 +73,48 @@ type LLM struct {
 	// Thinking controls the model's reasoning effort level. Supported values:
 	// none, low, medium, high, auto. Empty string = don't send (server default).
 	Thinking string `toml:"thinking,omitempty" env:"MICASA_LLM_THINKING"`
+
+	// Chat holds per-pipeline overrides for the chat (NL-to-SQL) pipeline.
+	// Non-empty fields take precedence over the base values above.
+	Chat LLMChatOverride `toml:"chat"`
+
+	// Extraction holds per-pipeline overrides for the document extraction
+	// pipeline. Non-empty fields take precedence over the base values above.
+	Extraction LLMExtractionOverride `toml:"extraction"`
+}
+
+// LLMChatOverride holds optional per-pipeline overrides for the chat
+// pipeline. Empty fields inherit from the parent [llm] section.
+type LLMChatOverride struct {
+	Provider string `toml:"provider"           env:"MICASA_LLM_CHAT_PROVIDER"`
+	BaseURL  string `toml:"base_url"           env:"MICASA_LLM_CHAT_BASE_URL"`
+	Model    string `toml:"model"              env:"MICASA_LLM_CHAT_MODEL"`
+	APIKey   string `toml:"api_key"            env:"MICASA_LLM_CHAT_API_KEY"`
+	Timeout  string `toml:"timeout"            env:"MICASA_LLM_CHAT_TIMEOUT"`
+	Thinking string `toml:"thinking,omitempty" env:"MICASA_LLM_CHAT_THINKING"`
+}
+
+// LLMExtractionOverride holds optional per-pipeline overrides for the
+// extraction pipeline. Empty fields inherit from the parent [llm] section.
+type LLMExtractionOverride struct {
+	Provider string `toml:"provider"           env:"MICASA_LLM_EXTRACTION_PROVIDER"`
+	BaseURL  string `toml:"base_url"           env:"MICASA_LLM_EXTRACTION_BASE_URL"`
+	Model    string `toml:"model"              env:"MICASA_LLM_EXTRACTION_MODEL"`
+	APIKey   string `toml:"api_key"            env:"MICASA_LLM_EXTRACTION_API_KEY"`
+	Timeout  string `toml:"timeout"            env:"MICASA_LLM_EXTRACTION_TIMEOUT"`
+	Thinking string `toml:"thinking,omitempty" env:"MICASA_LLM_EXTRACTION_THINKING"`
+}
+
+// ResolvedLLM is a fully-resolved LLM configuration for a single pipeline.
+// All fields are populated -- no empty-means-inherit semantics.
+type ResolvedLLM struct {
+	Provider     string
+	BaseURL      string
+	Model        string
+	APIKey       string
+	ExtraContext string
+	Timeout      time.Duration
+	Thinking     string
 }
 
 // TimeoutDuration returns the parsed LLM timeout, falling back to
@@ -86,6 +128,75 @@ func (l LLM) TimeoutDuration() time.Duration {
 		return DefaultLLMTimeout
 	}
 	return d
+}
+
+// ChatConfig returns the fully-resolved LLM configuration for the chat
+// pipeline. Fields from [llm.chat] override the base [llm] values.
+func (l LLM) ChatConfig() ResolvedLLM {
+	return l.resolvePipeline(
+		l.Chat.Provider, l.Chat.BaseURL, l.Chat.Model,
+		l.Chat.APIKey, l.Chat.Timeout, l.Chat.Thinking,
+	)
+}
+
+// ExtractionConfig returns the fully-resolved LLM configuration for the
+// extraction pipeline. Fields from [llm.extraction] override the base
+// [llm] values.
+func (l LLM) ExtractionConfig() ResolvedLLM {
+	return l.resolvePipeline(
+		l.Extraction.Provider, l.Extraction.BaseURL, l.Extraction.Model,
+		l.Extraction.APIKey, l.Extraction.Timeout, l.Extraction.Thinking,
+	)
+}
+
+// resolvePipeline merges per-pipeline overrides with the base LLM config.
+func (l LLM) resolvePipeline(
+	provider, baseURL, model, apiKey, timeout, thinking string,
+) ResolvedLLM {
+	resolvedProvider := coalesce(provider, l.Provider)
+	resolvedBaseURL := coalesce(baseURL, l.BaseURL)
+	resolvedAPIKey := coalesce(apiKey, l.APIKey)
+
+	// Re-detect provider when the pipeline has its own connection
+	// settings but no explicit provider.
+	if provider == "" && (baseURL != "" || apiKey != "") {
+		resolvedProvider = detectProvider(resolvedBaseURL, resolvedAPIKey)
+	}
+
+	return ResolvedLLM{
+		Provider:     resolvedProvider,
+		BaseURL:      resolvedBaseURL,
+		Model:        coalesce(model, l.Model),
+		APIKey:       resolvedAPIKey,
+		ExtraContext: l.ExtraContext,
+		Timeout:      parseDurationOr(coalesce(timeout, l.Timeout), DefaultLLMTimeout),
+		Thinking:     coalesce(thinking, l.Thinking),
+	}
+}
+
+func coalesce(override, base string) string {
+	if override != "" {
+		return override
+	}
+	return base
+}
+
+func parseDurationOr(s string, fallback time.Duration) time.Duration {
+	if s == "" {
+		return fallback
+	}
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return fallback
+	}
+	return d
+}
+
+// normalizeBaseURL strips a trailing slash and /v1 suffix from a base URL.
+func normalizeBaseURL(u string) string {
+	u = strings.TrimRight(u, "/")
+	u = strings.TrimSuffix(u, "/v1")
+	return u
 }
 
 // Documents holds settings for document attachments.
@@ -241,17 +352,18 @@ func LoadFromPath(path string) (Config, error) {
 		return cfg, err
 	}
 
-	// Normalize base URL: strip trailing slash and /v1 suffix --
+	// Normalize base URLs: strip trailing slash and /v1 suffix --
 	// providers handle their own path construction.
-	cfg.LLM.BaseURL = strings.TrimRight(cfg.LLM.BaseURL, "/")
-	cfg.LLM.BaseURL = strings.TrimSuffix(cfg.LLM.BaseURL, "/v1")
+	cfg.LLM.BaseURL = normalizeBaseURL(cfg.LLM.BaseURL)
+	cfg.LLM.Chat.BaseURL = normalizeBaseURL(cfg.LLM.Chat.BaseURL)
+	cfg.LLM.Extraction.BaseURL = normalizeBaseURL(cfg.LLM.Extraction.BaseURL)
 
 	// Auto-detect provider from base_url and api_key when not explicitly set.
 	if cfg.LLM.Provider == "" {
 		cfg.LLM.Provider = detectProvider(cfg.LLM.BaseURL, cfg.LLM.APIKey)
 	}
 
-	// Validate provider name.
+	// Validate base provider name.
 	if !validProvider(cfg.LLM.Provider) {
 		return cfg, fmt.Errorf(
 			"llm.provider: unknown provider %q -- supported: %s",
@@ -259,11 +371,37 @@ func LoadFromPath(path string) (Config, error) {
 		)
 	}
 
-	// Validate thinking level.
+	// Validate per-pipeline provider overrides.
+	if cfg.LLM.Chat.Provider != "" && !validProvider(cfg.LLM.Chat.Provider) {
+		return cfg, fmt.Errorf(
+			"llm.chat.provider: unknown provider %q -- supported: %s",
+			cfg.LLM.Chat.Provider, strings.Join(providerNames(), ", "),
+		)
+	}
+	if cfg.LLM.Extraction.Provider != "" && !validProvider(cfg.LLM.Extraction.Provider) {
+		return cfg, fmt.Errorf(
+			"llm.extraction.provider: unknown provider %q -- supported: %s",
+			cfg.LLM.Extraction.Provider, strings.Join(providerNames(), ", "),
+		)
+	}
+
+	// Validate thinking levels.
 	if cfg.LLM.Thinking != "" && !validThinkingLevel(cfg.LLM.Thinking) {
 		return cfg, fmt.Errorf(
 			"llm.thinking: invalid level %q -- supported: none, low, medium, high, auto",
 			cfg.LLM.Thinking,
+		)
+	}
+	if cfg.LLM.Chat.Thinking != "" && !validThinkingLevel(cfg.LLM.Chat.Thinking) {
+		return cfg, fmt.Errorf(
+			"llm.chat.thinking: invalid level %q -- supported: none, low, medium, high, auto",
+			cfg.LLM.Chat.Thinking,
+		)
+	}
+	if cfg.LLM.Extraction.Thinking != "" && !validThinkingLevel(cfg.LLM.Extraction.Thinking) {
+		return cfg, fmt.Errorf(
+			"llm.extraction.thinking: invalid level %q -- supported: none, low, medium, high, auto",
+			cfg.LLM.Extraction.Thinking,
 		)
 	}
 	if cfg.Extraction.Thinking != "" && !validThinkingLevel(cfg.Extraction.Thinking) {
@@ -273,6 +411,7 @@ func LoadFromPath(path string) (Config, error) {
 		)
 	}
 
+	// Validate timeouts.
 	if cfg.LLM.Timeout != "" {
 		d, err := time.ParseDuration(cfg.LLM.Timeout)
 		if err != nil {
@@ -284,6 +423,12 @@ func LoadFromPath(path string) (Config, error) {
 		if d <= 0 {
 			return cfg, fmt.Errorf("llm.timeout must be positive, got %s", cfg.LLM.Timeout)
 		}
+	}
+	if err := validateOverrideTimeout(cfg.LLM.Chat.Timeout, "llm.chat"); err != nil {
+		return cfg, err
+	}
+	if err := validateOverrideTimeout(cfg.LLM.Extraction.Timeout, "llm.extraction"); err != nil {
+		return cfg, err
 	}
 
 	if cfg.Documents.MaxFileSize == 0 {
@@ -619,6 +764,24 @@ func collectKeys(t reflect.Type, prefix string) []string {
 	return keys
 }
 
+// validateOverrideTimeout validates a per-pipeline timeout string.
+func validateOverrideTimeout(timeout, prefix string) error {
+	if timeout == "" {
+		return nil
+	}
+	d, err := time.ParseDuration(timeout)
+	if err != nil {
+		return fmt.Errorf(
+			"%s.timeout: invalid duration %q -- use Go syntax like \"5s\" or \"10s\"",
+			prefix, timeout,
+		)
+	}
+	if d <= 0 {
+		return fmt.Errorf("%s.timeout must be positive, got %s", prefix, timeout)
+	}
+	return nil
+}
+
 // migrateRenamedKeys checks for deprecated TOML keys and migrates their
 // values to the new field names, appending deprecation warnings.
 func migrateRenamedKeys(cfg *Config, md toml.MetaData, path string) {
@@ -636,6 +799,22 @@ func migrateRenamedKeys(cfg *Config, md toml.MetaData, path string) {
 			"extraction.max_ocr_pages is deprecated -- use extraction.max_extract_pages instead",
 		)
 	}
+
+	// extraction.model -> llm.extraction.model (v1.59)
+	if md.IsDefined("extraction", "model") && !md.IsDefined("llm", "extraction", "model") {
+		cfg.LLM.Extraction.Model = cfg.Extraction.Model
+		cfg.Warnings = append(cfg.Warnings,
+			"extraction.model is deprecated -- use llm.extraction.model instead",
+		)
+	}
+
+	// extraction.thinking -> llm.extraction.thinking (v1.59)
+	if md.IsDefined("extraction", "thinking") && !md.IsDefined("llm", "extraction", "thinking") {
+		cfg.LLM.Extraction.Thinking = cfg.Extraction.Thinking
+		cfg.Warnings = append(cfg.Warnings,
+			"extraction.thinking is deprecated -- use llm.extraction.thinking instead",
+		)
+	}
 }
 
 // migrateRenamedEnvVars checks for deprecated environment variables and
@@ -651,6 +830,27 @@ func migrateRenamedEnvVars(cfg *Config) {
 			}
 			cfg.Warnings = append(cfg.Warnings,
 				"MICASA_MAX_OCR_PAGES is deprecated -- use MICASA_MAX_EXTRACT_PAGES instead",
+			)
+		}
+	}
+
+	// MICASA_EXTRACTION_MODEL -> MICASA_LLM_EXTRACTION_MODEL (v1.59)
+	if val := os.Getenv("MICASA_EXTRACTION_MODEL"); val != "" {
+		if os.Getenv("MICASA_LLM_EXTRACTION_MODEL") == "" {
+			cfg.LLM.Extraction.Model = val
+			cfg.Warnings = append(cfg.Warnings,
+				"MICASA_EXTRACTION_MODEL is deprecated -- use MICASA_LLM_EXTRACTION_MODEL instead",
+			)
+		}
+	}
+
+	// MICASA_EXTRACTION_THINKING -> MICASA_LLM_EXTRACTION_THINKING (v1.59)
+	if val := os.Getenv("MICASA_EXTRACTION_THINKING"); val != "" {
+		if os.Getenv("MICASA_LLM_EXTRACTION_THINKING") == "" {
+			cfg.LLM.Extraction.Thinking = val
+			cfg.Warnings = append(
+				cfg.Warnings,
+				"MICASA_EXTRACTION_THINKING is deprecated -- use MICASA_LLM_EXTRACTION_THINKING instead",
 			)
 		}
 	}
@@ -723,6 +923,9 @@ func ExampleTOML() string {
 # Place this file at: ` + Path() + `
 
 [llm]
+# Base LLM settings. Both chat and extraction pipelines inherit these
+# unless overridden in [llm.chat] or [llm.extraction] below.
+
 # LLM provider. Supported: ollama, anthropic, openai, openrouter,
 # deepseek, gemini, groq, mistral, llamacpp, llamafile.
 # Auto-detected from base_url and api_key when not set.
@@ -750,9 +953,29 @@ model = "` + DefaultModel + `"
 # Increase if your LLM server is slow to respond.
 # timeout = "5s"
 
-# Model reasoning effort level for chat. Supported: none, low, medium, high, auto.
+# Model reasoning effort level. Supported: none, low, medium, high, auto.
 # Empty = don't send (server default).
 # thinking = "medium"
+
+# [llm.chat]
+# Per-pipeline overrides for the chat (NL-to-SQL) pipeline.
+# Any field here takes precedence over the base [llm] value.
+# provider = "anthropic"
+# base_url = "https://api.anthropic.com"
+# model = "claude-sonnet-4-5-20250929"
+# api_key = "sk-ant-..."
+# timeout = "10s"
+# thinking = "medium"
+
+# [llm.extraction]
+# Per-pipeline overrides for document extraction.
+# Extraction wants a fast model optimized for structured JSON output.
+# provider = "anthropic"
+# base_url = "https://api.anthropic.com"
+# model = "claude-haiku-3-5-20241022"
+# api_key = "sk-ant-..."
+# timeout = "15s"
+# thinking = "low"
 
 [documents]
 # Maximum file size for document imports. Accepts unitized strings or bare
@@ -765,10 +988,6 @@ model = "` + DefaultModel + `"
 # cache_ttl = "30d"
 
 [extraction]
-# Model for document extraction. Defaults to llm.model. Extraction wants a
-# small, fast model optimized for structured JSON output.
-# model = "qwen2.5:7b"
-
 # Timeout for pdftotext. Go duration syntax: "30s", "1m", etc. Default: "30s".
 # Increase if you routinely process very large PDFs.
 # text_timeout = "30s"
@@ -779,10 +998,6 @@ model = "` + DefaultModel + `"
 # Set to false to disable LLM-powered extraction even when LLM is configured.
 # Text and image extraction still work independently.
 # enabled = true
-
-# Model reasoning effort level for extraction. Supported: none, low, medium, high, auto.
-# Empty = don't send. Default: empty (no reasoning).
-# thinking = ""
 
 [locale]
 # ISO 4217 currency code. Stored in the database on first run; after that the

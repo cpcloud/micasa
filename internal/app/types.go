@@ -55,12 +55,19 @@ type formState struct {
 }
 
 type extractState struct {
-	extractionModel        string
-	extractionEnabled      bool
-	extractionThinking     string
-	extractionClient       *llm.Client
-	extractors             []extract.Extractor
-	extractionReady        bool
+	// Extraction-specific LLM connection settings. When extractionProvider
+	// differs from the chat provider, an independent client is created.
+	extractionProvider string
+	extractionBaseURL  string
+	extractionModel    string
+	extractionAPIKey   string
+	extractionTimeout  time.Duration
+	extractionThinking string
+	extractionEnabled  bool
+	extractionClient   *llm.Client
+	extractors         []extract.Extractor
+	extractionReady    bool
+
 	pendingExtractionDocID *uint
 	extraction             *extractionLogState
 	bgExtractions          []*extractionLogState
@@ -237,24 +244,37 @@ type llmConfig struct {
 
 // extractionConfig holds resolved extraction pipeline settings.
 type extractionConfig struct {
-	Model      string              // overrides LLM model; empty = use chat model
+	// LLM connection settings for extraction. When Provider is non-empty,
+	// the extraction pipeline creates its own LLM client independent of
+	// the chat client. When empty, falls back to the chat client.
+	Provider string
+	BaseURL  string
+	Model    string
+	APIKey   string
+	Timeout  time.Duration
+	Thinking string // reasoning effort level
+
 	Extractors []extract.Extractor // configured extractors; nil = defaults
 	Enabled    bool                // LLM extraction enabled
-	Thinking   string              // reasoning effort level
 }
 
 // SetExtraction configures the extraction pipeline on the Options.
 func (o *Options) SetExtraction(
-	model string,
+	provider, baseURL, model, apiKey string,
+	timeout time.Duration,
+	thinking string,
 	extractors []extract.Extractor,
 	enabled bool,
-	thinking string,
 ) {
 	o.ExtractionConfig = extractionConfig{
+		Provider:   provider,
+		BaseURL:    baseURL,
 		Model:      model,
+		APIKey:     apiKey,
+		Timeout:    timeout,
+		Thinking:   thinking,
 		Extractors: extractors,
 		Enabled:    enabled,
-		Thinking:   thinking,
 	}
 }
 
