@@ -250,7 +250,7 @@ type extractionConfig struct {
 	Provider string
 	BaseURL  string
 	Model    string
-	APIKey   string
+	APIKey   string //nolint:gosec // G117 false positive: field name, not a hardcoded credential
 	Timeout  time.Duration
 	Thinking string // reasoning effort level
 

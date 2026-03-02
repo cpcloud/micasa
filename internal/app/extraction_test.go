@@ -6,6 +6,7 @@ package app
 import (
 	"context"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/cpcloud/micasa/internal/data"
@@ -1724,4 +1725,194 @@ func TestDispatch_TransactionRollbackOnFailure(t *testing.T) {
 	quotes, err := m.store.ListQuotes(false)
 	require.NoError(t, err)
 	assert.Empty(t, quotes, "quote should not persist after rollback")
+}
+
+// --- Per-pipeline LLM config (user-interaction tests) ---
+
+// testExtractionOllamaClient creates an Ollama client for extraction tests
+// that don't hit a real server.
+func testExtractionOllamaClient(t *testing.T, model string) *llm.Client {
+	t.Helper()
+	c, err := llm.NewClient("ollama", "http://localhost:11434", model, "", 5*time.Second)
+	require.NoError(t, err)
+	return c
+}
+
+// TestModelPicker_ShowsExtractionModel verifies that the model picker
+// displays the extraction-specific model when extraction has its own config,
+// not the chat model. The user opens the picker via 'r' on the LLM step.
+func TestModelPicker_ShowsExtractionModel(t *testing.T) {
+	m := newExtractionModel(map[extractionStep]stepStatus{
+		stepLLM: stepDone,
+	})
+	ex := m.ex.extraction
+	ex.Done = true
+
+	// Chat uses one model; extraction uses another.
+	m.llmClient = testExtractionOllamaClient(t, "chat-model")
+	m.ex.extractionModel = "extraction-model"
+
+	// User presses 'r' to open the model picker.
+	sendExtractionKey(m, "r")
+	require.NotNil(t, ex.modelPicker)
+
+	// The extraction model label should reflect the extraction-specific model.
+	assert.Equal(t, "extraction-model", m.extractionModelLabel())
+}
+
+// TestModelPicker_FallsBackToChatModel verifies that when no extraction-specific
+// model is configured, the model picker label falls back to the chat model.
+func TestModelPicker_FallsBackToChatModel(t *testing.T) {
+	m := newExtractionModel(map[extractionStep]stepStatus{
+		stepLLM: stepDone,
+	})
+	ex := m.ex.extraction
+	ex.Done = true
+
+	// Chat model set, but no extraction-specific model.
+	m.llmClient = testExtractionOllamaClient(t, "chat-model")
+	m.ex.extractionModel = ""
+
+	sendExtractionKey(m, "r")
+	require.NotNil(t, ex.modelPicker)
+
+	// Should fall back to chat model.
+	assert.Equal(t, "chat-model", m.extractionModelLabel())
+}
+
+// TestModelPicker_SelectionWithIndependentProvider verifies that selecting
+// a new model via the picker correctly updates the extraction model and
+// invalidates the cached extraction client when extraction has its own provider.
+func TestModelPicker_SelectionWithIndependentProvider(t *testing.T) {
+	m := newExtractionModel(map[extractionStep]stepStatus{
+		stepLLM: stepDone,
+	})
+	ex := m.ex.extraction
+	ex.Done = true
+
+	// Chat uses ollama on the default port.
+	m.llmClient = testExtractionOllamaClient(t, "chat-model")
+	m.llmConfig = &llmConfig{
+		Provider: "ollama",
+		BaseURL:  "http://localhost:11434",
+		Model:    "chat-model",
+		Timeout:  5 * time.Second,
+	}
+
+	// Extraction uses a separate ollama instance on a different port.
+	m.ex.extractionProvider = "ollama"
+	m.ex.extractionBaseURL = "http://localhost:8080"
+	m.ex.extractionModel = "original-extraction-model"
+	m.ex.extractionTimeout = 10 * time.Second
+
+	// Pre-populate the extraction client cache.
+	client := m.extractionLLMClient()
+	require.NotNil(t, client)
+	assert.Equal(t, "original-extraction-model", client.Model())
+
+	// User opens model picker.
+	sendExtractionKey(m, "r")
+	require.NotNil(t, ex.modelPicker)
+	ex.modelPicker.Loading = false
+	ex.modelPicker.All = []modelCompleterEntry{
+		{Name: "original-extraction-model", Local: true},
+		{Name: "new-extraction-model", Local: true},
+	}
+	refilterModelCompleter(ex.modelPicker, "", m.extractionModelLabel())
+
+	// Navigate to the second entry and select.
+	sendExtractionKey(m, "down")
+	sendExtractionKey(m, "enter")
+
+	// Model should be updated to the selected entry.
+	assert.Equal(t, "new-extraction-model", m.ex.extractionModel)
+
+	// The client should have been rebuilt with the new model.
+	newClient := m.extractionLLMClient()
+	require.NotNil(t, newClient)
+	assert.Equal(t, "new-extraction-model", newClient.Model())
+}
+
+// TestExtractionClient_IndependentFromChat verifies that when extraction has
+// its own provider/baseURL, extractionLLMClient() creates a client that is
+// independent from the chat client.
+func TestExtractionClient_IndependentFromChat(t *testing.T) {
+	m := newExtractionModel(map[extractionStep]stepStatus{
+		stepLLM: stepDone,
+	})
+	ex := m.ex.extraction
+	ex.Done = true
+
+	// Chat config: ollama on default port.
+	m.llmClient = testExtractionOllamaClient(t, "chat-model")
+	m.llmConfig = &llmConfig{
+		Provider: "ollama",
+		BaseURL:  "http://localhost:11434",
+		Model:    "chat-model",
+		Timeout:  5 * time.Second,
+	}
+
+	// Extraction: separate ollama instance on a different port.
+	m.ex.extractionProvider = "ollama"
+	m.ex.extractionBaseURL = "http://localhost:8080"
+	m.ex.extractionModel = "extraction-model"
+	m.ex.extractionTimeout = 10 * time.Second
+
+	// The extraction client should have its own model, not the chat model.
+	client := m.extractionLLMClient()
+	require.NotNil(t, client)
+	assert.Equal(t, "extraction-model", client.Model())
+	assert.NotEqual(t, m.llmClient.Model(), client.Model())
+
+	// User opens the model picker -- should see extraction model label.
+	sendExtractionKey(m, "r")
+	require.NotNil(t, ex.modelPicker)
+	assert.Equal(t, "extraction-model", m.extractionModelLabel())
+}
+
+// TestExtractionClient_FallsBackToChatConfig verifies that when extraction
+// has no provider/baseURL of its own, extractionLLMClient() fills gaps
+// from the chat config.
+func TestExtractionClient_FallsBackToChatConfig(t *testing.T) {
+	m := newExtractionModel(map[extractionStep]stepStatus{
+		stepLLM: stepDone,
+	})
+	m.ex.extraction.Done = true
+
+	// Chat config provides the connection.
+	m.llmClient = testExtractionOllamaClient(t, "chat-model")
+	m.llmConfig = &llmConfig{
+		Provider: "ollama",
+		BaseURL:  "http://localhost:11434",
+		Model:    "chat-model",
+		Timeout:  5 * time.Second,
+	}
+
+	// Extraction overrides only the model.
+	m.ex.extractionModel = "extraction-only-model"
+
+	client := m.extractionLLMClient()
+	require.NotNil(t, client)
+	assert.Equal(t, "extraction-only-model", client.Model())
+
+	// User opens model picker and sees extraction-specific model.
+	sendExtractionKey(m, "r")
+	require.NotNil(t, m.ex.extraction.modelPicker)
+	assert.Equal(t, "extraction-only-model", m.extractionModelLabel())
+}
+
+// TestExtractionClient_NilWhenNoConfig verifies that extractionLLMClient()
+// returns nil when neither extraction nor chat config provides a model.
+func TestExtractionClient_NilWhenNoConfig(t *testing.T) {
+	m := newExtractionModel(map[extractionStep]stepStatus{
+		stepLLM: stepDone,
+	})
+	m.ex.extraction.Done = true
+
+	// No chat client, no chat config, no extraction config.
+	m.llmClient = nil
+	m.llmConfig = nil
+	m.ex.extractionModel = ""
+
+	assert.Nil(t, m.extractionLLMClient())
 }

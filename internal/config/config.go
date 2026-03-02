@@ -89,7 +89,7 @@ type LLMChatOverride struct {
 	Provider string `toml:"provider"           env:"MICASA_LLM_CHAT_PROVIDER"`
 	BaseURL  string `toml:"base_url"           env:"MICASA_LLM_CHAT_BASE_URL"`
 	Model    string `toml:"model"              env:"MICASA_LLM_CHAT_MODEL"`
-	APIKey   string `toml:"api_key"            env:"MICASA_LLM_CHAT_API_KEY"`
+	APIKey   string `toml:"api_key"            env:"MICASA_LLM_CHAT_API_KEY"` //nolint:gosec // config field, not a hardcoded credential
 	Timeout  string `toml:"timeout"            env:"MICASA_LLM_CHAT_TIMEOUT"`
 	Thinking string `toml:"thinking,omitempty" env:"MICASA_LLM_CHAT_THINKING"`
 }
@@ -100,7 +100,7 @@ type LLMExtractionOverride struct {
 	Provider string `toml:"provider"           env:"MICASA_LLM_EXTRACTION_PROVIDER"`
 	BaseURL  string `toml:"base_url"           env:"MICASA_LLM_EXTRACTION_BASE_URL"`
 	Model    string `toml:"model"              env:"MICASA_LLM_EXTRACTION_MODEL"`
-	APIKey   string `toml:"api_key"            env:"MICASA_LLM_EXTRACTION_API_KEY"`
+	APIKey   string `toml:"api_key"            env:"MICASA_LLM_EXTRACTION_API_KEY"` //nolint:gosec // config field, not a hardcoded credential
 	Timeout  string `toml:"timeout"            env:"MICASA_LLM_EXTRACTION_TIMEOUT"`
 	Thinking string `toml:"thinking,omitempty" env:"MICASA_LLM_EXTRACTION_THINKING"`
 }
@@ -111,7 +111,7 @@ type ResolvedLLM struct {
 	Provider     string
 	BaseURL      string
 	Model        string
-	APIKey       string
+	APIKey       string //nolint:gosec // resolved config field, not a hardcoded credential
 	ExtraContext string
 	Timeout      time.Duration
 	Thinking     string
