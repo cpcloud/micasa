@@ -687,11 +687,10 @@ func (m *Model) submitIncidentForm() error {
 	if err != nil {
 		return err
 	}
-	if m.fs.editID != nil {
-		item.ID = *m.fs.editID
-		return m.store.UpdateIncident(item)
-	}
-	return m.store.CreateIncident(&item)
+	return m.createOrUpdate(&item.ID,
+		func() error { return m.store.CreateIncident(&item) },
+		func() error { return m.store.UpdateIncident(item) },
+	)
 }
 
 func (m *Model) parseIncidentFormData() (data.Incident, error) {
@@ -944,16 +943,10 @@ func (m *Model) submitApplianceForm() error {
 	if err != nil {
 		return err
 	}
-	if m.fs.editID != nil {
-		item.ID = *m.fs.editID
-		return m.store.UpdateAppliance(item)
-	}
-	if err := m.store.CreateAppliance(&item); err != nil {
-		return err
-	}
-	id := item.ID
-	m.fs.editID = &id
-	return nil
+	return m.createOrUpdate(&item.ID,
+		func() error { return m.store.CreateAppliance(&item) },
+		func() error { return m.store.UpdateAppliance(item) },
+	)
 }
 
 func (m *Model) parseApplianceFormData() (data.Appliance, error) {
@@ -1034,16 +1027,10 @@ func (m *Model) submitVendorForm() error {
 	if err != nil {
 		return err
 	}
-	if m.fs.editID != nil {
-		vendor.ID = *m.fs.editID
-		return m.store.UpdateVendor(vendor)
-	}
-	if err := m.store.CreateVendor(&vendor); err != nil {
-		return err
-	}
-	id := vendor.ID
-	m.fs.editID = &id
-	return nil
+	return m.createOrUpdate(&vendor.ID,
+		func() error { return m.store.CreateVendor(&vendor) },
+		func() error { return m.store.UpdateVendor(vendor) },
+	)
 }
 
 func (m *Model) parseVendorFormData() (data.Vendor, error) {
@@ -1386,16 +1373,10 @@ func (m *Model) submitServiceLogForm() error {
 	if err != nil {
 		return err
 	}
-	if m.fs.editID != nil {
-		entry.ID = *m.fs.editID
-		return m.store.UpdateServiceLog(entry, vendor)
-	}
-	if err := m.store.CreateServiceLog(&entry, vendor); err != nil {
-		return err
-	}
-	id := entry.ID
-	m.fs.editID = &id
-	return nil
+	return m.createOrUpdate(&entry.ID,
+		func() error { return m.store.CreateServiceLog(&entry, vendor) },
+		func() error { return m.store.UpdateServiceLog(entry, vendor) },
+	)
 }
 
 func (m *Model) parseServiceLogFormData() (data.ServiceLogEntry, data.Vendor, error) {
@@ -1875,16 +1856,10 @@ func (m *Model) submitProjectForm() error {
 	if err != nil {
 		return err
 	}
-	if m.fs.editID != nil {
-		project.ID = *m.fs.editID
-		return m.store.UpdateProject(project)
-	}
-	if err := m.store.CreateProject(&project); err != nil {
-		return err
-	}
-	id := project.ID
-	m.fs.editID = &id
-	return nil
+	return m.createOrUpdate(&project.ID,
+		func() error { return m.store.CreateProject(&project) },
+		func() error { return m.store.UpdateProject(project) },
+	)
 }
 
 func (m *Model) parseProjectFormData() (data.Project, error) {
@@ -1925,16 +1900,10 @@ func (m *Model) submitQuoteForm() error {
 	if err != nil {
 		return err
 	}
-	if m.fs.editID != nil {
-		quote.ID = *m.fs.editID
-		return m.store.UpdateQuote(quote, vendor)
-	}
-	if err := m.store.CreateQuote(&quote, vendor); err != nil {
-		return err
-	}
-	id := quote.ID
-	m.fs.editID = &id
-	return nil
+	return m.createOrUpdate(&quote.ID,
+		func() error { return m.store.CreateQuote(&quote, vendor) },
+		func() error { return m.store.UpdateQuote(quote, vendor) },
+	)
 }
 
 func (m *Model) parseQuoteFormData() (data.Quote, data.Vendor, error) {
@@ -1987,16 +1956,10 @@ func (m *Model) submitMaintenanceForm() error {
 	if err != nil {
 		return err
 	}
-	if m.fs.editID != nil {
-		item.ID = *m.fs.editID
-		return m.store.UpdateMaintenance(item)
-	}
-	if err := m.store.CreateMaintenance(&item); err != nil {
-		return err
-	}
-	id := item.ID
-	m.fs.editID = &id
-	return nil
+	return m.createOrUpdate(&item.ID,
+		func() error { return m.store.CreateMaintenance(&item) },
+		func() error { return m.store.UpdateMaintenance(item) },
+	)
 }
 
 func (m *Model) parseMaintenanceFormData() (data.MaintenanceItem, error) {
@@ -2308,6 +2271,23 @@ func (m *Model) houseFormValues(profile data.HouseProfile) *houseFormData {
 
 // requiredTitle appends a colored ∗ (U+2217) to a form field label.
 // formDataAs asserts m.fs.formData to the given pointer type, returning a
+func (m *Model) createOrUpdate(
+	idPtr *uint,
+	create func() error,
+	update func() error,
+) error {
+	if m.fs.editID != nil {
+		*idPtr = *m.fs.editID
+		return update()
+	}
+	if err := create(); err != nil {
+		return err
+	}
+	id := *idPtr
+	m.fs.editID = &id
+	return nil
+}
+
 // typed error on mismatch. Eliminates the repeated type-assertion boilerplate
 // in every parse* function.
 func formDataAs[T any](m *Model) (*T, error) {
@@ -2475,17 +2455,11 @@ func (m *Model) submitDocumentForm() error {
 		return err
 	}
 	doc := result.Doc
-	if m.fs.editID != nil {
-		doc.ID = *m.fs.editID
-		if err := m.store.UpdateDocument(doc); err != nil {
-			return err
-		}
-	} else {
-		if err := m.store.CreateDocument(&doc); err != nil {
-			return err
-		}
-		id := doc.ID
-		m.fs.editID = &id
+	if err := m.createOrUpdate(&doc.ID,
+		func() error { return m.store.CreateDocument(&doc) },
+		func() error { return m.store.UpdateDocument(doc) },
+	); err != nil {
+		return err
 	}
 	if result.ExtractErr != nil {
 		m.setStatusInfo(fmt.Sprintf("extraction incomplete: %s", result.ExtractErr))
@@ -2502,17 +2476,11 @@ func (m *Model) submitScopedDocumentForm(entityKind string, entityID uint) error
 	doc := result.Doc
 	doc.EntityKind = entityKind
 	doc.EntityID = entityID
-	if m.fs.editID != nil {
-		doc.ID = *m.fs.editID
-		if err := m.store.UpdateDocument(doc); err != nil {
-			return err
-		}
-	} else {
-		if err := m.store.CreateDocument(&doc); err != nil {
-			return err
-		}
-		id := doc.ID
-		m.fs.editID = &id
+	if err := m.createOrUpdate(&doc.ID,
+		func() error { return m.store.CreateDocument(&doc) },
+		func() error { return m.store.UpdateDocument(doc) },
+	); err != nil {
+		return err
 	}
 	if result.ExtractErr != nil {
 		m.setStatusInfo(fmt.Sprintf("extraction incomplete: %s", result.ExtractErr))
