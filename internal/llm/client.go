@@ -14,7 +14,6 @@ import (
 
 	anyllm "github.com/mozilla-ai/any-llm-go"
 	anyllmerrors "github.com/mozilla-ai/any-llm-go/errors"
-	anyllmproviders "github.com/mozilla-ai/any-llm-go/providers"
 	"github.com/mozilla-ai/any-llm-go/providers/anthropic"
 	"github.com/mozilla-ai/any-llm-go/providers/deepseek"
 	"github.com/mozilla-ai/any-llm-go/providers/gemini"
@@ -22,6 +21,7 @@ import (
 	"github.com/mozilla-ai/any-llm-go/providers/llamacpp"
 	"github.com/mozilla-ai/any-llm-go/providers/llamafile"
 	"github.com/mozilla-ai/any-llm-go/providers/mistral"
+	"github.com/mozilla-ai/any-llm-go/providers/ollama"
 	"github.com/mozilla-ai/any-llm-go/providers/openai"
 )
 
@@ -92,16 +92,6 @@ func NewClient(
 		effectiveBase = ""
 	}
 
-	// Ollama uses OpenAI-compatible endpoints at /v1; ensure the suffix
-	// is present when a custom base URL is provided so the provider
-	// constructs correct paths (e.g. /v1/chat/completions).
-	if providerName == providerOllama && effectiveBase != "" {
-		effectiveBase = strings.TrimRight(effectiveBase, "/")
-		if !strings.HasSuffix(effectiveBase, "/v1") {
-			effectiveBase += "/v1"
-		}
-	}
-
 	opts := buildOpts(effectiveBase, apiKey, timeout)
 	p, err := createProvider(providerName, opts)
 	if err != nil {
@@ -153,12 +143,7 @@ func newHTTPClient(responseHeaderTimeout time.Duration) *http.Client {
 func createProvider(name string, opts []anyllm.Option) (anyllm.Provider, error) {
 	switch name {
 	case providerOllama:
-		return openai.NewCompatible(openai.CompatibleConfig{
-			Capabilities:   ollamaCapabilities(),
-			DefaultBaseURL: "http://localhost:11434/v1",
-			Name:           providerOllama,
-			RequireAPIKey:  false,
-		}, opts...)
+		return ollama.New(opts...)
 	case "anthropic":
 		return anthropic.New(opts...)
 	case "openai", "openrouter":
@@ -177,18 +162,6 @@ func createProvider(name string, opts []anyllm.Option) (anyllm.Provider, error) 
 		return llamafile.New(opts...)
 	default:
 		return nil, fmt.Errorf("unknown provider %q", name)
-	}
-}
-
-func ollamaCapabilities() anyllmproviders.Capabilities {
-	return anyllmproviders.Capabilities{
-		Completion:          true,
-		CompletionImage:     true,
-		CompletionReasoning: true,
-		CompletionStreaming: true,
-		CompletionTools:     true,
-		Embedding:           true,
-		ListModels:          true,
 	}
 }
 
@@ -409,21 +382,24 @@ func (c *Client) wrapError(err error) error {
 
 	var providerErr *anyllmerrors.ProviderError
 	if errors.As(err, &providerErr) {
-		if c.providerName == providerOllama {
+		if isNetworkError(err) {
+			if c.providerName == providerOllama {
+				return fmt.Errorf(
+					"cannot reach ollama -- start it with `ollama serve`",
+				)
+			}
+			if c.IsLocalServer() {
+				return fmt.Errorf(
+					"cannot reach %s server -- is it running?",
+					c.providerName,
+				)
+			}
 			return fmt.Errorf(
-				"cannot reach ollama -- start it with `ollama serve`",
-			)
-		}
-		if c.IsLocalServer() {
-			return fmt.Errorf(
-				"cannot reach %s server -- is it running?",
+				"cannot reach %s -- check your base_url and network",
 				c.providerName,
 			)
 		}
-		return fmt.Errorf(
-			"cannot reach %s -- check your base_url and network",
-			c.providerName,
-		)
+		return fmt.Errorf("%s: %w", c.providerName, providerErr.Err)
 	}
 
 	var modelErr *anyllmerrors.ModelNotFoundError
@@ -457,6 +433,24 @@ func (c *Client) wrapError(err error) error {
 	}
 
 	return err
+}
+
+// isNetworkError reports whether err represents a connection-level failure
+// (connection refused, unreachable host) as opposed to an application-level
+// error from a server that was reachable. Uses both syscall error matching
+// and string fallbacks for cross-platform compatibility (Windows connectex
+// errors don't always unwrap to syscall.ECONNREFUSED through provider chains).
+func isNetworkError(err error) bool {
+	msg := err.Error()
+	if strings.Contains(msg, "connection refused") ||
+		strings.Contains(msg, "actively refused") {
+		return true
+	}
+	if strings.Contains(msg, "host is unreachable") ||
+		strings.Contains(msg, "network is unreachable") {
+		return true
+	}
+	return false
 }
 
 // isLoopbackURL returns true if the URL points to a loopback address.

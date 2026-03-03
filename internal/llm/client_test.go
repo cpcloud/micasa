@@ -6,6 +6,7 @@ package llm
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -477,6 +478,50 @@ func TestWrapErrorProviderError(t *testing.T) {
 	}
 }
 
+// TestWrapErrorProviderErrorDeadlineExceeded verifies that a timeout
+// (context deadline exceeded) passes through the original error instead
+// of showing "cannot reach", since timeouts can happen mid-request
+// (model loading, long inference) even when the server is reachable.
+func TestWrapErrorProviderErrorDeadlineExceeded(t *testing.T) {
+	timeoutErr := fmt.Errorf("request failed: %w", context.DeadlineExceeded)
+	c := &Client{providerName: "ollama"}
+	err := c.wrapError(
+		anyllmerrors.NewProviderError("ollama", timeoutErr),
+	)
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "cannot reach")
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
+}
+
+// TestWrapErrorProviderErrorPreservesNonConnectionErrors verifies that
+// ProviderErrors NOT caused by connection failures pass through the
+// original error message instead of showing "cannot reach."
+func TestWrapErrorProviderErrorPreservesNonConnectionErrors(t *testing.T) {
+	tests := []struct {
+		name     string
+		provider string
+		inner    error
+	}{
+		{"ollama mid-stream", "ollama", errors.New("unexpected EOF")},
+		{"ollama OOM", "ollama", errors.New("model requires more system memory")},
+		{"local server timeout", "llamacpp", errors.New("request timed out")},
+		{"cloud server error", "openai", errors.New("internal server error")},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Client{providerName: tt.provider}
+			err := c.wrapError(
+				anyllmerrors.NewProviderError(tt.provider, tt.inner),
+			)
+			require.Error(t, err)
+			assert.ErrorIs(t, err, tt.inner,
+				"original error should be preserved for non-connection failures")
+			assert.NotContains(t, err.Error(), "cannot reach",
+				"should not claim server is unreachable for mid-stream errors")
+		})
+	}
+}
+
 // TestWrapErrorModelNotFound exercises the wrapError path when the LLM
 // returns a "model not found" error. Ollama gets a "pull it" suggestion.
 func TestWrapErrorModelNotFound(t *testing.T) {
@@ -729,38 +774,19 @@ func TestNewClientLocalProviderKeepsLoopbackURL(t *testing.T) {
 	}
 }
 
-// TestNewClientOllamaV1Suffix verifies that the /v1 suffix is appended
-// correctly for Ollama base URLs, including edge cases like trailing slashes
-// and URLs that already contain /v1.
-func TestNewClientOllamaV1Suffix(t *testing.T) {
-	// Use an httptest server so the provider actually receives requests at
-	// the expected path -- this proves the suffix logic produces a working URL.
+// TestNewClientOllamaCustomBaseURL verifies that the native ollama provider
+// correctly uses a custom base URL with its /api/* endpoints.
+func TestNewClientOllamaCustomBaseURL(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/v1/models" {
-			jsonResponse(w, `{"data":[{"id":"qwen3:latest"}]}`)
+		if r.URL.Path == "/api/tags" {
+			jsonResponse(w, `{"models":[{"model":"qwen3:latest"}]}`)
 			return
 		}
 		http.NotFound(w, r)
 	}))
 	defer srv.Close()
 
-	tests := []struct {
-		name    string
-		baseURL string
-	}{
-		{"no suffix", srv.URL},
-		{"trailing slash", srv.URL + "/"},
-		{"with /v1", srv.URL + "/v1"},
-		{"with /v1/", srv.URL + "/v1/"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c, err := NewClient(
-				"ollama", tt.baseURL, "qwen3", "", testTimeout,
-			)
-			require.NoError(t, err)
-			// Ping hits /v1/models -- success means the suffix was correct.
-			assert.NoError(t, c.Ping(context.Background()))
-		})
-	}
+	c, err := NewClient("ollama", srv.URL, "qwen3", "", testTimeout)
+	require.NoError(t, err)
+	assert.NoError(t, c.Ping(context.Background()))
 }
