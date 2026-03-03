@@ -666,13 +666,21 @@ func (m *Model) handleExtractionLLMChunk(msg extractionLLMChunkMsg) tea.Cmd {
 	return waitForLLMChunk(ex.ID, ex.llmCh)
 }
 
+// dispatchContext tracks entities created across operations in a single batch
+// so that cross-references (e.g. a quote referencing a just-created vendor)
+// resolve correctly even when the LLM uses fictional IDs.
+type dispatchContext struct {
+	createdVendors []string // vendor names in creation order
+}
+
 // dispatchOperations executes validated operations through the Store API.
 func (m *Model) dispatchOperations(ops []extract.Operation) error {
 	if m.store == nil || len(ops) == 0 {
 		return nil
 	}
+	var dctx dispatchContext
 	for _, op := range ops {
-		if err := m.dispatchOneOperation(op); err != nil {
+		if err := m.dispatchOneOperation(op, &dctx); err != nil {
 			return fmt.Errorf("%s %s: %w", op.Action, op.Table, err)
 		}
 	}
@@ -681,16 +689,16 @@ func (m *Model) dispatchOperations(ops []extract.Operation) error {
 }
 
 // dispatchOneOperation routes a single operation to the appropriate Store method.
-func (m *Model) dispatchOneOperation(op extract.Operation) error {
+func (m *Model) dispatchOneOperation(op extract.Operation, dctx *dispatchContext) error {
 	switch {
 	case op.Action == extract.ActionCreate && op.Table == tableDocuments:
 		return m.dispatchCreateDocument(op)
 	case op.Action == extract.ActionUpdate && op.Table == tableDocuments:
 		return m.dispatchUpdateDocument(op)
 	case op.Action == extract.ActionCreate && op.Table == "vendors":
-		return m.dispatchCreateVendor(op)
+		return m.dispatchCreateVendor(op, dctx)
 	case op.Action == extract.ActionCreate && op.Table == "quotes":
-		return m.dispatchCreateQuote(op)
+		return m.dispatchCreateQuote(op, dctx)
 	case op.Action == extract.ActionCreate && op.Table == "maintenance_items":
 		return m.dispatchCreateMaintenance(op)
 	case op.Action == extract.ActionCreate && op.Table == "appliances":
@@ -734,7 +742,7 @@ func (m *Model) dispatchUpdateDocument(op extract.Operation) error {
 	return m.store.UpdateDocument(doc)
 }
 
-func (m *Model) dispatchCreateVendor(op extract.Operation) error {
+func (m *Model) dispatchCreateVendor(op extract.Operation, dctx *dispatchContext) error {
 	vendor := data.Vendor{}
 	applyStringField(op.Data, "name", &vendor.Name)
 	if strings.TrimSpace(vendor.Name) == "" {
@@ -745,13 +753,20 @@ func (m *Model) dispatchCreateVendor(op extract.Operation) error {
 	applyStringField(op.Data, "phone", &vendor.Phone)
 	applyStringField(op.Data, "website", &vendor.Website)
 	applyStringField(op.Data, "notes", &vendor.Notes)
-	return m.store.CreateVendor(&vendor)
+	if err := m.store.CreateVendor(&vendor); err != nil {
+		return err
+	}
+	dctx.createdVendors = append(dctx.createdVendors, vendor.Name)
+	return nil
 }
 
-func (m *Model) dispatchCreateQuote(op extract.Operation) error {
+func (m *Model) dispatchCreateQuote(op extract.Operation, dctx *dispatchContext) error {
 	quote := data.Quote{}
 	if v, ok := op.Data["project_id"]; ok {
 		if n := extract.ParseUint(v); n > 0 {
+			if _, err := m.store.GetProject(n); err != nil {
+				return fmt.Errorf("project %d: %w", n, err)
+			}
 			quote.ProjectID = n
 		}
 	}
@@ -768,21 +783,24 @@ func (m *Model) dispatchCreateQuote(op extract.Operation) error {
 	}
 	applyStringField(op.Data, "notes", &quote.Notes)
 
-	// Resolve vendor: by vendor_id or inline vendor name.
+	// Resolve vendor: try vendor_id as a real DB ID first. If that fails,
+	// fall through to vendor_name or batch-created vendors. The LLM often
+	// invents sequential IDs as cross-references to vendors it created in
+	// earlier operations rather than using real DB IDs.
 	var vendor data.Vendor
 	if v, ok := op.Data["vendor_id"]; ok {
 		if n := extract.ParseUint(v); n > 0 {
-			got, err := m.store.GetVendor(n)
-			if err != nil {
-				return fmt.Errorf("get vendor %d: %w", n, err)
+			if got, err := m.store.GetVendor(n); err == nil {
+				vendor = got
 			}
-			vendor = got
 		}
 	}
 	if vendor.ID == 0 {
-		// No valid vendor_id; try vendor_name for find-or-create.
 		var vendorName string
 		applyStringField(op.Data, "vendor_name", &vendorName)
+		if vendorName == "" && len(dctx.createdVendors) > 0 {
+			vendorName = dctx.createdVendors[len(dctx.createdVendors)-1]
+		}
 		if vendorName != "" {
 			vendor.Name = vendorName
 		}

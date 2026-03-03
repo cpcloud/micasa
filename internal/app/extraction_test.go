@@ -1309,3 +1309,118 @@ func TestWaitForLLMChunkClosedChannel(t *testing.T) {
 	require.True(t, ok)
 	assert.True(t, result.Done)
 }
+
+// --- Dispatch cross-reference ---
+
+func TestDispatch_VendorCrossReference(t *testing.T) {
+	m := newTestModelWithStore(t)
+
+	// Create a project so the quote has a valid FK target.
+	types, err := m.store.ProjectTypes()
+	require.NoError(t, err)
+	project := data.Project{
+		Title:         "Plumbing Reno",
+		ProjectTypeID: types[0].ID,
+		Status:        data.ProjectStatusPlanned,
+	}
+	require.NoError(t, m.store.CreateProject(&project))
+
+	// Also create a document so DocID is valid.
+	doc := data.Document{Title: "Invoice", FileName: "inv.pdf"}
+	require.NoError(t, m.store.CreateDocument(&doc))
+
+	// Simulate LLM output: create vendor then quote referencing it with
+	// a fictional vendor_id that doesn't match the real DB ID.
+	ops := []extract.Operation{
+		{Action: "create", Table: "vendors", Data: map[string]any{
+			"name": "Garcia Plumbing",
+		}},
+		{Action: "create", Table: "quotes", Data: map[string]any{
+			"vendor_id":   float64(1),
+			"project_id":  float64(project.ID),
+			"total_cents": float64(150000),
+		}},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ex := &extractionLogState{
+		ID:         nextExtractionID.Add(1),
+		ctx:        ctx,
+		CancelFn:   cancel,
+		Visible:    true,
+		expanded:   make(map[extractionStep]bool),
+		Done:       true,
+		DocID:      doc.ID,
+		operations: ops,
+	}
+	ex.Steps[stepLLM] = extractionStepInfo{Status: stepDone}
+	ex.hasLLM = true
+	m.ex.extraction = ex
+
+	// Press "a" to accept -- should not error.
+	sendExtractionKey(m, "a")
+	assert.Nil(t, m.ex.extraction, "extraction should be cleared after accept")
+
+	// Verify the vendor was created.
+	vendors, err := m.store.ListVendors(false)
+	require.NoError(t, err)
+	var garcia *data.Vendor
+	for i := range vendors {
+		if vendors[i].Name == "Garcia Plumbing" {
+			garcia = &vendors[i]
+			break
+		}
+	}
+	require.NotNil(t, garcia, "vendor should have been created")
+
+	// Verify the quote was created and linked to the correct vendor.
+	quotes, err := m.store.ListQuotes(false)
+	require.NoError(t, err)
+	require.Len(t, quotes, 1)
+	assert.Equal(t, garcia.ID, quotes[0].VendorID)
+	assert.Equal(t, int64(150000), quotes[0].TotalCents)
+}
+
+func TestDispatch_InvalidProjectIDShowsError(t *testing.T) {
+	m := newTestModelWithStore(t)
+
+	// Create a vendor and document but no project.
+	doc := data.Document{Title: "Quote", FileName: "q.pdf"}
+	require.NoError(t, m.store.CreateDocument(&doc))
+	require.NoError(t, m.store.CreateVendor(&data.Vendor{Name: "Acme"}))
+
+	vendors, err := m.store.ListVendors(false)
+	require.NoError(t, err)
+	require.NotEmpty(t, vendors)
+	acme := vendors[0]
+
+	ops := []extract.Operation{
+		{Action: "create", Table: "quotes", Data: map[string]any{
+			"vendor_id":   float64(acme.ID),
+			"project_id":  float64(9999),
+			"total_cents": float64(50000),
+		}},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ex := &extractionLogState{
+		ID:         nextExtractionID.Add(1),
+		ctx:        ctx,
+		CancelFn:   cancel,
+		Visible:    true,
+		expanded:   make(map[extractionStep]bool),
+		Done:       true,
+		DocID:      doc.ID,
+		operations: ops,
+	}
+	ex.Steps[stepLLM] = extractionStepInfo{Status: stepDone}
+	ex.hasLLM = true
+	m.ex.extraction = ex
+
+	// Accept should fail with a clear error about the invalid project.
+	sendExtractionKey(m, "a")
+	assert.NotNil(t, m.ex.extraction, "extraction stays open on dispatch error")
+	assert.Contains(t, m.status.Text, "project 9999")
+}
