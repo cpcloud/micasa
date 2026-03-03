@@ -20,9 +20,17 @@ import (
 // forever, while allowing the streaming body transfer to take as long
 // as needed.
 var pullClient = &http.Client{
-	Transport: &http.Transport{
-		ResponseHeaderTimeout: 30 * time.Second,
-	},
+	Transport: func() *http.Transport {
+		t, ok := http.DefaultTransport.(*http.Transport)
+		if !ok {
+			return &http.Transport{
+				ResponseHeaderTimeout: 30 * time.Second,
+			}
+		}
+		clone := t.Clone()
+		clone.ResponseHeaderTimeout = 30 * time.Second
+		return clone
+	}(),
 }
 
 // PullChunk is a single progress update from the Ollama pull API.
