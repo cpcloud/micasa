@@ -2269,7 +2269,6 @@ func (m *Model) houseFormValues(profile data.HouseProfile) *houseFormData {
 	}
 }
 
-// requiredTitle appends a colored ∗ (U+2217) to a form field label.
 func (m *Model) createOrUpdate(
 	idPtr *uint,
 	create func() error,
@@ -2288,23 +2287,6 @@ func (m *Model) createOrUpdate(
 }
 
 // formDataAs asserts m.fs.formData to the given pointer type, returning a
-func (m *Model) createOrUpdate(
-	idPtr *uint,
-	create func() error,
-	update func() error,
-) error {
-	if m.fs.editID != nil {
-		*idPtr = *m.fs.editID
-		return update()
-	}
-	if err := create(); err != nil {
-		return err
-	}
-	id := *idPtr
-	m.fs.editID = &id
-	return nil
-}
-
 // typed error on mismatch. Eliminates the repeated type-assertion boilerplate
 // in every parse* function.
 func formDataAs[T any](m *Model) (*T, error) {
@@ -2316,6 +2298,7 @@ func formDataAs[T any](m *Model) (*T, error) {
 	return v, nil
 }
 
+// requiredTitle appends a colored ∗ (U+2217) to a form field label.
 func requiredTitle(label string) string {
 	return label + appStyles.SecondaryText().Render(" ∗")
 }
