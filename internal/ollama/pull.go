@@ -12,7 +12,18 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
+
+// pullClient is a dedicated HTTP client for model pulls. It sets a
+// ResponseHeaderTimeout so that a hanging Ollama server doesn't block
+// forever, while allowing the streaming body transfer to take as long
+// as needed.
+var pullClient = &http.Client{
+	Transport: &http.Transport{
+		ResponseHeaderTimeout: 30 * time.Second,
+	},
+}
 
 // PullChunk is a single progress update from the Ollama pull API.
 type PullChunk struct {
@@ -69,7 +80,7 @@ func PullModel(ctx context.Context, baseURL, model string) (*PullScanner, error)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(req) //nolint:gosec // baseURL from user config
+	resp, err := pullClient.Do(req) //nolint:gosec // baseURL from user config
 	if err != nil {
 		return nil, fmt.Errorf(
 			"cannot reach %s -- start it with `ollama serve`", baseURL,

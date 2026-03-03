@@ -229,7 +229,7 @@ type llmConfig struct {
 	Provider     string
 	BaseURL      string
 	Model        string
-	APIKey       string //nolint:gosec // internal config struct, not serialized
+	APIKey       string //nolint:gosec // G101 false positive: field name triggers heuristic, not a hardcoded credential
 	ExtraContext string
 	Timeout      time.Duration
 	Thinking     string // reasoning effort: none|low|medium|high|auto
