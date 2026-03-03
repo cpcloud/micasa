@@ -31,6 +31,8 @@ type Store struct {
 
 func unscopedPreload(q *gorm.DB) *gorm.DB { return q.Unscoped() }
 
+func identity(db *gorm.DB) *gorm.DB { return db }
+
 func listQuery[T any](
 	s *Store,
 	includeDeleted bool,
@@ -612,7 +614,7 @@ func (s *Store) ListVendors(includeDeleted bool) ([]Vendor, error) {
 }
 
 func (s *Store) GetVendor(id uint) (Vendor, error) {
-	return getByID[Vendor](s, id, func(db *gorm.DB) *gorm.DB { return db })
+	return getByID[Vendor](s, id, identity)
 }
 
 func (s *Store) CreateVendor(vendor *Vendor) error {
@@ -772,7 +774,7 @@ func (s *Store) ListAppliances(includeDeleted bool) ([]Appliance, error) {
 }
 
 func (s *Store) GetAppliance(id uint) (Appliance, error) {
-	return getByID[Appliance](s, id, func(db *gorm.DB) *gorm.DB { return db })
+	return getByID[Appliance](s, id, identity)
 }
 
 func (s *Store) CreateAppliance(item *Appliance) error {
@@ -983,7 +985,7 @@ func (s *Store) CountDocumentsByEntity(
 }
 
 func (s *Store) GetDocument(id uint) (Document, error) {
-	return getByID[Document](s, id, func(db *gorm.DB) *gorm.DB { return db })
+	return getByID[Document](s, id, identity)
 }
 
 func (s *Store) CreateDocument(doc *Document) error {
