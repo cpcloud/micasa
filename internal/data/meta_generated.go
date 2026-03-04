@@ -7,18 +7,18 @@ package data
 
 // Table name constants derived from GORM model structs.
 const (
+	TableAppliances            = "appliances"
+	TableDeletionRecords       = "deletion_records"
+	TableDocuments             = "documents"
 	TableHouseProfiles         = "house_profiles"
+	TableIncidents             = "incidents"
+	TableMaintenanceCategories = "maintenance_categories"
+	TableMaintenanceItems      = "maintenance_items"
 	TableProjectTypes          = "project_types"
-	TableVendors               = "vendors"
 	TableProjects              = "projects"
 	TableQuotes                = "quotes"
-	TableMaintenanceCategories = "maintenance_categories"
-	TableAppliances            = "appliances"
-	TableMaintenanceItems      = "maintenance_items"
-	TableIncidents             = "incidents"
 	TableServiceLogEntries     = "service_log_entries"
-	TableDocuments             = "documents"
-	TableDeletionRecords       = "deletion_records"
+	TableVendors               = "vendors"
 )
 
 // Column name constants derived from GORM model structs.
