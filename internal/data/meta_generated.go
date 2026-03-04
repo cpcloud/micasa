@@ -9,8 +9,8 @@ package data
 const (
 	TableHouseProfiles         = "house_profiles"
 	TableProjectTypes          = "project_types"
-	TableProjects              = "projects"
 	TableVendors               = "vendors"
+	TableProjects              = "projects"
 	TableQuotes                = "quotes"
 	TableMaintenanceCategories = "maintenance_categories"
 	TableAppliances            = "appliances"
