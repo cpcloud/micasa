@@ -114,7 +114,7 @@ jobs:
         run: bash internal/extract/gen-mixed-pdf.bash
 
       - name: Build
-        run: go build ./...
+        run: go build ./cmd/micasa
 
       - name: Test
         if: runner.os != 'Windows' || runner.arch != 'ARM64'
