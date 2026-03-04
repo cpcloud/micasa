@@ -61,7 +61,6 @@ func TestTableColumnsInvalidName(t *testing.T) {
 func TestReadOnlyQuerySelect(t *testing.T) {
 	t.Parallel()
 	store := newTestStore(t)
-	require.NoError(t, store.SeedDefaults())
 
 	cols, rows, err := store.ReadOnlyQuery("SELECT name FROM project_types ORDER BY name LIMIT 3")
 	require.NoError(t, err)

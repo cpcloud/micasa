@@ -4,6 +4,7 @@
 package data
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -16,18 +17,17 @@ import (
 func TestModelPersistenceAcrossReopen(t *testing.T) {
 	t.Parallel()
 	path := filepath.Join(t.TempDir(), "test.db")
+	require.NoError(t, os.WriteFile(path, templateBytes, 0o600))
 
 	// Session 1: set model.
 	store1, err := Open(path)
 	require.NoError(t, err)
-	require.NoError(t, store1.AutoMigrate())
 	require.NoError(t, store1.PutLastModel("qwen3:8b"))
 	require.NoError(t, store1.Close())
 
 	// Session 2: read persisted model.
 	store2, err := Open(path)
 	require.NoError(t, err)
-	require.NoError(t, store2.AutoMigrate())
 	model, err := store2.GetLastModel()
 	require.NoError(t, err)
 	assert.Equal(t, "qwen3:8b", model)
@@ -39,11 +39,11 @@ func TestModelPersistenceAcrossReopen(t *testing.T) {
 func TestChatHistoryPersistenceAcrossReopen(t *testing.T) {
 	t.Parallel()
 	path := filepath.Join(t.TempDir(), "test.db")
+	require.NoError(t, os.WriteFile(path, templateBytes, 0o600))
 
 	// Session 1: add history.
 	store1, err := Open(path)
 	require.NoError(t, err)
-	require.NoError(t, store1.AutoMigrate())
 	require.NoError(t, store1.AppendChatInput("how many projects?"))
 	require.NoError(t, store1.AppendChatInput("oldest appliance?"))
 	require.NoError(t, store1.Close())
@@ -51,7 +51,6 @@ func TestChatHistoryPersistenceAcrossReopen(t *testing.T) {
 	// Session 2: load history.
 	store2, err := Open(path)
 	require.NoError(t, err)
-	require.NoError(t, store2.AutoMigrate())
 	history, err := store2.LoadChatHistory()
 	require.NoError(t, err)
 	assert.Equal(t, []string{"how many projects?", "oldest appliance?"}, history)

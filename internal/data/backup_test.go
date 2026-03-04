@@ -71,12 +71,12 @@ func TestBackupDestAlreadyExists(t *testing.T) {
 
 func TestBackupMemoryDB(t *testing.T) {
 	t.Parallel()
-	// Open an in-memory store, seed it, then back it up to a file.
-	store, err := Open(":memory:")
+	// Open a template-backed store, seed demo data, then back it up.
+	srcPath := filepath.Join(t.TempDir(), "src.db")
+	require.NoError(t, os.WriteFile(srcPath, templateBytes, 0o600))
+	store, err := Open(srcPath)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
-	require.NoError(t, store.AutoMigrate())
-	require.NoError(t, store.SeedDefaults())
 	require.NoError(t, store.SeedDemoDataFrom(fake.New(testSeed)))
 
 	destPath := filepath.Join(t.TempDir(), "mem-backup.db")

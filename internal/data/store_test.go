@@ -271,10 +271,9 @@ func TestSoftDeletePersistsAcrossRuns(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "persist.db")
 
 	// Session 1: create a project, then soft-delete it.
+	require.NoError(t, os.WriteFile(path, templateBytes, 0o600))
 	store1, err := Open(path)
 	require.NoError(t, err)
-	require.NoError(t, store1.AutoMigrate())
-	require.NoError(t, store1.SeedDefaults())
 	types, _ := store1.ProjectTypes()
 	require.NoError(t, store1.CreateProject(&Project{
 		Title: "Persist Test", ProjectTypeID: types[0].ID, Status: ProjectStatusPlanned,
@@ -295,7 +294,6 @@ func TestSoftDeletePersistsAcrossRuns(t *testing.T) {
 	store2, err := Open(path)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store2.Close() })
-	require.NoError(t, store2.AutoMigrate())
 
 	projects2, err := store2.ListProjects(false)
 	require.NoError(t, err)
@@ -1654,11 +1652,10 @@ func TestUpdateDocumentClearNotes(t *testing.T) {
 func newTestStore(t *testing.T) *Store {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "test.db")
+	require.NoError(t, os.WriteFile(path, templateBytes, 0o600))
 	store, err := Open(path)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
-	require.NoError(t, store.AutoMigrate())
-	require.NoError(t, store.SeedDefaults())
 	return store
 }
 

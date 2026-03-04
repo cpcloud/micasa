@@ -4,6 +4,7 @@
 package data
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -15,10 +16,10 @@ import (
 func openTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "test.db")
+	require.NoError(t, os.WriteFile(path, templateBytes, 0o600))
 	store, err := Open(path)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
-	require.NoError(t, store.AutoMigrate())
 	return store.db
 }
 

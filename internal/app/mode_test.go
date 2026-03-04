@@ -4,6 +4,8 @@
 package app
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/charmbracelet/bubbles/table"
@@ -17,14 +19,16 @@ import (
 
 // newTestModel creates a minimal Model for lightweight mode tests.
 func newTestModel() *Model {
-	store, err := data.Open(":memory:")
+	dir, err := os.MkdirTemp("", "micasa-test-*")
 	if err != nil {
 		panic(err)
 	}
-	if err := store.AutoMigrate(); err != nil {
+	path := filepath.Join(dir, "test.db")
+	if err := os.WriteFile(path, templateBytes, 0o600); err != nil {
 		panic(err)
 	}
-	if err := store.SeedDefaults(); err != nil {
+	store, err := data.Open(path)
+	if err != nil {
 		panic(err)
 	}
 	store.SetCurrency(locale.DefaultCurrency())

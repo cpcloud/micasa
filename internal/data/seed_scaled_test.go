@@ -4,6 +4,7 @@
 package data
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -173,11 +174,10 @@ func TestSeedScaledDataFKIntegrity(t *testing.T) {
 func TestSeedScaledDataSummaryMatchesDB(t *testing.T) {
 	t.Parallel()
 	path := filepath.Join(t.TempDir(), "test.db")
+	require.NoError(t, os.WriteFile(path, templateBytes, 0o600))
 	store, err := Open(path)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
-	require.NoError(t, store.AutoMigrate())
-	require.NoError(t, store.SeedDefaults())
 
 	summary, err := store.SeedScaledDataFrom(fake.New(testSeed), 5)
 	require.NoError(t, err)
