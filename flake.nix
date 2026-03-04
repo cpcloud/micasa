@@ -273,9 +273,13 @@
           };
           record-demo = pkgs.writeShellApplication {
             name = "record-demo";
-            runtimeInputs = [ self.packages.${system}.record-tape ];
+            runtimeInputs = [
+              self.packages.${system}.record-tape
+              pkgs.ffmpeg-headless
+            ];
             text = ''
               record-tape docs/tapes/demo.tape
+              ffmpeg -y -i videos/demo.webm -c:v libwebp_anim -compression_level 6 -loop 0 images/demo.webp
             '';
           };
           # Captures a single VHS tape to a WebP screenshot: capture-one <tape-file>

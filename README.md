@@ -19,7 +19,7 @@ Your house is quietly plotting to break while you sleep -- and you're dreaming a
 > Single SQLite file. No cloud. No account. No subscriptions.
 
 <div align="center">
-  <video src="videos/demo.webm" alt="micasa demo" width="800" autoplay loop muted playsinline></video>
+  <img src="images/demo.webp" alt="micasa demo" width="800">
 </div>
 
 ## Features
