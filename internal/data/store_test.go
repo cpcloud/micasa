@@ -19,6 +19,7 @@ import (
 )
 
 func TestSeedDefaults(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	types, err := store.ProjectTypes()
 	require.NoError(t, err)
@@ -29,6 +30,7 @@ func TestSeedDefaults(t *testing.T) {
 }
 
 func TestHouseProfileSingle(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	profile := HouseProfile{Nickname: "Primary Residence"}
 	require.NoError(t, store.CreateHouseProfile(profile))
@@ -38,6 +40,7 @@ func TestHouseProfileSingle(t *testing.T) {
 }
 
 func TestUpdateHouseProfile(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	require.NoError(
 		t,
@@ -53,6 +56,7 @@ func TestUpdateHouseProfile(t *testing.T) {
 }
 
 func TestSoftDeleteRestoreProject(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	types, err := store.ProjectTypes()
 	require.NoError(t, err)
@@ -82,6 +86,7 @@ func TestSoftDeleteRestoreProject(t *testing.T) {
 }
 
 func TestLastDeletionRecord(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	types, err := store.ProjectTypes()
 	require.NoError(t, err)
@@ -103,6 +108,7 @@ func TestLastDeletionRecord(t *testing.T) {
 }
 
 func TestUpdateProject(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	types, err := store.ProjectTypes()
 	require.NoError(t, err)
@@ -130,6 +136,7 @@ func TestUpdateProject(t *testing.T) {
 }
 
 func TestUpdateQuote(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	types, err := store.ProjectTypes()
 	require.NoError(t, err)
@@ -161,6 +168,7 @@ func TestUpdateQuote(t *testing.T) {
 }
 
 func TestUpdateMaintenance(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	categories, err := store.MaintenanceCategories()
 	require.NoError(t, err)
@@ -187,6 +195,7 @@ func TestUpdateMaintenance(t *testing.T) {
 }
 
 func TestServiceLogCRUD(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	categories, err := store.MaintenanceCategories()
 	require.NoError(t, err)
@@ -258,6 +267,7 @@ func TestServiceLogCRUD(t *testing.T) {
 }
 
 func TestSoftDeletePersistsAcrossRuns(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "persist.db")
 
 	// Session 1: create a project, then soft-delete it.
@@ -323,6 +333,7 @@ func TestSoftDeletePersistsAcrossRuns(t *testing.T) {
 }
 
 func TestVendorCRUD(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	require.NoError(t, store.CreateVendor(&Vendor{
@@ -350,6 +361,7 @@ func TestVendorCRUD(t *testing.T) {
 }
 
 func TestCountQuotesByVendor(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	require.NoError(t, store.CreateVendor(&Vendor{Name: "Quote Vendor"}))
@@ -380,6 +392,7 @@ func TestCountQuotesByVendor(t *testing.T) {
 }
 
 func TestCountServiceLogsByVendor(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	require.NoError(t, store.CreateVendor(&Vendor{Name: "Job Vendor"}))
@@ -405,6 +418,7 @@ func TestCountServiceLogsByVendor(t *testing.T) {
 }
 
 func TestDeleteProjectBlockedByQuotes(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
 	require.NoError(t, store.CreateProject(&Project{
@@ -426,6 +440,7 @@ func TestDeleteProjectBlockedByQuotes(t *testing.T) {
 }
 
 func TestRestoreQuoteBlockedByDeletedProject(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
 	require.NoError(t, store.CreateProject(&Project{
@@ -451,6 +466,7 @@ func TestRestoreQuoteBlockedByDeletedProject(t *testing.T) {
 }
 
 func TestRestoreServiceLogBlockedByDeletedMaintenance(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	cats, _ := store.MaintenanceCategories()
 	require.NoError(t, store.CreateMaintenance(&MaintenanceItem{
@@ -476,6 +492,7 @@ func TestRestoreServiceLogBlockedByDeletedMaintenance(t *testing.T) {
 }
 
 func TestDeleteMaintenanceBlockedByServiceLogs(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	cats, _ := store.MaintenanceCategories()
 	require.NoError(t, store.CreateMaintenance(&MaintenanceItem{
@@ -497,6 +514,7 @@ func TestDeleteMaintenanceBlockedByServiceLogs(t *testing.T) {
 }
 
 func TestPartialQuoteDeletionStillBlocksProjectDelete(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
 	require.NoError(t, store.CreateProject(&Project{
@@ -522,6 +540,7 @@ func TestPartialQuoteDeletionStillBlocksProjectDelete(t *testing.T) {
 }
 
 func TestRestoreMaintenanceBlockedByDeletedAppliance(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	require.NoError(t, store.CreateAppliance(&Appliance{Name: "Doomed Fridge"}))
 	appliances, _ := store.ListAppliances(false)
@@ -544,6 +563,7 @@ func TestRestoreMaintenanceBlockedByDeletedAppliance(t *testing.T) {
 }
 
 func TestRestoreMaintenanceAllowedWithoutAppliance(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	cats, _ := store.MaintenanceCategories()
 	require.NoError(t, store.CreateMaintenance(&MaintenanceItem{
@@ -557,6 +577,7 @@ func TestRestoreMaintenanceAllowedWithoutAppliance(t *testing.T) {
 }
 
 func TestThreeLevelDeleteRestoreChain(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	require.NoError(t, store.CreateAppliance(&Appliance{Name: "HVAC Unit"}))
@@ -604,6 +625,7 @@ func TestThreeLevelDeleteRestoreChain(t *testing.T) {
 }
 
 func TestDeleteApplianceBlockedByMaintenance(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	require.NoError(t, store.CreateAppliance(&Appliance{Name: "Guarded Fridge"}))
 	appliances, _ := store.ListAppliances(false)
@@ -622,6 +644,7 @@ func TestDeleteApplianceBlockedByMaintenance(t *testing.T) {
 }
 
 func TestGetAppliance(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	require.NoError(t, store.CreateAppliance(&Appliance{Name: "Fridge"}))
 	got, err := store.GetAppliance(1)
@@ -630,12 +653,14 @@ func TestGetAppliance(t *testing.T) {
 }
 
 func TestGetApplianceNotFound(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	_, err := store.GetAppliance(9999)
 	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }
 
 func TestUpdateAppliance(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	require.NoError(t, store.CreateAppliance(&Appliance{Name: "Fridge"}))
 	got, _ := store.GetAppliance(1)
@@ -646,6 +671,7 @@ func TestUpdateAppliance(t *testing.T) {
 }
 
 func TestListMaintenanceByAppliance(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	categories, _ := store.MaintenanceCategories()
 	catID := categories[0].ID
@@ -666,6 +692,7 @@ func TestListMaintenanceByAppliance(t *testing.T) {
 }
 
 func TestCountMaintenanceByAppliance(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	categories, _ := store.MaintenanceCategories()
 	catID := categories[0].ID
@@ -684,6 +711,7 @@ func TestCountMaintenanceByAppliance(t *testing.T) {
 }
 
 func TestUpdateServiceLog(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	categories, _ := store.MaintenanceCategories()
 	catID := categories[0].ID
@@ -707,6 +735,7 @@ func TestUpdateServiceLog(t *testing.T) {
 }
 
 func TestUpdateServiceLogClearVendor(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	categories, _ := store.MaintenanceCategories()
 	catID := categories[0].ID
@@ -727,6 +756,7 @@ func TestUpdateServiceLogClearVendor(t *testing.T) {
 }
 
 func TestListMaintenanceByApplianceIncludeDeleted(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	categories, _ := store.MaintenanceCategories()
 	catID := categories[0].ID
@@ -746,6 +776,7 @@ func TestListMaintenanceByApplianceIncludeDeleted(t *testing.T) {
 }
 
 func TestSoftDeleteRestoreVendor(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	require.NoError(t, store.CreateVendor(&Vendor{Name: "Test Vendor"}))
 
@@ -767,6 +798,7 @@ func TestSoftDeleteRestoreVendor(t *testing.T) {
 }
 
 func TestDeleteVendorBlockedByQuotes(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	require.NoError(t, store.CreateVendor(&Vendor{Name: "Blocked Vendor"}))
 	vendors, _ := store.ListVendors(false)
@@ -795,6 +827,7 @@ func TestDeleteVendorBlockedByQuotes(t *testing.T) {
 }
 
 func TestRestoreQuoteBlockedByDeletedVendor(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	require.NoError(t, store.CreateVendor(&Vendor{Name: "Doomed Vendor"}))
 	types, _ := store.ProjectTypes()
@@ -826,6 +859,7 @@ func TestRestoreQuoteBlockedByDeletedVendor(t *testing.T) {
 }
 
 func TestRestoreServiceLogBlockedByDeletedVendor(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	require.NoError(t, store.CreateVendor(&Vendor{Name: "Doomed SL Vendor"}))
 	vendors, _ := store.ListVendors(false)
@@ -856,6 +890,7 @@ func TestRestoreServiceLogBlockedByDeletedVendor(t *testing.T) {
 }
 
 func TestRestoreServiceLogAllowedWithoutVendor(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	cats, _ := store.MaintenanceCategories()
 	require.NoError(
@@ -877,6 +912,7 @@ func TestRestoreServiceLogAllowedWithoutVendor(t *testing.T) {
 }
 
 func TestVendorQuoteProjectDeleteRestoreChain(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	require.NoError(t, store.CreateVendor(&Vendor{Name: "Chain Vendor"}))
@@ -925,6 +961,7 @@ func TestVendorQuoteProjectDeleteRestoreChain(t *testing.T) {
 }
 
 func TestFindOrCreateVendorRestoresSoftDeleted(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	require.NoError(t, store.CreateVendor(&Vendor{Name: "Revivable Vendor"}))
@@ -951,6 +988,7 @@ func TestFindOrCreateVendorRestoresSoftDeleted(t *testing.T) {
 }
 
 func TestVendorDeletionRecord(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	require.NoError(t, store.CreateVendor(&Vendor{Name: "Record Vendor"}))
 	vendors, _ := store.ListVendors(false)
@@ -967,6 +1005,7 @@ func TestVendorDeletionRecord(t *testing.T) {
 }
 
 func TestUnicodeRoundTrip(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	tests := []struct {
@@ -998,6 +1037,7 @@ func TestUnicodeRoundTrip(t *testing.T) {
 }
 
 func TestUnicodeRoundTripVendor(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	names := []string{
@@ -1025,6 +1065,7 @@ func TestUnicodeRoundTripVendor(t *testing.T) {
 }
 
 func TestUnicodeRoundTripNotes(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	types, err := store.ProjectTypes()
 	require.NoError(t, err)
@@ -1044,6 +1085,7 @@ func TestUnicodeRoundTripNotes(t *testing.T) {
 }
 
 func TestDocumentCRUDAndMetadata(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
 	require.NoError(t, store.CreateProject(&Project{
@@ -1094,6 +1136,7 @@ func TestDocumentCRUDAndMetadata(t *testing.T) {
 }
 
 func TestRestoreDocumentBlockedByDeletedTarget(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
 	require.NoError(t, store.CreateProject(&Project{
@@ -1203,6 +1246,7 @@ func TestUpdateDocumentMetadataPreservesFile(t *testing.T) {
 }
 
 func TestUpdateDocumentPreservesEntityLink(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	types, _ := store.ProjectTypes()
@@ -1255,6 +1299,7 @@ func TestUpdateDocumentPreservesEntityLink(t *testing.T) {
 }
 
 func TestUpdateDocumentChangesEntity(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	types, _ := store.ProjectTypes()
@@ -1300,6 +1345,7 @@ func TestUpdateDocumentChangesEntity(t *testing.T) {
 }
 
 func TestUpdateDocumentClearsEntity(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	types, _ := store.ProjectTypes()
@@ -1484,6 +1530,7 @@ func TestDeleteRestoreDocumentContentSurvives(t *testing.T) {
 }
 
 func TestUnlinkedDocumentFullLifecycle(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	content := []byte("household inventory spreadsheet")
@@ -1526,6 +1573,7 @@ func TestUnlinkedDocumentFullLifecycle(t *testing.T) {
 }
 
 func TestMultipleDocumentsListOrder(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	// User uploads three documents in sequence.
@@ -1571,6 +1619,7 @@ func TestMultipleDocumentsListOrder(t *testing.T) {
 }
 
 func TestUpdateDocumentClearNotes(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	content := []byte("receipt data")
@@ -1623,6 +1672,7 @@ func newTestStoreWithDemoData(t *testing.T, seed uint64) *Store {
 }
 
 func TestCountQuotesByProject(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
 
@@ -1651,6 +1701,7 @@ func TestCountQuotesByProject(t *testing.T) {
 }
 
 func TestListQuotesByVendor(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
 
@@ -1680,6 +1731,7 @@ func TestListQuotesByVendor(t *testing.T) {
 }
 
 func TestListQuotesByProject(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
 
@@ -1709,6 +1761,7 @@ func TestListQuotesByProject(t *testing.T) {
 }
 
 func TestListServiceLogsByVendor(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	cats, _ := store.MaintenanceCategories()
 
@@ -1739,6 +1792,7 @@ func TestListServiceLogsByVendor(t *testing.T) {
 }
 
 func TestDocumentCRUD(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	require.NoError(t, store.CreateDocument(&Document{
@@ -1764,6 +1818,7 @@ func TestDocumentCRUD(t *testing.T) {
 }
 
 func TestCountDocumentsByEntity(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	require.NoError(t, store.CreateDocument(&Document{
@@ -1791,6 +1846,7 @@ func TestCountDocumentsByEntity(t *testing.T) {
 }
 
 func TestListDocumentsByEntity(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	require.NoError(t, store.CreateDocument(&Document{
@@ -1808,6 +1864,7 @@ func TestListDocumentsByEntity(t *testing.T) {
 }
 
 func TestListDocumentsByEntityIncludeDeleted(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	require.NoError(t, store.CreateDocument(&Document{
@@ -1832,6 +1889,7 @@ func TestListDocumentsByEntityIncludeDeleted(t *testing.T) {
 }
 
 func TestDeleteProjectAllowedWithDocuments(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
 
@@ -1853,6 +1911,7 @@ func TestDeleteProjectAllowedWithDocuments(t *testing.T) {
 }
 
 func TestDeleteApplianceAllowedWithDocuments(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	require.NoError(t, store.CreateAppliance(&Appliance{Name: "Doc Fridge"}))
 	appliances, _ := store.ListAppliances(false)
@@ -1869,6 +1928,7 @@ func TestDeleteApplianceAllowedWithDocuments(t *testing.T) {
 }
 
 func TestRestoreDocumentBlockedByDeletedProject(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
 
@@ -1894,6 +1954,7 @@ func TestRestoreDocumentBlockedByDeletedProject(t *testing.T) {
 }
 
 func TestRestoreDocumentBlockedByDeletedAppliance(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	require.NoError(t, store.CreateAppliance(&Appliance{Name: "Doomed Washer"}))
@@ -1916,6 +1977,7 @@ func TestRestoreDocumentBlockedByDeletedAppliance(t *testing.T) {
 }
 
 func TestCreateDocumentRejectsOversized(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	require.NoError(t, store.SetMaxDocumentSize(100))
@@ -1940,6 +2002,7 @@ func TestCreateDocumentRejectsOversized(t *testing.T) {
 }
 
 func TestDeleteVendorAllowedWithDocuments(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	require.NoError(t, store.CreateVendor(&Vendor{Name: "Doc Vendor"}))
 	vendors, _ := store.ListVendors(false)
@@ -1956,6 +2019,7 @@ func TestDeleteVendorAllowedWithDocuments(t *testing.T) {
 }
 
 func TestDeleteQuoteAllowedWithDocuments(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
 	require.NoError(t, store.CreateProject(&Project{
@@ -1982,6 +2046,7 @@ func TestDeleteQuoteAllowedWithDocuments(t *testing.T) {
 }
 
 func TestDeleteMaintenanceAllowedWithDocuments(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	cat := MaintenanceCategory{Name: "DocMCat"}
 	require.NoError(t, store.db.Create(&cat).Error)
@@ -2003,6 +2068,7 @@ func TestDeleteMaintenanceAllowedWithDocuments(t *testing.T) {
 }
 
 func TestDeleteServiceLogAllowedWithDocuments(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	cat := MaintenanceCategory{Name: "SLDocCat"}
 	require.NoError(t, store.db.Create(&cat).Error)
@@ -2027,6 +2093,7 @@ func TestDeleteServiceLogAllowedWithDocuments(t *testing.T) {
 }
 
 func TestRestoreDocumentBlockedByDeletedVendor(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	require.NoError(t, store.CreateVendor(&Vendor{Name: "Doomed Vendor"}))
 	vendors, _ := store.ListVendors(false)
@@ -2048,6 +2115,7 @@ func TestRestoreDocumentBlockedByDeletedVendor(t *testing.T) {
 }
 
 func TestRestoreDocumentBlockedByDeletedQuote(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	types, _ := store.ProjectTypes()
 	require.NoError(t, store.CreateProject(&Project{
@@ -2079,6 +2147,7 @@ func TestRestoreDocumentBlockedByDeletedQuote(t *testing.T) {
 }
 
 func TestRestoreDocumentBlockedByDeletedMaintenance(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	cat := MaintenanceCategory{Name: "RMCat"}
 	require.NoError(t, store.db.Create(&cat).Error)
@@ -2105,6 +2174,7 @@ func TestRestoreDocumentBlockedByDeletedMaintenance(t *testing.T) {
 }
 
 func TestRestoreDocumentBlockedByDeletedServiceLog(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	cat := MaintenanceCategory{Name: "RSLCat"}
 	require.NoError(t, store.db.Create(&cat).Error)
@@ -2134,6 +2204,7 @@ func TestRestoreDocumentBlockedByDeletedServiceLog(t *testing.T) {
 }
 
 func TestSoftDeleteRestoreDocument(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	require.NoError(t, store.CreateDocument(&Document{
@@ -2158,6 +2229,7 @@ func TestSoftDeleteRestoreDocument(t *testing.T) {
 }
 
 func TestEvictStaleCacheRemovesOldFiles(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 
 	// Create a "fresh" file (now) and a "stale" file (40 days old).
@@ -2178,6 +2250,7 @@ func TestEvictStaleCacheRemovesOldFiles(t *testing.T) {
 }
 
 func TestEvictStaleCacheEmptyDir(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	removed, err := EvictStaleCache(dir, 30*24*time.Hour)
 	require.NoError(t, err)
@@ -2185,6 +2258,7 @@ func TestEvictStaleCacheEmptyDir(t *testing.T) {
 }
 
 func TestEvictStaleCacheSkipsSubdirectories(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 
 	// Create a subdirectory with an old timestamp — should not be removed.
@@ -2200,6 +2274,7 @@ func TestEvictStaleCacheSkipsSubdirectories(t *testing.T) {
 }
 
 func TestEvictStaleCacheRecentFileKept(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 
 	// File modified 29 days ago (within the 30-day TTL) should be kept.
@@ -2215,6 +2290,7 @@ func TestEvictStaleCacheRecentFileKept(t *testing.T) {
 }
 
 func TestEvictStaleCacheZeroTTLDisabled(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 
 	f := filepath.Join(dir, "ancient.txt")
@@ -2229,6 +2305,7 @@ func TestEvictStaleCacheZeroTTLDisabled(t *testing.T) {
 }
 
 func TestEvictStaleCacheEmptyDirPath(t *testing.T) {
+	t.Parallel()
 	// Empty dir path should be a no-op, not read CWD.
 	removed, err := EvictStaleCache("", 30*24*time.Hour)
 	require.NoError(t, err)
@@ -2236,6 +2313,7 @@ func TestEvictStaleCacheEmptyDirPath(t *testing.T) {
 }
 
 func TestEvictStaleCacheNonexistentDir(t *testing.T) {
+	t.Parallel()
 	// Missing cache dir should be a no-op, not a fatal error.
 	removed, err := EvictStaleCache(filepath.Join(t.TempDir(), "nope"), 30*24*time.Hour)
 	require.NoError(t, err)
@@ -2243,6 +2321,7 @@ func TestEvictStaleCacheNonexistentDir(t *testing.T) {
 }
 
 func TestPragmasSurvivePoolRecycling(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	sqlDB, err := store.db.DB()
 	require.NoError(t, err)
@@ -2273,6 +2352,7 @@ func TestPragmasSurvivePoolRecycling(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestIncidentCRUDRoundTrip(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	require.NoError(t, store.CreateIncident(&Incident{
@@ -2322,6 +2402,7 @@ func TestIncidentCRUDRoundTrip(t *testing.T) {
 }
 
 func TestDeleteIncidentAllowedWithDocuments(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	require.NoError(t, store.CreateIncident(&Incident{
 		Title: "Leaky pipe", Status: IncidentStatusOpen, Severity: IncidentSeveritySoon,
@@ -2340,6 +2421,7 @@ func TestDeleteIncidentAllowedWithDocuments(t *testing.T) {
 }
 
 func TestRestoreIncidentBlockedByDeletedAppliance(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	require.NoError(t, store.CreateAppliance(&Appliance{Name: "Doomed Washer"}))
 	appliances, _ := store.ListAppliances(false)
@@ -2362,6 +2444,7 @@ func TestRestoreIncidentBlockedByDeletedAppliance(t *testing.T) {
 }
 
 func TestRestoreIncidentBlockedByDeletedVendor(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	require.NoError(t, store.CreateVendor(&Vendor{Name: "Doomed Exterminator"}))
 	vendors, _ := store.ListVendors(false)
@@ -2384,6 +2467,7 @@ func TestRestoreIncidentBlockedByDeletedVendor(t *testing.T) {
 }
 
 func TestRestoreIncidentAllowedWithoutAppliance(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	require.NoError(t, store.CreateIncident(&Incident{
 		Title: "Loose trim", Status: IncidentStatusOpen, Severity: IncidentSeverityWhenever,
@@ -2396,6 +2480,7 @@ func TestRestoreIncidentAllowedWithoutAppliance(t *testing.T) {
 }
 
 func TestDeleteVendorBlockedByIncident(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	require.NoError(t, store.CreateVendor(&Vendor{Name: "Busy Vendor"}))
 	vendors, _ := store.ListVendors(false)
@@ -2414,6 +2499,7 @@ func TestDeleteVendorBlockedByIncident(t *testing.T) {
 }
 
 func TestDeleteApplianceBlockedByIncident(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	require.NoError(t, store.CreateAppliance(&Appliance{Name: "Busy Fridge"}))
 	appliances, _ := store.ListAppliances(false)
@@ -2432,6 +2518,7 @@ func TestDeleteApplianceBlockedByIncident(t *testing.T) {
 }
 
 func TestRestoreDocumentBlockedByDeletedIncident(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	require.NoError(t, store.CreateIncident(&Incident{
 		Title: "Doomed incident", Status: IncidentStatusOpen, Severity: IncidentSeveritySoon,
@@ -2455,6 +2542,7 @@ func TestRestoreDocumentBlockedByDeletedIncident(t *testing.T) {
 }
 
 func TestDeleteIncidentSetsStatusResolved(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	require.NoError(t, store.CreateIncident(&Incident{
 		Title: "Broken window", Status: IncidentStatusOpen, Severity: IncidentSeverityUrgent,
@@ -2471,6 +2559,7 @@ func TestDeleteIncidentSetsStatusResolved(t *testing.T) {
 }
 
 func TestRestoreIncidentRestoresPreviousStatus(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	require.NoError(t, store.CreateIncident(&Incident{
 		Title: "Cracked tile", Status: IncidentStatusInProgress, Severity: IncidentSeveritySoon,
@@ -2488,6 +2577,7 @@ func TestRestoreIncidentRestoresPreviousStatus(t *testing.T) {
 }
 
 func TestRestoreIncidentFallsBackToOpen(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	require.NoError(t, store.CreateIncident(&Incident{
 		Title: "Old incident", Status: IncidentStatusOpen, Severity: IncidentSeverityWhenever,
@@ -2505,6 +2595,7 @@ func TestRestoreIncidentFallsBackToOpen(t *testing.T) {
 }
 
 func TestHardDeleteIncidentRemovesRow(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	require.NoError(t, store.CreateIncident(&Incident{
 		Title: "Doomed", Status: IncidentStatusOpen, Severity: IncidentSeverityWhenever,
@@ -2521,6 +2612,7 @@ func TestHardDeleteIncidentRemovesRow(t *testing.T) {
 }
 
 func TestHardDeleteIncidentRemovesLinkedDocuments(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	require.NoError(t, store.CreateIncident(&Incident{
 		Title: "Leaky roof", Status: IncidentStatusOpen, Severity: IncidentSeveritySoon,
@@ -2540,6 +2632,7 @@ func TestHardDeleteIncidentRemovesLinkedDocuments(t *testing.T) {
 }
 
 func TestHardDeleteIncidentNotFound(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	err := store.HardDeleteIncident(999)
 	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)

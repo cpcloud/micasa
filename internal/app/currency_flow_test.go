@@ -91,6 +91,7 @@ var allTestCurrencies = []string{"USD", "EUR", "GBP", "JPY"}
 // ---------------------------------------------------------------------------
 
 func TestCurrencyFlow_ColumnHeaders(t *testing.T) {
+	t.Parallel()
 	for _, code := range []string{"USD", "EUR"} {
 		t.Run(code, func(t *testing.T) {
 			m := newTestModelWithCurrency(t, code, testLocale(code))
@@ -118,6 +119,7 @@ func TestCurrencyFlow_ColumnHeaders(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCurrencyFlow_QuoteRoundTrip(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		code      string
 		input     string
@@ -165,6 +167,7 @@ func TestCurrencyFlow_QuoteRoundTrip(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCurrencyFlow_Formatting(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		code     string
 		cents    int64
@@ -187,6 +190,7 @@ func TestCurrencyFlow_Formatting(t *testing.T) {
 }
 
 func TestCurrencyFlow_CompactNotation(t *testing.T) {
+	t.Parallel()
 	for _, code := range []string{"USD", "EUR"} {
 		t.Run(code, func(t *testing.T) {
 			cur := locale.MustResolve(code, testLocale(code))
@@ -202,6 +206,7 @@ func TestCurrencyFlow_CompactNotation(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCurrencyFlow_DBPortability(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "portable.db")
 
 	// First session: user sets up EUR database.
@@ -238,6 +243,7 @@ func TestCurrencyFlow_DBPortability(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCurrencyFlow_ResolutionOrder_ConfiguredCode(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "test.db")
 	store, err := data.Open(path)
 	require.NoError(t, err)
@@ -256,6 +262,7 @@ func TestCurrencyFlow_ResolutionOrder_ConfiguredCode(t *testing.T) {
 }
 
 func TestCurrencyFlow_ResolutionOrder_DBWinsOverConfig(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "test.db")
 	store, err := data.Open(path)
 	require.NoError(t, err)
@@ -274,6 +281,7 @@ func TestCurrencyFlow_ResolutionOrder_DBWinsOverConfig(t *testing.T) {
 }
 
 func TestCurrencyFlow_ResolutionOrder_EmptyFallsBackToUSD(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "test.db")
 	store, err := data.Open(path)
 	require.NoError(t, err)
@@ -291,6 +299,7 @@ func TestCurrencyFlow_ResolutionOrder_EmptyFallsBackToUSD(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCurrencyFlow_ParseUSD(t *testing.T) {
+	t.Parallel()
 	cur := locale.MustResolve("USD", language.AmericanEnglish)
 	tests := []struct {
 		name  string
@@ -312,6 +321,7 @@ func TestCurrencyFlow_ParseUSD(t *testing.T) {
 }
 
 func TestCurrencyFlow_ParseEUR(t *testing.T) {
+	t.Parallel()
 	cur := locale.MustResolve("EUR", language.German)
 	tests := []struct {
 		name  string
@@ -335,6 +345,7 @@ func TestCurrencyFlow_ParseEUR(t *testing.T) {
 }
 
 func TestCurrencyFlow_ParseGBP(t *testing.T) {
+	t.Parallel()
 	cur := locale.MustResolve("GBP", language.BritishEnglish)
 	tests := []struct {
 		name  string
@@ -355,6 +366,7 @@ func TestCurrencyFlow_ParseGBP(t *testing.T) {
 }
 
 func TestCurrencyFlow_ParseRejectsNegative(t *testing.T) {
+	t.Parallel()
 	for _, code := range []string{"USD", "EUR", "GBP"} {
 		t.Run(code, func(t *testing.T) {
 			cur := locale.MustResolve(code, testLocale(code))
@@ -365,6 +377,7 @@ func TestCurrencyFlow_ParseRejectsNegative(t *testing.T) {
 }
 
 func TestCurrencyFlow_ParseRejectsGarbage(t *testing.T) {
+	t.Parallel()
 	for _, code := range []string{"USD", "EUR", "GBP"} {
 		t.Run(code, func(t *testing.T) {
 			cur := locale.MustResolve(code, testLocale(code))
@@ -375,6 +388,7 @@ func TestCurrencyFlow_ParseRejectsGarbage(t *testing.T) {
 }
 
 func TestCurrencyFlow_ParseOptionalEmpty(t *testing.T) {
+	t.Parallel()
 	for _, code := range []string{"USD", "EUR", "GBP"} {
 		t.Run(code, func(t *testing.T) {
 			cur := locale.MustResolve(code, testLocale(code))
@@ -390,6 +404,7 @@ func TestCurrencyFlow_ParseOptionalEmpty(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCurrencyFlow_HouseProfile(t *testing.T) {
+	t.Parallel()
 	for _, code := range []string{"USD", "EUR"} {
 		t.Run(code, func(t *testing.T) {
 			m := newTestModelWithCurrency(t, code, testLocale(code))
@@ -403,6 +418,7 @@ func TestCurrencyFlow_HouseProfile(t *testing.T) {
 }
 
 func TestCurrencyFlow_HouseProfile_NilTax(t *testing.T) {
+	t.Parallel()
 	m := newTestModelWithCurrency(t, "USD", language.AmericanEnglish)
 	m.house.PropertyTaxCents = nil
 	m.showHouse = true
@@ -417,6 +433,7 @@ func TestCurrencyFlow_HouseProfile_NilTax(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCurrencyFlow_ProjectRows(t *testing.T) {
+	t.Parallel()
 	for _, code := range allTestCurrencies {
 		t.Run(code, func(t *testing.T) {
 			cur := locale.MustResolve(code, testLocale(code))
@@ -432,6 +449,7 @@ func TestCurrencyFlow_ProjectRows(t *testing.T) {
 }
 
 func TestCurrencyFlow_QuoteRows(t *testing.T) {
+	t.Parallel()
 	for _, code := range allTestCurrencies {
 		t.Run(code, func(t *testing.T) {
 			cur := locale.MustResolve(code, testLocale(code))
@@ -451,6 +469,7 @@ func TestCurrencyFlow_QuoteRows(t *testing.T) {
 }
 
 func TestCurrencyFlow_ApplianceRows(t *testing.T) {
+	t.Parallel()
 	for _, code := range allTestCurrencies {
 		t.Run(code, func(t *testing.T) {
 			cur := locale.MustResolve(code, testLocale(code))
@@ -469,6 +488,7 @@ func TestCurrencyFlow_ApplianceRows(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCurrencyFlow_CompactMoneyCells(t *testing.T) {
+	t.Parallel()
 	for _, code := range []string{"USD", "EUR"} {
 		t.Run(code, func(t *testing.T) {
 			cur := locale.MustResolve(code, testLocale(code))
@@ -492,6 +512,7 @@ func TestCurrencyFlow_CompactMoneyCells(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCurrencyFlow_AnnotateMoneyHeaders(t *testing.T) {
+	t.Parallel()
 	for _, code := range []string{"USD", "EUR", "GBP"} {
 		t.Run(code, func(t *testing.T) {
 			cur := locale.MustResolve(code, testLocale(code))
@@ -511,6 +532,7 @@ func TestCurrencyFlow_AnnotateMoneyHeaders(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCurrencyFlow_IncidentFormValues(t *testing.T) {
+	t.Parallel()
 	for _, code := range []string{"USD", "EUR", "GBP"} {
 		t.Run(code, func(t *testing.T) {
 			cur := locale.MustResolve(code, testLocale(code))
@@ -529,6 +551,7 @@ func TestCurrencyFlow_IncidentFormValues(t *testing.T) {
 }
 
 func TestCurrencyFlow_ServiceLogFormValues(t *testing.T) {
+	t.Parallel()
 	for _, code := range []string{"USD", "EUR", "GBP"} {
 		t.Run(code, func(t *testing.T) {
 			cur := locale.MustResolve(code, testLocale(code))
@@ -545,6 +568,7 @@ func TestCurrencyFlow_ServiceLogFormValues(t *testing.T) {
 }
 
 func TestCurrencyFlow_QuoteFormValues(t *testing.T) {
+	t.Parallel()
 	for _, code := range []string{"USD", "EUR", "GBP"} {
 		t.Run(code, func(t *testing.T) {
 			cur := locale.MustResolve(code, testLocale(code))
@@ -564,6 +588,7 @@ func TestCurrencyFlow_QuoteFormValues(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCurrencyFlow_PinFilter_USD(t *testing.T) {
+	t.Parallel()
 	m := newTestModelWithCurrency(t, "USD", language.AmericanEnglish)
 	projID := seedProject(t, m)
 
@@ -597,12 +622,14 @@ func TestCurrencyFlow_PinFilter_USD(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCurrencyFlow_InvalidCode(t *testing.T) {
+	t.Parallel()
 	_, err := locale.Resolve("NOPE", language.AmericanEnglish)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown currency")
 }
 
 func TestCurrencyFlow_InvalidCode_ResolveCurrency(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "test.db")
 	store, err := data.Open(path)
 	require.NoError(t, err)
@@ -622,6 +649,7 @@ func TestCurrencyFlow_InvalidCode_ResolveCurrency(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCurrencyFlow_FormatParseRoundTrip(t *testing.T) {
+	t.Parallel()
 	// CHF excluded: uses apostrophe grouping (10'000) which the parser
 	// does not yet handle. See plans/locale-aware-currency.md.
 	codes := []string{"USD", "EUR", "GBP", "JPY", "CAD", "AUD"}
@@ -653,6 +681,7 @@ func TestCurrencyFlow_FormatParseRoundTrip(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCurrencyFlow_EndToEnd_QuoteEditCycle(t *testing.T) {
+	t.Parallel()
 	// Test with input that's unambiguous for each locale: use the locale's
 	// own formatted output as form input (the realistic "edit existing" path).
 	for _, code := range []string{"USD", "EUR", "GBP"} {
@@ -719,6 +748,7 @@ func TestCurrencyFlow_EndToEnd_QuoteEditCycle(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCurrencyFlow_MagModeToggle(t *testing.T) {
+	t.Parallel()
 	m := newTestModelWithCurrency(t, "USD", language.AmericanEnglish)
 
 	budget := int64(150000)
@@ -745,6 +775,7 @@ func TestCurrencyFlow_MagModeToggle(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCurrencyFlow_CentsHelpers(t *testing.T) {
+	t.Parallel()
 	for _, code := range allTestCurrencies {
 		t.Run(code, func(t *testing.T) {
 			cur := locale.MustResolve(code, testLocale(code))

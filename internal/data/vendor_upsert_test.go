@@ -23,6 +23,7 @@ func openTestDB(t *testing.T) *gorm.DB {
 }
 
 func TestFindOrCreateVendorNewVendor(t *testing.T) {
+	t.Parallel()
 	db := openTestDB(t)
 	v, err := findOrCreateVendor(db, Vendor{Name: "New Plumber"})
 	require.NoError(t, err)
@@ -31,6 +32,7 @@ func TestFindOrCreateVendorNewVendor(t *testing.T) {
 }
 
 func TestFindOrCreateVendorExistingClearsFields(t *testing.T) {
+	t.Parallel()
 	db := openTestDB(t)
 	require.NoError(t, db.Create(&Vendor{Name: "Existing Co", Phone: "555-0000"}).Error)
 
@@ -44,6 +46,7 @@ func TestFindOrCreateVendorExistingClearsFields(t *testing.T) {
 }
 
 func TestFindOrCreateVendorExistingPreservesWhenPassedThrough(t *testing.T) {
+	t.Parallel()
 	db := openTestDB(t)
 	require.NoError(t, db.Create(&Vendor{
 		Name: "Preserve Co", Phone: "555-0000", Notes: "keep me",
@@ -64,6 +67,7 @@ func TestFindOrCreateVendorExistingPreservesWhenPassedThrough(t *testing.T) {
 }
 
 func TestFindOrCreateVendorExistingWithUpdates(t *testing.T) {
+	t.Parallel()
 	db := openTestDB(t)
 	require.NoError(t, db.Create(&Vendor{Name: "Update Co"}).Error)
 
@@ -87,6 +91,7 @@ func TestFindOrCreateVendorExistingWithUpdates(t *testing.T) {
 }
 
 func TestFindOrCreateVendorReturnedValueReflectsUpdates(t *testing.T) {
+	t.Parallel()
 	db := openTestDB(t)
 	require.NoError(t, db.Create(&Vendor{
 		Name:  "Stale Co",
@@ -114,12 +119,14 @@ func TestFindOrCreateVendorReturnedValueReflectsUpdates(t *testing.T) {
 }
 
 func TestFindOrCreateVendorEmptyNameReturnsError(t *testing.T) {
+	t.Parallel()
 	db := openTestDB(t)
 	_, err := findOrCreateVendor(db, Vendor{Name: ""})
 	assert.Error(t, err)
 }
 
 func TestFindOrCreateVendorWhitespaceNameReturnsError(t *testing.T) {
+	t.Parallel()
 	db := openTestDB(t)
 	_, err := findOrCreateVendor(db, Vendor{Name: "   "})
 	assert.Error(t, err)

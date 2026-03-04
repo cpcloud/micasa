@@ -15,6 +15,7 @@ import (
 )
 
 func TestBackupCreatesValidCopy(t *testing.T) {
+	t.Parallel()
 	store := newTestStoreWithDemoData(t, testSeed)
 
 	destPath := filepath.Join(t.TempDir(), "backup.db")
@@ -57,6 +58,7 @@ func TestBackupCreatesValidCopy(t *testing.T) {
 }
 
 func TestBackupDestAlreadyExists(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	destPath := filepath.Join(t.TempDir(), "existing.db")
@@ -68,6 +70,7 @@ func TestBackupDestAlreadyExists(t *testing.T) {
 }
 
 func TestBackupMemoryDB(t *testing.T) {
+	t.Parallel()
 	// Open an in-memory store, seed it, then back it up to a file.
 	store, err := Open(":memory:")
 	require.NoError(t, err)
@@ -94,6 +97,7 @@ func TestBackupMemoryDB(t *testing.T) {
 }
 
 func TestIsMicasaDB_True(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	ok, err := store.IsMicasaDB()
 	require.NoError(t, err)
@@ -101,6 +105,7 @@ func TestIsMicasaDB_True(t *testing.T) {
 }
 
 func TestIsMicasaDB_False(t *testing.T) {
+	t.Parallel()
 	// A freshly opened database with no migrations has no micasa tables.
 	store, err := Open(":memory:")
 	require.NoError(t, err)

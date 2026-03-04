@@ -11,6 +11,7 @@ import (
 )
 
 func TestTableNames(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	names, err := store.TableNames()
@@ -30,6 +31,7 @@ func TestTableNames(t *testing.T) {
 }
 
 func TestTableColumns(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	cols, err := store.TableColumns("projects")
@@ -48,6 +50,7 @@ func TestTableColumns(t *testing.T) {
 }
 
 func TestTableColumnsInvalidName(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	_, err := store.TableColumns("'; DROP TABLE projects; --")
@@ -56,6 +59,7 @@ func TestTableColumnsInvalidName(t *testing.T) {
 }
 
 func TestReadOnlyQuerySelect(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	require.NoError(t, store.SeedDefaults())
 
@@ -66,6 +70,7 @@ func TestReadOnlyQuerySelect(t *testing.T) {
 }
 
 func TestReadOnlyQueryRejectsInsert(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	_, _, err := store.ReadOnlyQuery("INSERT INTO projects (title) VALUES ('hack')")
 	require.Error(t, err)
@@ -73,6 +78,7 @@ func TestReadOnlyQueryRejectsInsert(t *testing.T) {
 }
 
 func TestReadOnlyQueryRejectsDelete(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	_, _, err := store.ReadOnlyQuery("DELETE FROM projects WHERE id = 1")
 	require.Error(t, err)
@@ -80,6 +86,7 @@ func TestReadOnlyQueryRejectsDelete(t *testing.T) {
 }
 
 func TestReadOnlyQueryRejectsMultiStatement(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	_, _, err := store.ReadOnlyQuery("SELECT * FROM projects; DROP TABLE projects")
 	require.Error(t, err)
@@ -87,6 +94,7 @@ func TestReadOnlyQueryRejectsMultiStatement(t *testing.T) {
 }
 
 func TestReadOnlyQueryRejectsAttach(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	_, _, err := store.ReadOnlyQuery("SELECT * FROM (SELECT 1) ATTACH DATABASE '/tmp/x' AS x")
 	require.Error(t, err)
@@ -94,6 +102,7 @@ func TestReadOnlyQueryRejectsAttach(t *testing.T) {
 }
 
 func TestReadOnlyQueryRejectsPragma(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	_, _, err := store.ReadOnlyQuery(
 		"SELECT * FROM pragma_table_info('projects') WHERE 1=1 PRAGMA journal_mode",
@@ -103,6 +112,7 @@ func TestReadOnlyQueryRejectsPragma(t *testing.T) {
 }
 
 func TestReadOnlyQueryEmpty(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	_, _, err := store.ReadOnlyQuery("")
 	require.Error(t, err)
@@ -110,6 +120,7 @@ func TestReadOnlyQueryEmpty(t *testing.T) {
 }
 
 func TestReadOnlyQueryAllowsDeletedAtColumn(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	// "deleted_at" contains "DELETE" as a substring but should be allowed.
 	cols, _, err := store.ReadOnlyQuery(
@@ -120,6 +131,7 @@ func TestReadOnlyQueryAllowsDeletedAtColumn(t *testing.T) {
 }
 
 func TestContainsWord(t *testing.T) {
+	t.Parallel()
 	assert.True(t, containsWord("SELECT * DELETE FROM", "DELETE"))
 	assert.False(t, containsWord("WHERE DELETED_AT IS NULL", "DELETE"))
 	assert.True(t, containsWord("DROP TABLE x", "DROP"))
@@ -127,6 +139,7 @@ func TestContainsWord(t *testing.T) {
 }
 
 func TestIsSafeIdentifier(t *testing.T) {
+	t.Parallel()
 	assert.True(t, isSafeIdentifier("projects"))
 	assert.True(t, isSafeIdentifier("house_profiles"))
 	assert.True(t, isSafeIdentifier("table123"))
@@ -136,6 +149,7 @@ func TestIsSafeIdentifier(t *testing.T) {
 }
 
 func TestDataDump(t *testing.T) {
+	t.Parallel()
 	store := newTestStoreWithDemoData(t, testSeed)
 
 	dump := store.DataDump()
@@ -147,6 +161,7 @@ func TestDataDump(t *testing.T) {
 }
 
 func TestDataDumpExcludesSoftDeletedRecords(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	// Create a vendor, then soft-delete it. The LLM dump should NOT mention it.
@@ -165,6 +180,7 @@ func TestDataDumpExcludesSoftDeletedRecords(t *testing.T) {
 }
 
 func TestColumnHints(t *testing.T) {
+	t.Parallel()
 	store := newTestStoreWithDemoData(t, testSeed)
 
 	hints := store.ColumnHints()
@@ -178,6 +194,7 @@ func TestColumnHints(t *testing.T) {
 }
 
 func TestColumnHintsEmptyDB(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 	// Empty DB (no SeedDefaults) should still not panic.
 	hints := store.ColumnHints()

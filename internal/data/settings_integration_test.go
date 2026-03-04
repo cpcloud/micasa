@@ -14,6 +14,7 @@ import (
 // TestModelPersistenceAcrossReopen simulates switching models and reopening
 // the store to verify the last-used model persists.
 func TestModelPersistenceAcrossReopen(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "test.db")
 
 	// Session 1: set model.
@@ -36,6 +37,7 @@ func TestModelPersistenceAcrossReopen(t *testing.T) {
 // TestChatHistoryPersistenceAcrossReopen simulates adding prompts and
 // reopening the store to verify history persists.
 func TestChatHistoryPersistenceAcrossReopen(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "test.db")
 
 	// Session 1: add history.
@@ -58,6 +60,7 @@ func TestChatHistoryPersistenceAcrossReopen(t *testing.T) {
 
 // TestChatHistoryTrimming verifies that old entries beyond the cap are removed.
 func TestChatHistoryTrimming(t *testing.T) {
+	t.Parallel()
 	store := newTestStore(t)
 
 	// Add entries beyond the cap.
