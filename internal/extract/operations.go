@@ -13,15 +13,17 @@ import (
 	"strings"
 )
 
-// Action constants for Operation.Action.
+// Action is a typed string enum for extraction operations.
+type Action string
+
 const (
-	ActionCreate = "create"
-	ActionUpdate = "update"
+	ActionCreate Action = "create"
+	ActionUpdate Action = "update"
 )
 
 // Operation is a single create/update action the LLM wants to perform.
 type Operation struct {
-	Action string         `json:"action"` // ActionCreate or ActionUpdate
+	Action Action         `json:"action"`
 	Table  string         `json:"table"`
 	Data   map[string]any `json:"data"`
 }
@@ -54,35 +56,17 @@ func ParseOperations(raw string) ([]Operation, error) {
 }
 
 // OperationsSchema returns the JSON Schema for structured extraction output.
-// The schema constrains model output to {"operations": [...]}, where each
-// operation has action, table, and data fields.
+// The schema uses anyOf to define precise per-table column schemas, so the
+// LLM is constrained to produce only valid column names and types for each
+// {action, table} combination.
 func OperationsSchema() map[string]any {
-	tables := make([]any, 0, len(ExtractionAllowedOps))
-	for t := range ExtractionAllowedOps {
-		tables = append(tables, t)
-	}
 	return map[string]any{
 		"type": "object",
 		"properties": map[string]any{
 			"operations": map[string]any{
 				"type": "array",
 				"items": map[string]any{
-					"type":     "object",
-					"required": []any{"action", "table", "data"},
-					"properties": map[string]any{
-						"action": map[string]any{
-							"type": "string",
-							"enum": []any{ActionCreate, ActionUpdate},
-						},
-						"table": map[string]any{
-							"type": "string",
-							"enum": tables,
-						},
-						"data": map[string]any{
-							"type": "object",
-						},
-					},
-					"additionalProperties": false,
+					"anyOf": operationVariants(),
 				},
 			},
 		},
@@ -91,14 +75,69 @@ func OperationsSchema() map[string]any {
 	}
 }
 
+// operationVariants returns the anyOf branches derived from ExtractionOps.
+// Each branch constrains table to a single value and data to the exact
+// columns that table's commit function consumes.
+func operationVariants() []any {
+	variants := make([]any, len(ExtractionOps))
+	for i, op := range ExtractionOps {
+		variants[i] = buildVariant(op)
+	}
+	return variants
+}
+
+// buildVariant constructs a single anyOf branch from a flattened TableOp.
+func buildVariant(op TableOp) map[string]any {
+	dataProps := make(map[string]any, len(op.Columns))
+	var required []any
+	for _, fc := range op.Columns {
+		prop := map[string]any{"type": string(fc.Type)}
+		if len(fc.Enum) > 0 {
+			prop["enum"] = fc.Enum
+		}
+		dataProps[fc.Name] = prop
+		if fc.Required {
+			required = append(required, fc.Name)
+		}
+	}
+
+	dataSchema := map[string]any{
+		"type":                 "object",
+		"properties":           dataProps,
+		"additionalProperties": false,
+	}
+	if len(required) > 0 {
+		dataSchema["required"] = required
+	}
+
+	return map[string]any{
+		"type":     "object",
+		"required": []any{"action", "table", "data"},
+		"properties": map[string]any{
+			"action": map[string]any{
+				"type": "string",
+				"enum": []any{op.Action},
+			},
+			"table": map[string]any{
+				"type": "string",
+				"enum": []any{op.Table},
+			},
+			"data": dataSchema,
+		},
+		"additionalProperties": false,
+	}
+}
+
 // ValidateOperations checks each operation against the allowed tables and
 // action types. Returns an error describing the first violation found.
 func ValidateOperations(ops []Operation, allowed map[string]AllowedOps) error {
 	for i, op := range ops {
-		action := strings.ToLower(strings.TrimSpace(op.Action))
+		action := Action(strings.ToLower(strings.TrimSpace(string(op.Action))))
 		table := strings.ToLower(strings.TrimSpace(op.Table))
 
-		if action != ActionCreate && action != ActionUpdate {
+		switch action {
+		case ActionCreate, ActionUpdate:
+		default:
 			return fmt.Errorf(
 				"operation %d: action must be %q or %q, got %q",
 				i, ActionCreate, ActionUpdate, op.Action,

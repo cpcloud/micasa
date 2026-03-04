@@ -69,9 +69,9 @@ func TestPipeline_LLMExtractsOperationsFromText(t *testing.T) {
 	assert.True(t, r.LLMUsed)
 
 	require.Len(t, r.Operations, 2)
-	assert.Equal(t, "update", r.Operations[0].Action)
+	assert.Equal(t, ActionUpdate, r.Operations[0].Action)
 	assert.Equal(t, "documents", r.Operations[0].Table)
-	assert.Equal(t, "create", r.Operations[1].Action)
+	assert.Equal(t, ActionCreate, r.Operations[1].Action)
 	assert.Equal(t, "vendors", r.Operations[1].Table)
 }
 
