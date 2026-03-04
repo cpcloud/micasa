@@ -933,6 +933,50 @@ func TestBgExtraction_ErrorStaysInList(t *testing.T) {
 	assert.Contains(t, m.status.Text, "bad.pdf")
 }
 
+func TestLLMExtraction_TimeoutError(t *testing.T) {
+	m := newExtractionModel(map[extractionStep]stepStatus{
+		stepLLM: stepRunning,
+	})
+	ex := m.ex.extraction
+	ex.Steps[stepLLM].Started = time.Now().Add(-3 * time.Minute)
+	id := ex.ID
+
+	// Drive the timeout error through Update (simulating the async message
+	// that bubbletea delivers when the LLM context deadline fires).
+	m.Update(extractionLLMChunkMsg{
+		ID:   id,
+		Err:  context.DeadlineExceeded,
+		Done: true,
+	})
+
+	step := ex.Steps[stepLLM]
+	assert.Equal(t, stepFailed, step.Status)
+	require.NotEmpty(t, step.Logs)
+	assert.Contains(t, step.Logs[0], "timed out")
+	assert.Contains(t, step.Logs[0], "extraction.llm_timeout")
+}
+
+func TestLLMExtraction_TimeoutError_NonDeadlinePreservesOriginal(t *testing.T) {
+	m := newExtractionModel(map[extractionStep]stepStatus{
+		stepLLM: stepRunning,
+	})
+	ex := m.ex.extraction
+	ex.Steps[stepLLM].Started = time.Now()
+	id := ex.ID
+
+	// A non-timeout error should preserve the original message.
+	m.Update(extractionLLMChunkMsg{
+		ID:   id,
+		Err:  context.Canceled,
+		Done: true,
+	})
+
+	step := ex.Steps[stepLLM]
+	assert.Equal(t, stepFailed, step.Status)
+	require.NotEmpty(t, step.Logs)
+	assert.Equal(t, "context canceled", step.Logs[0])
+}
+
 func TestMultipleBgExtractions(t *testing.T) {
 	m := newExtractionModel(map[extractionStep]stepStatus{
 		stepExtract: stepRunning,

@@ -170,6 +170,7 @@ func (cmd *runCmd) Run() error {
 		exCfg.Thinking,
 		extractors,
 		cfg.Extraction.IsEnabled(),
+		cfg.Extraction.LLMTimeoutDuration(),
 	)
 
 	model, err := app.NewModel(store, opts)
