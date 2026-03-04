@@ -8,7 +8,7 @@ linkTitle = "Navigation"
 micasa uses vim-style modal keybindings. There are three modes: **Nav**,
 **Edit**, and **Form**.
 
-<video src="/videos/using-navigation.webm" autoplay loop muted playsinline style="max-width:100%;border-radius:8px"></video>
+<video src="/videos/using-navigation.webm" class="demo-video" autoplay loop muted playsinline></video>
 
 ## Nav mode
 

@@ -8,7 +8,7 @@ linkTitle = "Sorting & Columns"
 micasa supports multi-column sorting, a fuzzy column finder, column hiding,
 and horizontal scrolling.
 
-<video src="/videos/using-sorting.webm" autoplay loop muted playsinline style="max-width:100%;border-radius:8px"></video>
+<video src="/videos/using-sorting.webm" class="demo-video" autoplay loop muted playsinline></video>
 
 ## Multi-column sorting
 
