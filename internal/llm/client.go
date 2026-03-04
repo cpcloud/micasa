@@ -120,28 +120,36 @@ func buildOpts(baseURL, apiKey string, timeout time.Duration) []anyllm.Option {
 }
 
 func createProvider(name string, opts []anyllm.Option) (anyllm.Provider, error) {
+	var (
+		p   anyllm.Provider
+		err error
+	)
 	switch name {
 	case providerOllama:
-		return ollama.New(opts...)
+		p, err = ollama.New(opts...)
 	case "anthropic":
-		return anthropic.New(opts...)
+		p, err = anthropic.New(opts...)
 	case "openai", "openrouter":
-		return openai.New(opts...)
+		p, err = openai.New(opts...)
 	case "deepseek":
-		return deepseek.New(opts...)
+		p, err = deepseek.New(opts...)
 	case "gemini":
-		return gemini.New(opts...)
+		p, err = gemini.New(opts...)
 	case "groq":
-		return groq.New(opts...)
+		p, err = groq.New(opts...)
 	case "mistral":
-		return mistral.New(opts...)
+		p, err = mistral.New(opts...)
 	case "llamacpp":
-		return llamacpp.New(opts...)
+		p, err = llamacpp.New(opts...)
 	case "llamafile":
-		return llamafile.New(opts...)
+		p, err = llamafile.New(opts...)
 	default:
 		return nil, fmt.Errorf("unknown provider %q", name)
 	}
+	if err != nil {
+		return nil, fmt.Errorf("creating %s provider: %w", name, err)
+	}
+	return p, nil
 }
 
 // ProviderName returns the provider identifier (e.g. "ollama", "anthropic").

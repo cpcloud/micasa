@@ -38,19 +38,19 @@ func TestParseOperations_RejectsCodeFences(t *testing.T) {
 
 func TestParseOperations_Empty(t *testing.T) {
 	_, err := ParseOperations("")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "empty LLM output")
 }
 
 func TestParseOperations_InvalidJSON(t *testing.T) {
 	_, err := ParseOperations("I don't understand the question")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "parse operations json")
 }
 
 func TestParseOperations_EmptyArray(t *testing.T) {
 	_, err := ParseOperations(`{"operations": []}`)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no operations found")
 }
 

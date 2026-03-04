@@ -326,7 +326,7 @@ func TestHelpOverlayFixedWidthOnScroll(t *testing.T) {
 	widthAtTop := lipgloss.Width(m.helpView())
 
 	// Scroll to middle.
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		sendKey(m, "j")
 	}
 	widthAtMiddle := lipgloss.Width(m.helpView())

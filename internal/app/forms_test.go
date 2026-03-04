@@ -41,39 +41,39 @@ func TestParseFormDataWrongType(t *testing.T) {
 
 	m.fs.formData = wrong
 	_, err := m.parseProjectFormData()
-	assert.Error(t, err, "parseProjectFormData")
+	require.Error(t, err, "parseProjectFormData")
 
 	m.fs.formData = wrong
 	_, err = m.parseIncidentFormData()
-	assert.Error(t, err, "parseIncidentFormData")
+	require.Error(t, err, "parseIncidentFormData")
 
 	m.fs.formData = wrong
 	_, err = m.parseApplianceFormData()
-	assert.Error(t, err, "parseApplianceFormData")
+	require.Error(t, err, "parseApplianceFormData")
 
 	m.fs.formData = wrong
 	_, err = m.parseVendorFormData()
-	assert.Error(t, err, "parseVendorFormData")
+	require.Error(t, err, "parseVendorFormData")
 
 	m.fs.formData = wrong
 	_, _, err = m.parseServiceLogFormData()
-	assert.Error(t, err, "parseServiceLogFormData")
+	require.Error(t, err, "parseServiceLogFormData")
 
 	m.fs.formData = wrong
 	_, _, err = m.parseQuoteFormData()
-	assert.Error(t, err, "parseQuoteFormData")
+	require.Error(t, err, "parseQuoteFormData")
 
 	m.fs.formData = wrong
 	_, err = m.parseMaintenanceFormData()
-	assert.Error(t, err, "parseMaintenanceFormData")
+	require.Error(t, err, "parseMaintenanceFormData")
 
 	m.fs.formData = &projectFormData{}
 	err = m.submitHouseForm()
-	assert.Error(t, err, "submitHouseForm")
+	require.Error(t, err, "submitHouseForm")
 
 	m.fs.formData = wrong
 	_, err = m.parseDocumentFormData()
-	assert.Error(t, err, "parseDocumentFormData")
+	require.Error(t, err, "parseDocumentFormData")
 }
 
 func TestOptionalFilePathExpandsTilde(t *testing.T) {

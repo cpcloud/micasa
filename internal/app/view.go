@@ -720,7 +720,7 @@ func (m *Model) centerPanel(panel string, minPadTop int) string {
 	}
 	lines := strings.Split(panel, "\n")
 	var b strings.Builder
-	for i := 0; i < padTop; i++ {
+	for range padTop {
 		b.WriteString("\n")
 	}
 	indent := strings.Repeat(" ", padLeft)

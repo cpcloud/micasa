@@ -598,7 +598,7 @@ func TestCurrencyFlow_PinFilter_USD(t *testing.T) {
 
 func TestCurrencyFlow_InvalidCode(t *testing.T) {
 	_, err := locale.Resolve("NOPE", language.AmericanEnglish)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown currency")
 }
 

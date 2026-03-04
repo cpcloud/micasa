@@ -156,7 +156,7 @@ func TestPipeline_NilExtractorsDefault(t *testing.T) {
 	p := &Pipeline{}
 	// Nil extractors falls back to DefaultExtractors(0, 0).
 	r := p.Run(context.Background(), []byte("text"), "doc.txt", "text/plain")
-	assert.NoError(t, r.Err)
+	require.NoError(t, r.Err)
 	assert.True(t, r.HasSource("plaintext"))
 }
 

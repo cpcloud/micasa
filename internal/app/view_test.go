@@ -884,7 +884,7 @@ func TestFilterIndicatorOnTabRow(t *testing.T) {
 
 	// User pins a value: preview indicator ▽.
 	sendKey(m, "n")
-	require.True(t, len(tab.Pins) > 0)
+	require.NotEmpty(t, tab.Pins)
 	tabs = m.tabsView()
 	assert.Contains(t, tabs, filterMarkPreview)
 

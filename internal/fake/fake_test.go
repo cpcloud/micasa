@@ -62,7 +62,7 @@ func TestProject(t *testing.T) {
 }
 
 func TestProjectCompletedHasEndDateAndActual(t *testing.T) {
-	for seed := uint64(0); seed < 100; seed++ {
+	for seed := range uint64(100) {
 		h := New(seed)
 		p := h.Project("Plumbing")
 		if p.Status == StatusCompleted {
@@ -147,7 +147,7 @@ func TestQuote(t *testing.T) {
 
 func TestVarietyAcrossSeeds(t *testing.T) {
 	names := map[string]bool{}
-	for seed := uint64(0); seed < 20; seed++ {
+	for seed := range uint64(20) {
 		h := New(seed)
 		v := h.Vendor()
 		names[v.Name] = true
@@ -162,7 +162,7 @@ func TestVendorTrades(t *testing.T) {
 
 func TestIntN(t *testing.T) {
 	h := New(42)
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		v := h.IntN(5)
 		assert.GreaterOrEqual(t, v, 0)
 		assert.Less(t, v, 5)

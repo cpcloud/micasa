@@ -411,7 +411,7 @@ func (s *Store) SeedDemoDataFrom(h *fake.HomeFaker) error {
 			continue
 		}
 		nQuotes := 1 + h.IntN(2)
-		for q := 0; q < nQuotes; q++ {
+		for range nQuotes {
 			vi := h.IntN(len(vendors))
 			fq := h.Quote()
 			quote := Quote{
@@ -454,7 +454,7 @@ func (s *Store) SeedDemoDataFrom(h *fake.HomeFaker) error {
 	var maintItems []MaintenanceItem
 	for _, catName := range categoryNames {
 		nItems := 1 + h.IntN(2)
-		for j := 0; j < nItems; j++ {
+		for range nItems {
 			fm := h.MaintenanceItem(catName)
 			item := MaintenanceItem{
 				Name:           fm.Name,
@@ -482,7 +482,7 @@ func (s *Store) SeedDemoDataFrom(h *fake.HomeFaker) error {
 			continue
 		}
 		nEntries := 1 + h.IntN(3)
-		for j := 0; j < nEntries; j++ {
+		for range nEntries {
 			fe := h.ServiceLogEntry()
 			entry := ServiceLogEntry{
 				MaintenanceItemID: maintItems[i].ID,
@@ -502,7 +502,7 @@ func (s *Store) SeedDemoDataFrom(h *fake.HomeFaker) error {
 
 	// Incidents: 2-3 items linked to appliances/vendors.
 	incidents := make([]Incident, 0, 3)
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		fi := h.Incident()
 		inc := Incident{
 			Title:       fi.Title,

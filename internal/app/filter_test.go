@@ -409,7 +409,7 @@ func TestPinSummary(t *testing.T) {
 
 func TestPinSummaryEmpty(t *testing.T) {
 	tab := newFilterTab()
-	assert.Equal(t, "", pinSummary(tab))
+	assert.Empty(t, pinSummary(tab))
 }
 
 func TestMatchesAllPinsMagMode(t *testing.T) {
@@ -487,7 +487,7 @@ func TestCellDisplayValueEntityPinsByKind(t *testing.T) {
 
 	assert.Equal(t, "project", cellDisplayValue(project, false, "$"))
 	assert.Equal(t, "vendor", cellDisplayValue(vendor, false, "$"))
-	assert.Equal(t, "", cellDisplayValue(empty, false, "$"), "empty entity returns empty")
+	assert.Empty(t, cellDisplayValue(empty, false, "$"), "empty entity returns empty")
 }
 
 func TestMatchesAllPinsNullCell(t *testing.T) {

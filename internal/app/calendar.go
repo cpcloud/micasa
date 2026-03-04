@@ -50,7 +50,7 @@ func calendarGrid(cal calendarState) string {
 	var gridRows []string
 	var row strings.Builder
 	// Leading blanks.
-	for i := 0; i < startDow; i++ {
+	for range startDow {
 		row.WriteString("   ")
 	}
 

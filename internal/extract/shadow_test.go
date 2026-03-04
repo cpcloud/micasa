@@ -96,7 +96,7 @@ func TestShadowDB_StageRejectsEmptyData(t *testing.T) {
 		{Action: ActionCreate, Table: "vendors", Data: map[string]any{}},
 	}
 	err = sdb.Stage(ops)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no columns to insert")
 }
 

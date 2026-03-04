@@ -163,6 +163,9 @@ func (m Migrator) ColumnTypes(value interface{}) ([]gorm.ColumnType, error) {
 			}
 		}()
 
+		if err = rows.Err(); err != nil {
+			return err
+		}
 		var rawColumnTypes []*sql.ColumnType
 		rawColumnTypes, err = rows.ColumnTypes()
 		if err != nil {

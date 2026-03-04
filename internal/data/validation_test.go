@@ -33,7 +33,7 @@ func TestParseOptionalInt(t *testing.T) {
 func TestParseOptionalFloat(t *testing.T) {
 	value, err := ParseOptionalFloat("2.5")
 	require.NoError(t, err)
-	assert.Equal(t, 2.5, value)
+	assert.InDelta(t, 2.5, value, 0.001)
 
 	_, err = ParseOptionalFloat("-1.2")
 	assert.Error(t, err)
@@ -166,7 +166,7 @@ func TestParseRequiredFloat(t *testing.T) {
 	for _, tt := range tests {
 		got, err := ParseRequiredFloat(tt.input)
 		require.NoError(t, err, "input=%q", tt.input)
-		assert.Equal(t, tt.want, got, "input=%q", tt.input)
+		assert.InDelta(t, tt.want, got, 0.001, "input=%q", tt.input)
 	}
 }
 

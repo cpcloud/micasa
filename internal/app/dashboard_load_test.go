@@ -51,7 +51,7 @@ func TestLoadDashboardAtClassifiesOverdueAndUpcoming(t *testing.T) {
 	require.Len(t, m.dash.data.Overdue, 1)
 	assert.Equal(t, "Replace Filter", m.dash.data.Overdue[0].Item.Name)
 	assert.Equal(t, "Furnace", m.dash.data.Overdue[0].ApplianceName)
-	assert.Less(t, m.dash.data.Overdue[0].DaysFromNow, 0)
+	assert.Negative(t, m.dash.data.Overdue[0].DaysFromNow)
 
 	// "Clean Coils" is due in ~2 months — not within 30 days, so not upcoming.
 	assert.Empty(t, m.dash.data.Upcoming)
@@ -233,7 +233,7 @@ func TestLoadDashboardAtDueDateOverdue(t *testing.T) {
 
 	require.Len(t, m.dash.data.Overdue, 1)
 	assert.Equal(t, "Inspect Roof", m.dash.data.Overdue[0].Item.Name)
-	assert.Less(t, m.dash.data.Overdue[0].DaysFromNow, 0)
+	assert.Negative(t, m.dash.data.Overdue[0].DaysFromNow)
 }
 
 func TestLoadDashboardAtDueDateUpcoming(t *testing.T) {

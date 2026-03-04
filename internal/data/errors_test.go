@@ -14,7 +14,7 @@ import (
 )
 
 func TestWithHintNil(t *testing.T) {
-	assert.Nil(t, WithHint(nil, "should not wrap"))
+	assert.NoError(t, WithHint(nil, "should not wrap"))
 }
 
 func TestWithHintPreservesChain(t *testing.T) {
@@ -22,10 +22,10 @@ func TestWithHintPreservesChain(t *testing.T) {
 	wrapped := fmt.Errorf("layer: %w", sentinel)
 	hinted := WithHint(wrapped, "user-friendly message")
 
-	require.NotNil(t, hinted)
+	require.Error(t, hinted)
 	assert.Equal(t, "user-friendly message", hinted.Error())
-	assert.True(t, errors.Is(hinted, sentinel), "sentinel should be reachable via errors.Is")
-	assert.True(t, errors.Is(hinted, wrapped), "intermediate wrap should be reachable")
+	require.ErrorIs(t, hinted, sentinel, "sentinel should be reachable via errors.Is")
+	require.ErrorIs(t, hinted, wrapped, "intermediate wrap should be reachable")
 }
 
 func TestHintExtraction(t *testing.T) {
@@ -34,8 +34,8 @@ func TestHintExtraction(t *testing.T) {
 }
 
 func TestHintExtractionNoHint(t *testing.T) {
-	assert.Equal(t, "", Hint(errors.New("no hint")))
-	assert.Equal(t, "", Hint(nil))
+	assert.Empty(t, Hint(errors.New("no hint")))
+	assert.Empty(t, Hint(nil))
 }
 
 func TestHintNestedExtraction(t *testing.T) {
@@ -79,7 +79,7 @@ func TestFieldErrorMappings(t *testing.T) {
 		t.Run(tt.label+"_"+tt.err.Error(), func(t *testing.T) {
 			result := FieldError(tt.label, tt.err)
 			assert.Equal(t, tt.wantMsg, result.Error())
-			assert.True(t, errors.Is(result, tt.wantIs),
+			assert.ErrorIs(t, result, tt.wantIs,
 				"errors.Is should match sentinel %v", tt.wantIs)
 		})
 	}
@@ -89,5 +89,5 @@ func TestFieldErrorUnknownSentinel(t *testing.T) {
 	custom := errors.New("something unusual")
 	result := FieldError("Field", custom)
 	assert.Equal(t, "Field: something unusual", result.Error())
-	assert.True(t, errors.Is(result, custom))
+	assert.ErrorIs(t, result, custom)
 }

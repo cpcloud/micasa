@@ -83,7 +83,7 @@ func buildTestBinary(t *testing.T) string {
 		ext = ".exe"
 	}
 	bin := filepath.Join(t.TempDir(), "micasa"+ext)
-	cmd := exec.Command( //nolint:gosec // test helper with constant args
+	cmd := exec.CommandContext(t.Context(),
 		"go",
 		"build",
 		"-o",
@@ -103,7 +103,11 @@ func TestVersion_DevShowsCommitHash(t *testing.T) {
 		t.Skip("no .git directory; VCS info unavailable (e.g. Nix sandbox)")
 	}
 	bin := buildTestBinary(t)
-	verCmd := exec.Command(bin, "--version") //nolint:gosec // test binary path from buildTestBinary
+	verCmd := exec.CommandContext(
+		t.Context(),
+		bin,
+		"--version",
+	)
 	out, err := verCmd.Output()
 	require.NoError(t, err, "--version failed")
 	got := strings.TrimSpace(string(out))
@@ -118,13 +122,17 @@ func TestVersion_Injected(t *testing.T) {
 		ext = ".exe"
 	}
 	bin := filepath.Join(t.TempDir(), "micasa"+ext)
-	cmd := exec.Command("go", "build", //nolint:gosec // test with constant args
+	cmd := exec.CommandContext(t.Context(), "go", "build",
 		"-ldflags", "-X main.version=1.2.3",
 		"-o", bin, ".")
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 	out, err := cmd.CombinedOutput()
 	require.NoError(t, err, "build failed:\n%s", out)
-	verCmd := exec.Command(bin, "--version") //nolint:gosec // test binary path from above
+	verCmd := exec.CommandContext(
+		t.Context(),
+		bin,
+		"--version",
+	)
 	verOut, err := verCmd.Output()
 	require.NoError(t, err, "--version failed")
 	assert.Equal(t, "1.2.3", strings.TrimSpace(string(verOut)))
@@ -134,7 +142,12 @@ func TestConfigCmd(t *testing.T) {
 	bin := buildTestBinary(t)
 
 	t.Run("LLMModel", func(t *testing.T) {
-		cmd := exec.Command(bin, "config", "llm.model") //nolint:gosec // test binary
+		cmd := exec.CommandContext(
+			t.Context(),
+			bin,
+			"config",
+			"llm.model",
+		)
 		out, err := cmd.CombinedOutput()
 		require.NoError(t, err, "config llm.model failed: %s", out)
 		got := strings.TrimSpace(string(out))
@@ -142,14 +155,19 @@ func TestConfigCmd(t *testing.T) {
 	})
 
 	t.Run("UnknownKey", func(t *testing.T) {
-		cmd := exec.Command(bin, "config", "bogus.key") //nolint:gosec // test binary
+		cmd := exec.CommandContext(
+			t.Context(),
+			bin,
+			"config",
+			"bogus.key",
+		)
 		out, err := cmd.CombinedOutput()
 		require.Error(t, err)
 		assert.Contains(t, string(out), "unknown config key")
 	})
 
 	t.Run("MissingKey", func(t *testing.T) {
-		cmd := exec.Command(bin, "config") //nolint:gosec // test binary
+		cmd := exec.CommandContext(t.Context(), bin, "config")
 		out, err := cmd.CombinedOutput()
 		require.Error(t, err)
 		assert.Contains(t, string(out), "expected \"<key>\"")
@@ -175,7 +193,14 @@ func TestBackupCmd(t *testing.T) {
 	t.Run("ExplicitDest", func(t *testing.T) {
 		src := createTestDB(t)
 		dest := filepath.Join(t.TempDir(), "backup.db")
-		cmd := exec.Command(bin, "backup", "--source", src, dest) //nolint:gosec // test binary
+		cmd := exec.CommandContext(
+			t.Context(),
+			bin,
+			"backup",
+			"--source",
+			src,
+			dest,
+		)
 		out, err := cmd.CombinedOutput()
 		require.NoError(t, err, "backup failed: %s", out)
 
@@ -188,7 +213,13 @@ func TestBackupCmd(t *testing.T) {
 
 	t.Run("DefaultDest", func(t *testing.T) {
 		src := createTestDB(t)
-		cmd := exec.Command(bin, "backup", "--source", src) //nolint:gosec // test binary
+		cmd := exec.CommandContext(
+			t.Context(),
+			bin,
+			"backup",
+			"--source",
+			src,
+		)
 		out, err := cmd.CombinedOutput()
 		require.NoError(t, err, "backup failed: %s", out)
 
@@ -203,7 +234,7 @@ func TestBackupCmd(t *testing.T) {
 	t.Run("SourceFromEnv", func(t *testing.T) {
 		src := createTestDB(t)
 		dest := filepath.Join(t.TempDir(), "env-backup.db")
-		cmd := exec.Command(bin, "backup", dest) //nolint:gosec // test binary
+		cmd := exec.CommandContext(t.Context(), bin, "backup", dest)
 		cmd.Env = append(os.Environ(), "MICASA_DB_PATH="+src)
 		out, err := cmd.CombinedOutput()
 		require.NoError(t, err, "backup via MICASA_DB_PATH failed: %s", out)
@@ -215,7 +246,14 @@ func TestBackupCmd(t *testing.T) {
 	t.Run("ProducesValidDB", func(t *testing.T) {
 		src := createTestDB(t)
 		dest := filepath.Join(t.TempDir(), "valid-backup.db")
-		cmd := exec.Command(bin, "backup", "--source", src, dest) //nolint:gosec // test binary
+		cmd := exec.CommandContext(
+			t.Context(),
+			bin,
+			"backup",
+			"--source",
+			src,
+			dest,
+		)
 		out, err := cmd.CombinedOutput()
 		require.NoError(t, err, "backup failed: %s", out)
 
@@ -226,7 +264,7 @@ func TestBackupCmd(t *testing.T) {
 
 	t.Run("MemorySourceRejected", func(t *testing.T) {
 		dest := filepath.Join(t.TempDir(), "backup.db")
-		cmd := exec.Command( //nolint:gosec // test binary
+		cmd := exec.CommandContext(t.Context(),
 			bin,
 			"backup",
 			"--source",
@@ -243,7 +281,14 @@ func TestBackupCmd(t *testing.T) {
 		dest := filepath.Join(t.TempDir(), "existing.db")
 		require.NoError(t, os.WriteFile(dest, []byte("x"), 0o600))
 
-		cmd := exec.Command(bin, "backup", "--source", src, dest) //nolint:gosec // test binary
+		cmd := exec.CommandContext(
+			t.Context(),
+			bin,
+			"backup",
+			"--source",
+			src,
+			dest,
+		)
 		out, err := cmd.CombinedOutput()
 		require.Error(t, err)
 		assert.Contains(t, string(out), "already exists")
@@ -251,7 +296,7 @@ func TestBackupCmd(t *testing.T) {
 
 	t.Run("SourceNotFound", func(t *testing.T) {
 		dest := filepath.Join(t.TempDir(), "backup.db")
-		cmd := exec.Command( //nolint:gosec // test binary
+		cmd := exec.CommandContext(t.Context(),
 			bin,
 			"backup",
 			"--source",
@@ -265,7 +310,7 @@ func TestBackupCmd(t *testing.T) {
 
 	t.Run("InvalidDestPath", func(t *testing.T) {
 		src := createTestDB(t)
-		cmd := exec.Command( //nolint:gosec // test binary
+		cmd := exec.CommandContext(t.Context(),
 			bin,
 			"backup",
 			"--source",
@@ -285,7 +330,14 @@ func TestBackupCmd(t *testing.T) {
 		require.NoError(t, otherStore.Close())
 
 		dest := filepath.Join(t.TempDir(), "backup.db")
-		cmd := exec.Command(bin, "backup", "--source", src, dest) //nolint:gosec // test binary
+		cmd := exec.CommandContext(
+			t.Context(),
+			bin,
+			"backup",
+			"--source",
+			src,
+			dest,
+		)
 		out, err := cmd.CombinedOutput()
 		require.Error(t, err)
 		assert.Contains(t, string(out), "not a micasa database")

@@ -245,7 +245,7 @@ func TestResizeTablesIncludesDetail(t *testing.T) {
 	_ = m.openServiceLogDetail(1, "Test")
 
 	m.resizeTables()
-	assert.Greater(t, m.detail().Tab.Table.Height(), 0)
+	assert.Positive(t, m.detail().Tab.Table.Height())
 }
 
 func TestSortWorksInDetailView(t *testing.T) {

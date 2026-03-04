@@ -27,15 +27,22 @@ linters:
     - sqlclosecheck
     - bodyclose
     - nilerr
+    - rowserrcheck
+    - noctx
 
     # Dead code
     - unused
+    - wastedassign
 
     # Code quality
     - goconst
     - dupword
     - asciicheck
     - revive
+    - testifylint
+    - intrange
+    - wrapcheck
+    - musttag
 
   settings:
     exhaustive:
@@ -52,6 +59,14 @@ linters:
           disabled: true
         - name: package-comments
           disabled: true
+
+    wrapcheck:
+      ignore-package-globs:
+        - github.com/cpcloud/micasa/*
+        - database/sql
+        - database/sql/*
+        - gorm.io/gorm
+        - gorm.io/gorm/*
 
     gocritic:
       enable-all: true
@@ -70,3 +85,8 @@ linters:
       - linters: [staticcheck]
         path: _test\.go
         text: "SA5011"
+
+      # gosec G204/G704: test binaries and URLs are controlled, not user input
+      - linters: [gosec]
+        path: _test\.go
+        text: "G204|G704"

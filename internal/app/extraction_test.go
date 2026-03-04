@@ -534,7 +534,7 @@ func TestModelPicker_ROpensPickerOnDoneLLMStep(t *testing.T) {
 	// No LLM client in test model, so picker is populated with well-known
 	// models immediately (not in loading state).
 	assert.False(t, ex.modelPicker.Loading, "no client means immediate populate")
-	assert.Greater(t, len(ex.modelPicker.All), 0, "well-known models should be available")
+	assert.NotEmpty(t, ex.modelPicker.All, "well-known models should be available")
 }
 
 func TestModelPicker_EscDismissesWithoutRerun(t *testing.T) {

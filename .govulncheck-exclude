@@ -1,0 +1,12 @@
+# Vulnerability IDs to exclude from govulncheck.
+# One GO-xxxx-xxxx per line. Comments and blank lines are ignored.
+# All of these are in github.com/ollama/ollama with no upstream fix.
+GO-2025-3548
+GO-2025-3557
+GO-2025-3558
+GO-2025-3559
+GO-2025-3582
+GO-2025-3689
+GO-2025-3695
+GO-2025-3824
+GO-2025-4251

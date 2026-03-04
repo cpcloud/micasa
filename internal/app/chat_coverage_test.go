@@ -28,7 +28,11 @@ func requireOllama(t *testing.T) {
 			DialContext: (&net.Dialer{Timeout: 2 * time.Second}).DialContext,
 		},
 	}
-	resp, err := client.Get(url)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, url, nil)
+	if err != nil {
+		t.Skipf("ollama not available: %v", err)
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		t.Skipf("ollama not available: %v", err)
 	}
@@ -304,7 +308,7 @@ func TestRenderModelCompleterFixedHeight(t *testing.T) {
 
 	result := m.renderModelCompleter(80)
 	lines := strings.Split(result, "\n")
-	assert.Equal(t, completerMaxLines, len(lines),
+	assert.Len(t, lines, completerMaxLines,
 		"completer should always have %d lines", completerMaxLines)
 }
 
@@ -606,7 +610,7 @@ func TestMergeModelListsLocalFlag(t *testing.T) {
 		}
 	}
 	assert.Equal(t, 1, localCount)
-	assert.Greater(t, remoteCount, 0, "should have some well-known remote models")
+	assert.Positive(t, remoteCount, "should have some well-known remote models")
 }
 
 // --- completerQuery ---
@@ -628,7 +632,7 @@ func TestCompleterQueryEmptyAfterPrefix(t *testing.T) {
 
 	q, ok := m.completerQuery()
 	assert.True(t, ok)
-	assert.Equal(t, "", q)
+	assert.Empty(t, q)
 }
 
 func TestCompleterQueryNoMatch(t *testing.T) {

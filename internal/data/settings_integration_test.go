@@ -61,7 +61,7 @@ func TestChatHistoryTrimming(t *testing.T) {
 	store := newTestStore(t)
 
 	// Add entries beyond the cap.
-	for i := 0; i < 250; i++ {
+	for i := range 250 {
 		require.NoError(t, store.AppendChatInput(string(rune('a'+i%26))))
 	}
 

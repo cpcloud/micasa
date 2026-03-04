@@ -92,7 +92,7 @@ func TestPipeline_LLMServerDown(t *testing.T) {
 	// LLM failed gracefully.
 	assert.False(t, r.LLMUsed)
 	assert.Empty(t, r.Operations)
-	assert.Error(t, r.Err)
+	require.Error(t, r.Err)
 	assert.Contains(t, r.Err.Error(), "llm extraction")
 }
 
@@ -115,7 +115,7 @@ func TestPipeline_LLMGarbageResponse(t *testing.T) {
 	assert.Equal(t, "invoice text", r.Text())
 	assert.False(t, r.LLMUsed)
 	assert.Empty(t, r.Operations)
-	assert.Error(t, r.Err)
+	require.Error(t, r.Err)
 	assert.Contains(t, r.Err.Error(), "parse llm operations")
 }
 
@@ -135,7 +135,7 @@ func TestPipeline_LLMSkippedWithoutText(t *testing.T) {
 	p := &Pipeline{LLMClient: client}
 	r := p.Run(context.Background(), []byte{0xFF, 0xD8}, "photo.bin", "application/octet-stream")
 
-	assert.NoError(t, r.Err)
+	require.NoError(t, r.Err)
 	assert.Empty(t, r.Text())
 	assert.False(t, r.LLMUsed)
 	assert.False(t, called, "LLM should not be called when there's no text to analyze")
@@ -152,7 +152,7 @@ func TestPipeline_LLMForbiddenAction(t *testing.T) {
 
 	assert.False(t, r.LLMUsed)
 	assert.Empty(t, r.Operations)
-	assert.Error(t, r.Err)
+	require.Error(t, r.Err)
 	assert.Contains(t, r.Err.Error(), "action must be")
 }
 
@@ -167,6 +167,6 @@ func TestPipeline_LLMForbiddenTable(t *testing.T) {
 
 	assert.False(t, r.LLMUsed)
 	assert.Empty(t, r.Operations)
-	assert.Error(t, r.Err)
+	require.Error(t, r.Err)
 	assert.Contains(t, r.Err.Error(), "not in the allowed set")
 }

@@ -41,7 +41,7 @@ func TestTableColumns(t *testing.T) {
 	for _, col := range cols {
 		if col.Name == "id" {
 			foundID = true
-			assert.Greater(t, col.PK, 0)
+			assert.Positive(t, col.PK)
 		}
 	}
 	assert.True(t, foundID, "expected to find id column")
@@ -51,7 +51,7 @@ func TestTableColumnsInvalidName(t *testing.T) {
 	store := newTestStore(t)
 
 	_, err := store.TableColumns("'; DROP TABLE projects; --")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid table name")
 }
 
@@ -68,28 +68,28 @@ func TestReadOnlyQuerySelect(t *testing.T) {
 func TestReadOnlyQueryRejectsInsert(t *testing.T) {
 	store := newTestStore(t)
 	_, _, err := store.ReadOnlyQuery("INSERT INTO projects (title) VALUES ('hack')")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "only SELECT")
 }
 
 func TestReadOnlyQueryRejectsDelete(t *testing.T) {
 	store := newTestStore(t)
 	_, _, err := store.ReadOnlyQuery("DELETE FROM projects WHERE id = 1")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "only SELECT")
 }
 
 func TestReadOnlyQueryRejectsMultiStatement(t *testing.T) {
 	store := newTestStore(t)
 	_, _, err := store.ReadOnlyQuery("SELECT * FROM projects; DROP TABLE projects")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "multiple statements")
 }
 
 func TestReadOnlyQueryRejectsAttach(t *testing.T) {
 	store := newTestStore(t)
 	_, _, err := store.ReadOnlyQuery("SELECT * FROM (SELECT 1) ATTACH DATABASE '/tmp/x' AS x")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "disallowed keyword: ATTACH")
 }
 
@@ -98,14 +98,14 @@ func TestReadOnlyQueryRejectsPragma(t *testing.T) {
 	_, _, err := store.ReadOnlyQuery(
 		"SELECT * FROM pragma_table_info('projects') WHERE 1=1 PRAGMA journal_mode",
 	)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "disallowed keyword: PRAGMA")
 }
 
 func TestReadOnlyQueryEmpty(t *testing.T) {
 	store := newTestStore(t)
 	_, _, err := store.ReadOnlyQuery("")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "empty")
 }
 

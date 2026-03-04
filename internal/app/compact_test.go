@@ -135,7 +135,7 @@ func TestCompactMoneyCells(t *testing.T) {
 	assert.Equal(t, "100.00", out[1][2].Value)
 
 	// Empty money cell stays empty.
-	assert.Equal(t, "", out[1][3].Value)
+	assert.Empty(t, out[1][3].Value)
 
 	// Original rows not modified.
 	assert.Equal(t, "$5,234.23", rows[0][2].Value)

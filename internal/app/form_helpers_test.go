@@ -74,7 +74,7 @@ func TestDocumentFormValuesNoEntity(t *testing.T) {
 	}
 	fd := documentFormValues(doc)
 	assert.Equal(t, "Standalone Doc", fd.Title)
-	assert.Equal(t, "", fd.EntityRef.Kind)
+	assert.Empty(t, fd.EntityRef.Kind)
 	assert.Equal(t, uint(0), fd.EntityRef.ID)
 }
 
@@ -187,8 +187,8 @@ func TestIncidentFormValuesNilOptionals(t *testing.T) {
 	fd := incidentFormValues(item, locale.DefaultCurrency())
 	assert.Equal(t, uint(0), fd.ApplianceID)
 	assert.Equal(t, uint(0), fd.VendorID)
-	assert.Equal(t, "", fd.Cost)
-	assert.Equal(t, "", fd.DateResolved)
+	assert.Empty(t, fd.Cost)
+	assert.Empty(t, fd.DateResolved)
 }
 
 // ---------------------------------------------------------------------------
@@ -220,7 +220,7 @@ func TestServiceLogFormValuesNilOptionals(t *testing.T) {
 	}
 	fd := serviceLogFormValues(entry, locale.DefaultCurrency())
 	assert.Equal(t, uint(0), fd.VendorID)
-	assert.Equal(t, "", fd.Cost)
+	assert.Empty(t, fd.Cost)
 }
 
 // ---------------------------------------------------------------------------

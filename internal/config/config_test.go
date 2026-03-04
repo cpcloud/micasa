@@ -162,7 +162,7 @@ func TestMalformedConfigReturnsError(t *testing.T) {
 	path := writeConfig(t, "{{not toml")
 
 	_, err := LoadFromPath(path)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "parse")
 }
 

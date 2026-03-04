@@ -14,7 +14,7 @@ func TestGetSettingMissing(t *testing.T) {
 	store := newTestStore(t)
 	val, err := store.GetSetting("nonexistent")
 	require.NoError(t, err)
-	assert.Equal(t, "", val)
+	assert.Empty(t, val)
 }
 
 func TestPutAndGetSetting(t *testing.T) {
@@ -42,7 +42,7 @@ func TestLastModelRoundTrip(t *testing.T) {
 	// Initially empty.
 	model, err := store.GetLastModel()
 	require.NoError(t, err)
-	assert.Equal(t, "", model)
+	assert.Empty(t, model)
 
 	// Set and retrieve.
 	require.NoError(t, store.PutLastModel("qwen3:8b"))
@@ -61,7 +61,7 @@ func TestCurrencyDefaultEmpty(t *testing.T) {
 	store := newTestStore(t)
 	code, err := store.GetCurrency()
 	require.NoError(t, err)
-	assert.Equal(t, "", code)
+	assert.Empty(t, code)
 }
 
 func TestCurrencyRoundTrip(t *testing.T) {

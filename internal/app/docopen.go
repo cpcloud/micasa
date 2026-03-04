@@ -59,10 +59,13 @@ func openFileCmd(path string) tea.Cmd {
 		switch runtime.GOOS {
 		case "darwin":
 			openerName = "open"
-			cmd = exec.Command("open", path) //nolint:gosec // path from trusted cache directory
+			cmd = exec.Command( //nolint:gosec,noctx // trusted cache path; no context in tea.Cmd
+				"open",
+				path,
+			)
 		case "windows":
 			openerName = "cmd"
-			cmd = exec.Command( //nolint:gosec // path from trusted cache directory
+			cmd = exec.Command( //nolint:gosec,noctx // path from trusted cache directory; no context in tea.Cmd
 				"cmd",
 				"/c",
 				"start",
@@ -71,7 +74,10 @@ func openFileCmd(path string) tea.Cmd {
 			)
 		default:
 			openerName = "xdg-open"
-			cmd = exec.Command("xdg-open", path) //nolint:gosec // path from trusted cache directory
+			cmd = exec.Command( //nolint:gosec,noctx // trusted cache path; no context in tea.Cmd
+				"xdg-open",
+				path,
+			)
 		}
 		err := cmd.Run()
 		if err != nil {

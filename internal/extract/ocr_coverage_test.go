@@ -74,7 +74,7 @@ func TestOcrPDF_InvalidData(t *testing.T) {
 	}
 
 	_, _, err := ocrPDF(context.Background(), []byte("not a pdf at all"), 5)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "all image extraction tools failed")
 }
 
@@ -174,7 +174,7 @@ func TestOcrImage_InvalidData(t *testing.T) {
 	}
 
 	_, _, err := ocrImage(context.Background(), []byte("not an image"))
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "tesseract")
 }
 
@@ -223,7 +223,7 @@ func TestOcrImageFile_NonExistentFile(t *testing.T) {
 	}
 
 	_, _, err := ocrImageFile(context.Background(), "/nonexistent/image.png")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "tesseract")
 }
 
@@ -334,7 +334,7 @@ func TestExtractPDF_CorruptData(t *testing.T) {
 	}
 
 	_, err := extractPDF(context.Background(), []byte("definitely not a PDF"))
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "pdftotext")
 }
 

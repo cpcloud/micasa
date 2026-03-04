@@ -64,5 +64,5 @@ func TestSeedDemoDataSkipsIfDataExists(t *testing.T) {
 	require.NoError(t, store.SeedDemoData())
 
 	vendors2, _ := store.ListVendors(false)
-	assert.Equal(t, count1, len(vendors2))
+	assert.Len(t, vendors2, count1)
 }

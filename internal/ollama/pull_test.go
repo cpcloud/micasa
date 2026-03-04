@@ -53,7 +53,7 @@ func TestPullModelSuccess(t *testing.T) {
 
 	// EOF
 	chunk, err = scanner.Next()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Nil(t, chunk)
 }
 
@@ -112,7 +112,7 @@ func TestPullScannerSkipsBlankLines(t *testing.T) {
 
 	// EOF after blank lines
 	chunk, err = scanner.Next()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Nil(t, chunk)
 }
 

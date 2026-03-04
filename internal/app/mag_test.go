@@ -391,7 +391,7 @@ func TestMagCentsIncludesUnit(t *testing.T) {
 
 func TestMagOptionalCentsNil(t *testing.T) {
 	cur := locale.DefaultCurrency()
-	assert.Equal(t, "", magOptionalCents(nil, cur))
+	assert.Empty(t, magOptionalCents(nil, cur))
 }
 
 func TestMagOptionalCentsPresent(t *testing.T) {

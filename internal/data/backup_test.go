@@ -29,31 +29,31 @@ func TestBackupCreatesValidCopy(t *testing.T) {
 	require.NoError(t, err)
 	dstVendors, err := backup.ListVendors(false)
 	require.NoError(t, err)
-	assert.Equal(t, len(srcVendors), len(dstVendors), "vendor count mismatch")
+	assert.Len(t, dstVendors, len(srcVendors), "vendor count mismatch")
 
 	srcProjects, err := store.ListProjects(false)
 	require.NoError(t, err)
 	dstProjects, err := backup.ListProjects(false)
 	require.NoError(t, err)
-	assert.Equal(t, len(srcProjects), len(dstProjects), "project count mismatch")
+	assert.Len(t, dstProjects, len(srcProjects), "project count mismatch")
 
 	srcAppliances, err := store.ListAppliances(false)
 	require.NoError(t, err)
 	dstAppliances, err := backup.ListAppliances(false)
 	require.NoError(t, err)
-	assert.Equal(t, len(srcAppliances), len(dstAppliances), "appliance count mismatch")
+	assert.Len(t, dstAppliances, len(srcAppliances), "appliance count mismatch")
 
 	srcMaint, err := store.ListMaintenance(false)
 	require.NoError(t, err)
 	dstMaint, err := backup.ListMaintenance(false)
 	require.NoError(t, err)
-	assert.Equal(t, len(srcMaint), len(dstMaint), "maintenance count mismatch")
+	assert.Len(t, dstMaint, len(srcMaint), "maintenance count mismatch")
 
 	srcIncidents, err := store.ListIncidents(false)
 	require.NoError(t, err)
 	dstIncidents, err := backup.ListIncidents(false)
 	require.NoError(t, err)
-	assert.Equal(t, len(srcIncidents), len(dstIncidents), "incident count mismatch")
+	assert.Len(t, dstIncidents, len(srcIncidents), "incident count mismatch")
 }
 
 func TestBackupDestAlreadyExists(t *testing.T) {

@@ -26,7 +26,7 @@ func TestExtractWithProgress_EmptyData(t *testing.T) {
 	msg := <-ch
 	assert.True(t, msg.Done)
 	assert.Empty(t, msg.Text)
-	assert.NoError(t, msg.Err)
+	require.NoError(t, msg.Err)
 
 	// Channel should be closed.
 	_, open := <-ch

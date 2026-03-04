@@ -229,6 +229,22 @@ jobs:
         with:
           extra_args: --only-verified
 
+  govulncheck:
+    name: Go Vulnerability Check
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ci-govulncheck-${{ github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - uses: cachix/install-nix-action@4e002c8ec80594ecd40e759629461e26c8abed15 # v31
+
+      - name: Run govulncheck
+        run: nix run '.#govulncheck'
+
   vuln-scan:
     name: Vulnerability Scan
     runs-on: ubuntu-latest
@@ -251,7 +267,7 @@ jobs:
 
   semantic-release:
     name: Semantic Release
-    needs: [test, deadcode, pre-commit, nix-build, docs, secrets]
+    needs: [test, deadcode, govulncheck, pre-commit, nix-build, docs, secrets]
     runs-on: ubuntu-latest
     concurrency:
       group: semantic-release-${{ github.ref }}

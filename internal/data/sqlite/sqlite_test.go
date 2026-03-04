@@ -131,7 +131,7 @@ func TestSQLiteVersion(t *testing.T) {
 	require.NoError(t, err)
 
 	var version string
-	require.NoError(t, db.QueryRow("select sqlite_version()").Scan(&version))
+	require.NoError(t, db.QueryRowContext(t.Context(), "select sqlite_version()").Scan(&version))
 	assert.NotEmpty(t, version)
 	t.Logf("SQLite version: %s", version)
 }

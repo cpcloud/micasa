@@ -132,7 +132,7 @@ func (s *Store) SeedScaledDataFrom(h *fake.HomeFaker, years int) (SeedSummary, e
 
 	projectTypeNames := fake.ProjectTypes()
 	projects := make([]Project, 0, 5)
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		typeName := projectTypeNames[i%len(projectTypeNames)]
 		fp := h.Project(typeName)
 		fp.Status = projectStatusForAge(h, years)
@@ -154,7 +154,7 @@ func (s *Store) SeedScaledDataFrom(h *fake.HomeFaker, years int) (SeedSummary, e
 	summary.Projects = len(projects)
 
 	appliances := make([]Appliance, 0, 8)
-	for i := 0; i < 8; i++ {
+	for range 8 {
 		fa := h.Appliance()
 		a := Appliance{
 			Name:           fa.Name,
@@ -177,7 +177,7 @@ func (s *Store) SeedScaledDataFrom(h *fake.HomeFaker, years int) (SeedSummary, e
 	maintItems := make([]MaintenanceItem, 0, 20)
 	for _, catName := range categoryNames {
 		nItems := 2 + h.IntN(2) // 2-3 per category
-		for j := 0; j < nItems; j++ {
+		for range nItems {
 			fm := h.MaintenanceItem(catName)
 			item := MaintenanceItem{
 				Name:           fm.Name,
@@ -201,7 +201,7 @@ func (s *Store) SeedScaledDataFrom(h *fake.HomeFaker, years int) (SeedSummary, e
 
 	// Base incidents.
 	incidents := make([]Incident, 0, 3)
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		fi := h.Incident()
 		inc := Incident{
 			Title:       fi.Title,
@@ -261,7 +261,7 @@ func (s *Store) SeedScaledDataFrom(h *fake.HomeFaker, years int) (SeedSummary, e
 
 		// Add 1-2 new vendors per year.
 		nNewVendors := 1 + h.IntN(2)
-		for i := 0; i < nNewVendors; i++ {
+		for range nNewVendors {
 			fv := h.Vendor()
 			v := Vendor{
 				Name:        fv.Name,
@@ -279,7 +279,7 @@ func (s *Store) SeedScaledDataFrom(h *fake.HomeFaker, years int) (SeedSummary, e
 
 		// Add 2-4 new projects per year.
 		nNewProjects := 2 + h.IntN(3)
-		for i := 0; i < nNewProjects; i++ {
+		for range nNewProjects {
 			typeName := projectTypeNames[h.IntN(len(projectTypeNames))]
 			fp := h.Project(typeName)
 			fp.Status = projectStatusForAge(h, yearsAgo)
@@ -313,7 +313,7 @@ func (s *Store) SeedScaledDataFrom(h *fake.HomeFaker, years int) (SeedSummary, e
 
 		// Add 0-2 new appliances per year.
 		nNewAppliances := h.IntN(3)
-		for i := 0; i < nNewAppliances; i++ {
+		for range nNewAppliances {
 			fa := h.Appliance()
 			a := Appliance{
 				Name:           fa.Name,
@@ -360,7 +360,7 @@ func (s *Store) SeedScaledDataFrom(h *fake.HomeFaker, years int) (SeedSummary, e
 
 		// Add 1-2 incidents per year.
 		nNewIncidents := 1 + h.IntN(2)
-		for i := 0; i < nNewIncidents; i++ {
+		for range nNewIncidents {
 			fi := h.Incident()
 			inc := Incident{
 				Title:       fi.Title,
@@ -386,7 +386,7 @@ func (s *Store) SeedScaledDataFrom(h *fake.HomeFaker, years int) (SeedSummary, e
 
 		// Add 5-10 documents per year across various entity types.
 		nNewDocs := 5 + h.IntN(6)
-		for i := 0; i < nNewDocs; i++ {
+		for range nNewDocs {
 			doc := randomDocument(h, projects, appliances, maintItems, vendors, incidents)
 			if err := s.db.Create(&doc).Error; err != nil {
 				return summary, fmt.Errorf("seed document %s: %w", doc.Title, err)
@@ -455,7 +455,7 @@ func serviceLogsForYear(
 	intervalDays := 365 / servicesPerYear
 	var logs []ServiceLogEntry
 
-	for i := 0; i < servicesPerYear; i++ {
+	for i := range servicesPerYear {
 		// Skip ~15% to simulate missed services.
 		if h.IntN(100) < 15 {
 			continue
@@ -509,7 +509,7 @@ func seedQuotesForProjects(
 			continue
 		}
 		nQuotes := 1 + h.IntN(2)
-		for q := 0; q < nQuotes; q++ {
+		for range nQuotes {
 			vi := h.IntN(len(vendors))
 			fq := h.Quote()
 			quotes = append(quotes, Quote{

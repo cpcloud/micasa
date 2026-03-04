@@ -20,8 +20,8 @@ const testValidatorDate = "2025-06-15"
 
 func TestRequiredTextRejectsEmpty(t *testing.T) {
 	validate := requiredText("title")
-	assert.Error(t, validate(""))
-	assert.Error(t, validate("  "))
+	require.Error(t, validate(""))
+	require.Error(t, validate("  "))
 }
 
 func TestRequiredTextAcceptsNonEmpty(t *testing.T) {
@@ -54,7 +54,7 @@ func TestOptionalIntervalRejectsInvalid(t *testing.T) {
 	validate := optionalInterval("interval")
 	for _, input := range []string{"abc", "-1", "1x", "m", "y"} {
 		err := validate(input)
-		assert.Errorf(t, err, "optionalInterval(%q) expected error", input)
+		require.Errorf(t, err, "optionalInterval(%q) expected error", input)
 		if err != nil {
 			assert.Contains(t, err.Error(), "6m, 1y, 2y 6m", "error should be actionable")
 		}

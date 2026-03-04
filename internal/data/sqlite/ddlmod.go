@@ -271,7 +271,7 @@ func (d *ddl) renameTable(dst, src string) error {
 		"\\s*('|`|\")?\\b" + regexp.QuoteMeta(src) + "\\b('|`|\")?\\s*",
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("compiling table rename regex: %w", err)
 	}
 
 	replaced := tableReg.ReplaceAllString(d.head, fmt.Sprintf(" `%s` ", dst))

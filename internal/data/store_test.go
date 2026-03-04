@@ -363,7 +363,7 @@ func TestCountQuotesByVendor(t *testing.T) {
 	projects, _ := store.ListProjects(false)
 	projectID := projects[0].ID
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		require.NoError(t, store.CreateQuote(
 			&Quote{ProjectID: projectID, TotalCents: 100000},
 			Vendor{Name: "Quote Vendor"},
@@ -578,7 +578,7 @@ func TestThreeLevelDeleteRestoreChain(t *testing.T) {
 	logID := logs[0].ID
 
 	// --- Delete bottom-up ---
-	assert.Error(t, store.DeleteMaintenance(maintID), "active service log should block")
+	require.Error(t, store.DeleteMaintenance(maintID), "active service log should block")
 
 	require.NoError(t, store.DeleteServiceLog(logID))
 	require.NoError(t, store.DeleteMaintenance(maintID))
@@ -901,8 +901,8 @@ func TestVendorQuoteProjectDeleteRestoreChain(t *testing.T) {
 	quoteID := quotes[0].ID
 
 	// --- Delete bottom-up ---
-	assert.Error(t, store.DeleteVendor(vendorID), "active quote blocks vendor delete")
-	assert.Error(t, store.DeleteProject(projID), "active quote blocks project delete")
+	require.Error(t, store.DeleteVendor(vendorID), "active quote blocks vendor delete")
+	require.Error(t, store.DeleteProject(projID), "active quote blocks project delete")
 
 	require.NoError(t, store.DeleteQuote(quoteID))
 	require.NoError(t, store.DeleteProject(projID))

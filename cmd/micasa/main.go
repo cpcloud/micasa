@@ -181,7 +181,10 @@ func (cmd *runCmd) Run() error {
 	defer fmt.Fprint(os.Stderr, "\033[23;2t")
 
 	_, err = tea.NewProgram(model, tea.WithAltScreen()).Run()
-	return err
+	if err != nil {
+		return fmt.Errorf("running program: %w", err)
+	}
+	return nil
 }
 
 func (cmd *runCmd) resolveDBPath() (string, error) {

@@ -62,7 +62,7 @@ func (ps *PullScanner) Next() (*PullChunk, error) {
 		return &chunk, nil
 	}
 	if err := ps.scanner.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("scanning pull response: %w", err)
 	}
 	_ = ps.body.Close()
 	return nil, nil // EOF

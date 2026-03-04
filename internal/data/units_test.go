@@ -68,32 +68,32 @@ func TestDisplayRoundTrip(t *testing.T) {
 	roundTripped := DisplayIntToSqFt(display, UnitsMetric)
 	// Two integer rounding steps (sqft->m2->sqft) can each add +/-0.5,
 	// yielding up to +/-1 per step, so allow +/-2 total.
-	assert.True(t, math.Abs(float64(original-roundTripped)) <= 2,
+	assert.LessOrEqual(t, math.Abs(float64(original-roundTripped)), 2.0,
 		"round-trip %d -> %d -> %d drift too large", original, display, roundTripped)
 }
 
 func TestFormatAreaImperial(t *testing.T) {
 	assert.Equal(t, "1,820 ft\u00B2", FormatArea(1820, UnitsImperial))
-	assert.Equal(t, "", FormatArea(0, UnitsImperial))
+	assert.Empty(t, FormatArea(0, UnitsImperial))
 }
 
 func TestFormatAreaMetric(t *testing.T) {
 	result := FormatArea(1820, UnitsMetric)
 	assert.Contains(t, result, "m\u00B2")
 	assert.NotContains(t, result, "ft")
-	assert.Equal(t, "", FormatArea(0, UnitsMetric))
+	assert.Empty(t, FormatArea(0, UnitsMetric))
 }
 
 func TestFormatLotAreaImperial(t *testing.T) {
 	assert.Equal(t, "7,000 ft\u00B2 lot", FormatLotArea(7000, UnitsImperial))
-	assert.Equal(t, "", FormatLotArea(0, UnitsImperial))
+	assert.Empty(t, FormatLotArea(0, UnitsImperial))
 }
 
 func TestFormatLotAreaMetric(t *testing.T) {
 	result := FormatLotArea(7000, UnitsMetric)
 	assert.Contains(t, result, "m\u00B2 lot")
 	assert.NotContains(t, result, "ft")
-	assert.Equal(t, "", FormatLotArea(0, UnitsMetric))
+	assert.Empty(t, FormatLotArea(0, UnitsMetric))
 }
 
 func TestFormTitlesAndPlaceholders(t *testing.T) {

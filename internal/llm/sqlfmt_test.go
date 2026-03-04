@@ -76,7 +76,7 @@ func TestFormatSQLNestedSubquery(t *testing.T) {
 	assert.Contains(t, got, "WHERE status = 'active'")
 	// Verify each column is on its own line
 	lines := strings.Split(got, "\n")
-	assert.Equal(t, 4, len(lines), "should have 4 lines: SELECT, column with subquery, FROM, WHERE")
+	assert.Len(t, lines, 4, "should have 4 lines: SELECT, column with subquery, FROM, WHERE")
 	// Second line should be indented and contain the subquery
 	assert.True(t, strings.HasPrefix(lines[1], "  "), "second column should be indented")
 	assert.Contains(t, lines[1], "SELECT COUNT(*)", "should contain nested SELECT on column line")
@@ -140,7 +140,7 @@ func TestFormatSQLDateFunctions(t *testing.T) {
 }
 
 func TestFormatSQLEmpty(t *testing.T) {
-	assert.Equal(t, "", FormatSQL("", 0))
+	assert.Empty(t, FormatSQL("", 0))
 }
 
 func TestFormatSQLAlreadyFormatted(t *testing.T) {

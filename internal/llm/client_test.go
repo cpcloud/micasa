@@ -62,14 +62,14 @@ func TestPingModelNotFound(t *testing.T) {
 
 	client := newTestClient(t, srv.URL+"/v1", "qwen3")
 	err := client.Ping(context.Background())
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not available")
 }
 
 func TestPingServerDown(t *testing.T) {
 	client := newTestClient(t, "http://127.0.0.1:1/v1", "qwen3")
 	err := client.Ping(context.Background())
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot reach")
 }
 
@@ -100,15 +100,23 @@ func TestChatCompleteSuccess(t *testing.T) {
 func TestChatCompleteWithJSONSchema(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		if !assert.NoError(t, json.NewDecoder(r.Body).Decode(&body)) {
+			return
+		}
 		rf, ok := body["response_format"].(map[string]any)
-		require.True(t, ok, "request should include response_format")
+		if !assert.True(t, ok, "request should include response_format") {
+			return
+		}
 		assert.Equal(t, "json_schema", rf["type"])
 		js, ok := rf["json_schema"].(map[string]any)
-		require.True(t, ok, "response_format should include json_schema")
+		if !assert.True(t, ok, "response_format should include json_schema") {
+			return
+		}
 		assert.Equal(t, "test_schema", js["name"])
 		schema, ok := js["schema"].(map[string]any)
-		require.True(t, ok, "json_schema should include schema")
+		if !assert.True(t, ok, "json_schema should include schema") {
+			return
+		}
 		assert.Equal(t, "object", schema["type"])
 		jsonResponse(w, `{"choices":[{"message":{"content":"{\"ok\":true}"}}]}`)
 	}))
@@ -130,7 +138,9 @@ func TestChatCompleteWithJSONSchema(t *testing.T) {
 func TestChatCompleteWithoutJSONSchema(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		if !assert.NoError(t, json.NewDecoder(r.Body).Decode(&body)) {
+			return
+		}
 		_, hasRF := body["response_format"]
 		assert.False(t, hasRF, "request should not include response_format")
 		jsonResponse(w, `{"choices":[{"message":{"content":"hello"}}]}`)
@@ -170,7 +180,7 @@ func TestChatCompleteEmptyChoices(t *testing.T) {
 	_, err := client.ChatComplete(context.Background(), []Message{
 		{Role: "user", Content: "hi"},
 	})
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no choices")
 }
 
@@ -210,7 +220,7 @@ func TestListModelsSuccess(t *testing.T) {
 func TestListModelsServerDown(t *testing.T) {
 	client := newTestClient(t, "http://127.0.0.1:1/v1", "qwen3")
 	_, err := client.ListModels(context.Background())
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot reach")
 }
 
@@ -514,7 +524,7 @@ func TestWrapErrorProviderErrorPreservesNonConnectionErrors(t *testing.T) {
 				anyllmerrors.NewProviderError(tt.provider, tt.inner),
 			)
 			require.Error(t, err)
-			assert.ErrorIs(t, err, tt.inner,
+			require.ErrorIs(t, err, tt.inner,
 				"original error should be preserved for non-connection failures")
 			assert.NotContains(t, err.Error(), "cannot reach",
 				"should not claim server is unreachable for mid-stream errors")
@@ -589,7 +599,9 @@ func TestWrapErrorGeneric(t *testing.T) {
 func TestChatCompleteWithThinking(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		if !assert.NoError(t, json.NewDecoder(r.Body).Decode(&body)) {
+			return
+		}
 		// The reasoning_effort field should be present when thinking is set.
 		// The exact field name depends on the provider SDK, but we verify the
 		// client at least sets it on the params.

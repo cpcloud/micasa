@@ -170,7 +170,7 @@ func TestListRecentServiceLogs(t *testing.T) {
 	item := MaintenanceItem{Name: "SL Item", CategoryID: cat.ID, IntervalMonths: 6}
 	require.NoError(t, store.db.Create(&item).Error)
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		require.NoError(t, store.db.Create(&ServiceLogEntry{
 			MaintenanceItemID: item.ID,
 			ServicedAt:        time.Date(2025, 1+time.Month(i), 1, 0, 0, 0, 0, time.UTC),

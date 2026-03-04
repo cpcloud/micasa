@@ -31,26 +31,26 @@ func TestSeedScaledDataPopulatesAllEntities(t *testing.T) {
 	vendors, err := store.ListVendors(false)
 	require.NoError(t, err)
 	assert.NotEmpty(t, vendors)
-	assert.Equal(t, summary.Vendors, len(vendors))
+	assert.Len(t, vendors, summary.Vendors)
 
 	projects, err := store.ListProjects(false)
 	require.NoError(t, err)
 	assert.NotEmpty(t, projects)
-	assert.Equal(t, summary.Projects, len(projects))
+	assert.Len(t, projects, summary.Projects)
 
 	appliances, err := store.ListAppliances(false)
 	require.NoError(t, err)
 	assert.NotEmpty(t, appliances)
-	assert.Equal(t, summary.Appliances, len(appliances))
+	assert.Len(t, appliances, summary.Appliances)
 
 	maint, err := store.ListMaintenance(false)
 	require.NoError(t, err)
 	assert.NotEmpty(t, maint)
-	assert.Equal(t, summary.Maintenance, len(maint))
+	assert.Len(t, maint, summary.Maintenance)
 
-	assert.Greater(t, summary.ServiceLogs, 0)
-	assert.Greater(t, summary.Quotes, 0)
-	assert.Greater(t, summary.Documents, 0)
+	assert.Positive(t, summary.ServiceLogs)
+	assert.Positive(t, summary.Quotes)
+	assert.Positive(t, summary.Documents)
 }
 
 func TestSeedScaledDataDeterministic(t *testing.T) {
@@ -178,19 +178,19 @@ func TestSeedScaledDataSummaryMatchesDB(t *testing.T) {
 	// Verify summary counts match actual DB contents.
 	vendors, err := store.ListVendors(false)
 	require.NoError(t, err)
-	assert.Equal(t, summary.Vendors, len(vendors))
+	assert.Len(t, vendors, summary.Vendors)
 
 	projects, err := store.ListProjects(false)
 	require.NoError(t, err)
-	assert.Equal(t, summary.Projects, len(projects))
+	assert.Len(t, projects, summary.Projects)
 
 	appliances, err := store.ListAppliances(false)
 	require.NoError(t, err)
-	assert.Equal(t, summary.Appliances, len(appliances))
+	assert.Len(t, appliances, summary.Appliances)
 
 	maint, err := store.ListMaintenance(false)
 	require.NoError(t, err)
-	assert.Equal(t, summary.Maintenance, len(maint))
+	assert.Len(t, maint, summary.Maintenance)
 
 	// Count total service logs across all maintenance items.
 	totalLogs := 0

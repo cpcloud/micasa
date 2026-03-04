@@ -68,7 +68,7 @@ func TestValidateDBPath(t *testing.T) {
 
 func TestValidateDBPathRejectsRandomURLs(t *testing.T) {
 	f := gofakeit.New(testSeed)
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		u := f.URL()
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			assert.Error(t, ValidateDBPath(u), "ValidateDBPath(%q) should reject", u)
@@ -78,7 +78,7 @@ func TestValidateDBPathRejectsRandomURLs(t *testing.T) {
 
 func TestValidateDBPathRejectsRandomURLsWithQueryParams(t *testing.T) {
 	f := gofakeit.New(testSeed)
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		u := fmt.Sprintf("%s?%s=%s", f.URL(), f.Word(), f.Word())
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			assert.Error(t, ValidateDBPath(u), "ValidateDBPath(%q) should reject", u)
@@ -110,7 +110,7 @@ func TestExpandHome(t *testing.T) {
 		assert.Equal(t, "foo.pdf", ExpandHome("foo.pdf"))
 	})
 	t.Run("empty string unchanged", func(t *testing.T) {
-		assert.Equal(t, "", ExpandHome(""))
+		assert.Empty(t, ExpandHome(""))
 	})
 	t.Run("tilde other user unchanged", func(t *testing.T) {
 		assert.Equal(t, "~otheruser/foo", ExpandHome("~otheruser/foo"))
@@ -119,7 +119,7 @@ func TestExpandHome(t *testing.T) {
 
 func TestOpenRejectsURIs(t *testing.T) {
 	f := gofakeit.New(testSeed)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		u := f.URL()
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			_, err := Open(u)

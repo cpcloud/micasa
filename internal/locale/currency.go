@@ -290,7 +290,7 @@ func deriveSeparators(tag language.Tag) (group, decimal string) {
 		return ",", "."
 	}
 	decimal = string(runes[lastNonDigit])
-	for i := 0; i < lastNonDigit; i++ {
+	for i := range lastNonDigit {
 		if runes[i] < '0' || runes[i] > '9' {
 			return string(runes[i]), decimal
 		}
@@ -313,7 +313,11 @@ func parseDigits(input string, allowEmpty bool) (int64, error) {
 			return 0, ErrInvalidMoney
 		}
 	}
-	return strconv.ParseInt(input, 10, 64)
+	v, err := strconv.ParseInt(input, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("parsing minor units: %w", err)
+	}
+	return v, nil
 }
 
 // extractSymbol formats a zero amount and extracts the symbol glyph and its
@@ -347,7 +351,11 @@ func parseLocaleString(loc string) (language.Tag, error) {
 		loc = loc[:idx]
 	}
 	loc = strings.ReplaceAll(loc, "_", "-")
-	return language.Parse(loc)
+	tag, err := language.Parse(loc)
+	if err != nil {
+		return language.Tag{}, fmt.Errorf("parsing locale %q: %w", loc, err)
+	}
+	return tag, nil
 }
 
 // detectCurrencyFromLocale tries to determine the currency from environment

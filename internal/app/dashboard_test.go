@@ -171,7 +171,7 @@ func TestDashboardBlocksTableKeys(t *testing.T) {
 	// s should not add a sort.
 	sortsBefore := len(m.tabs[m.active].Sorts)
 	sendKey(m, "s")
-	assert.Equal(t, sortsBefore, len(m.tabs[m.active].Sorts), "s should be blocked on dashboard")
+	assert.Len(t, m.tabs[m.active].Sorts, sortsBefore, "s should be blocked on dashboard")
 
 	// i should not enter edit mode.
 	sendKey(m, "i")
@@ -687,7 +687,7 @@ func TestDashboardViewScrollsWithSmallBudget(t *testing.T) {
 	}
 
 	// Nav: 2 headers + 8 overdue rows + 5 project rows = 15.
-	assert.Equal(t, 15, len(m.dash.nav), "nav should have all entries")
+	assert.Len(t, m.dash.nav, 15, "nav should have all entries")
 
 	// With a tiny budget the view is scrolled, not trimmed.
 	m.dash.expanded = map[string]bool{
@@ -725,10 +725,10 @@ func TestDashboardScrollFollowsCursor(t *testing.T) {
 	m.dash.cursor = 10
 	view := m.dashboardView(8, 120)
 	assert.Contains(t, view, "Item 10", "cursor item should be visible")
-	assert.Greater(t, m.dash.scrollOffset, 0, "should have scrolled down")
+	assert.Positive(t, m.dash.scrollOffset, "should have scrolled down")
 
 	// All nav entries are preserved (header + 10 rows).
-	assert.Equal(t, 11, len(m.dash.nav), "nav should have all entries")
+	assert.Len(t, m.dash.nav, 11, "nav should have all entries")
 }
 
 // TestDashboardExpandCollapseWithEKey verifies a user can toggle section
@@ -993,10 +993,10 @@ func TestDashboardGoTopResetsScroll(t *testing.T) {
 
 	// Go to bottom, then back to top.
 	sendKey(m, "G")
-	require.Greater(t, m.dash.cursor, 0)
+	require.Positive(t, m.dash.cursor)
 	m.prepareDashboardView()
 	m.dashboardView(6, 120) // render to set scroll offset
-	require.Greater(t, m.dash.scrollOffset, 0, "should have scrolled down")
+	require.Positive(t, m.dash.scrollOffset, "should have scrolled down")
 
 	sendKey(m, "g")
 	assert.Equal(t, 0, m.dash.cursor)

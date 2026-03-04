@@ -55,7 +55,7 @@ func TestExtractText_InvalidPDF(t *testing.T) {
 		skipOrFatalCI(t, "pdftotext not available")
 	}
 	_, err := ExtractText([]byte("not a pdf"), "application/pdf", 0)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "pdftotext")
 }
 

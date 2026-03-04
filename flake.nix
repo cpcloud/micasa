@@ -147,6 +147,14 @@
               language = "system";
               pass_filenames = false;
             };
+            govulncheck = {
+              enable = true;
+              name = "govulncheck";
+              entry = "${run-govulncheck}/bin/run-govulncheck";
+              files = "^go\\.(mod|sum)$";
+              language = "system";
+              pass_filenames = false;
+            };
             osv-scanner = {
               enable = true;
               name = "osv-scanner";
@@ -199,6 +207,44 @@
             export GOCACHE="''${GOCACHE:-$(mktemp -d)}"
             export GOMODCACHE="''${GOMODCACHE:-$(mktemp -d)}"
             deadcode -test ./...
+          '';
+        };
+
+        run-govulncheck = pkgs.writeShellApplication {
+          name = "run-govulncheck";
+          runtimeInputs = [
+            pkgs.govulncheck
+            pkgs.go
+            pkgs.jq
+            pkgs.ripgrep
+          ];
+          runtimeEnv.CGO_ENABLED = "0";
+          text = ''
+            export GOCACHE="''${GOCACHE:-$(mktemp -d)}"
+            export GOMODCACHE="''${GOMODCACHE:-$(mktemp -d)}"
+
+            exclude_file=".govulncheck-exclude"
+            raw=$(govulncheck -format json ./... 2>&1) || true
+            found=$(echo "$raw" | jq -r 'select(.finding) | select(.finding.trace[0].function) | .finding.osv' | sort -u)
+
+            if [ -z "$found" ]; then
+              exit 0
+            fi
+
+            excluded=""
+            if [ -f "$exclude_file" ]; then
+              excluded=$(rg -oN 'GO-[0-9]+-[0-9]+' "$exclude_file" | sort -u)
+            fi
+
+            new=$(comm -23 <(echo "$found") <(echo "$excluded"))
+
+            if [ -z "$new" ]; then
+              exit 0
+            fi
+
+            echo "govulncheck: unexcluded vulnerabilities found:"
+            echo "$new"
+            exit 1
           '';
         };
 
@@ -494,7 +540,7 @@
               gen-mixed-pdf
             '';
           };
-          inherit run-deadcode run-osv-scanner;
+          inherit run-deadcode run-govulncheck run-osv-scanner;
           run-pre-commit = pkgs.writeShellApplication {
             name = "run-pre-commit";
             runtimeInputs = [
@@ -541,6 +587,7 @@
             gen-mixed-pdf = app (pkg "gen-mixed-pdf") "Generate mixed-inspection.pdf test fixture";
             gen-testdata = app (pkg "gen-testdata") "Generate all test document fixtures";
             deadcode = app (pkg "run-deadcode") "Run whole-program dead code analysis";
+            govulncheck = app (pkg "run-govulncheck") "Check for known Go vulnerabilities with call-graph analysis";
             osv-scanner = app (pkg "run-osv-scanner") "Scan for known vulnerabilities";
             pre-commit = app (pkg "run-pre-commit") "Run all pre-commit hooks";
           };

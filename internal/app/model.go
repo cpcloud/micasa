@@ -2840,7 +2840,10 @@ func (m *Model) launchExternalEditor() tea.Cmd {
 
 	m.exitForm()
 
-	cmd := exec.Command(editor, f.Name()) //nolint:gosec // user-configured editor
+	cmd := exec.Command( //nolint:gosec,noctx // user-configured editor; no context in tea.Cmd
+		editor,
+		f.Name(),
+	)
 	return tea.ExecProcess(cmd, func(err error) tea.Msg {
 		return editorFinishedMsg{Err: err}
 	})
