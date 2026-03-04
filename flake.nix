@@ -297,7 +297,13 @@
               cp images/favicon.svg docs/static/images/favicon.svg
               cp videos/demo.webm docs/static/videos/demo.webm
               rm -rf website
-              hugo --source docs --destination ../website --minify
+              hugo --source docs --destination ../website \
+                --minify \
+                --gc \
+                --noChmod \
+                --noTimes \
+                --printPathWarnings \
+                --panicOnWarning
               pagefind --site website --quiet
             '';
           };
