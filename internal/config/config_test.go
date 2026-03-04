@@ -414,6 +414,42 @@ func TestLLMTimeout(t *testing.T) {
 
 // --- Extraction ---
 
+func TestExtractionLLMTimeout(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
+		cfg, err := LoadFromPath(noConfig(t))
+		require.NoError(t, err)
+		assert.Equal(t, DefaultLLMExtractionTimeout, cfg.Extraction.LLMTimeoutDuration())
+	})
+
+	t.Run("from file", func(t *testing.T) {
+		path := writeConfig(t, "[extraction]\nllm_timeout = \"90s\"\n")
+		cfg, err := LoadFromPath(path)
+		require.NoError(t, err)
+		assert.Equal(t, 90*time.Second, cfg.Extraction.LLMTimeoutDuration())
+	})
+
+	t.Run("env override", func(t *testing.T) {
+		t.Setenv("MICASA_EXTRACTION_LLM_TIMEOUT", "3m")
+		cfg, err := LoadFromPath(noConfig(t))
+		require.NoError(t, err)
+		assert.Equal(t, 3*time.Minute, cfg.Extraction.LLMTimeoutDuration())
+	})
+
+	t.Run("rejects invalid", func(t *testing.T) {
+		path := writeConfig(t, "[extraction]\nllm_timeout = \"not-a-duration\"\n")
+		_, err := LoadFromPath(path)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid duration")
+	})
+
+	t.Run("rejects negative", func(t *testing.T) {
+		path := writeConfig(t, "[extraction]\nllm_timeout = \"-1s\"\n")
+		_, err := LoadFromPath(path)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "must be positive")
+	})
+}
+
 func TestExtractionDefaults(t *testing.T) {
 	cfg, err := LoadFromPath(noConfig(t))
 	require.NoError(t, err)
@@ -577,20 +613,21 @@ func TestEnvVars(t *testing.T) {
 	assert.NotEmpty(t, m)
 
 	want := map[string]string{
-		"MICASA_LLM_PROVIDER":        "llm.provider",
-		"MICASA_LLM_BASE_URL":        "llm.base_url",
-		"MICASA_LLM_API_KEY":         "llm.api_key",
-		"MICASA_LLM_MODEL":           "llm.model",
-		"MICASA_LLM_TIMEOUT":         "llm.timeout",
-		"MICASA_LLM_THINKING":        "llm.thinking",
-		"MICASA_MAX_DOCUMENT_SIZE":   "documents.max_file_size",
-		"MICASA_CACHE_TTL":           "documents.cache_ttl",
-		"MICASA_CACHE_TTL_DAYS":      "documents.cache_ttl_days",
-		"MICASA_EXTRACTION_MODEL":    "extraction.model",
-		"MICASA_MAX_EXTRACT_PAGES":   "extraction.max_extract_pages",
-		"MICASA_EXTRACTION_ENABLED":  "extraction.enabled",
-		"MICASA_TEXT_TIMEOUT":        "extraction.text_timeout",
-		"MICASA_EXTRACTION_THINKING": "extraction.thinking",
+		"MICASA_LLM_PROVIDER":           "llm.provider",
+		"MICASA_LLM_BASE_URL":           "llm.base_url",
+		"MICASA_LLM_API_KEY":            "llm.api_key",
+		"MICASA_LLM_MODEL":              "llm.model",
+		"MICASA_LLM_TIMEOUT":            "llm.timeout",
+		"MICASA_LLM_THINKING":           "llm.thinking",
+		"MICASA_MAX_DOCUMENT_SIZE":      "documents.max_file_size",
+		"MICASA_CACHE_TTL":              "documents.cache_ttl",
+		"MICASA_CACHE_TTL_DAYS":         "documents.cache_ttl_days",
+		"MICASA_EXTRACTION_MODEL":       "extraction.model",
+		"MICASA_MAX_EXTRACT_PAGES":      "extraction.max_extract_pages",
+		"MICASA_EXTRACTION_ENABLED":     "extraction.enabled",
+		"MICASA_TEXT_TIMEOUT":           "extraction.text_timeout",
+		"MICASA_EXTRACTION_LLM_TIMEOUT": "extraction.llm_timeout",
+		"MICASA_EXTRACTION_THINKING":    "extraction.thinking",
 
 		// Per-pipeline chat overrides.
 		"MICASA_LLM_CHAT_PROVIDER": "llm.chat.provider",

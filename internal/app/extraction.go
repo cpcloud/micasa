@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -60,17 +61,18 @@ type extractionStepInfo struct {
 
 // extractionLogState holds the state of the extraction progress overlay.
 type extractionLogState struct {
-	ID       uint64
-	DocID    uint
-	Filename string
-	Steps    [numExtractionSteps]extractionStepInfo
-	Spinner  spinner.Model
-	Viewport viewport.Model
-	Visible  bool
-	Done     bool
-	HasError bool
-	ctx      context.Context
-	CancelFn context.CancelFunc
+	ID          uint64
+	DocID       uint
+	Filename    string
+	Steps       [numExtractionSteps]extractionStepInfo
+	Spinner     spinner.Model
+	Viewport    viewport.Model
+	Visible     bool
+	Done        bool
+	HasError    bool
+	ctx         context.Context
+	CancelFn    context.CancelFunc
+	llmCancelFn context.CancelFunc // cancels the LLM timeout context
 
 	// Text sources accumulated during extraction, passed to LLM prompt.
 	sources       []extract.TextSource
@@ -122,6 +124,14 @@ type extractionLogState struct {
 	// Model picker: inline model selection before rerunning LLM step.
 	modelPicker *modelCompleter // non-nil when picker is showing
 	modelFilter string          // current filter text for fuzzy matching
+}
+
+// cancelLLMTimeout releases the LLM inference timeout context if set.
+func (ex *extractionLogState) cancelLLMTimeout() {
+	if ex.llmCancelFn != nil {
+		ex.llmCancelFn()
+		ex.llmCancelFn = nil
+	}
 }
 
 // closeShadowDB closes and nils the shadow DB if present.
@@ -353,6 +363,7 @@ func (m *Model) cancelExtraction() {
 	if m.ex.extraction == nil {
 		return
 	}
+	m.ex.extraction.cancelLLMTimeout()
 	if m.ex.extraction.CancelFn != nil {
 		m.ex.extraction.CancelFn()
 	}
@@ -367,6 +378,7 @@ func (m *Model) interruptExtraction() {
 	if ex == nil || ex.Done {
 		return
 	}
+	ex.cancelLLMTimeout()
 	if ex.CancelFn != nil {
 		ex.CancelFn()
 	}
@@ -386,6 +398,7 @@ func (m *Model) interruptExtraction() {
 func (m *Model) cancelAllExtractions() {
 	m.cancelExtraction()
 	for _, ex := range m.ex.bgExtractions {
+		ex.cancelLLMTimeout()
 		if ex.CancelFn != nil {
 			ex.CancelFn()
 		}
@@ -447,7 +460,14 @@ func (m *Model) llmExtractCmd(ctx context.Context, ex *extractionLogState) tea.C
 	}
 	schemaCtx := m.buildSchemaContext()
 	id := ex.ID
+	timeout := m.ex.llmInferenceTimeout
 	return func() tea.Msg {
+		llmCtx := ctx
+		if timeout > 0 {
+			var cancel context.CancelFunc
+			llmCtx, cancel = context.WithTimeout(ctx, timeout)
+			ex.llmCancelFn = cancel
+		}
 		messages := extract.BuildExtractionPrompt(extract.ExtractionPromptInput{
 			DocID:     ex.DocID,
 			Filename:  ex.Filename,
@@ -457,7 +477,9 @@ func (m *Model) llmExtractCmd(ctx context.Context, ex *extractionLogState) tea.C
 			Sources:   ex.sources,
 		})
 		ch, err := client.ChatStream(
-			ctx, messages, llm.WithJSONSchema("extraction_operations", extract.OperationsSchema()),
+			llmCtx,
+			messages,
+			llm.WithJSONSchema("extraction_operations", extract.OperationsSchema()),
 		)
 		if err != nil {
 			return extractionLLMChunkMsg{ID: id, Err: err, Done: true}
@@ -623,9 +645,17 @@ func (m *Model) handleExtractionLLMChunk(msg extractionLLMChunkMsg) tea.Cmd {
 	step := &ex.Steps[stepLLM]
 
 	if msg.Err != nil {
+		ex.cancelLLMTimeout()
 		step.Status = stepFailed
 		step.Elapsed = time.Since(step.Started)
-		step.Logs = append(step.Logs, msg.Err.Error())
+		errMsg := msg.Err.Error()
+		if errors.Is(msg.Err, context.DeadlineExceeded) {
+			errMsg = fmt.Sprintf(
+				"timed out after %s -- increase extraction.llm_timeout in config",
+				step.Elapsed.Truncate(time.Second),
+			)
+		}
+		step.Logs = append(step.Logs, errMsg)
 		ex.HasError = true
 		ex.Done = true
 		ex.advanceCursor()
@@ -641,6 +671,7 @@ func (m *Model) handleExtractionLLMChunk(msg extractionLLMChunkMsg) tea.Cmd {
 	}
 
 	if msg.Done {
+		ex.cancelLLMTimeout()
 		step.Elapsed = time.Since(step.Started)
 
 		// Parse and validate operations; hold for accept.
@@ -811,6 +842,9 @@ func (m *Model) rerunLLMExtraction() tea.Cmd {
 	if ex == nil || !ex.hasLLM {
 		return nil
 	}
+
+	// Cancel any previous LLM timeout before restarting.
+	ex.cancelLLMTimeout()
 
 	// Replace a cancelled context so the rerun has a live one.
 	if ex.ctx.Err() != nil {

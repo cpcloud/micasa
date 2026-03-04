@@ -57,16 +57,17 @@ type formState struct {
 type extractState struct {
 	// Extraction-specific LLM connection settings. When extractionProvider
 	// differs from the chat provider, an independent client is created.
-	extractionProvider string
-	extractionBaseURL  string
-	extractionModel    string
-	extractionAPIKey   string
-	extractionTimeout  time.Duration
-	extractionThinking string
-	extractionEnabled  bool
-	extractionClient   *llm.Client
-	extractors         []extract.Extractor
-	extractionReady    bool
+	extractionProvider  string
+	extractionBaseURL   string
+	extractionModel     string
+	extractionAPIKey    string
+	extractionTimeout   time.Duration
+	extractionThinking  string
+	extractionEnabled   bool
+	extractionClient    *llm.Client
+	extractors          []extract.Extractor
+	extractionReady     bool
+	llmInferenceTimeout time.Duration
 
 	pendingExtractionDocID *uint
 	extraction             *extractionLogState
@@ -247,12 +248,13 @@ type extractionConfig struct {
 	// LLM connection settings for extraction. When Provider is non-empty,
 	// the extraction pipeline creates its own LLM client independent of
 	// the chat client. When empty, falls back to the chat client.
-	Provider string
-	BaseURL  string
-	Model    string
-	APIKey   string //nolint:gosec // G117 false positive: field name, not a hardcoded credential
-	Timeout  time.Duration
-	Thinking string // reasoning effort level
+	Provider            string
+	BaseURL             string
+	Model               string
+	APIKey              string //nolint:gosec // G117 false positive: field name, not a hardcoded credential
+	Timeout             time.Duration
+	Thinking            string // reasoning effort level
+	LLMInferenceTimeout time.Duration
 
 	Extractors []extract.Extractor // configured extractors; nil = defaults
 	Enabled    bool                // LLM extraction enabled
@@ -265,16 +267,18 @@ func (o *Options) SetExtraction(
 	thinking string,
 	extractors []extract.Extractor,
 	enabled bool,
+	llmInferenceTimeout time.Duration,
 ) {
 	o.ExtractionConfig = extractionConfig{
-		Provider:   provider,
-		BaseURL:    baseURL,
-		Model:      model,
-		APIKey:     apiKey,
-		Timeout:    timeout,
-		Thinking:   thinking,
-		Extractors: extractors,
-		Enabled:    enabled,
+		Provider:            provider,
+		BaseURL:             baseURL,
+		Model:               model,
+		APIKey:              apiKey,
+		Timeout:             timeout,
+		Thinking:            thinking,
+		LLMInferenceTimeout: llmInferenceTimeout,
+		Extractors:          extractors,
+		Enabled:             enabled,
 	}
 }
 

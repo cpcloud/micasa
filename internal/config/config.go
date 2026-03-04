@@ -249,6 +249,10 @@ type Extraction struct {
 	// string, e.g. "30s", "1m". Default: "30s".
 	TextTimeout string `toml:"text_timeout" env:"MICASA_TEXT_TIMEOUT"`
 
+	// LLMTimeout is the maximum time to wait for the LLM extraction
+	// inference step. Go duration string, e.g. "2m", "90s". Default: "2m".
+	LLMTimeout string `toml:"llm_timeout" env:"MICASA_EXTRACTION_LLM_TIMEOUT"`
+
 	// Thinking controls the model's reasoning effort level for extraction.
 	// Supported values: none, low, medium, high, auto.
 	// Empty string = don't send (server default). Default: empty.
@@ -277,6 +281,19 @@ func (e Extraction) TextTimeoutDuration() time.Duration {
 	return d
 }
 
+// LLMTimeoutDuration returns the parsed LLM extraction timeout, falling
+// back to DefaultLLMExtractionTimeout if the value is empty or unparseable.
+func (e Extraction) LLMTimeoutDuration() time.Duration {
+	if e.LLMTimeout == "" {
+		return DefaultLLMExtractionTimeout
+	}
+	d, err := time.ParseDuration(e.LLMTimeout)
+	if err != nil {
+		return DefaultLLMExtractionTimeout
+	}
+	return d
+}
+
 // ThinkingLevel returns the reasoning effort string for extraction.
 // Returns empty string when unset (server default).
 func (e Extraction) ThinkingLevel() string {
@@ -293,14 +310,15 @@ func (e Extraction) ResolvedModel(chatModel string) string {
 }
 
 const (
-	DefaultBaseURL         = "http://localhost:11434"
-	DefaultModel           = "qwen3"
-	DefaultProvider        = "ollama"
-	DefaultLLMTimeout      = 5 * time.Second
-	DefaultCacheTTL        = 30 * 24 * time.Hour // 30 days
-	DefaultMaxExtractPages = 20
-	DefaultTextTimeout     = 30 * time.Second
-	configRelPath          = "micasa/config.toml"
+	DefaultBaseURL              = "http://localhost:11434"
+	DefaultModel                = "qwen3"
+	DefaultProvider             = "ollama"
+	DefaultLLMTimeout           = 5 * time.Second
+	DefaultLLMExtractionTimeout = 2 * time.Minute
+	DefaultCacheTTL             = 30 * 24 * time.Hour // 30 days
+	DefaultMaxExtractPages      = 20
+	DefaultTextTimeout          = 30 * time.Second
+	configRelPath               = "micasa/config.toml"
 )
 
 // defaults returns a Config with all default values populated.
@@ -480,6 +498,22 @@ func LoadFromPath(path string) (Config, error) {
 			return cfg, fmt.Errorf(
 				"extraction.text_timeout must be positive, got %s",
 				cfg.Extraction.TextTimeout,
+			)
+		}
+	}
+
+	if cfg.Extraction.LLMTimeout != "" {
+		d, err := time.ParseDuration(cfg.Extraction.LLMTimeout)
+		if err != nil {
+			return cfg, fmt.Errorf(
+				"extraction.llm_timeout: invalid duration %q -- use Go syntax like \"2m\" or \"90s\"",
+				cfg.Extraction.LLMTimeout,
+			)
+		}
+		if d <= 0 {
+			return cfg, fmt.Errorf(
+				"extraction.llm_timeout must be positive, got %s",
+				cfg.Extraction.LLMTimeout,
 			)
 		}
 	}
@@ -991,6 +1025,10 @@ model = "` + DefaultModel + `"
 # Timeout for pdftotext. Go duration syntax: "30s", "1m", etc. Default: "30s".
 # Increase if you routinely process very large PDFs.
 # text_timeout = "30s"
+
+# Timeout for LLM extraction inference. Go duration syntax: "2m", "90s", etc.
+# Default: "2m". Increase for slow local models or complex documents.
+# llm_timeout = "2m"
 
 # Maximum pages for async extraction of scanned documents. Default: 20.
 # max_extract_pages = 20
