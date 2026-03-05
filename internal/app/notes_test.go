@@ -286,6 +286,65 @@ func TestNaturalWidthsMultilineNotesFirstLine(t *testing.T) {
 	assert.Equal(t, len("short")+1+1+noteSuffixWidth(1), widths[0])
 }
 
+func TestLongNotesTruncatedInTableView(t *testing.T) {
+	t.Parallel()
+	m := newTestModel()
+	m.active = tabIndex(tabMaintenance)
+	_ = m.openServiceLogDetail(1, "Test")
+	tab := m.effectiveTab()
+	require.NotNil(t, tab)
+
+	longNote := "This is a very long single-line note from an LLM extraction that goes way beyond the max column width and keeps going"
+
+	tab.Table.SetRows([]table.Row{
+		{"1", "2026-01-15", "Self", "$50.00", longNote},
+	})
+	tab.Table.SetCursor(0)
+	tab.Rows = []rowMeta{{ID: 1}}
+	tab.CellRows = [][]cell{
+		{
+			{Value: "1", Kind: cellReadonly},
+			{Value: "2026-01-15", Kind: cellDate},
+			{Value: "Self", Kind: cellText},
+			{Value: "$50.00", Kind: cellMoney},
+			{Value: longNote, Kind: cellNotes},
+		},
+	}
+
+	view := m.buildView()
+
+	// The full note text should NOT appear in the rendered table view.
+	assert.NotContains(t, view, longNote,
+		"table should truncate long notes, not show the full text")
+	// The truncation ellipsis should appear.
+	assert.Contains(t, view, symEllipsis,
+		"table should show ellipsis for truncated notes")
+
+	// Full text should still be accessible via the preview overlay.
+	tab.ColCursor = 4
+	sendKey(m, "enter")
+	require.NotNil(t, m.notePreview)
+	assert.Equal(t, longNote, m.notePreview.text)
+}
+
+func TestNaturalWidthsNotesCappedAtMax(t *testing.T) {
+	t.Parallel()
+	specs := []columnSpec{
+		{Title: "N", Min: 1, Max: 40, Flex: true, Kind: cellNotes},
+	}
+	rows := [][]cell{
+		{
+			{
+				Value: "This is a very long single-line note from an LLM extraction that goes way beyond the max column width",
+				Kind:  cellNotes,
+			},
+		},
+	}
+	widths := naturalWidths(specs, rows, "$")
+	require.Len(t, widths, 1)
+	assert.Equal(t, 40, widths[0], "notes column natural width should be capped at Max")
+}
+
 // --- Notes textarea overlay tests ---
 
 func TestOpenNotesEditOpensTextareaOverlay(t *testing.T) {
