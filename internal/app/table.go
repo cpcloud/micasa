@@ -906,7 +906,8 @@ func columnWidths(
 }
 
 // naturalWidths returns the content-driven width for each column (header,
-// fixed values, and actual cell values) floored by Min but NOT capped by Max.
+// fixed values, and actual cell values) floored by Min. Notes columns are
+// capped at Max to prevent LLM-extracted summaries from dominating the layout.
 func naturalWidths(specs []columnSpec, rows [][]cell, currencySymbol string) []int {
 	return computeNaturalWidths(specs, rows, func(i int) int { return i }, currencySymbol)
 }
@@ -965,6 +966,9 @@ func computeNaturalWidths(
 		}
 		if w < spec.Min {
 			w = spec.Min
+		}
+		if spec.Kind == cellNotes && spec.Max > 0 && w > spec.Max {
+			w = spec.Max
 		}
 		widths[i] = w
 	}
