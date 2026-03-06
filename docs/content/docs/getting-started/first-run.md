@@ -5,6 +5,8 @@ description = "What to expect the first time you launch micasa."
 linkTitle = "First Run"
 +++
 
+<video src="/videos/first-run.webm" class="demo-video" autoplay loop muted playsinline></video>
+
 ## Demo mode
 
 The fastest way to explore micasa is demo mode:

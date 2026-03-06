@@ -7,7 +7,7 @@ linkTitle = "Dashboard"
 
 The dashboard shows what needs attention right now.
 
-![Dashboard overlay](/images/dashboard.webp)
+<video src="/videos/dashboard.webm" class="demo-video" autoplay loop muted playsinline></video>
 
 ## Opening the dashboard
 

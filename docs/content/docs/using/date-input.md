@@ -9,6 +9,8 @@ micasa accepts dates in strict `YYYY-MM-DD` format or as natural language
 expressions. Both work anywhere a date field appears -- forms, inline edits,
 and the calendar picker.
 
+<video src="/videos/using-date-input.webm" class="demo-video" autoplay loop muted playsinline></video>
+
 ## Accepted formats
 
 ### Strict
