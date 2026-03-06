@@ -64,9 +64,9 @@ type LLM struct {
 	// Currency is handled by [locale] section. Optional; defaults to empty.
 	ExtraContext string `toml:"extra_context" env:"MICASA_LLM_EXTRA_CONTEXT"`
 
-	// Timeout is the maximum time to wait for quick LLM server operations
-	// (ping, model listing, auto-detect). Go duration string, e.g. "5s",
-	// "10s", "500ms". Default: "5s".
+	// Timeout is the maximum time for a single LLM response (including
+	// streaming). Go duration string, e.g. "5m", "10m". Default: "5m".
+	// Quick operations (ping, model listing) use a shorter fixed deadline.
 	Timeout string `toml:"timeout" env:"MICASA_LLM_TIMEOUT"`
 
 	// Thinking controls the model's reasoning effort level. Supported values:
@@ -312,7 +312,7 @@ const (
 	DefaultBaseURL              = "http://localhost:11434"
 	DefaultModel                = "qwen3"
 	DefaultProvider             = "ollama"
-	DefaultLLMTimeout           = 5 * time.Second
+	DefaultLLMTimeout           = 5 * time.Minute
 	DefaultLLMExtractionTimeout = 2 * time.Minute
 	DefaultCacheTTL             = 30 * 24 * time.Hour // 30 days
 	DefaultMaxExtractPages      = 20
@@ -433,7 +433,7 @@ func LoadFromPath(path string) (Config, error) {
 		d, err := time.ParseDuration(cfg.LLM.Timeout)
 		if err != nil {
 			return cfg, fmt.Errorf(
-				"llm.timeout: invalid duration %q -- use Go syntax like \"5s\" or \"10s\"",
+				"llm.timeout: invalid duration %q -- use Go syntax like \"5m\" or \"10m\"",
 				cfg.LLM.Timeout,
 			)
 		}
@@ -977,10 +977,10 @@ model = "` + DefaultModel + `"
 # Use this to inject domain-specific details about your house, region, etc.
 # extra_context = "My house is a 1920s craftsman in Portland, OR."
 
-# Timeout for quick LLM server operations (ping, model listing).
-# Go duration syntax: "5s", "10s", "500ms", etc. Default: "5s".
-# Increase if your LLM server is slow to respond.
-# timeout = "5s"
+# Maximum time for a single LLM response (including streaming).
+# Go duration syntax: "5m", "10m", etc. Default: "5m".
+# Increase for very slow models or complex queries.
+# timeout = "5m"
 
 # Model reasoning effort level. Supported: none, low, medium, high, auto.
 # Empty = don't send (server default).

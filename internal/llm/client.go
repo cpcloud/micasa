@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -24,6 +25,10 @@ import (
 	"github.com/mozilla-ai/any-llm-go/providers/openai"
 )
 
+// QuickOpTimeout is the context deadline for fast LLM server operations
+// (ping, model listing, auto-detect). Not configurable.
+const QuickOpTimeout = 30 * time.Second
+
 // Client wraps an any-llm-go provider behind a stable API for the rest
 // of the application.
 type Client struct {
@@ -31,7 +36,6 @@ type Client struct {
 	providerName string
 	baseURL      string
 	model        string
-	timeout      time.Duration
 	thinking     string // reasoning effort: none|low|medium|high|auto
 }
 
@@ -101,20 +105,20 @@ func NewClient(
 		providerName: providerName,
 		baseURL:      baseURL,
 		model:        model,
-		timeout:      timeout,
 	}, nil
 }
 
-func buildOpts(baseURL, apiKey string, timeout time.Duration) []anyllm.Option {
-	var opts []anyllm.Option
+func buildOpts(baseURL, apiKey string, responseTimeout time.Duration) []anyllm.Option {
+	// responseTimeout caps a single HTTP request (including streaming body
+	// reads). Quick operations enforce tighter deadlines via context.
+	opts := []anyllm.Option{
+		anyllm.WithHTTPClient(&http.Client{Timeout: responseTimeout}),
+	}
 	if baseURL != "" {
 		opts = append(opts, anyllm.WithBaseURL(baseURL))
 	}
 	if apiKey != "" {
 		opts = append(opts, anyllm.WithAPIKey(apiKey))
-	}
-	if timeout > 0 {
-		opts = append(opts, anyllm.WithTimeout(timeout))
 	}
 	return opts
 }
@@ -183,9 +187,9 @@ func (c *Client) BaseURL() string {
 	return c.baseURL
 }
 
-// Timeout returns the configured timeout for quick operations.
+// Timeout returns the deadline for quick operations (ping, model listing).
 func (c *Client) Timeout() time.Duration {
-	return c.timeout
+	return QuickOpTimeout
 }
 
 // SupportsModelListing returns true if the provider implements the
@@ -229,7 +233,7 @@ func (c *Client) completionParams(messages []Message, opts []ChatOption) anyllm.
 // ListModels fetches the available model IDs. Returns an error if the
 // provider does not support model listing.
 func (c *Client) ListModels(ctx context.Context) ([]string, error) {
-	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	ctx, cancel := context.WithTimeout(ctx, QuickOpTimeout)
 	defer cancel()
 
 	lister, ok := c.provider.(anyllm.ModelLister)
@@ -260,7 +264,7 @@ func (c *Client) Ping(ctx context.Context) error {
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	ctx, cancel := context.WithTimeout(ctx, QuickOpTimeout)
 	defer cancel()
 
 	resp, err := lister.ListModels(ctx)
@@ -365,6 +369,14 @@ func (c *Client) ChatStream(
 func (c *Client) wrapError(err error) error {
 	if err == nil {
 		return nil
+	}
+
+	if errors.Is(err, context.DeadlineExceeded) {
+		return fmt.Errorf(
+			"%s timed out -- the server may be overloaded or the model is too slow; "+
+				"increase llm.timeout or try a smaller model",
+			c.providerName,
+		)
 	}
 
 	var providerErr *anyllmerrors.ProviderError

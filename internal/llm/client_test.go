@@ -199,7 +199,7 @@ func TestModelAndBaseURL(t *testing.T) {
 	client := newTestClient(t, "http://localhost:11434/v1/", "qwen3")
 	assert.Equal(t, "qwen3", client.Model())
 	assert.Equal(t, "http://localhost:11434/v1/", client.BaseURL())
-	assert.Equal(t, testTimeout, client.Timeout())
+	assert.Equal(t, QuickOpTimeout, client.Timeout())
 }
 
 func TestSetModel(t *testing.T) {
@@ -419,7 +419,6 @@ func TestPingModelNotFoundCloud(t *testing.T) {
 		provider:     p,
 		providerName: "openai",
 		model:        "gpt-4o",
-		timeout:      testTimeout,
 	}
 	err = client.Ping(context.Background())
 	require.Error(t, err)
@@ -516,20 +515,31 @@ func TestWrapErrorProviderError(t *testing.T) {
 	}
 }
 
-// TestWrapErrorProviderErrorDeadlineExceeded verifies that a timeout
-// (context deadline exceeded) passes through the original error instead
-// of showing "cannot reach", since timeouts can happen mid-request
-// (model loading, long inference) even when the server is reachable.
-func TestWrapErrorProviderErrorDeadlineExceeded(t *testing.T) {
+// TestWrapErrorDeadlineExceeded verifies that a context deadline exceeded
+// error produces a friendly timeout message instead of a raw error.
+func TestWrapErrorDeadlineExceeded(t *testing.T) {
 	t.Parallel()
-	timeoutErr := fmt.Errorf("request failed: %w", context.DeadlineExceeded)
-	c := &Client{providerName: "ollama"}
-	err := c.wrapError(
-		anyllmerrors.NewProviderError("ollama", timeoutErr),
-	)
-	require.Error(t, err)
-	assert.NotContains(t, err.Error(), "cannot reach")
-	assert.ErrorIs(t, err, context.DeadlineExceeded)
+
+	t.Run("bare deadline exceeded", func(t *testing.T) {
+		t.Parallel()
+		c := &Client{providerName: "ollama"}
+		err := c.wrapError(context.DeadlineExceeded)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "timed out")
+		assert.NotContains(t, err.Error(), "cannot reach")
+	})
+
+	t.Run("wrapped in provider error", func(t *testing.T) {
+		t.Parallel()
+		timeoutErr := fmt.Errorf("request failed: %w", context.DeadlineExceeded)
+		c := &Client{providerName: "ollama"}
+		err := c.wrapError(
+			anyllmerrors.NewProviderError("ollama", timeoutErr),
+		)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "timed out")
+		assert.NotContains(t, err.Error(), "cannot reach")
+	})
 }
 
 // TestWrapErrorProviderErrorPreservesNonConnectionErrors verifies that
