@@ -89,9 +89,6 @@ jobs:
             Select-Object -First 1 -ExpandProperty FullName |
             Add-Content $env:GITHUB_PATH
 
-      - name: Download dependencies
-        run: go mod download
-
       - name: Generate sample PDF fixture
         shell: bash
         run: bash internal/extract/gen-sample-pdf.bash
