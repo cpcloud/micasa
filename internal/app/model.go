@@ -201,8 +201,6 @@ type Model struct {
 	prevMode              Mode // mode to restore after form closes
 	fs                    formState
 	inlineInput           *inlineInputState
-	undoStack             []undoEntry
-	redoStack             []undoEntry
 	magMode               bool // easter egg: display numbers as order-of-magnitude
 	confirmHardDelete     bool // true while waiting for y/n on permanent delete
 	hardDeleteID          uint // entity ID pending permanent deletion
@@ -868,20 +866,6 @@ func (m *Model) handleEditKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 	case keyShiftD:
 		m.promptHardDelete()
 		return nil, true
-	case keyU:
-		if err := m.popUndo(); err != nil {
-			m.setStatusError(err.Error())
-		} else {
-			m.reloadAfterMutation()
-		}
-		return nil, true
-	case keyR:
-		if err := m.popRedo(); err != nil {
-			m.setStatusError(err.Error())
-		} else {
-			m.reloadAfterMutation()
-		}
-		return nil, true
 	case keyO:
 		if cmd := m.openSelectedDocument(); cmd != nil {
 			return cmd, true
@@ -1426,7 +1410,7 @@ func (m *Model) reloadAll() {
 // reloadAfterMutation refreshes only the tab the user is looking at and
 // marks all other tabs as stale for lazy reload on navigation. Dashboard
 // is refreshed only when visible. This avoids reloading 4 idle tabs on
-// every save/undo/redo.
+// every save.
 func (m *Model) reloadAfterMutation() {
 	if m.store == nil {
 		return
@@ -2149,7 +2133,6 @@ func (m *Model) saveForm() tea.Cmd {
 	}
 
 	isFirstHouse := m.fs.formKind == formHouse && !m.hasHouse
-	m.snapshotForUndo()
 	kind := m.fs.formKind
 	err := m.handleFormSubmit()
 	if err != nil {
@@ -2174,7 +2157,6 @@ func (m *Model) saveFormInPlace() tea.Cmd {
 	if fd, ok := m.fs.formData.(*documentFormData); ok && fd.DeferCreate {
 		return m.saveDeferredDocumentForm()
 	}
-	m.snapshotForUndo()
 	kind := m.fs.formKind
 	isCreate := m.fs.editID == nil
 	err := m.handleFormSubmit()
@@ -2182,7 +2164,7 @@ func (m *Model) saveFormInPlace() tea.Cmd {
 		m.setStatusError(err.Error())
 		return nil
 	}
-	m.setStatusSaved(true)
+	m.setStatusSaved()
 	m.snapshotForm()
 	m.reloadAfterFormSave(kind)
 	// After a create, position the cursor on the new row so that
@@ -2343,13 +2325,12 @@ func (m *Model) submitInlineInput() {
 	}
 	*ii.FieldPtr = value
 	kind := ii.FormKind
-	m.snapshotForUndo()
 	if err := m.handleFormSubmit(); err != nil {
 		m.setStatusError(err.Error())
 		return
 	}
 	m.closeInlineInput()
-	m.setStatusSaved(true) // inline edits are always edits
+	m.setStatusSaved()
 	m.reloadAfterFormSave(kind)
 }
 
@@ -2397,14 +2378,8 @@ func (m *Model) setStatusInfo(text string) {
 	m.status = statusMsg{Text: text, Kind: statusInfo}
 }
 
-// setStatusSaved sets a "Saved." status message, appending an undo hint
-// when the save was an edit (not a create).
-func (m *Model) setStatusSaved(wasEdit bool) {
-	if wasEdit && len(m.undoStack) > 0 {
-		m.setStatusInfo("Saved. Press u to undo.")
-	} else {
-		m.setStatusInfo("Saved.")
-	}
+func (m *Model) setStatusSaved() {
+	m.setStatusInfo("Saved.")
 }
 
 func (m *Model) setStatusError(text string) {

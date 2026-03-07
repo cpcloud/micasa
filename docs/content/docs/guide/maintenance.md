@@ -60,7 +60,7 @@ To view the service log, navigate to the `Log` column in Nav mode and press
 | `Notes` | notes | Free text. Press <kbd>enter</kbd> to preview |
 
 The detail view supports all the same operations as a regular tab: add, edit,
-delete, sort, undo. Press <kbd>esc</kbd> to close the detail view and return to the
+delete, sort. Press <kbd>esc</kbd> to close the detail view and return to the
 Maintenance table.
 
 ### Vendors in service logs

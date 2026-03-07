@@ -463,7 +463,7 @@ func (m *Model) normalModeStatusHints(modeBadge string) []statusHint {
 }
 
 // editModeStatusHelp renders the edit mode status bar with only primary
-// actions. Undo/redo and profile are discoverable via the help overlay.
+// actions. Profile is discoverable via the help overlay.
 func (m *Model) editModeStatusHelp(modeBadge string) string {
 	hints := []statusHint{
 		{id: "mode", full: modeBadge, priority: 0, required: true},
@@ -798,8 +798,7 @@ func (m *Model) helpContent() string {
 				{keyShiftE, "Edit row (full form)"},
 				{keyD, "Delete / restore"},
 				{keyShiftD, "Permanently delete (incidents)"},
-				{keyU + "/" + keyR, "Undo / redo"},
-				{keyCtrlD + "/" + keyCtrlU, "Half page down/up"},
+				{keyCtrlD, "Half page down"},
 				{keyX, "Show deleted"},
 				{keyP, "House profile"},
 				{keyEsc, "Nav mode"},

@@ -56,7 +56,7 @@ internal patterns.
   `SELECT DISTINCT name ... ORDER BY name`. DISTINCT on a single column cannot
   produce ties, so no tiebreaker needed.
 - **`sqlite_master` query** (`query.go:29`) -- Table names are unique.
-- **Handler code duplication** (Snapshot, Load patterns) -- Consistent within
+- **Handler code duplication** (Load patterns) -- Consistent within
   the pattern; abstracting changes the TabHandler interface. Future refactor.
 - **`any` usage in GORM wrappers** (`store.go`) -- Required by GORM's API.
 - **File cleanup `_ = f.Close()`** (`model.go:2543,2548,2577`) -- Standard Go

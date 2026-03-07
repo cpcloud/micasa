@@ -28,14 +28,12 @@ func normalTableKeyMap() table.KeyMap {
 	return baseTableKeyMap()
 }
 
-// editTableKeyMap returns a table KeyMap with d/u stripped from half-page
-// bindings so they can be used for delete/undo without conflicting.
+// editTableKeyMap returns a table KeyMap with d stripped from half-page-down
+// so it can be used for delete without conflicting.
 func editTableKeyMap() table.KeyMap {
 	km := baseTableKeyMap()
 	km.HalfPageDown.SetKeys(keyCtrlD)
 	km.HalfPageDown.SetHelp(keyCtrlD, "½ page down")
-	km.HalfPageUp.SetKeys(keyCtrlU)
-	km.HalfPageUp.SetHelp(keyCtrlU, "½ page up")
 	return km
 }
 

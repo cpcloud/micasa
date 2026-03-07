@@ -35,7 +35,7 @@ These follow the testing rules. No action needed.
 `handler_form_wiring_test.go` (partial), `inline_edit_dispatch_test.go`,
 `inline_input_test.go`, `lazy_reload_test.go`, `mag_test.go`,
 `mode_test.go`, `notes_test.go`, `overlay_status_test.go`, `sort_test.go`,
-`undo_test.go`, `view_test.go`
+`view_test.go`
 
 ### Test infrastructure (3 files -- no tests, PASS)
 
@@ -112,7 +112,7 @@ is the same either way. Low priority -- mark as supplement.
 
 This file tests the `TabHandler` interface methods directly:
 `SubmitForm`, `Load`, `Delete`, `Restore`, `StartAddForm`, `StartEditForm`,
-`InlineEdit`, `Snapshot`, `SyncFixedValues`.
+`InlineEdit`, `SyncFixedValues`.
 
 These are legitimate API-level tests of the handler implementations. The
 user-facing flows that exercise the same paths are already tested in:

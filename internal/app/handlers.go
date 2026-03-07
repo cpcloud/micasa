@@ -15,8 +15,7 @@ import (
 // TabKind/FormKind switch dispatch scattered across the codebase. Each entity
 // type (projects, quotes, maintenance, appliances) implements this interface.
 type TabHandler interface {
-	// FormKind returns the FormKind that identifies this entity in forms and
-	// undo entries.
+	// FormKind returns the FormKind that identifies this entity in forms.
 	FormKind() FormKind
 
 	// Load fetches entities and converts them to table rows.
@@ -43,9 +42,6 @@ type TabHandler interface {
 	// SubmitForm persists the current form data (create or update).
 	SubmitForm(m *Model) error
 
-	// Snapshot captures the current DB state of an entity for undo/redo.
-	Snapshot(store *data.Store, id uint) (undoEntry, bool)
-
 	// SyncFixedValues updates column specs with values from dynamic lookup
 	// tables so column widths stay stable.
 	SyncFixedValues(m *Model, specs []columnSpec)
@@ -66,28 +62,6 @@ func (m *Model) handlerForFormKind(kind FormKind) TabHandler {
 		}
 	}
 	return nil
-}
-
-// makeSnapshot builds an undoEntry for the given entity. Every TabHandler
-// Snapshot method delegates to this to avoid repeating the get-check-build
-// pattern.
-func makeSnapshot[T any](
-	id uint,
-	get func(uint) (T, error),
-	kind FormKind,
-	desc func(T) string,
-	restore func(T) error,
-) (undoEntry, bool) {
-	entity, err := get(id)
-	if err != nil {
-		return undoEntry{}, false
-	}
-	return undoEntry{
-		Description: desc(entity),
-		FormKind:    kind,
-		EntityID:    id,
-		Restore:     func() error { return restore(entity) },
-	}, true
 }
 
 // fetchCounts calls a count function and returns its result, degrading to an
@@ -156,13 +130,6 @@ func (projectHandler) SubmitForm(m *Model) error {
 	return m.submitProjectForm()
 }
 
-func (projectHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
-	return makeSnapshot(id, store.GetProject, formProject,
-		func(p data.Project) string { return fmt.Sprintf("project %q", p.Title) },
-		func(p data.Project) error { return store.UpdateProject(p) },
-	)
-}
-
 func (projectHandler) SyncFixedValues(m *Model, specs []columnSpec) {
 	typeNames := make([]string, len(m.projectTypes))
 	for i, pt := range m.projectTypes {
@@ -217,13 +184,6 @@ func (quoteHandler) SubmitForm(m *Model) error {
 	return m.submitQuoteForm()
 }
 
-func (quoteHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
-	return makeSnapshot(id, store.GetQuote, formQuote,
-		func(q data.Quote) string { return fmt.Sprintf("quote from %s", q.Vendor.Name) },
-		func(q data.Quote) error { return store.UpdateQuote(q, q.Vendor) },
-	)
-}
-
 func (quoteHandler) SyncFixedValues(_ *Model, _ []columnSpec) {}
 
 // ---------------------------------------------------------------------------
@@ -271,13 +231,6 @@ func (maintenanceHandler) InlineEdit(m *Model, id uint, col int) error {
 
 func (maintenanceHandler) SubmitForm(m *Model) error {
 	return m.submitMaintenanceForm()
-}
-
-func (maintenanceHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
-	return makeSnapshot(id, store.GetMaintenance, formMaintenance,
-		func(m data.MaintenanceItem) string { return fmt.Sprintf("maintenance %q", m.Name) },
-		func(m data.MaintenanceItem) error { return store.UpdateMaintenance(m) },
-	)
 }
 
 func (maintenanceHandler) SyncFixedValues(m *Model, specs []columnSpec) {
@@ -342,13 +295,6 @@ func (applianceHandler) SubmitForm(m *Model) error {
 	return m.submitApplianceForm()
 }
 
-func (applianceHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
-	return makeSnapshot(id, store.GetAppliance, formAppliance,
-		func(a data.Appliance) string { return fmt.Sprintf("appliance %q", a.Name) },
-		func(a data.Appliance) error { return store.UpdateAppliance(a) },
-	)
-}
-
 func (applianceHandler) SyncFixedValues(_ *Model, _ []columnSpec) {}
 
 // ---------------------------------------------------------------------------
@@ -397,13 +343,6 @@ func (incidentHandler) SubmitForm(m *Model) error {
 	return m.submitIncidentForm()
 }
 
-func (incidentHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
-	return makeSnapshot(id, store.GetIncident, formIncident,
-		func(inc data.Incident) string { return fmt.Sprintf("incident %q", inc.Title) },
-		func(inc data.Incident) error { return store.UpdateIncident(inc) },
-	)
-}
-
 func (incidentHandler) SyncFixedValues(_ *Model, specs []columnSpec) {
 	setFixedValues(specs, "Status", []string{
 		data.IncidentStatusOpen,
@@ -425,7 +364,7 @@ func (incidentHandler) SyncFixedValues(_ *Model, specs []columnSpec) {
 // ---------------------------------------------------------------------------
 
 type scopedHandler struct {
-	TabHandler   // embedded; delegates FormKind, Delete, Restore, StartEditForm, Snapshot, SyncFixedValues
+	TabHandler   // embedded; delegates FormKind, Delete, Restore, StartEditForm, SyncFixedValues
 	loadFn       func(*data.Store, bool) ([]table.Row, []rowMeta, [][]cell, error)
 	inlineEditFn func(*Model, uint, int) error // nil = TabHandler.InlineEdit
 	startAddFn   func(*Model) error            // nil = TabHandler.StartAddForm
@@ -544,15 +483,6 @@ func (h serviceLogHandler) SubmitForm(m *Model) error {
 	return m.submitServiceLogForm()
 }
 
-func (serviceLogHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
-	return makeSnapshot(id, store.GetServiceLog, formServiceLog,
-		func(e data.ServiceLogEntry) string {
-			return fmt.Sprintf("service log %s", e.ServicedAt.Format("2006-01-02"))
-		},
-		func(e data.ServiceLogEntry) error { return store.UpdateServiceLog(e, e.Vendor) },
-	)
-}
-
 func (serviceLogHandler) SyncFixedValues(_ *Model, _ []columnSpec) {}
 
 // ---------------------------------------------------------------------------
@@ -602,13 +532,6 @@ func (vendorHandler) InlineEdit(m *Model, id uint, col int) error {
 
 func (vendorHandler) SubmitForm(m *Model) error {
 	return m.submitVendorForm()
-}
-
-func (vendorHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
-	return makeSnapshot(id, store.GetVendor, formVendor,
-		func(v data.Vendor) string { return fmt.Sprintf("vendor %q", v.Name) },
-		func(v data.Vendor) error { return store.UpdateVendor(v) },
-	)
 }
 
 func (vendorHandler) SyncFixedValues(_ *Model, _ []columnSpec) {}
@@ -726,13 +649,6 @@ func (documentHandler) InlineEdit(m *Model, id uint, col int) error {
 
 func (documentHandler) SubmitForm(m *Model) error {
 	return m.submitDocumentForm()
-}
-
-func (documentHandler) Snapshot(store *data.Store, id uint) (undoEntry, bool) {
-	return makeSnapshot(id, store.GetDocument, formDocument,
-		func(d data.Document) string { return fmt.Sprintf("document %q", d.Title) },
-		func(d data.Document) error { return store.UpdateDocument(d) },
-	)
 }
 
 func (documentHandler) SyncFixedValues(_ *Model, _ []columnSpec) {}

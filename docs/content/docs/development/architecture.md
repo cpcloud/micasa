@@ -26,7 +26,7 @@ internal/
     house.go         House profile rendering
     dashboard.go     Dashboard data loading + view
     sort.go          Multi-column sort logic
-    undo.go          Undo/redo stack
+
     form_select.go   Select field ordinal jumping
     calendar.go      Inline date picker overlay
     column_finder.go Fuzzy column jump overlay
@@ -63,7 +63,7 @@ This eliminates scattered `switch tab.Kind` dispatch. Adding a new entity type
 means implementing one interface -- no shotgun surgery across the codebase.
 
 Detail views (service log, appliance maintenance) also implement `TabHandler`,
-so they get all the same capabilities (add, edit, delete, sort, undo) for
+so they get all the same capabilities (add, edit, delete, sort) for
 free.
 
 ### Modal key handling
@@ -86,9 +86,9 @@ micasa uses three modes: Nav, Edit, and Form. The key dispatch chain in
 13. Common keys (shared by Nav and Edit)
 14. Mode-specific keys
 
-The `bubbles/table` widget has its own vim keybindings. In Edit mode, <kbd>d</kbd> and
-<kbd>u</kbd> are stripped from the table's KeyMap so they can be used for delete/undo
-without conflicting with half-page navigation.
+The `bubbles/table` widget has its own vim keybindings. In Edit mode, <kbd>d</kbd>
+is stripped from the table's KeyMap so it can be used for delete without
+conflicting with half-page navigation.
 
 ### Effective tab
 

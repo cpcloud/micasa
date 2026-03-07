@@ -7,46 +7,20 @@ Issue: #520
 
 ## Problem
 
-The 8 `TabHandler` implementations in `handlers.go` share near-identical
-patterns in two areas:
+The 8 `TabHandler` implementations in `handlers.go` shared near-identical
+patterns in **Load() count-fetch blocks** -- ~15 instances of
+`counts, err := fn(ids); if err != nil { counts = map[uint]int{} }` across
+main handlers and scoped handler constructors.
 
-1. **Snapshot()** -- 8 implementations with the same get-check-build structure.
-   Only the getter, FormKind, description formatter, and updater vary.
-2. **Load() count-fetch blocks** -- ~15 instances of
-   `counts, err := fn(ids); if err != nil { counts = map[uint]int{} }` across
-   main handlers and scoped handler constructors.
+> **Note:** This plan originally also covered `Snapshot()` deduplication via a
+> `makeSnapshot[T any]` generic helper. The undo/redo feature was removed
+> entirely in #572, so that section no longer applies.
 
 ## Approach
 
-Two targeted helpers. No framework, no config structs, no interface changes.
+One targeted helper. No framework, no config structs, no interface changes.
 
-### 1. `makeSnapshot[T any]` generic helper
-
-```go
-func makeSnapshot[T any](
-    store *data.Store,
-    id    uint,
-    get   func(uint) (T, error),
-    kind  FormKind,
-    desc  func(T) string,
-    restore func(T) error,
-) (undoEntry, bool)
-```
-
-Each handler's `Snapshot()` becomes a one-liner delegating to this. The two
-handlers with extra state (quoteHandler captures `vendor`, serviceLogHandler
-captures `vendor`) use closures in their `restore` argument:
-
-```go
-func (quoteHandler) Snapshot(s *data.Store, id uint) (undoEntry, bool) {
-    return makeSnapshot(s, id, s.GetQuote, formQuote,
-        func(q data.Quote) string { return fmt.Sprintf("quote from %s", q.Vendor.Name) },
-        func(q data.Quote) error  { return s.UpdateQuote(q, q.Vendor) },
-    )
-}
-```
-
-### 2. `fetchCounts` helper
+### 1. `fetchCounts` helper
 
 ```go
 func fetchCounts(fn func([]uint) (map[uint]int, error), ids []uint) map[uint]int
@@ -87,4 +61,4 @@ would not materially reduce complexity. These stay as-is, but their internal
 
 - `go build ./...`
 - `go test -shuffle=on ./...`
-- Existing tests cover Snapshot and Load paths through integration tests.
+- Existing tests cover Load paths through integration tests.

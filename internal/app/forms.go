@@ -1599,11 +1599,10 @@ func (m *Model) openDatePicker(
 	m.fs.formData = values
 	savedKind := kind
 	m.openCalendar(dateField, func() {
-		m.snapshotForUndo()
 		if err := m.handleFormSubmit(); err != nil {
 			m.setStatusError(err.Error())
 		} else {
-			m.setStatusSaved(true) // calendar inline edits are always edits
+			m.setStatusSaved()
 			m.reloadAfterFormSave(savedKind)
 		}
 		m.fs.formKind = formNone

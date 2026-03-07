@@ -1592,7 +1592,7 @@ func findOrCreateVendor(tx *gorm.DB, vendor Vendor) (Vendor, error) {
 		return Vendor{}, err
 	}
 	// Restore the vendor if it was soft-deleted, and mark the
-	// DeletionRecord as restored so undo doesn't see a stale entry.
+	// DeletionRecord as restored.
 	if existing.DeletedAt.Valid {
 		if err := tx.Unscoped().Model(&existing).Update(ColDeletedAt, nil).Error; err != nil {
 			return Vendor{}, err

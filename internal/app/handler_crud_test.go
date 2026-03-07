@@ -92,26 +92,6 @@ func TestProjectHandlerEditRoundTrip(t *testing.T) {
 	assert.Equal(t, int64(50000), *project.BudgetCents)
 }
 
-func TestProjectHandlerSnapshot(t *testing.T) {
-	t.Parallel()
-	m := newTestModelWithStore(t)
-	h := projectHandler{}
-
-	m.fs.formData = &projectFormData{
-		Title:         "Roof Repair",
-		ProjectTypeID: m.projectTypes[0].ID,
-		Status:        data.ProjectStatusPlanned,
-	}
-	require.NoError(t, h.SubmitForm(m))
-	_, meta, _, _ := h.Load(m.store, false)
-	id := meta[0].ID
-
-	entry, ok := h.Snapshot(m.store, id)
-	require.True(t, ok)
-	assert.Equal(t, formProject, entry.FormKind)
-	assert.Equal(t, id, entry.EntityID)
-}
-
 func TestProjectTabStatusFiltersRows(t *testing.T) {
 	t.Parallel()
 	m := newTestModelWithStore(t)
@@ -376,33 +356,6 @@ func TestQuoteHandlerRoundTrip(t *testing.T) {
 	assert.Len(t, rows, 1)
 }
 
-func TestQuoteHandlerSnapshot(t *testing.T) {
-	t.Parallel()
-	m := newTestModelWithStore(t)
-	h := quoteHandler{}
-
-	types, _ := m.store.ProjectTypes()
-	require.NoError(t, m.store.CreateProject(&data.Project{
-		Title:         "Garage Door",
-		ProjectTypeID: types[0].ID,
-		Status:        data.ProjectStatusQuoted,
-	}))
-	projects, _ := m.store.ListProjects(false)
-
-	m.fs.formData = &quoteFormData{
-		ProjectID:  projects[0].ID,
-		VendorName: "QuoteCo",
-		Total:      "200.00",
-	}
-	require.NoError(t, h.SubmitForm(m))
-	_, meta, _, _ := h.Load(m.store, false)
-	id := meta[0].ID
-
-	entry, ok := h.Snapshot(m.store, id)
-	require.True(t, ok)
-	assert.Equal(t, formQuote, entry.FormKind)
-}
-
 // ---------------------------------------------------------------------------
 // serviceLogHandler CRUD
 // ---------------------------------------------------------------------------
@@ -446,35 +399,6 @@ func TestServiceLogHandlerRoundTrip(t *testing.T) {
 	assert.Len(t, rows, 1)
 }
 
-func TestServiceLogHandlerSnapshot(t *testing.T) {
-	t.Parallel()
-	m := newTestModelWithStore(t)
-	cats, _ := m.store.MaintenanceCategories()
-
-	require.NoError(t, m.store.CreateMaintenance(&data.MaintenanceItem{
-		Name:       "Gutter Clean",
-		CategoryID: cats[0].ID,
-	}))
-	items, _ := m.store.ListMaintenance(false)
-	maintID := items[0].ID
-
-	h := serviceLogHandler{maintenanceItemID: maintID}
-
-	m.fs.formData = &serviceLogFormData{
-		MaintenanceItemID: maintID,
-		ServicedAt:        "2026-01-20",
-	}
-	require.NoError(t, h.SubmitForm(m))
-	_, meta, _, _ := h.Load(m.store, false)
-	id := meta[0].ID
-
-	entry, ok := h.Snapshot(m.store, id)
-	require.True(t, ok)
-	assert.Equal(t, formServiceLog, entry.FormKind)
-	// Restore function should not error.
-	assert.NoError(t, entry.Restore())
-}
-
 // ---------------------------------------------------------------------------
 // Handler SyncFixedValues
 // ---------------------------------------------------------------------------
@@ -508,29 +432,6 @@ func TestMaintenanceHandlerSyncFixedValues(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Handler with non-existent IDs
 // ---------------------------------------------------------------------------
-
-func TestHandlerSnapshotNonExistent(t *testing.T) {
-	t.Parallel()
-	m := newTestModelWithStore(t)
-	handlers := []struct {
-		name string
-		h    TabHandler
-	}{
-		{"project", projectHandler{}},
-		{"quote", quoteHandler{}},
-		{"maintenance", maintenanceHandler{}},
-		{"appliance", applianceHandler{}},
-		{"vendor", vendorHandler{}},
-		{"serviceLog", serviceLogHandler{maintenanceItemID: 1}},
-		{"incident", incidentHandler{}},
-	}
-	for _, tc := range handlers {
-		t.Run(tc.name, func(t *testing.T) {
-			_, ok := tc.h.Snapshot(m.store, 99999)
-			assert.False(t, ok)
-		})
-	}
-}
 
 // ---------------------------------------------------------------------------
 // applianceMaintenanceHandler (detail view)
@@ -687,27 +588,6 @@ func TestIncidentHandlerEditRoundTrip(t *testing.T) {
 	assert.Equal(t, data.IncidentStatusInProgress, inc.Status)
 	require.NotNil(t, inc.CostCents)
 	assert.Equal(t, int64(25000), *inc.CostCents)
-}
-
-func TestIncidentHandlerSnapshot(t *testing.T) {
-	t.Parallel()
-	m := newTestModelWithStore(t)
-	h := incidentHandler{}
-
-	m.fs.formData = &incidentFormData{
-		Title:       "Cracked tile",
-		Status:      data.IncidentStatusOpen,
-		Severity:    data.IncidentSeverityWhenever,
-		DateNoticed: "2026-01-10",
-	}
-	require.NoError(t, h.SubmitForm(m))
-	_, meta, _, _ := h.Load(m.store, false)
-	id := meta[0].ID
-
-	entry, ok := h.Snapshot(m.store, id)
-	require.True(t, ok)
-	assert.Equal(t, formIncident, entry.FormKind)
-	assert.Equal(t, id, entry.EntityID)
 }
 
 func TestIncidentHandlerSyncFixedValues(t *testing.T) {

@@ -672,7 +672,7 @@ func TestHelpContentEditModeHalfPage(t *testing.T) {
 	m := newTestModel(t)
 	help := m.helpContent()
 	assert.Contains(t, help, "CTRL+D")
-	assert.Contains(t, help, "CTRL+U")
+	assert.Contains(t, help, "Half page down")
 }
 
 func TestHelpContentNavModeEsc(t *testing.T) {
@@ -906,7 +906,7 @@ func TestNormalModeOmitsDiscoveryHints(t *testing.T) {
 	assert.NotContains(t, status, "quit")
 }
 
-func TestEditModeOmitsUndoRedoProfile(t *testing.T) {
+func TestEditModeOmitsProfile(t *testing.T) {
 	t.Parallel()
 	m := newTestModel(t)
 	m.width = 200
@@ -914,9 +914,7 @@ func TestEditModeOmitsUndoRedoProfile(t *testing.T) {
 	m.mode = modeEdit
 	status := m.statusView()
 
-	// Undo/redo/profile are discoverable via help, not shown in edit mode bar.
-	assert.NotContains(t, status, "undo")
-	assert.NotContains(t, status, "redo")
+	// Profile is discoverable via help, not shown in edit mode bar.
 	assert.NotContains(t, status, "profile")
 
 	// Primary edit actions should be present.
@@ -1197,22 +1195,6 @@ func TestRequiredLegendHiddenOnInlineEdit(t *testing.T) {
 	output := m.buildView()
 	assert.NotContains(t, output, "required",
 		"inline edit should not show required-field legend")
-}
-
-func TestSetStatusSavedWithUndo(t *testing.T) {
-	t.Parallel()
-	m := newTestModel(t)
-	m.undoStack = append(m.undoStack, undoEntry{Description: "test"})
-	m.setStatusSaved(true)
-	assert.Contains(t, m.status.Text, "Press u to undo.")
-}
-
-func TestSetStatusSavedNoUndo(t *testing.T) {
-	t.Parallel()
-	m := newTestModel(t)
-	m.setStatusSaved(false)
-	assert.Equal(t, "Saved.", m.status.Text)
-	assert.NotContains(t, m.status.Text, "undo")
 }
 
 func TestFirstRunHouseFormShowsHint(t *testing.T) {

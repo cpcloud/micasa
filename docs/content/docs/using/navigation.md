@@ -39,7 +39,7 @@ have full table navigation:
 
 Press <kbd>i</kbd> from Nav mode to enter Edit mode. The status bar shows an orange
 **EDIT** badge. Navigation still works (<kbd>j</kbd>/<kbd>k</kbd>/<kbd>h</kbd>/<kbd>l</kbd>/<kbd>g</kbd>/<kbd>G</kbd>), but <kbd>d</kbd>
-and <kbd>u</kbd> are rebound from page navigation to data actions:
+is rebound from page navigation to delete:
 
 | Key   | Action                    |
 |-------|---------------------------|
@@ -49,12 +49,9 @@ and <kbd>u</kbd> are rebound from page navigation to data actions:
 | <kbd>d</kbd>   | Delete or restore item    |
 | <kbd>x</kbd>   | Toggle show deleted items |
 | <kbd>p</kbd>   | Edit house profile        |
-| <kbd>u</kbd>   | Undo last edit            |
-| <kbd>r</kbd>   | Redo undone edit          |
 | <kbd>esc</kbd> | Return to Nav mode     |
 
-> **Tip:** <kbd>ctrl+d</kbd> and <kbd>ctrl+u</kbd> still work for half-page navigation in Edit
-> mode.
+> **Tip:** <kbd>ctrl+d</kbd> still works for half-page down in Edit mode.
 
 ## Form mode
 

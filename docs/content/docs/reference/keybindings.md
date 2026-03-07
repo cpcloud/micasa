@@ -77,13 +77,12 @@ Complete reference of every keybinding in micasa, organized by mode.
 
 ### Movement
 
-Same as Nav mode, except <kbd>d</kbd> and <kbd>u</kbd> are rebound:
+Same as Nav mode, except <kbd>d</kbd> is rebound:
 
 | Key            | Action |
 |----------------|--------|
 | <kbd>j</kbd>/<kbd>k</kbd>/<kbd>h</kbd>/<kbd>l</kbd>/<kbd>g</kbd>/<kbd>G</kbd> | Same as Nav |
 | <kbd>ctrl+d</kbd>       | Half-page down |
-| <kbd>ctrl+u</kbd>       | Half-page up |
 | <kbd>pgdown</kbd>/<kbd>pgup</kbd> | Full page down/up |
 
 ### Data operations
@@ -97,8 +96,6 @@ Same as Nav mode, except <kbd>d</kbd> and <kbd>u</kbd> are rebound:
 | <kbd>d</kbd>   | Toggle delete/restore on selected row |
 | <kbd>x</kbd>   | Toggle visibility of soft-deleted rows |
 | <kbd>p</kbd>   | Edit house profile |
-| <kbd>u</kbd>   | Undo last edit |
-| <kbd>r</kbd>   | Redo undone edit |
 | <kbd>esc</kbd> | Return to Nav mode |
 
 ## Chat overlay
