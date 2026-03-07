@@ -149,8 +149,10 @@ When a form field opens a file picker (e.g., <kbd>A</kbd> on the <a href="/docs/
 | <kbd>h</kbd> / <kbd>left</kbd> / <kbd>backspace</kbd> | Navigate to parent directory |
 | <kbd>enter</kbd>   | Open directory or select file |
 | <kbd>g</kbd> / <kbd>G</kbd> | Jump to first/last entry |
+| <kbd>H</kbd> | Toggle hidden files (dotfiles) |
 
-The picker title shows the current directory path.
+The picker title shows the current directory path. Hidden files are not shown
+by default; press <kbd>H</kbd> to reveal them.
 
 ## Dashboard
 

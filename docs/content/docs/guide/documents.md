@@ -22,7 +22,8 @@ If you provide a file path, micasa reads the file into the database as a BLOB
 
 Press <kbd>A</kbd> (shift+a) on the Docs tab to open a streamlined add form that
 picks a file and immediately runs the [extraction pipeline](#extraction-pipeline). This is the
-fastest way to import a document when you want OCR and LLM hints.
+fastest way to import a document when you want OCR and LLM hints. The file
+picker hides dotfiles by default; press <kbd>H</kbd> to toggle their visibility.
 
 You can also add documents from within a project or appliance detail view --
 drill into the `Docs` column and press <kbd>a</kbd>. Documents added this way are
