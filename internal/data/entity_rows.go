@@ -17,6 +17,7 @@ type EntityRowContext struct {
 	Vendors               []EntityRow
 	Projects              []EntityRow
 	Appliances            []EntityRow
+	MaintenanceItems      []EntityRow
 	MaintenanceCategories []EntityRow
 	ProjectTypes          []EntityRow
 }
@@ -38,6 +39,10 @@ func (s *Store) EntityRows() (EntityRowContext, error) {
 	ctx.Appliances, err = s.entityRows(&Appliance{}, ColName)
 	if err != nil {
 		return EntityRowContext{}, fmt.Errorf("appliance rows: %w", err)
+	}
+	ctx.MaintenanceItems, err = s.entityRows(&MaintenanceItem{}, ColName)
+	if err != nil {
+		return EntityRowContext{}, fmt.Errorf("maintenance item rows: %w", err)
 	}
 	ctx.MaintenanceCategories, err = s.entityRowsUnscoped(&MaintenanceCategory{}, ColName)
 	if err != nil {

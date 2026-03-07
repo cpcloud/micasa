@@ -508,6 +508,7 @@ func (m *Model) buildSchemaContext() extract.SchemaContext {
 		ctx.Vendors = toExtractRows(rows.Vendors)
 		ctx.Projects = toExtractRows(rows.Projects)
 		ctx.Appliances = toExtractRows(rows.Appliances)
+		ctx.MaintenanceItems = toExtractRows(rows.MaintenanceItems)
 		ctx.MaintenanceCategories = toExtractRows(rows.MaintenanceCategories)
 		ctx.ProjectTypes = toExtractRows(rows.ProjectTypes)
 	}

@@ -774,8 +774,11 @@ func TestFKGraph_AllCreatablesPresent(t *testing.T) {
 	expected := map[string]bool{
 		data.TableVendors:          true,
 		data.TableAppliances:       true,
+		data.TableProjects:         true,
 		data.TableQuotes:           true,
 		data.TableMaintenanceItems: true,
+		data.TableIncidents:        true,
+		data.TableServiceLogEntries: true,
 		data.TableDocuments:        true,
 	}
 
@@ -1071,11 +1074,350 @@ func TestRemapDocumentEntity(t *testing.T) {
 	remapDocumentEntity(row, idMap)
 	assert.Equal(t, uint(42), row["entity_id"])
 
-	// Non-creatable entity_kind -> no remap.
+	// entity_kind with no mapping in idMap -> no remap.
 	row = map[string]any{
 		"entity_kind": "project",
 		"entity_id":   int64(5),
 	}
 	remapDocumentEntity(row, idMap)
 	assert.Equal(t, int64(5), row["entity_id"])
+}
+
+func TestShadowDB_CommitProject(t *testing.T) {
+	t.Parallel()
+	store := newTestStore(t)
+
+	types, err := store.ProjectTypes()
+	require.NoError(t, err)
+	require.NotEmpty(t, types)
+
+	sdb, err := NewShadowDB(store)
+	require.NoError(t, err)
+
+	ops := []Operation{
+		{Action: ActionCreate, Table: data.TableProjects, Data: map[string]any{
+			"title":           "Fence Installation",
+			"project_type_id": jn(fmt.Sprintf("%d", types[0].ID)),
+			"status":          data.ProjectStatusPlanned,
+			"description":     "Install a cedar fence",
+			"budget_cents":    jn("500000"),
+		}},
+	}
+	require.NoError(t, sdb.Stage(ops))
+	require.NoError(t, sdb.Commit(store, ops))
+
+	projects, err := store.ListProjects(false)
+	require.NoError(t, err)
+	require.Len(t, projects, 1)
+	assert.Equal(t, "Fence Installation", projects[0].Title)
+	assert.Equal(t, data.ProjectStatusPlanned, projects[0].Status)
+	assert.Equal(t, "Install a cedar fence", projects[0].Description)
+	require.NotNil(t, projects[0].BudgetCents)
+	assert.Equal(t, int64(500000), *projects[0].BudgetCents)
+}
+
+func TestShadowDB_CommitProjectDefaultStatus(t *testing.T) {
+	t.Parallel()
+	store := newTestStore(t)
+
+	types, err := store.ProjectTypes()
+	require.NoError(t, err)
+
+	sdb, err := NewShadowDB(store)
+	require.NoError(t, err)
+
+	ops := []Operation{
+		{Action: ActionCreate, Table: data.TableProjects, Data: map[string]any{
+			"title":           "Roof Repair",
+			"project_type_id": jn(fmt.Sprintf("%d", types[0].ID)),
+		}},
+	}
+	require.NoError(t, sdb.Stage(ops))
+	require.NoError(t, sdb.Commit(store, ops))
+
+	projects, err := store.ListProjects(false)
+	require.NoError(t, err)
+	require.Len(t, projects, 1)
+	assert.Equal(t, data.ProjectStatusIdeating, projects[0].Status)
+}
+
+func TestShadowDB_CommitProjectThenQuote_CrossReference(t *testing.T) {
+	t.Parallel()
+	store := newTestStore(t)
+
+	types, err := store.ProjectTypes()
+	require.NoError(t, err)
+	require.NotEmpty(t, types)
+
+	sdb, err := NewShadowDB(store)
+	require.NoError(t, err)
+
+	ops := []Operation{
+		{Action: ActionCreate, Table: data.TableVendors, Data: map[string]any{
+			"name": "Cedar Fencing Co",
+		}},
+		{Action: ActionCreate, Table: data.TableProjects, Data: map[string]any{
+			"title":           "Fence Installation",
+			"project_type_id": jn(fmt.Sprintf("%d", types[0].ID)),
+		}},
+		{Action: ActionCreate, Table: data.TableQuotes, Data: map[string]any{
+			"vendor_id":   jn("1"),
+			"project_id":  jn("1"),
+			"total_cents": jn("350000"),
+		}},
+	}
+	require.NoError(t, sdb.Stage(ops))
+	require.NoError(t, sdb.Commit(store, ops))
+
+	projects, err := store.ListProjects(false)
+	require.NoError(t, err)
+	require.Len(t, projects, 1)
+
+	quotes, err := store.ListQuotes(false)
+	require.NoError(t, err)
+	require.Len(t, quotes, 1)
+	assert.Equal(t, projects[0].ID, quotes[0].ProjectID)
+	assert.Equal(t, int64(350000), quotes[0].TotalCents)
+}
+
+func TestShadowDB_CommitIncident(t *testing.T) {
+	t.Parallel()
+	store := newTestStore(t)
+
+	sdb, err := NewShadowDB(store)
+	require.NoError(t, err)
+
+	ops := []Operation{
+		{Action: ActionCreate, Table: data.TableIncidents, Data: map[string]any{
+			"title":        "Pipe burst in basement",
+			"description":  "Water damage to finished basement",
+			"status":       data.IncidentStatusOpen,
+			"severity":     data.IncidentSeverityUrgent,
+			"location":     "Basement",
+			"cost_cents":   jn("250000"),
+			"date_noticed": "2026-01-15",
+		}},
+	}
+	require.NoError(t, sdb.Stage(ops))
+	require.NoError(t, sdb.Commit(store, ops))
+
+	incidents, err := store.ListIncidents(false)
+	require.NoError(t, err)
+	require.Len(t, incidents, 1)
+	assert.Equal(t, "Pipe burst in basement", incidents[0].Title)
+	assert.Equal(t, data.IncidentStatusOpen, incidents[0].Status)
+	assert.Equal(t, data.IncidentSeverityUrgent, incidents[0].Severity)
+	assert.Equal(t, "Basement", incidents[0].Location)
+	require.NotNil(t, incidents[0].CostCents)
+	assert.Equal(t, int64(250000), *incidents[0].CostCents)
+	assert.Equal(t, "2026-01-15", incidents[0].DateNoticed.Format(data.DateLayout))
+}
+
+func TestShadowDB_CommitIncidentWithVendorName(t *testing.T) {
+	t.Parallel()
+	store := newTestStore(t)
+
+	sdb, err := NewShadowDB(store)
+	require.NoError(t, err)
+
+	ops := []Operation{
+		{Action: ActionCreate, Table: data.TableIncidents, Data: map[string]any{
+			"title":       "AC failure",
+			"vendor_name": "Cool Air HVAC",
+		}},
+	}
+	require.NoError(t, sdb.Stage(ops))
+	require.NoError(t, sdb.Commit(store, ops))
+
+	incidents, err := store.ListIncidents(false)
+	require.NoError(t, err)
+	require.Len(t, incidents, 1)
+	require.NotNil(t, incidents[0].VendorID)
+
+	vendors, err := store.ListVendors(false)
+	require.NoError(t, err)
+	require.Len(t, vendors, 1)
+	assert.Equal(t, "Cool Air HVAC", vendors[0].Name)
+	assert.Equal(t, vendors[0].ID, *incidents[0].VendorID)
+}
+
+func TestShadowDB_CommitIncidentDefaults(t *testing.T) {
+	t.Parallel()
+	store := newTestStore(t)
+
+	sdb, err := NewShadowDB(store)
+	require.NoError(t, err)
+
+	ops := []Operation{
+		{Action: ActionCreate, Table: data.TableIncidents, Data: map[string]any{
+			"title": "Minor drywall crack",
+		}},
+	}
+	require.NoError(t, sdb.Stage(ops))
+	require.NoError(t, sdb.Commit(store, ops))
+
+	incidents, err := store.ListIncidents(false)
+	require.NoError(t, err)
+	require.Len(t, incidents, 1)
+	assert.Equal(t, data.IncidentStatusOpen, incidents[0].Status)
+	assert.Equal(t, data.IncidentSeverityWhenever, incidents[0].Severity)
+	assert.False(t, incidents[0].DateNoticed.IsZero())
+}
+
+func TestShadowDB_CommitServiceLog(t *testing.T) {
+	t.Parallel()
+	store := newTestStore(t)
+
+	cats, err := store.MaintenanceCategories()
+	require.NoError(t, err)
+	require.NotEmpty(t, cats)
+	require.NoError(t, store.CreateMaintenance(&data.MaintenanceItem{
+		Name:       "HVAC Filter",
+		CategoryID: cats[0].ID,
+	}))
+	items, err := store.ListMaintenance(false)
+	require.NoError(t, err)
+	require.NotEmpty(t, items)
+	itemID := items[0].ID
+
+	sdb, err := NewShadowDB(store)
+	require.NoError(t, err)
+
+	ops := []Operation{
+		{Action: ActionCreate, Table: data.TableServiceLogEntries, Data: map[string]any{
+			"maintenance_item_id": jn(fmt.Sprintf("%d", itemID)),
+			"serviced_at":         "2026-02-20",
+			"cost_cents":          jn("15000"),
+			"notes":               "Replaced filter",
+			"vendor_name":         "HVAC Pro",
+		}},
+	}
+	require.NoError(t, sdb.Stage(ops))
+	require.NoError(t, sdb.Commit(store, ops))
+
+	logs, err := store.ListServiceLog(itemID, false)
+	require.NoError(t, err)
+	require.Len(t, logs, 1)
+	assert.Equal(t, "2026-02-20", logs[0].ServicedAt.Format(data.DateLayout))
+	assert.Equal(t, "Replaced filter", logs[0].Notes)
+	require.NotNil(t, logs[0].CostCents)
+	assert.Equal(t, int64(15000), *logs[0].CostCents)
+	require.NotNil(t, logs[0].VendorID)
+
+	vendors, err := store.ListVendors(false)
+	require.NoError(t, err)
+	require.Len(t, vendors, 1)
+	assert.Equal(t, "HVAC Pro", vendors[0].Name)
+}
+
+func TestShadowDB_CommitUpdateVendor(t *testing.T) {
+	t.Parallel()
+	store := newTestStore(t)
+
+	require.NoError(t, store.CreateVendor(&data.Vendor{
+		Name:  "Old Plumbing Co",
+		Phone: "555-0000",
+	}))
+	vendors, err := store.ListVendors(false)
+	require.NoError(t, err)
+	require.Len(t, vendors, 1)
+	vendorID := vendors[0].ID
+
+	sdb, err := NewShadowDB(store)
+	require.NoError(t, err)
+
+	ops := []Operation{
+		{Action: ActionUpdate, Table: data.TableVendors, Data: map[string]any{
+			"id":    jn(fmt.Sprintf("%d", vendorID)),
+			"phone": "555-9999",
+			"email": "new@plumbing.com",
+		}},
+	}
+	require.NoError(t, sdb.Stage(ops))
+	require.NoError(t, sdb.Commit(store, ops))
+
+	updated, err := store.GetVendor(vendorID)
+	require.NoError(t, err)
+	assert.Equal(t, "Old Plumbing Co", updated.Name)
+	assert.Equal(t, "555-9999", updated.Phone)
+	assert.Equal(t, "new@plumbing.com", updated.Email)
+}
+
+func TestShadowDB_CommitUpdateAppliance(t *testing.T) {
+	t.Parallel()
+	store := newTestStore(t)
+
+	require.NoError(t, store.CreateAppliance(&data.Appliance{
+		Name:  "Dishwasher",
+		Brand: "Bosch",
+	}))
+	appliances, err := store.ListAppliances(false)
+	require.NoError(t, err)
+	require.Len(t, appliances, 1)
+	applianceID := appliances[0].ID
+
+	sdb, err := NewShadowDB(store)
+	require.NoError(t, err)
+
+	ops := []Operation{
+		{Action: ActionUpdate, Table: data.TableAppliances, Data: map[string]any{
+			"id":            jn(fmt.Sprintf("%d", applianceID)),
+			"serial_number": "BSH-12345",
+			"model_number":  "SHP878ZD5N",
+		}},
+	}
+	require.NoError(t, sdb.Stage(ops))
+	require.NoError(t, sdb.Commit(store, ops))
+
+	updated, err := store.GetAppliance(applianceID)
+	require.NoError(t, err)
+	assert.Equal(t, "Dishwasher", updated.Name)
+	assert.Equal(t, "Bosch", updated.Brand)
+	assert.Equal(t, "BSH-12345", updated.SerialNumber)
+	assert.Equal(t, "SHP878ZD5N", updated.ModelNumber)
+}
+
+func TestShadowDB_CommitUpdateQuote(t *testing.T) {
+	t.Parallel()
+	store := newTestStore(t)
+
+	types, err := store.ProjectTypes()
+	require.NoError(t, err)
+	require.NotEmpty(t, types)
+
+	require.NoError(t, store.CreateProject(&data.Project{
+		Title:         "Kitchen Remodel",
+		ProjectTypeID: types[0].ID,
+		Status:        data.ProjectStatusPlanned,
+	}))
+	projects, err := store.ListProjects(false)
+	require.NoError(t, err)
+	projectID := projects[0].ID
+
+	require.NoError(t, store.CreateVendor(&data.Vendor{Name: "Counter Tops Inc"}))
+	vendor := data.Vendor{Name: "Counter Tops Inc"}
+	q := &data.Quote{
+		ProjectID:  projectID,
+		TotalCents: 100000,
+	}
+	require.NoError(t, store.CreateQuote(q, vendor))
+
+	sdb, err := NewShadowDB(store)
+	require.NoError(t, err)
+
+	ops := []Operation{
+		{Action: ActionUpdate, Table: data.TableQuotes, Data: map[string]any{
+			"id":          jn(fmt.Sprintf("%d", q.ID)),
+			"total_cents": jn("125000"),
+			"notes":       "Revised estimate after site visit",
+		}},
+	}
+	require.NoError(t, sdb.Stage(ops))
+	require.NoError(t, sdb.Commit(store, ops))
+
+	updated, err := store.GetQuote(q.ID)
+	require.NoError(t, err)
+	assert.Equal(t, int64(125000), updated.TotalCents)
+	assert.Equal(t, "Revised estimate after site visit", updated.Notes)
+	assert.Equal(t, projectID, updated.ProjectID)
 }

@@ -117,7 +117,7 @@ func TestOperationsSchema_TopLevel(t *testing.T) {
 
 	variants, ok := items["anyOf"].([]any)
 	require.True(t, ok)
-	assert.Len(t, variants, 5, "expected 5 non-document variants")
+	assert.Len(t, variants, 11, "expected 11 non-document variants")
 
 	docProp, ok := props["document"].(map[string]any)
 	require.True(t, ok)
@@ -213,10 +213,16 @@ func TestOperationsSchema_CoversTables(t *testing.T) {
 	opVariants := operationVariants()
 	expectedOps := []tableAction{
 		{data.TableVendors, ActionCreate},
+		{data.TableVendors, ActionUpdate},
 		{data.TableAppliances, ActionCreate},
+		{data.TableAppliances, ActionUpdate},
+		{data.TableProjects, ActionCreate},
 		{data.TableQuotes, ActionCreate},
+		{data.TableQuotes, ActionUpdate},
 		{data.TableMaintenanceItems, ActionCreate},
 		{data.TableMaintenanceItems, ActionUpdate},
+		{data.TableIncidents, ActionCreate},
+		{data.TableServiceLogEntries, ActionCreate},
 	}
 	require.Len(t, opVariants, len(expectedOps))
 

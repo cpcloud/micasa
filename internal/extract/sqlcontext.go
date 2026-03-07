@@ -23,6 +23,7 @@ type SchemaContext struct {
 	Vendors               []EntityRow
 	Projects              []EntityRow
 	Appliances            []EntityRow
+	MaintenanceItems      []EntityRow
 	MaintenanceCategories []EntityRow
 	ProjectTypes          []EntityRow
 }
@@ -82,6 +83,9 @@ var ExtractionTableDefs = []TableDef{
 		},
 		Actions: []ActionDef{
 			{Action: ActionCreate, Required: []string{"name"}},
+			{Action: ActionUpdate, Required: []string{"id"}, Extra: []ColumnDef{
+				{Name: "id", Type: ColTypeInteger},
+			}},
 		},
 	},
 	{
@@ -97,6 +101,30 @@ var ExtractionTableDefs = []TableDef{
 		},
 		Actions: []ActionDef{
 			{Action: ActionCreate, Required: []string{"name"}},
+			{Action: ActionUpdate, Required: []string{"id"}, Extra: []ColumnDef{
+				{Name: "id", Type: ColTypeInteger},
+			}},
+		},
+	},
+	{
+		Table: data.TableProjects,
+		Columns: []ColumnDef{
+			{Name: "title", Type: ColTypeString},
+			{Name: "project_type_id", Type: ColTypeInteger},
+			{Name: "status", Type: ColTypeString, Enum: []any{
+				data.ProjectStatusIdeating,
+				data.ProjectStatusPlanned,
+				data.ProjectStatusQuoted,
+				data.ProjectStatusInProgress,
+				data.ProjectStatusDelayed,
+				data.ProjectStatusCompleted,
+				data.ProjectStatusAbandoned,
+			}},
+			{Name: "description", Type: ColTypeString},
+			{Name: "budget_cents", Type: ColTypeInteger},
+		},
+		Actions: []ActionDef{
+			{Action: ActionCreate, Required: []string{"title"}},
 		},
 	},
 	{
@@ -112,6 +140,9 @@ var ExtractionTableDefs = []TableDef{
 		},
 		Actions: []ActionDef{
 			{Action: ActionCreate, Required: []string{"project_id", "total_cents"}},
+			{Action: ActionUpdate, Required: []string{"id"}, Extra: []ColumnDef{
+				{Name: "id", Type: ColTypeInteger},
+			}},
 		},
 	},
 	{
@@ -129,6 +160,47 @@ var ExtractionTableDefs = []TableDef{
 			{Action: ActionUpdate, Required: []string{"id"}, Extra: []ColumnDef{
 				{Name: "id", Type: ColTypeInteger},
 			}},
+		},
+	},
+	{
+		Table: data.TableIncidents,
+		Columns: []ColumnDef{
+			{Name: "title", Type: ColTypeString},
+			{Name: "description", Type: ColTypeString},
+			{Name: "status", Type: ColTypeString, Enum: []any{
+				data.IncidentStatusOpen,
+				data.IncidentStatusInProgress,
+				data.IncidentStatusResolved,
+			}},
+			{Name: "severity", Type: ColTypeString, Enum: []any{
+				data.IncidentSeverityUrgent,
+				data.IncidentSeveritySoon,
+				data.IncidentSeverityWhenever,
+			}},
+			{Name: "date_noticed", Type: ColTypeString},
+			{Name: "location", Type: ColTypeString},
+			{Name: "cost_cents", Type: ColTypeInteger},
+			{Name: "appliance_id", Type: ColTypeInteger},
+			{Name: "vendor_id", Type: ColTypeInteger},
+			{Name: "vendor_name", Type: ColTypeString},
+			{Name: "notes", Type: ColTypeString},
+		},
+		Actions: []ActionDef{
+			{Action: ActionCreate, Required: []string{"title"}},
+		},
+	},
+	{
+		Table: data.TableServiceLogEntries,
+		Columns: []ColumnDef{
+			{Name: "maintenance_item_id", Type: ColTypeInteger},
+			{Name: "serviced_at", Type: ColTypeString},
+			{Name: "vendor_id", Type: ColTypeInteger},
+			{Name: "vendor_name", Type: ColTypeString},
+			{Name: "cost_cents", Type: ColTypeInteger},
+			{Name: "notes", Type: ColTypeString},
+		},
+		Actions: []ActionDef{
+			{Action: ActionCreate, Required: []string{"maintenance_item_id"}},
 		},
 	},
 	{
@@ -245,6 +317,8 @@ var ExtractionTables = []string{
 	data.TableProjects,
 	data.TableProjectTypes,
 	data.TableMaintenanceCategories,
+	data.TableIncidents,
+	data.TableServiceLogEntries,
 }
 
 // FormatDDLBlock formats the DDL map as a SQL comment block for inclusion

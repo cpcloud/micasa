@@ -9,6 +9,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cpcloud/micasa/internal/data"
 	"github.com/cpcloud/micasa/internal/data/sqlite"
@@ -313,10 +314,16 @@ func commitRow(
 		return commitVendor(store, row)
 	case data.TableAppliances:
 		return commitAppliance(store, row)
+	case data.TableProjects:
+		return commitProject(store, row)
 	case data.TableQuotes:
 		return commitQuote(store, row, opData)
 	case data.TableMaintenanceItems:
 		return commitMaintenance(store, row)
+	case data.TableIncidents:
+		return commitIncident(store, row, opData)
+	case data.TableServiceLogEntries:
+		return commitServiceLog(store, row, opData)
 	case data.TableDocuments:
 		return commitDocument(store, row)
 	default:
@@ -358,6 +365,27 @@ func commitAppliance(store *data.Store, row map[string]any) (uint, error) {
 		return 0, err
 	}
 	return found.ID, nil
+}
+
+func commitProject(store *data.Store, row map[string]any) (uint, error) {
+	p := data.Project{}
+	stringField(row, data.ColTitle, &p.Title)
+	stringField(row, data.ColDescription, &p.Description)
+	stringField(row, data.ColStatus, &p.Status)
+	p.ProjectTypeID = ParseUint(row[data.ColProjectTypeID])
+	if v := toInt64Ptr(row[data.ColBudgetCents]); v != nil {
+		p.BudgetCents = v
+	}
+	if strings.TrimSpace(p.Title) == "" {
+		return 0, fmt.Errorf("project title is required")
+	}
+	if p.Status == "" {
+		p.Status = data.ProjectStatusIdeating
+	}
+	if err := store.CreateProject(&p); err != nil {
+		return 0, err
+	}
+	return p.ID, nil
 }
 
 func commitQuote(store *data.Store, row map[string]any, opData map[string]any) (uint, error) {
@@ -424,6 +452,78 @@ func commitMaintenance(store *data.Store, row map[string]any) (uint, error) {
 	return found.ID, nil
 }
 
+func commitIncident(store *data.Store, row map[string]any, opData map[string]any) (uint, error) {
+	inc := data.Incident{}
+	stringField(row, data.ColTitle, &inc.Title)
+	stringField(row, data.ColDescription, &inc.Description)
+	stringField(row, data.ColStatus, &inc.Status)
+	stringField(row, data.ColSeverity, &inc.Severity)
+	stringField(row, data.ColLocation, &inc.Location)
+	stringField(row, data.ColNotes, &inc.Notes)
+	if v := toInt64Ptr(row[data.ColCostCents]); v != nil {
+		inc.CostCents = v
+	}
+	if v := ParseUint(row[data.ColApplianceID]); v != 0 {
+		inc.ApplianceID = &v
+	}
+	if v := ParseUint(row[data.ColVendorID]); v != 0 {
+		inc.VendorID = &v
+	}
+	if inc.VendorID == nil {
+		var vendorName string
+		stringField(opData, "vendor_name", &vendorName)
+		if strings.TrimSpace(vendorName) != "" {
+			v := data.Vendor{Name: vendorName}
+			found, err := store.FindOrCreateVendor(v)
+			if err != nil {
+				return 0, fmt.Errorf("find-or-create vendor for incident: %w", err)
+			}
+			inc.VendorID = &found.ID
+		}
+	}
+	if inc.Status == "" {
+		inc.Status = data.IncidentStatusOpen
+	}
+	if inc.Severity == "" {
+		inc.Severity = data.IncidentSeverityWhenever
+	}
+	inc.DateNoticed = parseDateOrNow(opData, data.ColDateNoticed)
+	if strings.TrimSpace(inc.Title) == "" {
+		return 0, fmt.Errorf("incident title is required")
+	}
+	if err := store.CreateIncident(&inc); err != nil {
+		return 0, err
+	}
+	return inc.ID, nil
+}
+
+func commitServiceLog(store *data.Store, row map[string]any, opData map[string]any) (uint, error) {
+	entry := data.ServiceLogEntry{}
+	entry.MaintenanceItemID = ParseUint(row[data.ColMaintenanceItemID])
+	stringField(row, data.ColNotes, &entry.Notes)
+	if v := toInt64Ptr(row[data.ColCostCents]); v != nil {
+		entry.CostCents = v
+	}
+	entry.ServicedAt = parseDateOrNow(opData, data.ColServicedAt)
+
+	var vendor data.Vendor
+	vendorID := ParseUint(row[data.ColVendorID])
+	if vendorID > 0 {
+		got, err := store.GetVendor(vendorID)
+		if err == nil {
+			vendor = got
+		}
+	}
+	if vendor.ID == 0 {
+		stringField(opData, "vendor_name", &vendor.Name)
+	}
+
+	if err := store.CreateServiceLog(&entry, vendor); err != nil {
+		return 0, err
+	}
+	return entry.ID, nil
+}
+
 func commitDocument(store *data.Store, row map[string]any) (uint, error) {
 	doc := data.Document{}
 	stringField(row, data.ColTitle, &doc.Title)
@@ -440,10 +540,16 @@ func commitDocument(store *data.Store, row map[string]any) (uint, error) {
 // commitUpdate applies an update operation directly to the real DB.
 func commitUpdate(store *data.Store, op Operation) error {
 	switch op.Table {
-	case data.TableDocuments:
-		return commitUpdateDocument(store, op)
+	case data.TableVendors:
+		return commitUpdateVendor(store, op)
+	case data.TableAppliances:
+		return commitUpdateAppliance(store, op)
+	case data.TableQuotes:
+		return commitUpdateQuote(store, op)
 	case data.TableMaintenanceItems:
 		return commitUpdateMaintenance(store, op)
+	case data.TableDocuments:
+		return commitUpdateDocument(store, op)
 	default:
 		return fmt.Errorf("update not supported on %q", op.Table)
 	}
@@ -506,6 +612,91 @@ func commitUpdateMaintenance(store *data.Store, op Operation) error {
 	return store.UpdateMaintenance(item)
 }
 
+func commitUpdateVendor(store *data.Store, op Operation) error {
+	rowID := ParseUint(op.Data[data.ColID])
+	if rowID == 0 {
+		return fmt.Errorf("update vendors requires id in data")
+	}
+	v, err := store.GetVendor(rowID)
+	if err != nil {
+		return fmt.Errorf("get vendor %d: %w", rowID, err)
+	}
+	stringField(op.Data, data.ColName, &v.Name)
+	stringField(op.Data, data.ColContactName, &v.ContactName)
+	stringField(op.Data, data.ColEmail, &v.Email)
+	stringField(op.Data, data.ColPhone, &v.Phone)
+	stringField(op.Data, data.ColWebsite, &v.Website)
+	stringField(op.Data, data.ColNotes, &v.Notes)
+	return store.UpdateVendor(v)
+}
+
+func commitUpdateAppliance(store *data.Store, op Operation) error {
+	rowID := ParseUint(op.Data[data.ColID])
+	if rowID == 0 {
+		return fmt.Errorf("update appliances requires id in data")
+	}
+	a, err := store.GetAppliance(rowID)
+	if err != nil {
+		return fmt.Errorf("get appliance %d: %w", rowID, err)
+	}
+	stringField(op.Data, data.ColName, &a.Name)
+	stringField(op.Data, data.ColBrand, &a.Brand)
+	stringField(op.Data, data.ColModelNumber, &a.ModelNumber)
+	stringField(op.Data, data.ColSerialNumber, &a.SerialNumber)
+	stringField(op.Data, data.ColLocation, &a.Location)
+	stringField(op.Data, data.ColNotes, &a.Notes)
+	if v, ok := op.Data[data.ColCostCents]; ok {
+		n := ParseInt64(v)
+		a.CostCents = &n
+	}
+	return store.UpdateAppliance(a)
+}
+
+func commitUpdateQuote(store *data.Store, op Operation) error {
+	rowID := ParseUint(op.Data[data.ColID])
+	if rowID == 0 {
+		return fmt.Errorf("update quotes requires id in data")
+	}
+	q, err := store.GetQuote(rowID)
+	if err != nil {
+		return fmt.Errorf("get quote %d: %w", rowID, err)
+	}
+	stringField(op.Data, data.ColNotes, &q.Notes)
+	if v, ok := op.Data[data.ColTotalCents]; ok {
+		q.TotalCents = ParseInt64(v)
+	}
+	if v, ok := op.Data[data.ColLaborCents]; ok {
+		n := ParseInt64(v)
+		q.LaborCents = &n
+	}
+	if v, ok := op.Data[data.ColMaterialsCents]; ok {
+		n := ParseInt64(v)
+		q.MaterialsCents = &n
+	}
+	if v, ok := op.Data[data.ColProjectID]; ok {
+		if n := ParseUint(v); n > 0 {
+			q.ProjectID = n
+		}
+	}
+
+	var vendor data.Vendor
+	if v, ok := op.Data[data.ColVendorID]; ok {
+		if n := ParseUint(v); n > 0 {
+			got, getErr := store.GetVendor(n)
+			if getErr == nil {
+				vendor = got
+			}
+		}
+	}
+	if vendor.ID == 0 {
+		stringField(op.Data, "vendor_name", &vendor.Name)
+	}
+	if vendor.ID == 0 && vendor.Name == "" {
+		vendor = q.Vendor
+	}
+	return store.UpdateQuote(q, vendor)
+}
+
 // --- helpers ---
 
 // stringField sets *dst to the string value at row[key] if present.
@@ -522,6 +713,30 @@ func stringField(row map[string]any, key string, dst *string) {
 	case []byte:
 		*dst = string(s)
 	}
+}
+
+// parseDateOrNow extracts a date from row[key] and returns it. The value
+// may be a time.Time (from GORM datetime columns), a string, or []byte.
+// Returns time.Now() truncated to midnight if missing, empty, or unparsable.
+func parseDateOrNow(row map[string]any, key string) time.Time {
+	v, ok := row[key]
+	if !ok || v == nil {
+		return time.Now().Truncate(24 * time.Hour)
+	}
+	if t, ok := v.(time.Time); ok {
+		return t
+	}
+	var s string
+	switch val := v.(type) {
+	case string:
+		s = val
+	case []byte:
+		s = string(val)
+	}
+	if t, err := data.ParseOptionalDate(s); err == nil && t != nil {
+		return *t
+	}
+	return time.Now().Truncate(24 * time.Hour)
 }
 
 // ParseUint extracts a uint from an arbitrary value. Handles concrete numeric

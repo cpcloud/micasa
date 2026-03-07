@@ -39,13 +39,14 @@ func operationExtractionSystemPrompt(ctx SchemaContext) string {
 	b.WriteString(FormatDDLBlock(ctx.DDL, ExtractionTables))
 
 	hasRows := len(ctx.Vendors) > 0 || len(ctx.Projects) > 0 ||
-		len(ctx.Appliances) > 0 || len(ctx.MaintenanceCategories) > 0 ||
-		len(ctx.ProjectTypes) > 0
+		len(ctx.Appliances) > 0 || len(ctx.MaintenanceItems) > 0 ||
+		len(ctx.MaintenanceCategories) > 0 || len(ctx.ProjectTypes) > 0
 	if hasRows {
 		b.WriteString("\n## Existing rows (use these IDs for foreign keys)\n\n")
 		b.WriteString(FormatEntityRows(data.TableVendors, ctx.Vendors))
 		b.WriteString(FormatEntityRows(data.TableProjects, ctx.Projects))
 		b.WriteString(FormatEntityRows(data.TableAppliances, ctx.Appliances))
+		b.WriteString(FormatEntityRows(data.TableMaintenanceItems, ctx.MaintenanceItems))
 		b.WriteString(FormatEntityRows(data.TableMaintenanceCategories, ctx.MaintenanceCategories))
 		b.WriteString(FormatEntityRows(data.TableProjectTypes, ctx.ProjectTypes))
 	}
