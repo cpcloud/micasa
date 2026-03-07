@@ -434,6 +434,76 @@ func TestDashboardScrollWheel(t *testing.T) {
 	assert.Equal(t, 0, m.dash.cursor, "scroll up in dashboard should move cursor back")
 }
 
+// TestDashboardRowClickSelects verifies that a single click on a dashboard
+// row selects it without jumping.
+func TestDashboardRowClickSelects(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithDemoData(t, 42)
+
+	sendKey(m, "D")
+	if !m.dashboardVisible() {
+		t.Skip("dashboard has no data to display")
+	}
+	require.Greater(t, len(m.dash.nav), 1, "need multiple dashboard nav items")
+
+	m.dash.cursor = 0
+	// Render once to populate all zones including overlay.
+	m.View()
+	oz := m.zones.Get(zoneOverlay)
+	if oz == nil || oz.IsZero() {
+		t.Skip("overlay zone not rendered")
+	}
+	z := requireZone(t, m, "dash-1")
+
+	sendClick(m, z.StartX, z.StartY)
+	assert.True(t, m.dashboardVisible(), "single click should not close dashboard")
+	assert.Equal(t, 1, m.dash.cursor, "single click should move dashboard cursor")
+}
+
+// TestDashboardDoubleClickJumps verifies that double-clicking a dashboard
+// row jumps to the item (closes the dashboard and switches tabs).
+func TestDashboardDoubleClickJumps(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithDemoData(t, 42)
+
+	sendKey(m, "D")
+	if !m.dashboardVisible() {
+		t.Skip("dashboard has no data to display")
+	}
+	require.Greater(t, len(m.dash.nav), 1, "need multiple dashboard nav items")
+
+	// Find a jumpable (non-header, non-info-only) row.
+	jumpIdx := -1
+	for i, nav := range m.dash.nav {
+		if !nav.IsHeader && !nav.InfoOnly {
+			jumpIdx = i
+			break
+		}
+	}
+	if jumpIdx < 0 {
+		t.Skip("no jumpable dashboard row")
+	}
+
+	m.dash.cursor = 0
+	// Render once to populate all zones including overlay.
+	m.View()
+	oz := m.zones.Get(zoneOverlay)
+	if oz == nil || oz.IsZero() {
+		t.Skip("overlay zone not rendered")
+	}
+	z := requireZone(t, m, fmt.Sprintf("dash-%d", jumpIdx))
+
+	// First click selects.
+	sendClick(m, z.StartX, z.StartY)
+	require.True(t, m.dashboardVisible(), "single click should keep dashboard open")
+	require.Equal(t, jumpIdx, m.dash.cursor)
+
+	// Second click within threshold jumps.
+	z = requireZone(t, m, fmt.Sprintf("dash-%d", jumpIdx))
+	sendClick(m, z.StartX, z.StartY)
+	assert.False(t, m.dashboardVisible(), "double-click should close dashboard and jump")
+}
+
 // TestDashboardDismissOnOutsideClick verifies that clicking outside the
 // dashboard overlay dismisses it.
 func TestDashboardDismissOnOutsideClick(t *testing.T) {

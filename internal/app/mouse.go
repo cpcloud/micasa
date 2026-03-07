@@ -132,9 +132,6 @@ func (m *Model) handleLeftClick(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 						if err := m.handleNormalEnter(); err != nil {
 							m.setStatusError(err.Error())
 						}
-						if m.mode == modeForm {
-							return m, m.formInitCmd()
-						}
 					} else {
 						tab.Table.SetCursor(i)
 						m.selectClickedColumn(tab, msg)
