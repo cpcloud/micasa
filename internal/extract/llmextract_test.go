@@ -167,6 +167,23 @@ func TestStripCodeFences(t *testing.T) {
 	}
 }
 
+func TestOperationExtractionRules_CoversAllTables(t *testing.T) {
+	t.Parallel()
+	rules := operationExtractionRules()
+	for _, td := range ExtractionTableDefs {
+		if td.Table == data.TableDocuments {
+			continue
+		}
+		assert.Contains(t, rules, td.Table,
+			"allowed ops section should mention table %s", td.Table)
+		for _, ad := range td.Actions {
+			assert.Contains(t, rules, string(ad.Action),
+				"allowed ops section should mention action %s for %s", ad.Action, td.Table)
+		}
+	}
+	assert.Contains(t, rules, "Document field")
+}
+
 // --- Schema context formatting tests ---
 
 func TestFormatDDLBlock(t *testing.T) {
