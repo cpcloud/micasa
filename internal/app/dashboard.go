@@ -340,6 +340,20 @@ func (m *Model) loadDashboardAt(now time.Time) error {
 
 // buildDashNav builds the flat navigation list from dashboard data. Each
 // navigable item maps cursor position -> (tab, id).
+// dashNavSection builds nav entries for a dashboard section from a typed slice.
+func dashNavSection[T any](
+	items []T,
+	tab TabKind,
+	section string,
+	id func(T) uint,
+) []dashNavEntry {
+	entries := make([]dashNavEntry, len(items))
+	for i, item := range items {
+		entries[i] = dashNavEntry{Tab: tab, ID: id(item), Section: section}
+	}
+	return entries
+}
+
 func (m *Model) buildDashNav() {
 	type sectionData struct {
 		title   string
@@ -347,64 +361,42 @@ func (m *Model) buildDashNav() {
 	}
 	var groups []sectionData
 
-	if n := len(m.dash.data.OpenIncidents); n > 0 {
-		entries := make([]dashNavEntry, 0, n)
-		for _, inc := range m.dash.data.OpenIncidents {
-			entries = append(entries, dashNavEntry{
-				Tab: tabIncidents, ID: inc.ID,
-				Section: dashSectionIncidents,
-			})
+	d := m.dash.data
+	add := func(section string, entries []dashNavEntry) {
+		if len(entries) > 0 {
+			groups = append(groups, sectionData{section, entries})
 		}
-		groups = append(groups, sectionData{dashSectionIncidents, entries})
 	}
-	if n := len(m.dash.data.Overdue); n > 0 {
-		entries := make([]dashNavEntry, 0, n)
-		for _, e := range m.dash.data.Overdue {
-			entries = append(entries, dashNavEntry{
-				Tab: tabMaintenance, ID: e.Item.ID,
-				Section: dashSectionOverdue,
-			})
-		}
-		groups = append(groups, sectionData{dashSectionOverdue, entries})
+
+	add(dashSectionIncidents, dashNavSection(
+		d.OpenIncidents, tabIncidents, dashSectionIncidents,
+		func(inc data.Incident) uint { return inc.ID },
+	))
+	add(dashSectionOverdue, dashNavSection(
+		d.Overdue, tabMaintenance, dashSectionOverdue,
+		func(e maintenanceUrgency) uint { return e.Item.ID },
+	))
+	add(dashSectionUpcoming, dashNavSection(
+		d.Upcoming, tabMaintenance, dashSectionUpcoming,
+		func(e maintenanceUrgency) uint { return e.Item.ID },
+	))
+	add(dashSectionProjects, dashNavSection(
+		d.ActiveProjects, tabProjects, dashSectionProjects,
+		func(p data.Project) uint { return p.ID },
+	))
+
+	// Expiring: warranties + optional insurance renewal row.
+	expiring := dashNavSection(
+		d.ExpiringWarranties, tabAppliances, dashSectionExpiring,
+		func(w warrantyStatus) uint { return w.Appliance.ID },
+	)
+	if d.InsuranceRenewal != nil {
+		expiring = append(expiring, dashNavEntry{
+			Section:  dashSectionExpiring,
+			InfoOnly: true,
+		})
 	}
-	if n := len(m.dash.data.Upcoming); n > 0 {
-		entries := make([]dashNavEntry, 0, n)
-		for _, e := range m.dash.data.Upcoming {
-			entries = append(entries, dashNavEntry{
-				Tab: tabMaintenance, ID: e.Item.ID,
-				Section: dashSectionUpcoming,
-			})
-		}
-		groups = append(groups, sectionData{dashSectionUpcoming, entries})
-	}
-	if n := len(m.dash.data.ActiveProjects); n > 0 {
-		entries := make([]dashNavEntry, 0, n)
-		for _, p := range m.dash.data.ActiveProjects {
-			entries = append(entries, dashNavEntry{
-				Tab: tabProjects, ID: p.ID,
-				Section: dashSectionProjects,
-			})
-		}
-		groups = append(groups, sectionData{dashSectionProjects, entries})
-	}
-	// Include the Expiring section when there are warranties OR an insurance
-	// renewal. dashExpiringRows() renders both, so the nav must match.
-	if n := len(m.dash.data.ExpiringWarranties); n > 0 || m.dash.data.InsuranceRenewal != nil {
-		entries := make([]dashNavEntry, 0, n+1)
-		for _, w := range m.dash.data.ExpiringWarranties {
-			entries = append(entries, dashNavEntry{
-				Tab: tabAppliances, ID: w.Appliance.ID,
-				Section: dashSectionExpiring,
-			})
-		}
-		if m.dash.data.InsuranceRenewal != nil {
-			entries = append(entries, dashNavEntry{
-				Section:  dashSectionExpiring,
-				InfoOnly: true,
-			})
-		}
-		groups = append(groups, sectionData{dashSectionExpiring, entries})
-	}
+	add(dashSectionExpiring, expiring)
 
 	var nav []dashNavEntry
 	for _, g := range groups {
