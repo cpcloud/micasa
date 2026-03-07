@@ -5,6 +5,7 @@ package app
 
 import (
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	zone "github.com/lrstanley/bubblezone"
@@ -77,6 +78,31 @@ func TestRowClickMovesCursor(t *testing.T) {
 
 	sendClick(m, z.StartX, z.StartY)
 	assert.Equal(t, 1, tab.Table.Cursor(), "clicking row-1 should move cursor to row 1")
+}
+
+// TestRowClickSelectsColumn verifies that clicking on a cell within a row
+// also moves the column cursor to the clicked column.
+func TestRowClickSelectsColumn(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithDemoData(t, 42)
+
+	tab := m.effectiveTab()
+	require.NotNil(t, tab)
+	require.Greater(t, len(tab.CellRows), 1, "need at least 2 rows")
+	require.Greater(t, len(tab.Specs), 1, "need at least 2 columns")
+
+	tab.Table.SetCursor(0)
+	tab.ColCursor = 0
+
+	// Get the second column header zone for its X range.
+	colZone := requireZone(t, m, "col-1")
+	// Get a row zone for its Y range.
+	rowZone := requireZone(t, m, "row-1")
+
+	// Click at the X of column 1, Y of row 1.
+	sendClick(m, colZone.StartX, rowZone.StartY)
+	assert.Equal(t, 1, tab.Table.Cursor(), "clicking should move row cursor to row 1")
+	assert.NotEqual(t, 0, tab.ColCursor, "clicking in column 1 area should move column cursor")
 }
 
 // TestScrollWheelMovesCursor verifies that scroll wheel events move the
@@ -232,9 +258,44 @@ func TestMouseNoOpOnRelease(t *testing.T) {
 	assert.Equal(t, before, m.active, "mouse release should not change state")
 }
 
-// TestSelectedRowClickDrillsDown verifies that clicking an already-selected
-// row triggers drilldown (same as pressing enter).
-func TestSelectedRowClickDrillsDown(t *testing.T) {
+// TestDoubleClickRowDrillsDown verifies that double-clicking a row triggers
+// drilldown (same as pressing enter).
+func TestDoubleClickRowDrillsDown(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithDemoData(t, 42)
+
+	tab := m.effectiveTab()
+	require.NotNil(t, tab)
+	require.NotEmpty(t, tab.CellRows)
+
+	hasDrilldown := false
+	for i, spec := range tab.Specs {
+		if spec.Kind == cellDrilldown {
+			tab.ColCursor = i
+			hasDrilldown = true
+			break
+		}
+	}
+	if !hasDrilldown {
+		t.Skip("no drilldown column available")
+	}
+
+	tab.Table.SetCursor(0)
+	z := requireZone(t, m, "row-0")
+
+	// First click selects (already selected, but records the click).
+	sendClick(m, z.StartX, z.StartY)
+	assert.False(t, m.inDetail(), "single click should not trigger drilldown")
+
+	// Second click within threshold triggers drilldown.
+	z = requireZone(t, m, "row-0")
+	sendClick(m, z.StartX, z.StartY)
+	assert.True(t, m.inDetail(), "double-click should trigger drilldown")
+}
+
+// TestSingleClickOnSelectedRowDoesNotDrill verifies that a single click on
+// an already-selected row does not trigger drilldown.
+func TestSingleClickOnSelectedRowDoesNotDrill(t *testing.T) {
 	t.Parallel()
 	m := newTestModelWithDemoData(t, 42)
 
@@ -258,7 +319,73 @@ func TestSelectedRowClickDrillsDown(t *testing.T) {
 	z := requireZone(t, m, "row-0")
 
 	sendClick(m, z.StartX, z.StartY)
-	assert.True(t, m.inDetail(), "clicking selected row should trigger drilldown")
+	assert.False(t, m.inDetail(), "single click on selected row should not drill down")
+}
+
+// TestDoubleClickExpiredDoesNotDrill verifies that two clicks with too much
+// time between them do not trigger drilldown.
+func TestDoubleClickExpiredDoesNotDrill(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithDemoData(t, 42)
+
+	tab := m.effectiveTab()
+	require.NotNil(t, tab)
+	require.NotEmpty(t, tab.CellRows)
+
+	hasDrilldown := false
+	for i, spec := range tab.Specs {
+		if spec.Kind == cellDrilldown {
+			tab.ColCursor = i
+			hasDrilldown = true
+			break
+		}
+	}
+	if !hasDrilldown {
+		t.Skip("no drilldown column available")
+	}
+
+	tab.Table.SetCursor(0)
+	z := requireZone(t, m, "row-0")
+
+	sendClick(m, z.StartX, z.StartY)
+	// Simulate an expired click by backdating the recorded time.
+	m.lastRowClick.at = m.lastRowClick.at.Add(-time.Second)
+
+	z = requireZone(t, m, "row-0")
+	sendClick(m, z.StartX, z.StartY)
+	assert.False(t, m.inDetail(), "expired double-click should not trigger drilldown")
+}
+
+// TestDoubleClickDifferentRowDoesNotDrill verifies that clicking two
+// different rows in quick succession does not trigger drilldown.
+func TestDoubleClickDifferentRowDoesNotDrill(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithDemoData(t, 42)
+
+	tab := m.effectiveTab()
+	require.NotNil(t, tab)
+	require.Greater(t, len(tab.CellRows), 1, "need at least 2 rows")
+
+	hasDrilldown := false
+	for i, spec := range tab.Specs {
+		if spec.Kind == cellDrilldown {
+			tab.ColCursor = i
+			hasDrilldown = true
+			break
+		}
+	}
+	if !hasDrilldown {
+		t.Skip("no drilldown column available")
+	}
+
+	tab.Table.SetCursor(0)
+	z0 := requireZone(t, m, "row-0")
+	sendClick(m, z0.StartX, z0.StartY)
+
+	z1 := requireZone(t, m, "row-1")
+	sendClick(m, z1.StartX, z1.StartY)
+	assert.False(t, m.inDetail(), "clicking different rows should not trigger drilldown")
+	assert.Equal(t, 1, tab.Table.Cursor(), "second click should select row 1")
 }
 
 // TestDashboardScrollWheel verifies that scroll wheel events in the
