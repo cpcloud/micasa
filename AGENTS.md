@@ -108,20 +108,22 @@ comment; if it is older than 30 days, spot-check and update it.
 
 # Frontend/UI/UX design tasks
 
-For the TUI: follow `styles.go` conventions (Wong palette, `appStyles`
-singleton). For the Hugo website (`docs/`):
+For both the TUI and the Hugo website (`docs/`), avoid collapsing into "AI
+slop" or safe, average-looking layouts. Aim for interfaces that feel
+intentional, bold, and a bit surprising. For the TUI, also follow `styles.go`
+conventions (Wong palette, `appStyles` singleton).
 
-- Avoid collapsing into "AI slop" or safe, average-looking layouts. Aim for
-  interfaces that feel intentional, bold, and a bit surprising.
-- Typography: Use expressive, purposeful fonts and avoid default stacks (Inter,
-  Roboto, Arial, system).
-- Color & Look: Choose a clear visual direction; define CSS variables; avoid
-  purple-on-white defaults. No purple bias or dark mode bias.
-- Motion: Use a few meaningful animations (page-load, staggered reveals)
-  instead of generic micro-motions.
+Guidelines (TUI applicability noted):
+
+- Typography (website): Use expressive, purposeful fonts and avoid default
+  stacks (Inter, Roboto, Arial, system).
+- Color & Look: Choose a clear visual direction; avoid purple-on-white
+  defaults. No purple bias or dark mode bias.
+- Motion (website): Use a few meaningful animations (page-load, staggered
+  reveals) instead of generic micro-motions.
 - Background: Don't rely on flat, single-color backgrounds; use gradients,
   shapes, or subtle patterns to build atmosphere.
-- Vary themes, type families, and visual languages across outputs.
+- Vary visual languages across outputs; avoid boilerplate layouts.
 - Ensure the page loads properly on both desktop and mobile.
 - Finish to completion within scope. It should be in a working state to run
   and test.
