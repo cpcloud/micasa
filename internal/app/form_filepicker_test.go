@@ -246,3 +246,46 @@ func TestQuickDocumentCtrlSSavesWithoutExtraction(t *testing.T) {
 	require.Len(t, docs, 1)
 	assert.Equal(t, "invoice.txt", docs[0].FileName)
 }
+
+func TestQuickDocumentCtrlSParseErrorShowsStatus(t *testing.T) {
+	root := t.TempDir()
+	t.Chdir(root)
+
+	m := newTestModelWithStore(t)
+	require.NoError(t, m.startQuickDocumentForm())
+
+	// Point at a non-existent file to trigger a parse error.
+	fd, ok := m.fs.formData.(*documentFormData)
+	require.True(t, ok)
+	fd.FilePath = filepath.Join(root, "no-such-file.txt")
+
+	sendKey(m, keyCtrlS)
+
+	assert.Equal(t, statusError, m.status.Kind,
+		"parse failure should surface a status error")
+	assert.Equal(t, modeForm, m.mode,
+		"form should remain open on error")
+}
+
+func TestQuickDocumentCtrlSFileTooLargeShowsStatus(t *testing.T) {
+	root := t.TempDir()
+	file := filepath.Join(root, "huge.txt")
+	require.NoError(t, os.WriteFile(file, []byte("data"), 0o600))
+	t.Chdir(root)
+
+	m := newTestModelWithStore(t)
+	// Set max size to 1 byte so the 4-byte file exceeds it.
+	require.NoError(t, m.store.SetMaxDocumentSize(1))
+
+	require.NoError(t, m.startQuickDocumentForm())
+	fd, ok := m.fs.formData.(*documentFormData)
+	require.True(t, ok)
+	fd.FilePath = file
+
+	sendKey(m, keyCtrlS)
+
+	assert.Equal(t, statusError, m.status.Kind,
+		"oversized file should surface a status error")
+	assert.Equal(t, modeForm, m.mode,
+		"form should remain open on error")
+}
