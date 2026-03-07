@@ -55,6 +55,45 @@ func getByID[T any](s *Store, id uint, prepare func(*gorm.DB) *gorm.DB) (T, erro
 	return item, err
 }
 
+// findOrCreate looks up a record (including soft-deleted) using the given
+// predicate. If not found, creates it. If found and soft-deleted, restores
+// it and marks the DeletionRecord as restored.
+func findOrCreate[T any](
+	tx *gorm.DB,
+	item T,
+	name string,
+	nameLabel string,
+	lookup func(*gorm.DB) *gorm.DB,
+	entity string,
+	id func(T) uint,
+	deleted func(T) bool,
+) (T, error) {
+	if strings.TrimSpace(name) == "" {
+		var zero T
+		return zero, fmt.Errorf("%s is required", nameLabel)
+	}
+	var existing T
+	err := lookup(tx.Unscoped()).First(&existing).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		if err := tx.Create(&item).Error; err != nil {
+			var zero T
+			return zero, err
+		}
+		return item, nil
+	}
+	if err != nil {
+		var zero T
+		return zero, err
+	}
+	if deleted(existing) {
+		if err := restoreSoftDeleted(tx, new(T), entity, id(existing)); err != nil {
+			var zero T
+			return zero, err
+		}
+	}
+	return existing, nil
+}
+
 type dependencyCheck struct {
 	model  any
 	fkCol  string
@@ -812,35 +851,14 @@ func (s *Store) CreateMaintenance(item *MaintenanceItem) error {
 // If found, returns it. If not found, creates a new one. Soft-deleted items
 // with the same name+category are restored.
 func (s *Store) FindOrCreateMaintenance(item MaintenanceItem) (MaintenanceItem, error) {
-	if strings.TrimSpace(item.Name) == "" {
-		return MaintenanceItem{}, fmt.Errorf("maintenance item name is required")
-	}
-	var existing MaintenanceItem
-	q := s.db.Unscoped().Where(ColName+" = ? AND category_id = ?", item.Name, item.CategoryID)
-	err := q.First(&existing).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		if err := s.db.Create(&item).Error; err != nil {
-			return MaintenanceItem{}, err
-		}
-		return item, nil
-	}
-	if err != nil {
-		return MaintenanceItem{}, err
-	}
-	if existing.DeletedAt.Valid {
-		if err := s.db.Unscoped().Model(&existing).Update(ColDeletedAt, nil).Error; err != nil {
-			return MaintenanceItem{}, err
-		}
-		existing.DeletedAt.Valid = false
-		restoredAt := time.Now()
-		_ = s.db.Model(&DeletionRecord{}).
-			Where(
-				ColEntity+" = ? AND "+ColTargetID+" = ? AND "+ColRestoredAt+" IS NULL",
-				DeletionEntityMaintenance, existing.ID,
-			).
-			Update(ColRestoredAt, restoredAt).Error
-	}
-	return existing, nil
+	return findOrCreate(s.db, item, item.Name, "maintenance item name",
+		func(db *gorm.DB) *gorm.DB {
+			return db.Where(ColName+" = ? AND "+ColCategoryID+" = ?", item.Name, item.CategoryID)
+		},
+		DeletionEntityMaintenance,
+		func(m MaintenanceItem) uint { return m.ID },
+		func(m MaintenanceItem) bool { return m.DeletedAt.Valid },
+	)
 }
 
 func (s *Store) UpdateMaintenance(item MaintenanceItem) error {
@@ -865,34 +883,14 @@ func (s *Store) CreateAppliance(item *Appliance) error {
 // If not found, creates a new one. Soft-deleted appliances with the same name
 // are restored.
 func (s *Store) FindOrCreateAppliance(item Appliance) (Appliance, error) {
-	if strings.TrimSpace(item.Name) == "" {
-		return Appliance{}, fmt.Errorf("appliance name is required")
-	}
-	var existing Appliance
-	err := s.db.Unscoped().Where(ColName+" = ?", item.Name).First(&existing).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		if err := s.db.Create(&item).Error; err != nil {
-			return Appliance{}, err
-		}
-		return item, nil
-	}
-	if err != nil {
-		return Appliance{}, err
-	}
-	if existing.DeletedAt.Valid {
-		if err := s.db.Unscoped().Model(&existing).Update(ColDeletedAt, nil).Error; err != nil {
-			return Appliance{}, err
-		}
-		existing.DeletedAt.Valid = false
-		restoredAt := time.Now()
-		_ = s.db.Model(&DeletionRecord{}).
-			Where(
-				ColEntity+" = ? AND "+ColTargetID+" = ? AND "+ColRestoredAt+" IS NULL",
-				DeletionEntityAppliance, existing.ID,
-			).
-			Update(ColRestoredAt, restoredAt).Error
-	}
-	return existing, nil
+	return findOrCreate(s.db, item, item.Name, "appliance name",
+		func(db *gorm.DB) *gorm.DB {
+			return db.Where(ColName+" = ?", item.Name)
+		},
+		DeletionEntityAppliance,
+		func(a Appliance) uint { return a.ID },
+		func(a Appliance) bool { return a.DeletedAt.Valid },
+	)
 }
 
 func (s *Store) UpdateAppliance(item Appliance) error {
@@ -1461,20 +1459,27 @@ func (s *Store) softDelete(model any, entity string, id uint) error {
 	})
 }
 
+// restoreSoftDeleted clears a record's soft-delete timestamp and marks the
+// corresponding DeletionRecord as restored. Callers that need transactional
+// guarantees should pass a *gorm.DB obtained from db.Transaction.
+func restoreSoftDeleted(tx *gorm.DB, model any, entity string, id uint) error {
+	if err := tx.Unscoped().Model(model).
+		Where(ColID+" = ?", id).
+		Update(ColDeletedAt, nil).Error; err != nil {
+		return err
+	}
+	restoredAt := time.Now()
+	return tx.Model(&DeletionRecord{}).
+		Where(
+			ColEntity+" = ? AND "+ColTargetID+" = ? AND "+ColRestoredAt+" IS NULL",
+			entity, id,
+		).
+		Update(ColRestoredAt, restoredAt).Error
+}
+
 func (s *Store) restoreEntity(model any, entity string, id uint) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Unscoped().Model(model).
-			Where(ColID+" = ?", id).
-			Update(ColDeletedAt, nil).Error; err != nil {
-			return err
-		}
-		restoredAt := time.Now()
-		return tx.Model(&DeletionRecord{}).
-			Where(
-				ColEntity+" = ? AND "+ColTargetID+" = ? AND "+ColRestoredAt+" IS NULL",
-				entity, id,
-			).
-			Update(ColRestoredAt, restoredAt).Error
+		return restoreSoftDeleted(tx, model, entity, id)
 	})
 }
 
@@ -1575,41 +1580,18 @@ func (s *Store) updateByID(model any, id uint, values any) error {
 }
 
 func findOrCreateVendor(tx *gorm.DB, vendor Vendor) (Vendor, error) {
-	if strings.TrimSpace(vendor.Name) == "" {
-		return Vendor{}, fmt.Errorf("vendor name is required")
-	}
-	// Search unscoped so we find soft-deleted vendors too -- the unique
-	// index on name spans all rows regardless of deleted_at.
-	var existing Vendor
-	err := tx.Unscoped().Where(ColName+" = ?", vendor.Name).First(&existing).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		if err := tx.Create(&vendor).Error; err != nil {
-			return Vendor{}, err
-		}
-		return vendor, nil
-	}
+	existing, err := findOrCreate(tx, vendor, vendor.Name, "vendor name",
+		func(db *gorm.DB) *gorm.DB { return db.Where(ColName+" = ?", vendor.Name) },
+		DeletionEntityVendor,
+		func(v Vendor) uint { return v.ID },
+		func(v Vendor) bool { return v.DeletedAt.Valid },
+	)
 	if err != nil {
 		return Vendor{}, err
 	}
-	// Restore the vendor if it was soft-deleted, and mark the
-	// DeletionRecord as restored.
-	if existing.DeletedAt.Valid {
-		if err := tx.Unscoped().Model(&existing).Update(ColDeletedAt, nil).Error; err != nil {
-			return Vendor{}, err
-		}
-		existing.DeletedAt.Valid = false
-		restoredAt := time.Now()
-		if err := tx.Model(&DeletionRecord{}).
-			Where(
-				ColEntity+" = ? AND "+ColTargetID+" = ? AND "+ColRestoredAt+" IS NULL",
-				DeletionEntityVendor, existing.ID,
-			).
-			Update(ColRestoredAt, restoredAt).Error; err != nil {
-			return Vendor{}, err
-		}
-	}
-	// Unconditionally overwrite contact fields so callers can clear them
-	// (e.g. user blanks a phone number in the quote form).
+	// Overwrite contact fields so callers can clear them (e.g. user
+	// blanks a phone number in the quote form). For newly created
+	// vendors this is a no-op since the fields already match.
 	updates := map[string]any{
 		ColContactName: vendor.ContactName,
 		ColEmail:       vendor.Email,
@@ -1620,8 +1602,7 @@ func findOrCreateVendor(tx *gorm.DB, vendor Vendor) (Vendor, error) {
 	if err := tx.Model(&existing).Updates(updates).Error; err != nil {
 		return Vendor{}, err
 	}
-	// Re-read so the returned struct reflects the persisted state,
-	// not the potentially stale snapshot from the initial First query.
+	// Re-read so the returned struct reflects the persisted state.
 	if err := tx.First(&existing, existing.ID).Error; err != nil {
 		return Vendor{}, err
 	}
