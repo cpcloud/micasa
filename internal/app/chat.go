@@ -18,6 +18,7 @@ import (
 	"github.com/cpcloud/micasa/internal/data"
 	"github.com/cpcloud/micasa/internal/llm"
 	ollamaPull "github.com/cpcloud/micasa/internal/ollama"
+	"github.com/cpcloud/micasa/internal/sqlfmt"
 )
 
 const (
@@ -1177,7 +1178,7 @@ func (m *Model) renderChatMessages() string {
 					sqlWidth = 30
 				}
 				sqlBlock := m.chat.renderMarkdown(
-					"```sql\n"+llm.FormatSQL(sql, sqlWidth)+"\n```",
+					"```sql\n"+sqlfmt.FormatSQL(sql, sqlWidth)+"\n```",
 					innerW-2,
 				)
 				parts = append(parts, sqlBlock)
