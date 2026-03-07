@@ -11,7 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"sort"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -27,21 +27,9 @@ type ocrPageResult struct {
 	err  error
 }
 
-// minOCRImageBytes is the minimum file size for an extracted image to be
-// worth OCR-ing. Full-page scans are typically >10KB even at low DPI;
-// logos and icons are <5KB.
-const minOCRImageBytes = 10 * 1024
-
-// acquireResult holds the output from a single image extraction tool.
-type acquireResult struct {
-	tool   string
-	images []string
-}
-
-// ocrPDF extracts images from a PDF and OCRs them in parallel. All available
-// poppler tools run concurrently -- pdfimages (embedded blobs), pdftohtml
-// (vector-drawn content), pdftoppm (full rasterization) -- and their images
-// are merged before OCR.
+// ocrPDF extracts text from a PDF using parallel per-page rasterization
+// with pdftocairo fused with tesseract OCR. Each page is rasterized and
+// OCR'd in a single goroutine, eliminating the sequential bottleneck.
 func ocrPDF(ctx context.Context, data []byte, maxPages int) (string, []byte, error) {
 	tmpDir, err := os.MkdirTemp("", "micasa-ocr-*")
 	if err != nil {
@@ -54,322 +42,149 @@ func ocrPDF(ctx context.Context, data []byte, maxPages int) (string, []byte, err
 		return "", nil, fmt.Errorf("write temp pdf: %w", err)
 	}
 
-	acquired, err := acquireImages(ctx, pdfPath, tmpDir, maxPages, nil)
+	pageCount, err := pdfPageCount(ctx, pdfPath)
 	if err != nil {
-		return "", nil, err
+		return "", nil, fmt.Errorf("pdfinfo: %w", err)
 	}
-
-	images := mergeAcquiredImages(acquired)
-	if len(images) == 0 {
+	if maxPages > 0 && pageCount > maxPages {
+		pageCount = maxPages
+	}
+	if pageCount == 0 {
 		return "", nil, nil
 	}
 
-	results := ocrPagesParallel(ctx, images, nil)
+	results := ocrPDFPages(ctx, pdfPath, pageCount, nil)
 	text, tsv := collectOCRResults(results)
 	return text, tsv, nil
 }
 
-// toolOrder defines the deterministic order for image extraction results:
-// cheapest tool first, most expensive last.
-var toolOrder = []string{"pdfimages", "pdftohtml", "pdftoppm"}
-
-// mergeAcquiredImages deduplicates images from multiple acquisition tools.
-// pdftoppm rasterizes every page at 300 DPI, giving comprehensive coverage.
-// pdfimages and pdftohtml extract specific content (embedded blobs, vector
-// drawings) that may be incomplete. Prefer pdftoppm when available; fall
-// back to the targeted tools only when pdftoppm produced nothing.
-func mergeAcquiredImages(results []acquireResult) []string {
-	var comprehensive, targeted []string
-	for _, r := range results {
-		if r.tool == "pdftoppm" {
-			comprehensive = append(comprehensive, r.images...)
-		} else {
-			targeted = append(targeted, r.images...)
-		}
-	}
-	if len(comprehensive) > 0 {
-		return comprehensive
-	}
-	return targeted
-}
-
-// acquireNotify is called when a tool completes image extraction.
-// count is the number of images produced; err is non-nil on failure.
-type acquireNotify func(tool string, count int, err error)
-
-// acquireImages runs all available poppler tools in parallel to extract
-// page images from a PDF. Each tool targets different content types --
-// pdfimages gets embedded image XObjects, pdftohtml renders vector-drawn
-// content, pdftoppm rasterizes everything at 300 DPI. Results are merged
-// in tool-priority order (pdfimages, pdftohtml, pdftoppm).
-//
-// If notify is non-nil, it is called from a goroutine when each tool
-// completes (before acquireImages itself returns).
-func acquireImages(
-	ctx context.Context,
-	pdfPath string,
-	tmpDir string,
-	maxPages int,
-	notify acquireNotify,
-) ([]acquireResult, error) {
-	type toolResult struct {
-		tool   string
-		images []string
-		err    error
-	}
-
-	var wg sync.WaitGroup
-	ch := make(chan toolResult, 3)
-
-	if HasPDFImages() {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			var images []string
-			var err error
-			dir := filepath.Join(tmpDir, "pdfimages")
-			if mkErr := os.MkdirAll(dir, 0o700); mkErr != nil {
-				err = mkErr
-			} else {
-				images, err = extractPDFImages(ctx, pdfPath, dir, maxPages)
-			}
-			if notify != nil {
-				notify("pdfimages", len(images), err)
-			}
-			ch <- toolResult{tool: "pdfimages", images: images, err: err}
-		}()
-	}
-
-	if HasPDFToHTML() {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			var images []string
-			var err error
-			dir := filepath.Join(tmpDir, "pdftohtml")
-			if mkErr := os.MkdirAll(dir, 0o700); mkErr != nil {
-				err = mkErr
-			} else {
-				images, err = extractPDFToHTMLImages(ctx, pdfPath, dir, maxPages)
-			}
-			if notify != nil {
-				notify("pdftohtml", len(images), err)
-			}
-			ch <- toolResult{tool: "pdftohtml", images: images, err: err}
-		}()
-	}
-
-	if HasPDFToPPM() {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			var images []string
-			var err error
-			dir := filepath.Join(tmpDir, "pdftoppm")
-			if mkErr := os.MkdirAll(dir, 0o700); mkErr != nil {
-				err = mkErr
-			} else {
-				outputPrefix := filepath.Join(dir, "page")
-				if rErr := rasterize(ctx, pdfPath, outputPrefix, maxPages); rErr != nil {
-					err = fmt.Errorf("pdftoppm: %w", rErr)
-				} else {
-					images, err = filepath.Glob(outputPrefix + "*.png")
-					if err != nil {
-						err = fmt.Errorf("glob page images: %w", err)
-					} else {
-						sort.Strings(images)
-					}
-				}
-			}
-			if notify != nil {
-				notify("pdftoppm", len(images), err)
-			}
-			ch <- toolResult{tool: "pdftoppm", images: images, err: err}
-		}()
-	}
-
-	go func() {
-		wg.Wait()
-		close(ch)
-	}()
-
-	// Collect results keyed by tool for deterministic ordering.
-	successMap := make(map[string]toolResult)
-	errMap := make(map[string]error)
-	for r := range ch {
-		if r.err != nil {
-			errMap[r.tool] = r.err
-			continue
-		}
-		if len(r.images) > 0 {
-			successMap[r.tool] = r
-		}
-	}
-
-	if len(successMap) == 0 {
-		if !HasPDFImages() && !HasPDFToHTML() && !HasPDFToPPM() {
-			return nil, fmt.Errorf("no PDF image extraction tool available")
-		}
-		if len(errMap) > 0 {
-			var errs []string
-			for _, tool := range toolOrder {
-				if e, ok := errMap[tool]; ok {
-					errs = append(errs, fmt.Sprintf("%s: %v", tool, e))
-				}
-			}
-			return nil, fmt.Errorf(
-				"all image extraction tools failed: %s",
-				strings.Join(errs, "; "),
-			)
-		}
-		return nil, nil
-	}
-
-	// Return results in priority order: pdfimages, pdftohtml, pdftoppm.
-	var results []acquireResult
-	for _, tool := range toolOrder {
-		if r, ok := successMap[tool]; ok {
-			results = append(results, acquireResult{tool: r.tool, images: r.images})
-		}
-	}
-	return results, nil
-}
-
-// extractPDFImages uses pdfimages to extract embedded images from a PDF,
-// filtering out images smaller than minOCRImageDim in either dimension.
-func extractPDFImages(
-	ctx context.Context,
-	pdfPath string,
-	tmpDir string,
-	maxPages int,
-) ([]string, error) {
-	outputPrefix := filepath.Join(tmpDir, "img")
-	args := []string{"-all", "-p"}
-	if maxPages > 0 {
-		args = append(args, "-l", fmt.Sprintf("%d", maxPages))
-	}
-	args = append(args, pdfPath, outputPrefix)
-
-	cmd := exec.CommandContext( //nolint:gosec // args are constructed internally
+// pdfPageCount returns the number of pages in a PDF using pdfinfo.
+func pdfPageCount(ctx context.Context, pdfPath string) (int, error) {
+	var stdout, stderr bytes.Buffer
+	cmd := exec.CommandContext( //nolint:gosec // pdfPath is a temp file we created
 		ctx,
-		"pdfimages",
-		args...,
+		"pdfinfo",
+		pdfPath,
 	)
-	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf(
-			"pdfimages: %s: %w",
-			strings.TrimSpace(stderr.String()),
-			err,
-		)
+		return 0, fmt.Errorf("%s: %w", strings.TrimSpace(stderr.String()), err)
 	}
 
-	// Collect all extracted image files, filtering out tiny images.
-	pattern := outputPrefix + "*"
-	candidates, err := filepath.Glob(pattern)
-	if err != nil {
-		return nil, fmt.Errorf("glob extracted images: %w", err)
-	}
-	sort.Strings(candidates)
-
-	var images []string
-	for _, path := range candidates {
-		if isOCRWorthy(path) {
-			images = append(images, path)
+	for _, line := range strings.Split(stdout.String(), "\n") {
+		if strings.HasPrefix(line, "Pages:") {
+			field := strings.TrimSpace(strings.TrimPrefix(line, "Pages:"))
+			n, err := strconv.Atoi(field)
+			if err != nil {
+				return 0, fmt.Errorf("parse page count %q: %w", field, err)
+			}
+			return n, nil
 		}
 	}
-	return images, nil
+	return 0, fmt.Errorf("pdfinfo output missing Pages field")
 }
 
-// extractPDFToHTMLImages uses pdftohtml to render PDF pages to PNG images.
-// This catches PDFs whose content is drawn with vector operations rather
-// than embedded image XObjects (which pdfimages would miss).
-func extractPDFToHTMLImages(
+// ocrPage rasterizes a single PDF page with pdftocairo and pipes the PNG
+// directly into tesseract for OCR, with no intermediate file on disk.
+func ocrPage(ctx context.Context, pdfPath string, page int) ocrPageResult {
+	// pdftocairo streams the PNG to stdout; tesseract reads from stdin.
+	cairoArgs := []string{
+		"-png",
+		"-r", "300",
+		"-singlefile",
+		"-f", strconv.Itoa(page),
+		"-l", strconv.Itoa(page),
+		pdfPath,
+		"-", // stdout
+	}
+	cairoCmd := exec.CommandContext( //nolint:gosec // args are constructed internally
+		ctx,
+		"pdftocairo",
+		cairoArgs...,
+	)
+	var cairoErr bytes.Buffer
+	cairoCmd.Stderr = &cairoErr
+
+	tessCmd := exec.CommandContext( //nolint:gosec // args are constructed internally
+		ctx,
+		"tesseract",
+		"stdin",
+		"stdout",
+		"tsv",
+	)
+	tessCmd.Env = append(os.Environ(), "OMP_THREAD_LIMIT=1")
+	var tsvBuf bytes.Buffer
+	var tessErr bytes.Buffer
+	tessCmd.Stdout = &tsvBuf
+	tessCmd.Stderr = &tessErr
+
+	// Connect pdftocairo stdout -> tesseract stdin.
+	pipe, err := cairoCmd.StdoutPipe()
+	if err != nil {
+		return ocrPageResult{err: fmt.Errorf("pipe setup: %w", err)}
+	}
+	tessCmd.Stdin = pipe
+
+	// Start both processes.
+	if err := cairoCmd.Start(); err != nil {
+		return ocrPageResult{err: fmt.Errorf(
+			"pdftocairo page %d: %s: %w",
+			page, strings.TrimSpace(cairoErr.String()), err,
+		)}
+	}
+	if err := tessCmd.Start(); err != nil {
+		_ = cairoCmd.Wait()
+		return ocrPageResult{err: fmt.Errorf(
+			"tesseract page %d: %s: %w",
+			page, strings.TrimSpace(tessErr.String()), err,
+		)}
+	}
+
+	// Wait for both to finish. Cairo must finish first so the pipe closes.
+	cairoWaitErr := cairoCmd.Wait()
+	tessWaitErr := tessCmd.Wait()
+
+	if cairoWaitErr != nil {
+		return ocrPageResult{err: fmt.Errorf(
+			"pdftocairo page %d: %s: %w",
+			page, strings.TrimSpace(cairoErr.String()), cairoWaitErr,
+		)}
+	}
+	if tessWaitErr != nil {
+		return ocrPageResult{err: fmt.Errorf(
+			"tesseract page %d: %s: %w",
+			page, strings.TrimSpace(tessErr.String()), tessWaitErr,
+		)}
+	}
+
+	tsvData := tsvBuf.Bytes()
+	text := textFromTSV(tsvData)
+	return ocrPageResult{text: text, tsv: tsvData}
+}
+
+// ocrPDFPages runs fused pdftocairo|tesseract on each page in parallel,
+// capping concurrency at runtime.NumCPU(). Results are returned in page
+// order. If pageDone is non-nil, a value is sent after each page completes.
+func ocrPDFPages(
 	ctx context.Context,
 	pdfPath string,
-	tmpDir string,
-	maxPages int,
-) ([]string, error) {
-	htmlDir := filepath.Join(tmpDir, "html")
-	if err := os.MkdirAll(htmlDir, 0o700); err != nil {
-		return nil, fmt.Errorf("create html dir: %w", err)
-	}
-
-	outputPrefix := filepath.Join(htmlDir, "page")
-	args := []string{
-		"-noframes",
-		"-fmt", "png",
-		"-q",
-	}
-	if maxPages > 0 {
-		args = append(args, "-l", fmt.Sprintf("%d", maxPages))
-	}
-	args = append(args, pdfPath, outputPrefix+".html")
-
-	cmd := exec.CommandContext( //nolint:gosec // args are constructed internally
-		ctx,
-		"pdftohtml",
-		args...,
-	)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf(
-			"pdftohtml: %s: %w",
-			strings.TrimSpace(stderr.String()),
-			err,
-		)
-	}
-
-	candidates, err := filepath.Glob(filepath.Join(htmlDir, "*.png"))
-	if err != nil {
-		return nil, fmt.Errorf("glob html images: %w", err)
-	}
-	sort.Strings(candidates)
-
-	var images []string
-	for _, path := range candidates {
-		if isOCRWorthy(path) {
-			images = append(images, path)
-		}
-	}
-	return images, nil
-}
-
-// isOCRWorthy checks whether an image file is large enough to contain
-// meaningful text, using file size as a proxy for image dimensions.
-func isOCRWorthy(path string) bool {
-	info, err := os.Stat(path)
-	if err != nil {
-		return false
-	}
-	return info.Size() >= minOCRImageBytes
-}
-
-// ocrPagesParallel runs tesseract on multiple page images concurrently,
-// capping parallelism at runtime.NumCPU(). Results are returned in page
-// order. If pageDone is non-nil, a value is sent after each page completes
-// (for progress reporting).
-func ocrPagesParallel(
-	ctx context.Context,
-	images []string,
+	pageCount int,
 	pageDone chan<- struct{},
 ) []ocrPageResult {
-	n := len(images)
-	results := make([]ocrPageResult, n)
+	results := make([]ocrPageResult, pageCount)
 
 	workers := runtime.NumCPU()
-	if workers > n {
-		workers = n
+	if workers > pageCount {
+		workers = pageCount
 	}
 
 	sem := make(chan struct{}, workers)
 	var wg sync.WaitGroup
 
-	for i, img := range images {
+	for i := range pageCount {
 		wg.Add(1)
-		go func(idx int, imgPath string) {
+		go func(idx int) {
 			defer wg.Done()
 
 			select {
@@ -380,8 +195,7 @@ func ocrPagesParallel(
 				return
 			}
 
-			text, tsv, err := ocrImageFile(ctx, imgPath)
-			results[idx] = ocrPageResult{text: text, tsv: tsv, err: err}
+			results[idx] = ocrPage(ctx, pdfPath, idx+1) // 1-indexed pages
 
 			if pageDone != nil {
 				select {
@@ -389,7 +203,7 @@ func ocrPagesParallel(
 				case <-ctx.Done():
 				}
 			}
-		}(i, img)
+		}(i)
 	}
 
 	wg.Wait()

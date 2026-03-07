@@ -131,9 +131,10 @@ func TestExtractWithProgress_PDF_Integration(t *testing.T) {
 		}
 		if len(msg.AcquireTools) > 0 {
 			hasAcquireTools = true
-			continue
 		}
-		phases = append(phases, msg.Phase)
+		if msg.Phase != "" {
+			phases = append(phases, msg.Phase)
+		}
 	}
 
 	// Should see per-tool acquisition state and OCR page progress.

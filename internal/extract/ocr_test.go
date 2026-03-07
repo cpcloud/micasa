@@ -113,7 +113,7 @@ func TestOCRExtractor_EmptyData(t *testing.T) {
 func TestPDFOCR_Integration(t *testing.T) {
 	t.Parallel()
 	if !OCRAvailable() {
-		skipOrFatalCI(t, "tesseract and/or pdftoppm not available")
+		skipOrFatalCI(t, "tesseract and/or pdftocairo not available")
 	}
 
 	pdfPath := filepath.Join("testdata", "sample.pdf")

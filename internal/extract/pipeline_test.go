@@ -99,7 +99,7 @@ func TestPipeline_NoLLMClient(t *testing.T) {
 func TestPipeline_OCRIntegration(t *testing.T) {
 	t.Parallel()
 	if !OCRAvailable() {
-		skipOrFatalCI(t, "tesseract and/or pdftoppm not available")
+		skipOrFatalCI(t, "tesseract and/or pdftocairo not available")
 	}
 	if !HasPDFToText() {
 		skipOrFatalCI(t, "pdftotext not available")
@@ -128,7 +128,7 @@ func TestPipeline_OCRIntegration(t *testing.T) {
 func TestPipeline_MixedPDF(t *testing.T) {
 	t.Parallel()
 	if !OCRAvailable() {
-		skipOrFatalCI(t, "tesseract and/or pdftoppm not available")
+		skipOrFatalCI(t, "tesseract and/or pdftocairo not available")
 	}
 	if !HasPDFToText() {
 		skipOrFatalCI(t, "pdftotext not available")

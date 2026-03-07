@@ -9,7 +9,7 @@ import (
 )
 
 // ciStrictOS returns true when running in CI where all extraction
-// tools (tesseract, pdftoppm, pdftotext, magick) are expected to be
+// tools (tesseract, pdftocairo, pdftotext, magick) are expected to be
 // installed. All three platforms now have poppler via native package
 // managers (apt on Linux, brew on macOS, MSYS2 pacman on Windows).
 func ciStrictOS() bool {

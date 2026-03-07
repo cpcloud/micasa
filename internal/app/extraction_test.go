@@ -1275,19 +1275,13 @@ func TestAcquireTools_PersistAfterStepDone(t *testing.T) {
 		Metric: "1234 chars",
 	}
 	ex.acquireTools = []extract.AcquireToolState{
-		{Tool: "pdfimages", Running: false, Count: 5},
-		{Tool: "pdftohtml", Running: false, Count: 3},
-		{Tool: "pdftoppm", Running: false, Count: 10},
+		{Tool: "pdftocairo", Running: false, Count: 10},
 	}
 	m.width = 120
 	m.height = 40
 
 	out := m.buildExtractionOverlay()
-	assert.Contains(t, out, "pdfimages", "completed tool lines should persist after step done")
-	assert.Contains(t, out, "pdftohtml", "completed tool lines should persist after step done")
-	assert.Contains(t, out, "pdftoppm", "completed tool lines should persist after step done")
-	assert.Contains(t, out, "5 images")
-	assert.Contains(t, out, "3 images")
+	assert.Contains(t, out, "pdftocairo", "completed tool lines should persist after step done")
 	assert.Contains(t, out, "10 images")
 }
 
@@ -1304,15 +1298,13 @@ func TestAcquireTools_ShowDuringRunning(t *testing.T) {
 		Detail: "page 3/10",
 	}
 	ex.acquireTools = []extract.AcquireToolState{
-		{Tool: "pdfimages", Running: false, Count: 2},
-		{Tool: "pdftoppm", Running: false, Count: 10},
+		{Tool: "pdftocairo", Running: false, Count: 10},
 	}
 	m.width = 120
 	m.height = 40
 
 	out := m.buildExtractionOverlay()
-	assert.Contains(t, out, "pdfimages", "tool lines should show during OCR")
-	assert.Contains(t, out, "pdftoppm", "tool lines should show during OCR")
+	assert.Contains(t, out, "pdftocairo", "tool lines should show during OCR")
 	assert.Contains(t, out, "page 3/10", "page progress should show during OCR")
 }
 
@@ -1324,18 +1316,14 @@ func TestAcquireTools_PartialRunning(t *testing.T) {
 	ex := m.ex.extraction
 	ex.Steps[stepExtract] = extractionStepInfo{Status: stepRunning}
 	ex.acquireTools = []extract.AcquireToolState{
-		{Tool: "pdfimages", Running: false, Count: 5},
-		{Tool: "pdftohtml", Running: true},
-		{Tool: "pdftoppm", Running: true},
+		{Tool: "pdftocairo", Running: true, Count: 3},
 	}
 	m.width = 120
 	m.height = 40
 
 	out := m.buildExtractionOverlay()
-	assert.Contains(t, out, "pdfimages", "completed tool should show")
-	assert.Contains(t, out, "5 images", "image count should show for completed tool")
-	assert.Contains(t, out, "pdftohtml", "running tool should show")
-	assert.Contains(t, out, "pdftoppm", "running tool should show")
+	assert.Contains(t, out, "pdftocairo", "running tool should show")
+	assert.Contains(t, out, "3 images", "in-progress count should show")
 }
 
 func TestAcquireTools_DetailSuppressedInHeader(t *testing.T) {
@@ -1349,7 +1337,7 @@ func TestAcquireTools_DetailSuppressedInHeader(t *testing.T) {
 		Detail: "page 1/5",
 	}
 	ex.acquireTools = []extract.AcquireToolState{
-		{Tool: "pdftoppm", Running: false, Count: 5},
+		{Tool: "pdftocairo", Running: false, Count: 5},
 	}
 	m.width = 120
 	m.height = 40
@@ -1358,7 +1346,7 @@ func TestAcquireTools_DetailSuppressedInHeader(t *testing.T) {
 	// Page progress should appear in the sub-spinner section, not duplicated
 	// in the header alongside the step name.
 	assert.Contains(t, out, "page 1/5")
-	assert.Contains(t, out, "pdftoppm")
+	assert.Contains(t, out, "pdftocairo")
 }
 
 func TestAcquireTools_CollapseHidesToolLines(t *testing.T) {
@@ -1376,29 +1364,25 @@ func TestAcquireTools_CollapseHidesToolLines(t *testing.T) {
 		Metric: "1234 chars",
 	}
 	ex.acquireTools = []extract.AcquireToolState{
-		{Tool: "pdfimages", Running: false, Count: 5},
-		{Tool: "pdftoppm", Running: false, Count: 10},
+		{Tool: "pdftocairo", Running: false, Count: 10},
 	}
 	m.width = 120
 	m.height = 40
 
 	// Default: tools expanded.
 	out := m.buildExtractionOverlay()
-	assert.Contains(t, out, "pdfimages", "tools should be expanded by default when done")
-	assert.Contains(t, out, "pdftoppm")
+	assert.Contains(t, out, "pdftocairo", "tools should be expanded by default when done")
 
 	// User collapses the ext step.
 	ex.expanded[stepExtract] = false
 	out = m.buildExtractionOverlay()
-	assert.NotContains(t, out, "pdfimages", "tools should be hidden when collapsed")
-	assert.NotContains(t, out, "pdftoppm", "tools should be hidden when collapsed")
+	assert.NotContains(t, out, "pdftocairo", "tools should be hidden when collapsed")
 	assert.Contains(t, out, "tesseract", "header detail should still show when collapsed")
 
 	// User re-expands.
 	ex.expanded[stepExtract] = true
 	out = m.buildExtractionOverlay()
-	assert.Contains(t, out, "pdfimages", "tools should reappear when re-expanded")
-	assert.Contains(t, out, "pdftoppm", "tools should reappear when re-expanded")
+	assert.Contains(t, out, "pdftocairo", "tools should reappear when re-expanded")
 }
 
 func TestWaitForLLMChunkOpenChannel(t *testing.T) {

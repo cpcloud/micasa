@@ -36,7 +36,7 @@ func collectProgress(fn func(ch chan<- ExtractProgress)) []ExtractProgress {
 func TestOcrPDF_ValidPDF(t *testing.T) {
 	t.Parallel()
 	if !OCRAvailable() {
-		skipOrFatalCI(t, "tesseract and/or pdftoppm not available")
+		skipOrFatalCI(t, "tesseract and/or pdftocairo not available")
 	}
 
 	data, err := os.ReadFile(filepath.Join("testdata", "sample.pdf")) //nolint:gosec // test fixture
@@ -54,7 +54,7 @@ func TestOcrPDF_ValidPDF(t *testing.T) {
 func TestOcrPDF_ScannedPDF(t *testing.T) {
 	t.Parallel()
 	if !OCRAvailable() {
-		skipOrFatalCI(t, "tesseract and/or pdftoppm not available")
+		skipOrFatalCI(t, "tesseract and/or pdftocairo not available")
 	}
 
 	data, err := os.ReadFile(
@@ -73,18 +73,17 @@ func TestOcrPDF_ScannedPDF(t *testing.T) {
 func TestOcrPDF_InvalidData(t *testing.T) {
 	t.Parallel()
 	if !OCRAvailable() {
-		skipOrFatalCI(t, "tesseract and/or pdftoppm not available")
+		skipOrFatalCI(t, "tesseract and/or pdftocairo not available")
 	}
 
 	_, _, err := ocrPDF(context.Background(), []byte("not a pdf at all"), 5)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "all image extraction tools failed")
 }
 
 func TestOcrPDF_ContextCancelled(t *testing.T) {
 	t.Parallel()
 	if !OCRAvailable() {
-		skipOrFatalCI(t, "tesseract and/or pdftoppm not available")
+		skipOrFatalCI(t, "tesseract and/or pdftocairo not available")
 	}
 
 	data, err := os.ReadFile(filepath.Join("testdata", "sample.pdf")) //nolint:gosec // test fixture
@@ -102,7 +101,7 @@ func TestOcrPDF_ContextCancelled(t *testing.T) {
 func TestOcrPDF_MixedPDF_MultiPageTSV(t *testing.T) {
 	t.Parallel()
 	if !OCRAvailable() {
-		skipOrFatalCI(t, "tesseract and/or pdftoppm not available")
+		skipOrFatalCI(t, "tesseract and/or pdftocairo not available")
 	}
 
 	data, err := os.ReadFile(
@@ -121,7 +120,7 @@ func TestOcrPDF_MixedPDF_MultiPageTSV(t *testing.T) {
 func TestOcrPDF_SinglePage(t *testing.T) {
 	t.Parallel()
 	if !OCRAvailable() {
-		skipOrFatalCI(t, "tesseract and/or pdftoppm not available")
+		skipOrFatalCI(t, "tesseract and/or pdftocairo not available")
 	}
 
 	data, err := os.ReadFile(filepath.Join("testdata", "sample.pdf")) //nolint:gosec // test fixture
@@ -258,13 +257,13 @@ func TestOcrImageFile_ContextCancelled(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// rasterize -- direct tests
+// pdfPageCount -- direct tests
 // ---------------------------------------------------------------------------
 
-func TestRasterize_ValidPDF(t *testing.T) {
+func TestPdfPageCount_ValidPDF(t *testing.T) {
 	t.Parallel()
-	if !HasPDFToPPM() {
-		skipOrFatalCI(t, "pdftoppm not available")
+	if !HasPDFInfo() {
+		skipOrFatalCI(t, "pdfinfo not available")
 	}
 
 	data, err := os.ReadFile(filepath.Join("testdata", "sample.pdf")) //nolint:gosec // test fixture
@@ -276,34 +275,29 @@ func TestRasterize_ValidPDF(t *testing.T) {
 	pdfPath := filepath.Join(tmpDir, "input.pdf")
 	require.NoError(t, os.WriteFile(pdfPath, data, 0o600))
 
-	outputPrefix := filepath.Join(tmpDir, "page")
-	err = rasterize(context.Background(), pdfPath, outputPrefix, 5)
+	count, err := pdfPageCount(context.Background(), pdfPath)
 	require.NoError(t, err)
-
-	images, err := filepath.Glob(outputPrefix + "*.png")
-	require.NoError(t, err)
-	assert.NotEmpty(t, images, "rasterize should produce at least one page image")
+	assert.Positive(t, count, "page count should be positive")
 }
 
-func TestRasterize_InvalidPDF(t *testing.T) {
+func TestPdfPageCount_InvalidPDF(t *testing.T) {
 	t.Parallel()
-	if !HasPDFToPPM() {
-		skipOrFatalCI(t, "pdftoppm not available")
+	if !HasPDFInfo() {
+		skipOrFatalCI(t, "pdfinfo not available")
 	}
 
 	tmpDir := t.TempDir()
 	pdfPath := filepath.Join(tmpDir, "corrupt.pdf")
 	require.NoError(t, os.WriteFile(pdfPath, []byte("corrupt data"), 0o600))
 
-	outputPrefix := filepath.Join(tmpDir, "page")
-	err := rasterize(context.Background(), pdfPath, outputPrefix, 5)
+	_, err := pdfPageCount(context.Background(), pdfPath)
 	assert.Error(t, err)
 }
 
-func TestRasterize_ContextCancelled(t *testing.T) {
+func TestPdfPageCount_ContextCancelled(t *testing.T) {
 	t.Parallel()
-	if !HasPDFToPPM() {
-		skipOrFatalCI(t, "pdftoppm not available")
+	if !HasPDFInfo() {
+		skipOrFatalCI(t, "pdfinfo not available")
 	}
 
 	data, err := os.ReadFile(filepath.Join("testdata", "sample.pdf")) //nolint:gosec // test fixture
@@ -318,9 +312,69 @@ func TestRasterize_ContextCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	outputPrefix := filepath.Join(tmpDir, "page")
-	err = rasterize(ctx, pdfPath, outputPrefix, 5)
+	_, err = pdfPageCount(ctx, pdfPath)
 	assert.Error(t, err)
+}
+
+// ---------------------------------------------------------------------------
+// ocrPage -- direct tests
+// ---------------------------------------------------------------------------
+
+func TestOcrPage_ValidPDF(t *testing.T) {
+	t.Parallel()
+	if !OCRAvailable() {
+		skipOrFatalCI(t, "tesseract and/or pdftocairo not available")
+	}
+
+	data, err := os.ReadFile(filepath.Join("testdata", "sample.pdf")) //nolint:gosec // test fixture
+	if err != nil {
+		skipOrFatalCI(t, "test fixture not found: testdata/sample.pdf")
+	}
+
+	tmpDir := t.TempDir()
+	pdfPath := filepath.Join(tmpDir, "input.pdf")
+	require.NoError(t, os.WriteFile(pdfPath, data, 0o600))
+
+	result := ocrPage(context.Background(), pdfPath, 1)
+	require.NoError(t, result.err)
+	assert.NotEmpty(t, result.text)
+	assert.NotEmpty(t, result.tsv)
+}
+
+func TestOcrPage_InvalidPDF(t *testing.T) {
+	t.Parallel()
+	if !OCRAvailable() {
+		skipOrFatalCI(t, "tesseract and/or pdftocairo not available")
+	}
+
+	tmpDir := t.TempDir()
+	pdfPath := filepath.Join(tmpDir, "corrupt.pdf")
+	require.NoError(t, os.WriteFile(pdfPath, []byte("corrupt data"), 0o600))
+
+	result := ocrPage(context.Background(), pdfPath, 1)
+	assert.Error(t, result.err)
+}
+
+func TestOcrPage_ContextCancelled(t *testing.T) {
+	t.Parallel()
+	if !OCRAvailable() {
+		skipOrFatalCI(t, "tesseract and/or pdftocairo not available")
+	}
+
+	data, err := os.ReadFile(filepath.Join("testdata", "sample.pdf")) //nolint:gosec // test fixture
+	if err != nil {
+		skipOrFatalCI(t, "test fixture not found: testdata/sample.pdf")
+	}
+
+	tmpDir := t.TempDir()
+	pdfPath := filepath.Join(tmpDir, "input.pdf")
+	require.NoError(t, os.WriteFile(pdfPath, data, 0o600))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	result := ocrPage(ctx, pdfPath, 1)
+	assert.Error(t, result.err)
 }
 
 // ---------------------------------------------------------------------------
@@ -363,7 +417,7 @@ func TestExtractPDF_CorruptData(t *testing.T) {
 func TestOcrPDFWithProgress_ZeroMaxPages(t *testing.T) {
 	t.Parallel()
 	if !OCRAvailable() {
-		skipOrFatalCI(t, "tesseract and/or pdftoppm not available")
+		skipOrFatalCI(t, "tesseract and/or pdftocairo not available")
 	}
 
 	data, err := os.ReadFile(filepath.Join("testdata", "sample.pdf")) //nolint:gosec // test fixture
@@ -389,7 +443,7 @@ func TestOcrPDFWithProgress_ZeroMaxPages(t *testing.T) {
 func TestOcrPDFWithProgress_NegativeMaxPages(t *testing.T) {
 	t.Parallel()
 	if !OCRAvailable() {
-		skipOrFatalCI(t, "tesseract and/or pdftoppm not available")
+		skipOrFatalCI(t, "tesseract and/or pdftocairo not available")
 	}
 
 	data, err := os.ReadFile(filepath.Join("testdata", "sample.pdf")) //nolint:gosec // test fixture
@@ -427,7 +481,7 @@ func TestOcrPDFWithProgress_EmptyData(t *testing.T) {
 func TestOcrPDFWithProgress_InvalidPDF(t *testing.T) {
 	t.Parallel()
 	if !OCRAvailable() {
-		skipOrFatalCI(t, "tesseract and/or pdftoppm not available")
+		skipOrFatalCI(t, "tesseract and/or pdftocairo not available")
 	}
 
 	msgs := collectProgress(func(ch chan<- ExtractProgress) {
@@ -439,7 +493,6 @@ func TestOcrPDFWithProgress_InvalidPDF(t *testing.T) {
 		if msg.Err != nil {
 			gotErr = true
 			assert.True(t, msg.Done)
-			assert.Contains(t, msg.Err.Error(), "all image extraction tools failed")
 		}
 	}
 	assert.True(t, gotErr, "should get an error for invalid PDF data")
@@ -448,7 +501,7 @@ func TestOcrPDFWithProgress_InvalidPDF(t *testing.T) {
 func TestOcrPDFWithProgress_ContextCancelled(t *testing.T) {
 	t.Parallel()
 	if !OCRAvailable() {
-		skipOrFatalCI(t, "tesseract and/or pdftoppm not available")
+		skipOrFatalCI(t, "tesseract and/or pdftocairo not available")
 	}
 
 	data, err := os.ReadFile(filepath.Join("testdata", "sample.pdf")) //nolint:gosec // test fixture
@@ -581,7 +634,7 @@ func TestOcrImageWithProgress_ContextCancelled(t *testing.T) {
 func TestPDFOCRExtractor_Extract_MaxPagesDefault(t *testing.T) {
 	t.Parallel()
 	if !OCRAvailable() {
-		skipOrFatalCI(t, "tesseract and/or pdftoppm not available")
+		skipOrFatalCI(t, "tesseract and/or pdftocairo not available")
 	}
 
 	data, err := os.ReadFile(filepath.Join("testdata", "sample.pdf")) //nolint:gosec // test fixture
@@ -599,7 +652,7 @@ func TestPDFOCRExtractor_Extract_MaxPagesDefault(t *testing.T) {
 func TestPDFOCRExtractor_Extract_InvalidPDF(t *testing.T) {
 	t.Parallel()
 	if !OCRAvailable() {
-		skipOrFatalCI(t, "tesseract and/or pdftoppm not available")
+		skipOrFatalCI(t, "tesseract and/or pdftocairo not available")
 	}
 
 	ext := &PDFOCRExtractor{MaxPages: 5}
@@ -610,7 +663,7 @@ func TestPDFOCRExtractor_Extract_InvalidPDF(t *testing.T) {
 func TestPDFOCRExtractor_Extract_ContextCancelled(t *testing.T) {
 	t.Parallel()
 	if !OCRAvailable() {
-		skipOrFatalCI(t, "tesseract and/or pdftoppm not available")
+		skipOrFatalCI(t, "tesseract and/or pdftocairo not available")
 	}
 
 	data, err := os.ReadFile(filepath.Join("testdata", "sample.pdf")) //nolint:gosec // test fixture
@@ -721,7 +774,7 @@ func TestPDFTextExtractor_Extract_DefaultTimeout(t *testing.T) {
 func TestExtractWithProgress_PDF_InvalidData(t *testing.T) {
 	t.Parallel()
 	if !OCRAvailable() {
-		skipOrFatalCI(t, "tesseract and/or pdftoppm not available")
+		skipOrFatalCI(t, "tesseract and/or pdftocairo not available")
 	}
 
 	ch := ExtractWithProgress(
@@ -741,45 +794,90 @@ func TestExtractWithProgress_PDF_InvalidData(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// mergeAcquiredImages -- deduplication logic
+// ocrPDFPages -- fused pipeline tests
 // ---------------------------------------------------------------------------
 
-func TestMergeAcquiredImages_PrefersPdftoppm(t *testing.T) {
+func TestOcrPDFPages_ValidPDF(t *testing.T) {
 	t.Parallel()
-	results := []acquireResult{
-		{tool: "pdfimages", images: []string{"a.png", "b.png"}},
-		{tool: "pdftohtml", images: []string{"c.png"}},
-		{tool: "pdftoppm", images: []string{"page-01.png", "page-02.png", "page-03.png"}},
+	if !HasPDFToCairo() || !HasPDFInfo() || !HasTesseract() {
+		skipOrFatalCI(t, "tesseract and/or pdftocairo not available")
 	}
-	got := mergeAcquiredImages(results)
-	assert.Equal(t, []string{"page-01.png", "page-02.png", "page-03.png"}, got,
-		"should use pdftoppm when available")
+
+	data, err := os.ReadFile(filepath.Join("testdata", "sample.pdf")) //nolint:gosec // test fixture
+	if err != nil {
+		skipOrFatalCI(t, "test fixture not found: testdata/sample.pdf")
+	}
+
+	tmpDir := t.TempDir()
+	pdfPath := filepath.Join(tmpDir, "input.pdf")
+	require.NoError(t, os.WriteFile(pdfPath, data, 0o600))
+
+	pageCount, err := pdfPageCount(context.Background(), pdfPath)
+	require.NoError(t, err)
+	require.Positive(t, pageCount)
+
+	if pageCount > 2 {
+		pageCount = 2
+	}
+
+	results := ocrPDFPages(context.Background(), pdfPath, pageCount, nil)
+	require.Len(t, results, pageCount)
+
+	for i, r := range results {
+		require.NoError(t, r.err, "page %d should succeed", i+1)
+		assert.NotEmpty(t, r.text, "page %d should produce text", i+1)
+	}
 }
 
-func TestMergeAcquiredImages_FallsBackToTargeted(t *testing.T) {
+func TestOcrPDFPages_ContextCancelled(t *testing.T) {
 	t.Parallel()
-	results := []acquireResult{
-		{tool: "pdfimages", images: []string{"a.png", "b.png"}},
-		{tool: "pdftohtml", images: []string{"c.png"}},
+	if !HasPDFToCairo() || !HasPDFInfo() || !HasTesseract() {
+		skipOrFatalCI(t, "tesseract and/or pdftocairo not available")
 	}
-	got := mergeAcquiredImages(results)
-	assert.Equal(t, []string{"a.png", "b.png", "c.png"}, got,
-		"should use targeted tools when pdftoppm absent")
+
+	data, err := os.ReadFile(filepath.Join("testdata", "sample.pdf")) //nolint:gosec // test fixture
+	if err != nil {
+		skipOrFatalCI(t, "test fixture not found: testdata/sample.pdf")
+	}
+
+	tmpDir := t.TempDir()
+	pdfPath := filepath.Join(tmpDir, "input.pdf")
+	require.NoError(t, os.WriteFile(pdfPath, data, 0o600))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	results := ocrPDFPages(ctx, pdfPath, 1, nil)
+	require.Len(t, results, 1)
+	assert.Error(t, results[0].err)
 }
 
-func TestMergeAcquiredImages_PdftoppmOnly(t *testing.T) {
+func TestOcrPDFPages_ProgressReporting(t *testing.T) {
 	t.Parallel()
-	results := []acquireResult{
-		{tool: "pdftoppm", images: []string{"page-01.png"}},
+	if !HasPDFToCairo() || !HasPDFInfo() || !HasTesseract() {
+		skipOrFatalCI(t, "tesseract and/or pdftocairo not available")
 	}
-	got := mergeAcquiredImages(results)
-	assert.Equal(t, []string{"page-01.png"}, got)
-}
 
-func TestMergeAcquiredImages_Empty(t *testing.T) {
-	t.Parallel()
-	assert.Nil(t, mergeAcquiredImages(nil))
-	assert.Nil(t, mergeAcquiredImages([]acquireResult{}))
+	data, err := os.ReadFile(filepath.Join("testdata", "sample.pdf")) //nolint:gosec // test fixture
+	if err != nil {
+		skipOrFatalCI(t, "test fixture not found: testdata/sample.pdf")
+	}
+
+	tmpDir := t.TempDir()
+	pdfPath := filepath.Join(tmpDir, "input.pdf")
+	require.NoError(t, os.WriteFile(pdfPath, data, 0o600))
+
+	pageDone := make(chan struct{}, 2)
+	results := ocrPDFPages(context.Background(), pdfPath, 1, pageDone)
+	require.Len(t, results, 1)
+	require.NoError(t, results[0].err)
+
+	// Should have received exactly 1 done signal.
+	select {
+	case <-pageDone:
+	default:
+		t.Error("expected a page done signal")
+	}
 }
 
 func TestExtractWithProgress_Image_InvalidData(t *testing.T) {

@@ -9,16 +9,14 @@ import (
 )
 
 var (
-	tesseractOnce  sync.Once
-	tesseractFound bool
-	pdftoppmOnce   sync.Once
-	pdftoppmFound  bool
-	pdftotextOnce  sync.Once
-	pdftotextFound bool
-	pdfimagesOnce  sync.Once
-	pdfimagesFound bool
-	pdftohtmlOnce  sync.Once
-	pdftohtmlFound bool
+	tesseractOnce   sync.Once
+	tesseractFound  bool
+	pdftocairoOnce  sync.Once
+	pdftocairoFound bool
+	pdftotextOnce   sync.Once
+	pdftotextFound  bool
+	pdfinfoOnce     sync.Once
+	pdfinfoFound    bool
 )
 
 // HasTesseract reports whether the tesseract binary is on PATH.
@@ -31,14 +29,14 @@ func HasTesseract() bool {
 	return tesseractFound
 }
 
-// HasPDFToPPM reports whether the pdftoppm binary (from poppler-utils)
+// HasPDFToCairo reports whether the pdftocairo binary (from poppler-utils)
 // is on PATH. The result is cached for the process lifetime.
-func HasPDFToPPM() bool {
-	pdftoppmOnce.Do(func() {
-		_, err := exec.LookPath("pdftoppm")
-		pdftoppmFound = err == nil
+func HasPDFToCairo() bool {
+	pdftocairoOnce.Do(func() {
+		_, err := exec.LookPath("pdftocairo")
+		pdftocairoFound = err == nil
 	})
-	return pdftoppmFound
+	return pdftocairoFound
 }
 
 // HasPDFToText reports whether the pdftotext binary (from poppler-utils)
@@ -51,34 +49,24 @@ func HasPDFToText() bool {
 	return pdftotextFound
 }
 
-// HasPDFImages reports whether the pdfimages binary (from poppler-utils)
+// HasPDFInfo reports whether the pdfinfo binary (from poppler-utils)
 // is on PATH. The result is cached for the process lifetime.
-func HasPDFImages() bool {
-	pdfimagesOnce.Do(func() {
-		_, err := exec.LookPath("pdfimages")
-		pdfimagesFound = err == nil
+func HasPDFInfo() bool {
+	pdfinfoOnce.Do(func() {
+		_, err := exec.LookPath("pdfinfo")
+		pdfinfoFound = err == nil
 	})
-	return pdfimagesFound
+	return pdfinfoFound
 }
 
-// HasPDFToHTML reports whether the pdftohtml binary (from poppler-utils)
-// is on PATH. The result is cached for the process lifetime.
-func HasPDFToHTML() bool {
-	pdftohtmlOnce.Do(func() {
-		_, err := exec.LookPath("pdftohtml")
-		pdftohtmlFound = err == nil
-	})
-	return pdftohtmlFound
-}
-
-// OCRAvailable reports whether tesseract and at least one PDF image
-// extraction tool (pdfimages, pdftohtml, or pdftoppm) are available.
+// OCRAvailable reports whether tesseract and pdftocairo (with pdfinfo
+// for page count discovery) are available.
 func OCRAvailable() bool {
-	return HasTesseract() && (HasPDFImages() || HasPDFToHTML() || HasPDFToPPM())
+	return HasTesseract() && HasPDFToCairo() && HasPDFInfo()
 }
 
 // ImageOCRAvailable reports whether tesseract is available for direct
-// image OCR (no pdftoppm needed for image files).
+// image OCR (no PDF tools needed for image files).
 func ImageOCRAvailable() bool {
 	return HasTesseract()
 }

@@ -1617,6 +1617,10 @@ func (m *Model) renderExtractionStep(
 				b.WriteString(m.styles.ExtRunning().Render(
 					fmt.Sprintf("%-10s", ts.Tool),
 				))
+				if ts.Count > 0 {
+					b.WriteString("  ")
+					b.WriteString(hint.Render(fmt.Sprintf("%d images", ts.Count)))
+				}
 			} else if ts.Err != nil {
 				b.WriteString(m.styles.ExtFail().Render("xx"))
 				b.WriteString(" ")

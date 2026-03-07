@@ -32,9 +32,16 @@ func TestHasTesseract_Consistent(t *testing.T) {
 	assert.Equal(t, r1, r2)
 }
 
-func TestHasPDFToPPM_Consistent(t *testing.T) {
+func TestHasPDFToCairo_Consistent(t *testing.T) {
 	t.Parallel()
-	r1 := HasPDFToPPM()
-	r2 := HasPDFToPPM()
+	r1 := HasPDFToCairo()
+	r2 := HasPDFToCairo()
+	assert.Equal(t, r1, r2)
+}
+
+func TestHasPDFInfo_Consistent(t *testing.T) {
+	t.Parallel()
+	r1 := HasPDFInfo()
+	r2 := HasPDFInfo()
 	assert.Equal(t, r1, r2)
 }

@@ -287,7 +287,7 @@ func TestPDFTextExtractor_Extract(t *testing.T) {
 func TestPDFOCRExtractor_Extract(t *testing.T) {
 	t.Parallel()
 	if !OCRAvailable() {
-		skipOrFatalCI(t, "tesseract and/or pdftoppm not available")
+		skipOrFatalCI(t, "tesseract and/or pdftocairo not available")
 	}
 
 	pdfPath := filepath.Join("testdata", "sample.pdf")
