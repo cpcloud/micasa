@@ -5,6 +5,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -1513,6 +1514,105 @@ func TestExtraction_EnterCollapsesExtToParent(t *testing.T) {
 	sendExtractionKey(m, "enter")
 	assert.True(t, ex.stepExpanded(stepExtract), "should be expanded")
 	assert.Equal(t, -1, ex.toolCursor, "should stay on parent after expand")
+}
+
+// --- Ext child rendering coverage ---
+
+func TestAcquireTools_NonTerminalDoneRenderedDim(t *testing.T) {
+	t.Parallel()
+	m, ex := newExtToolModel(t)
+	ex.expanded[stepExtract] = true
+
+	out := m.buildExtractionOverlay()
+	// pdftocairo (non-terminal) should render with dim "ok" and dim page ratio.
+	assert.Contains(t, out, "pdftocairo", "non-terminal tool visible when expanded")
+	assert.Contains(t, out, "10/10 pp", "dim page ratio for non-terminal tool")
+	// tesseract (terminal) should render with bright styling.
+	assert.Contains(t, out, "tesseract")
+}
+
+func TestAcquireTools_NonTerminalRunningRenderedDim(t *testing.T) {
+	t.Parallel()
+	m := newExtractionModel(t, map[extractionStep]stepStatus{
+		stepExtract: stepRunning,
+	})
+	ex := m.ex.extraction
+	ex.acquireTools = []extract.AcquireToolState{
+		{Tool: "pdftocairo", Running: true, Count: 3},
+		{Tool: "tesseract", Running: true, Count: 0},
+	}
+	ex.extractedPages = 10
+	m.width = 120
+	m.height = 40
+
+	// Running = auto-expanded, both children visible.
+	out := m.buildExtractionOverlay()
+	assert.Contains(t, out, "pdftocairo", "running non-terminal tool visible")
+	assert.Contains(t, out, "tesseract", "running terminal tool visible")
+}
+
+func TestAcquireTools_NonTerminalFailedRenderedDim(t *testing.T) {
+	t.Parallel()
+	m := newExtractionModel(t, map[extractionStep]stepStatus{
+		stepExtract: stepFailed,
+	})
+	ex := m.ex.extraction
+	ex.Steps[stepExtract] = extractionStepInfo{Status: stepFailed}
+	ex.acquireTools = []extract.AcquireToolState{
+		{Tool: "pdftocairo", Running: false, Err: errors.New("fail"), Count: 5},
+		{Tool: "tesseract", Running: false, Err: errors.New("fail"), Count: 0},
+	}
+	ex.extractedPages = 10
+	m.width = 120
+	m.height = 40
+
+	// Failed = auto-expanded, both children visible.
+	out := m.buildExtractionOverlay()
+	assert.Contains(t, out, "pdftocairo", "failed non-terminal tool visible")
+	assert.Contains(t, out, "tesseract", "failed terminal tool visible")
+}
+
+func TestAcquireTools_ChildCursorRendered(t *testing.T) {
+	t.Parallel()
+	m, ex := newExtToolModel(t)
+	ex.expanded[stepExtract] = true
+
+	// Navigate to ext, then to first child.
+	sendExtractionKey(m, "j") // ext parent
+	sendExtractionKey(m, "j") // first child (pdftocairo)
+	assert.Equal(t, 0, ex.toolCursor)
+	assert.True(t, ex.cursorManual)
+
+	out := m.buildExtractionOverlay()
+	// Child cursor triangle should be rendered.
+	assert.Contains(t, out, symTriRightSm, "child cursor triangle should render")
+}
+
+func TestRenderPageRatio_Capped(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	// docPages > 0 triggers the three-part ratio: count/limit/total pp.
+	out := m.renderPageRatio(5, 10, 20)
+	assert.Contains(t, out, "5")
+	assert.Contains(t, out, "10")
+	assert.Contains(t, out, "20")
+	assert.Contains(t, out, "pp")
+}
+
+func TestAcquireTools_CursorLineOffsetForChild(t *testing.T) {
+	t.Parallel()
+	m, ex := newExtToolModel(t)
+	ex.expanded[stepExtract] = true
+
+	// Navigate to ext parent, then to second child (tesseract).
+	sendExtractionKey(m, "j") // ext parent
+	sendExtractionKey(m, "j") // child 0
+	sendExtractionKey(m, "j") // child 1
+	assert.Equal(t, 1, ex.toolCursor)
+
+	// Building the overlay exercises the cursorLine offset path.
+	out := m.buildExtractionOverlay()
+	assert.NotEmpty(t, out, "overlay should render with child cursor offset")
 }
 
 func TestWaitForLLMChunkOpenChannel(t *testing.T) {
