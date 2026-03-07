@@ -5,8 +5,10 @@ package extract
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -878,6 +880,96 @@ func TestOcrPDFPages_ProgressReporting(t *testing.T) {
 	default:
 		t.Error("expected a page done signal")
 	}
+}
+
+// ---------------------------------------------------------------------------
+// collectOCRResults -- unit tests for result merging
+// ---------------------------------------------------------------------------
+
+func TestCollectOCRResults_MixedErrorsAndSuccess(t *testing.T) {
+	t.Parallel()
+
+	results := []ocrPageResult{
+		{text: "page one", tsv: []byte("h1\th2\ndata1\n")},
+		{err: fmt.Errorf("page 2 failed")},
+		{text: "page three", tsv: []byte("h1\th2\ndata3\n")},
+	}
+
+	text, tsv := collectOCRResults(results)
+	assert.Contains(t, text, "page one")
+	assert.Contains(t, text, "page three")
+	assert.NotContains(t, text, "page 2")
+	assert.NotEmpty(t, tsv)
+}
+
+func TestCollectOCRResults_AllErrors(t *testing.T) {
+	t.Parallel()
+
+	results := []ocrPageResult{
+		{err: fmt.Errorf("fail 1")},
+		{err: fmt.Errorf("fail 2")},
+	}
+
+	text, tsv := collectOCRResults(results)
+	assert.Empty(t, text)
+	assert.Empty(t, tsv)
+}
+
+func TestCollectOCRResults_MultiPageTSVHeaderDedup(t *testing.T) {
+	t.Parallel()
+
+	header := "level\tpage_num\tblock_num\n"
+	results := []ocrPageResult{
+		{text: "one", tsv: []byte(header + "1\t1\t1\n")},
+		{text: "two", tsv: []byte(header + "2\t1\t1\n")},
+		{text: "three", tsv: []byte(header + "3\t1\t1\n")},
+	}
+
+	text, tsv := collectOCRResults(results)
+	assert.Contains(t, text, "one")
+	assert.Contains(t, text, "three")
+
+	// Header should appear exactly once in merged TSV.
+	tsvStr := string(tsv)
+	assert.Equal(t, 1, strings.Count(tsvStr, "level\tpage_num\tblock_num"),
+		"TSV header should appear exactly once")
+	assert.Contains(t, tsvStr, "1\t1\t1")
+	assert.Contains(t, tsvStr, "3\t1\t1")
+}
+
+func TestCollectOCRResults_Empty(t *testing.T) {
+	t.Parallel()
+
+	text, tsv := collectOCRResults(nil)
+	assert.Empty(t, text)
+	assert.Empty(t, tsv)
+}
+
+func TestCollectOCRResults_SinglePageHeaderOnly(t *testing.T) {
+	t.Parallel()
+
+	results := []ocrPageResult{
+		{text: "words", tsv: []byte("header_only\n")},
+	}
+
+	text, tsv := collectOCRResults(results)
+	assert.Contains(t, text, "words")
+	assert.Contains(t, string(tsv), "header_only")
+}
+
+// ---------------------------------------------------------------------------
+// ocrPage -- additional error paths
+// ---------------------------------------------------------------------------
+
+func TestOcrPage_NonExistentPDF(t *testing.T) {
+	t.Parallel()
+	if !OCRAvailable() {
+		skipOrFatalCI(t, "tesseract and/or pdftocairo not available")
+	}
+
+	result := ocrPage(context.Background(), "/nonexistent/file.pdf", 1)
+	require.Error(t, result.err)
+	assert.Contains(t, result.err.Error(), "pdftocairo")
 }
 
 func TestExtractWithProgress_Image_InvalidData(t *testing.T) {
