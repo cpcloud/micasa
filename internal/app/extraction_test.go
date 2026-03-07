@@ -26,11 +26,12 @@ func newExtractionModel(t *testing.T, steps map[extractionStep]stepStatus) *Mode
 	m := newTestModel(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	ex := &extractionLogState{
-		ID:       nextExtractionID.Add(1),
-		ctx:      ctx,
-		CancelFn: cancel,
-		Visible:  true,
-		expanded: make(map[extractionStep]bool),
+		ID:         nextExtractionID.Add(1),
+		ctx:        ctx,
+		CancelFn:   cancel,
+		Visible:    true,
+		toolCursor: -1,
+		expanded:   make(map[extractionStep]bool),
 	}
 	for si, status := range steps {
 		ex.Steps[si] = extractionStepInfo{Status: status}
@@ -426,10 +427,10 @@ func TestDeferredExtraction_PendingDocFieldPresent(t *testing.T) {
 	})
 	ex := m.ex.extraction
 	ex.Done = true
-	ex.pendingDoc = &data.Document{FileName: "scan.jpg"}
+	ex.pendingDoc = &data.Document{FileName: "scan.jpp"}
 
 	// Verify the pendingDoc is accessible.
-	assert.Equal(t, "scan.jpg", ex.pendingDoc.FileName)
+	assert.Equal(t, "scan.jpp", ex.pendingDoc.FileName)
 }
 
 // --- Explore mode ---
@@ -1280,9 +1281,16 @@ func TestAcquireTools_PersistAfterStepDone(t *testing.T) {
 	m.width = 120
 	m.height = 40
 
+	// Collapsed: parent shows "ocr" and page ratio, children hidden.
 	out := m.buildExtractionOverlay()
-	assert.Contains(t, out, "pdftocairo", "completed tool lines should persist after step done")
-	assert.Contains(t, out, "10 images")
+	assert.Contains(t, out, "ocr", "parent should show ocr detail")
+	assert.Contains(t, out, "10/10 pp", "parent should show page ratio")
+	assert.NotContains(t, out, "pdftocairo", "children hidden when collapsed")
+
+	// Expand to see children.
+	ex.expanded[stepExtract] = true
+	out = m.buildExtractionOverlay()
+	assert.Contains(t, out, "pdftocairo", "children visible when expanded")
 }
 
 func TestAcquireTools_ShowDuringRunning(t *testing.T) {
@@ -1305,7 +1313,7 @@ func TestAcquireTools_ShowDuringRunning(t *testing.T) {
 
 	out := m.buildExtractionOverlay()
 	assert.Contains(t, out, "pdftocairo", "tool lines should show during OCR")
-	assert.Contains(t, out, "page 3/10", "page progress should show during OCR")
+	assert.Contains(t, out, "10/10 pp", "page ratio should show")
 }
 
 func TestAcquireTools_PartialRunning(t *testing.T) {
@@ -1323,10 +1331,10 @@ func TestAcquireTools_PartialRunning(t *testing.T) {
 
 	out := m.buildExtractionOverlay()
 	assert.Contains(t, out, "pdftocairo", "running tool should show")
-	assert.Contains(t, out, "3 images", "in-progress count should show")
+	assert.Contains(t, out, "3/3 pp", "in-progress count should show")
 }
 
-func TestAcquireTools_DetailSuppressedInHeader(t *testing.T) {
+func TestAcquireTools_ParentShowsOCRDetail(t *testing.T) {
 	t.Parallel()
 	m := newExtractionModel(t, map[extractionStep]stepStatus{
 		stepExtract: stepRunning,
@@ -1343,13 +1351,14 @@ func TestAcquireTools_DetailSuppressedInHeader(t *testing.T) {
 	m.height = 40
 
 	out := m.buildExtractionOverlay()
-	// Page progress should appear in the sub-spinner section, not duplicated
-	// in the header alongside the step name.
-	assert.Contains(t, out, "page 1/5")
-	assert.Contains(t, out, "pdftocairo")
+	// Parent header always shows "ocr" detail, not "page X/Y".
+	assert.Contains(t, out, "ocr", "parent should show ocr detail")
+	assert.Contains(t, out, "5/5 pp", "page ratio should show")
+	// Running = auto-expanded, children visible.
+	assert.Contains(t, out, "pdftocairo", "children visible when running")
 }
 
-func TestAcquireTools_CollapseHidesToolLines(t *testing.T) {
+func TestAcquireTools_CollapseHidesChildren(t *testing.T) {
 	t.Parallel()
 	m := newExtractionModel(t, map[extractionStep]stepStatus{
 		stepText:    stepDone,
@@ -1369,20 +1378,141 @@ func TestAcquireTools_CollapseHidesToolLines(t *testing.T) {
 	m.width = 120
 	m.height = 40
 
-	// Default: tools expanded.
+	// Default collapsed: parent visible, children hidden.
 	out := m.buildExtractionOverlay()
-	assert.Contains(t, out, "pdftocairo", "tools should be expanded by default when done")
+	assert.Contains(t, out, "ocr", "parent always visible")
+	assert.NotContains(t, out, "pdftocairo", "children hidden when collapsed")
 
-	// User collapses the ext step.
-	ex.expanded[stepExtract] = false
+	// Add logs and verify expand shows everything.
+	info := ex.Steps[stepExtract]
+	info.Logs = []string{"extracted text line 1", "extracted text line 2"}
+	ex.Steps[stepExtract] = info
+
+	// Still collapsed: children + logs hidden.
 	out = m.buildExtractionOverlay()
-	assert.NotContains(t, out, "pdftocairo", "tools should be hidden when collapsed")
-	assert.Contains(t, out, "tesseract", "header detail should still show when collapsed")
+	assert.NotContains(t, out, "pdftocairo", "children hidden when collapsed")
+	assert.NotContains(t, out, "extracted text line 1", "logs hidden when collapsed")
 
-	// User re-expands.
+	// User expands: children + logs both show.
 	ex.expanded[stepExtract] = true
 	out = m.buildExtractionOverlay()
-	assert.Contains(t, out, "pdftocairo", "tools should reappear when re-expanded")
+	assert.Contains(t, out, "pdftocairo", "children visible when expanded")
+	assert.Contains(t, out, "extracted text line 1", "logs visible when expanded")
+}
+
+// --- Ext parent/child navigation ---
+
+func newExtToolModel(t *testing.T) (*Model, *extractionLogState) {
+	t.Helper()
+	m := newExtractionModel(t, map[extractionStep]stepStatus{
+		stepText:    stepDone,
+		stepExtract: stepDone,
+		stepLLM:     stepDone,
+	})
+	ex := m.ex.extraction
+	ex.Done = true
+	ex.acquireTools = []extract.AcquireToolState{
+		{Tool: "pdftocairo", Running: false, Count: 10},
+		{Tool: "tesseract", Running: false, Count: 10},
+	}
+	ex.extractedPages = 10
+	m.width = 120
+	m.height = 40
+	return m, ex
+}
+
+func TestExtraction_ExtParentChildNavigation(t *testing.T) {
+	t.Parallel()
+	m, ex := newExtToolModel(t)
+
+	// Start on text (cursor=0). toolCursor=-1 (parent sentinel).
+	assert.Equal(t, 0, ex.cursor)
+	assert.Equal(t, -1, ex.toolCursor)
+
+	// j -> ext parent (cursor=1, toolCursor=-1).
+	sendExtractionKey(m, "j")
+	assert.Equal(t, 1, ex.cursor, "j should land on ext step")
+	assert.Equal(t, -1, ex.toolCursor, "should be on parent")
+
+	// Expand ext so children are accessible.
+	ex.expanded[stepExtract] = true
+
+	// j -> first child (toolCursor=0).
+	sendExtractionKey(m, "j")
+	assert.Equal(t, 1, ex.cursor, "still on ext step")
+	assert.Equal(t, 0, ex.toolCursor, "should be on first child")
+
+	// j -> second child (toolCursor=1).
+	sendExtractionKey(m, "j")
+	assert.Equal(t, 1, ex.cursor)
+	assert.Equal(t, 1, ex.toolCursor, "should be on second child")
+
+	// j -> next step (llm).
+	sendExtractionKey(m, "j")
+	assert.Equal(t, 2, ex.cursor, "should advance to llm")
+	assert.Equal(t, -1, ex.toolCursor, "new step starts at parent")
+
+	// k -> back to ext, last child (expanded).
+	sendExtractionKey(m, "k")
+	assert.Equal(t, 1, ex.cursor, "should return to ext")
+	assert.Equal(t, 1, ex.toolCursor, "should land on last child")
+
+	// k -> first child.
+	sendExtractionKey(m, "k")
+	assert.Equal(t, 1, ex.cursor)
+	assert.Equal(t, 0, ex.toolCursor)
+
+	// k -> parent.
+	sendExtractionKey(m, "k")
+	assert.Equal(t, 1, ex.cursor)
+	assert.Equal(t, -1, ex.toolCursor, "should return to parent")
+
+	// k -> text step.
+	sendExtractionKey(m, "k")
+	assert.Equal(t, 0, ex.cursor, "should return to text step")
+}
+
+func TestExtraction_ExtCollapsedSkipsChildren(t *testing.T) {
+	t.Parallel()
+	m, ex := newExtToolModel(t)
+
+	// j -> ext parent (collapsed by default for done ext).
+	sendExtractionKey(m, "j")
+	assert.Equal(t, 1, ex.cursor)
+	assert.Equal(t, -1, ex.toolCursor)
+
+	// j from collapsed parent -> next step (skips children).
+	sendExtractionKey(m, "j")
+	assert.Equal(t, 2, ex.cursor, "should skip children when collapsed")
+	assert.Equal(t, -1, ex.toolCursor)
+
+	// k from llm -> ext parent (collapsed, not last child).
+	sendExtractionKey(m, "k")
+	assert.Equal(t, 1, ex.cursor)
+	assert.Equal(t, -1, ex.toolCursor, "collapsed ext should land on parent")
+}
+
+func TestExtraction_EnterCollapsesExtToParent(t *testing.T) {
+	t.Parallel()
+	m, ex := newExtToolModel(t)
+
+	// Navigate to ext and expand.
+	sendExtractionKey(m, "j")
+	ex.expanded[stepExtract] = true
+
+	// Move to a child.
+	sendExtractionKey(m, "j")
+	assert.Equal(t, 0, ex.toolCursor, "on first child")
+
+	// Enter collapses and resets to parent.
+	sendExtractionKey(m, "enter")
+	assert.False(t, ex.stepExpanded(stepExtract), "should be collapsed")
+	assert.Equal(t, -1, ex.toolCursor, "should reset to parent")
+
+	// Enter again expands, still on parent.
+	sendExtractionKey(m, "enter")
+	assert.True(t, ex.stepExpanded(stepExtract), "should be expanded")
+	assert.Equal(t, -1, ex.toolCursor, "should stay on parent after expand")
 }
 
 func TestWaitForLLMChunkOpenChannel(t *testing.T) {
@@ -2024,4 +2154,55 @@ func TestExtractionClient_NilWhenNoConfig(t *testing.T) {
 	m.ex.extractionModel = ""
 
 	assert.Nil(t, m.extractionLLMClient())
+}
+
+// --- Auto-follow vs manual cursor mode ---
+
+func TestExtractionCursor_AutoFollowDisengagesOnJK(t *testing.T) {
+	t.Parallel()
+	m := newExtractionModel(t, map[extractionStep]stepStatus{
+		stepText:    stepDone,
+		stepExtract: stepRunning,
+		stepLLM:     stepPending,
+	})
+	ex := m.ex.extraction
+
+	// Initially in auto-follow mode.
+	assert.False(t, ex.cursorManual, "should start in auto-follow mode")
+
+	// advanceCursor should move cursor when auto-following.
+	ex.Steps[stepExtract] = extractionStepInfo{Status: stepDone}
+	ex.advanceCursor()
+	assert.Equal(t, 1, ex.cursor, "advanceCursor should move to ext step in auto mode")
+
+	// Press j to switch to manual mode.
+	sendExtractionKey(m, "j")
+	assert.True(t, ex.cursorManual, "j should engage manual mode")
+
+	// Mark LLM as running so advanceCursor would normally advance there.
+	ex.hasLLM = true
+	ex.Steps[stepLLM] = extractionStepInfo{Status: stepDone}
+	prevCursor := ex.cursor
+	ex.advanceCursor()
+	assert.Equal(t, prevCursor, ex.cursor, "advanceCursor should be no-op in manual mode")
+}
+
+func TestExtractionCursor_ManualModeViaUpKey(t *testing.T) {
+	t.Parallel()
+	m := newExtractionModel(t, map[extractionStep]stepStatus{
+		stepText:    stepDone,
+		stepExtract: stepDone,
+		stepLLM:     stepPending,
+	})
+	ex := m.ex.extraction
+
+	// Move cursor to ext via advanceCursor (auto mode).
+	ex.advanceCursor()
+	assert.Equal(t, 1, ex.cursor)
+	assert.False(t, ex.cursorManual)
+
+	// Press k to switch to manual.
+	sendExtractionKey(m, "k")
+	assert.True(t, ex.cursorManual, "k should engage manual mode")
+	assert.Equal(t, 0, ex.cursor, "k should navigate back to text step")
 }
