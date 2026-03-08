@@ -36,13 +36,13 @@ func TestExtractionColumns_MatchGenerated(t *testing.T) {
 			if synthetic[col.Name] {
 				continue
 			}
-			jsonType, ok := metaByName[col.Name]
+			metaType, ok := metaByName[col.Name]
 			assert.True(t, ok,
 				"table %q column %q is in ExtractionTableDefs but not in generated metadata",
 				td.Table, col.Name,
 			)
 			if ok {
-				assert.Equal(t, jsonType, string(col.Type),
+				assert.Equal(t, metaType, string(col.Type),
 					"table %q column %q type mismatch", td.Table, col.Name,
 				)
 			}
