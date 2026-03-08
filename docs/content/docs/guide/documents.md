@@ -61,6 +61,24 @@ standalone documents.
 The `Entity` column on the top-level Docs tab shows which record a document
 belongs to (e.g., "project #3", "appliance #7").
 
+## Searching documents
+
+Press <kbd>ctrl+f</kbd> on the Docs tab to open a search overlay. It searches
+across document titles, notes, and extracted text using SQLite's FTS5
+full-text search engine.
+
+Results appear instantly as you type. Each result shows the document title,
+its entity association (if any), and a snippet of matched text with
+highlighted terms. Use <kbd>up</kbd>/<kbd>down</kbd> (or
+<kbd>ctrl+k</kbd>/<kbd>ctrl+j</kbd>) to navigate results, <kbd>enter</kbd> to
+jump to the document, and <kbd>esc</kbd> to close. Clicking a result also
+navigates to it.
+
+The search uses the Porter stemmer, so related word forms match each other
+(e.g., searching "painting" also finds "painted" and "paint"). Queries are
+case-insensitive. For advanced users, FTS5 operators like `AND`, `OR`, `NOT`,
+quoted phrases, and `*` wildcards are supported.
+
 ## Drill columns
 
 The `Docs` column appears on the <a href="/docs/guide/projects/" class="tab-pill">Projects</a> and <a href="/docs/guide/appliances/" class="tab-pill">Appliances</a> tabs, showing
