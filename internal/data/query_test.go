@@ -196,7 +196,7 @@ func TestFirstWord(t *testing.T) {
 	assert.Equal(t, "SELECT", firstWord("SELECT * FROM t"))
 	assert.Equal(t, "INSERT", firstWord("INSERT INTO t"))
 	assert.Equal(t, "word", firstWord("word"))
-	assert.Equal(t, "", firstWord(""))
+	assert.Empty(t, firstWord(""))
 }
 
 func TestContainsWord(t *testing.T) {

@@ -57,23 +57,24 @@ func (s *Store) ExtractDocument(id uint) (string, error) {
 	ok := false
 	defer func() {
 		if !ok {
-			os.Remove(tmpPath)
+			_ = os.Remove(tmpPath)
 		}
 	}()
 
 	if _, err := tmp.Write(doc.Data); err != nil {
-		tmp.Close()
+		_ = tmp.Close()
 		return "", fmt.Errorf("write temp cache file: %w", err)
 	}
 	// 0o600: owner read/write only. Windows ignores Unix permission bits;
 	// cached files there inherit the user's default ACL.
 	if err := tmp.Chmod(0o600); err != nil {
-		tmp.Close()
+		_ = tmp.Close()
 		return "", fmt.Errorf("chmod temp cache file: %w", err)
 	}
 	if err := tmp.Close(); err != nil {
 		return "", fmt.Errorf("close temp cache file: %w", err)
 	}
+	//nolint:gosec // tmpPath is constructed from os.CreateTemp, not user input
 	if err := os.Rename(tmpPath, cachePath); err != nil {
 		return "", fmt.Errorf("rename temp cache file: %w", err)
 	}
