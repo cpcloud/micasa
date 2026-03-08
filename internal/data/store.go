@@ -1058,10 +1058,15 @@ func (s *Store) RestoreIncident(id uint) error {
 
 func (s *Store) HardDeleteIncident(id uint) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		// Delete linked documents (including soft-deleted ones).
-		if err := tx.Unscoped().
+		// Detach linked documents (including soft-deleted ones) so they
+		// survive the incident removal. Documents have intrinsic value
+		// independent of the entity they were filed under.
+		if err := tx.Unscoped().Model(&Document{}).
 			Where(ColEntityKind+" = ? AND "+ColEntityID+" = ?", DocumentEntityIncident, id).
-			Delete(&Document{}).Error; err != nil {
+			Updates(map[string]any{
+				ColEntityKind: DocumentEntityNone,
+				ColEntityID:   0,
+			}).Error; err != nil {
 			return err
 		}
 		// Delete deletion records for this incident.

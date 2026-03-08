@@ -2608,7 +2608,7 @@ func TestHardDeleteIncidentRemovesRow(t *testing.T) {
 	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }
 
-func TestHardDeleteIncidentRemovesLinkedDocuments(t *testing.T) {
+func TestHardDeleteIncidentDetachesLinkedDocuments(t *testing.T) {
 	t.Parallel()
 	store := newTestStore(t)
 	require.NoError(t, store.CreateIncident(&Incident{
@@ -2623,9 +2623,58 @@ func TestHardDeleteIncidentRemovesLinkedDocuments(t *testing.T) {
 
 	require.NoError(t, store.HardDeleteIncident(id))
 
+	// Document is no longer linked to the incident.
 	docs, err := store.ListDocumentsByEntity(DocumentEntityIncident, id, true)
 	require.NoError(t, err)
 	assert.Empty(t, docs)
+
+	// Document still exists, detached (entity_kind="", entity_id=0).
+	detached, err := store.ListDocumentsByEntity(DocumentEntityNone, 0, false)
+	require.NoError(t, err)
+	require.Len(t, detached, 1)
+	assert.Equal(t, "Photo", detached[0].Title)
+}
+
+func TestHardDeleteIncidentDetachesSoftDeletedDocuments(t *testing.T) {
+	t.Parallel()
+	store := newTestStore(t)
+
+	// Create incident with a document.
+	require.NoError(t, store.CreateIncident(&Incident{
+		Title: "Water damage", Status: IncidentStatusOpen, Severity: IncidentSeveritySoon,
+	}))
+	items, _ := store.ListIncidents(false)
+	incID := items[0].ID
+
+	require.NoError(t, store.CreateDocument(&Document{
+		Title: "Receipt", EntityKind: DocumentEntityIncident, EntityID: incID,
+	}))
+	docs, err := store.ListDocumentsByEntity(DocumentEntityIncident, incID, false)
+	require.NoError(t, err)
+	require.Len(t, docs, 1)
+	docID := docs[0].ID
+
+	// Soft-delete the document — creates a DeletionRecord for it.
+	require.NoError(t, store.DeleteDocument(docID))
+
+	// Hard-delete the incident — should detach the document, not destroy it.
+	require.NoError(t, store.HardDeleteIncident(incID))
+
+	// Document is detached and still soft-deleted.
+	detached, err := store.ListDocumentsByEntity(DocumentEntityNone, 0, true)
+	require.NoError(t, err)
+	require.Len(t, detached, 1)
+	assert.Equal(t, "Receipt", detached[0].Title)
+
+	// DeletionRecord for the document still exists (user can restore it).
+	var count int64
+	store.db.Model(&DeletionRecord{}).
+		Where(ColEntity+" = ? AND "+ColTargetID+" = ?", DeletionEntityDocument, docID).
+		Count(&count)
+	assert.Equal(t, int64(1), count, "DeletionRecord for detached document should survive")
+
+	// Restoring the detached document should succeed.
+	require.NoError(t, store.RestoreDocument(docID))
 }
 
 func TestHardDeleteIncidentNotFound(t *testing.T) {
