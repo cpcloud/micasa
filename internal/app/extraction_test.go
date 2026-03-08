@@ -1545,6 +1545,38 @@ func TestAcquireTools_NonTerminalPageRatioUsesTotal(t *testing.T) {
 	assert.NotContains(t, out, "7/7 pp", "denominator must not equal numerator")
 }
 
+func TestHandleExtractionProgress_AcquireToolsSetsExtractedPages(t *testing.T) {
+	t.Parallel()
+	m := newExtractionModel(t, map[extractionStep]stepStatus{
+		stepExtract: stepRunning,
+	})
+	ex := m.ex.extraction
+	ex.extractCh = make(<-chan extract.ExtractProgress)
+
+	// Simulate a mid-pipeline progress message: AcquireTools is set
+	// alongside Phase/Total/DocPages. Before the fix, the AcquireTools
+	// branch returned early and never set extractedPages/docPages.
+	m.handleExtractionProgress(extractionProgressMsg{
+		ID: ex.ID,
+		Progress: extract.ExtractProgress{
+			Phase:    "extract",
+			Page:     3,
+			Total:    10,
+			DocPages: 25,
+			AcquireTools: []extract.AcquireToolState{
+				{Tool: "pdftocairo", Running: true, Count: 5},
+				{Tool: "tesseract", Running: true, Count: 3},
+			},
+		},
+	})
+
+	assert.Equal(t, 10, ex.extractedPages, "extractedPages must be set from Total")
+	assert.Equal(t, 25, ex.docPages, "docPages must be set from DocPages")
+	assert.Equal(t, "page 3/10", ex.Steps[stepExtract].Detail, "step detail must be updated")
+	require.Len(t, ex.acquireTools, 2)
+	assert.Equal(t, 5, ex.acquireTools[0].Count)
+}
+
 func TestAcquireTools_NonTerminalRunningRenderedDim(t *testing.T) {
 	t.Parallel()
 	m := newExtractionModel(t, map[extractionStep]stepStatus{

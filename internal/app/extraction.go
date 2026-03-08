@@ -573,7 +573,6 @@ func (m *Model) handleExtractionProgress(msg extractionProgressMsg) tea.Cmd {
 		// Per-tool acquisition state update.
 		if len(p.AcquireTools) > 0 {
 			ex.acquireTools = p.AcquireTools
-			return waitForExtractProgress(ex.ID, ex.extractCh)
 		}
 		// OCR phase: page progress is shown in the tool line via
 		// renderPageRatio; detail stays simple for the header.
