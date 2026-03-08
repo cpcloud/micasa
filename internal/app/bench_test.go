@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/cpcloud/micasa/internal/data"
 	"github.com/cpcloud/micasa/internal/fake"
 	"github.com/stretchr/testify/require"
@@ -167,6 +168,27 @@ func BenchmarkTableViewPins(b *testing.B) {
 	b.ResetTimer()
 	for b.Loop() {
 		_ = m.tableView(tab)
+	}
+}
+
+func BenchmarkSelectClickedColumn(b *testing.B) {
+	m := benchModel(b)
+	tab := m.activeTab()
+	require.NotEmpty(b, tab.CellRows, "need data rows")
+	// Pre-populate the cache as View() would.
+	_ = m.View()
+	require.NotNil(b, tab.cachedVP)
+	cached := tab.cachedVP
+	msg := tea.MouseMsg{X: 20, Y: 5}
+	origCursor := tab.ColCursor
+	origOffset := tab.ViewOffset
+	b.ResetTimer()
+	for b.Loop() {
+		// Restore state so updateTabViewport's invalidation doesn't cascade.
+		tab.ColCursor = origCursor
+		tab.ViewOffset = origOffset
+		tab.cachedVP = cached
+		m.selectClickedColumn(tab, msg)
 	}
 }
 

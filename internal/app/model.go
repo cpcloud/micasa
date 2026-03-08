@@ -1876,10 +1876,12 @@ func (m *Model) resizeTables() {
 		tableHeight = 2
 	}
 	for i := range m.tabs {
+		m.tabs[i].cachedVP = nil
 		m.tabs[i].Table.SetHeight(tableHeight)
 		m.tabs[i].Table.SetWidth(m.width)
 	}
 	if dc := m.detail(); dc != nil {
+		dc.Tab.cachedVP = nil
 		dc.Tab.Table.SetHeight(tableHeight)
 		dc.Tab.Table.SetWidth(m.width)
 	}
@@ -2806,6 +2808,7 @@ func (m *Model) updateAllViewports() {
 // refreshTable reapplies row filters, sorts, and viewport layout for a tab.
 // Use this after any change to pins, filter state, or row data.
 func (m *Model) refreshTable(tab *Tab) {
+	tab.cachedVP = nil
 	applyRowFilter(tab, m.magMode, m.cur.Symbol())
 	applySorts(tab)
 	if tab.Table.Cursor() < 0 && len(tab.Rows) > 0 {
@@ -2818,6 +2821,7 @@ func (m *Model) updateTabViewport(tab *Tab) {
 	if tab == nil {
 		return
 	}
+	tab.cachedVP = nil
 	visSpecs, visCells, visColCursor, _, _ := visibleProjection(tab)
 	if len(visSpecs) == 0 || visColCursor < 0 {
 		tab.ViewOffset = 0
@@ -2831,6 +2835,19 @@ func (m *Model) updateTabViewport(tab *Tab) {
 		fullWidths, sepW, width, tab.ViewOffset, visColCursor,
 	)
 	tab.ViewOffset = vpStart
+}
+
+// tabViewport returns the cached tableViewport for the tab, computing and
+// caching it if stale. The cache is populated during View() and reused by
+// mouse handlers so they avoid O(rows*cols) recomputation per click.
+func (m *Model) tabViewport(tab *Tab) tableViewport {
+	if tab.cachedVP != nil {
+		return *tab.cachedVP
+	}
+	normalSep := m.styles.TableSeparator().Render(" │ ")
+	vp := computeTableViewport(tab, m.effectiveWidth(), normalSep, m.cur.Symbol())
+	tab.cachedVP = &vp
+	return vp
 }
 
 // tabIndex returns the position of the given TabKind in the canonical tab

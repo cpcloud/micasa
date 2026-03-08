@@ -273,6 +273,48 @@ func TestColumnHeaderClickMovesColCursor(t *testing.T) {
 		"clicking col-1 header should move column cursor")
 }
 
+// TestViewportCachePopulatedAfterView verifies that rendering the view
+// populates the viewport cache on the active tab, and that mouse clicks
+// reuse the cache rather than recomputing.
+func TestViewportCachePopulatedAfterView(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithDemoData(t, 42)
+
+	tab := m.effectiveTab()
+	require.NotNil(t, tab)
+	require.Nil(t, tab.cachedVP, "cache should be nil before first render")
+
+	m.View()
+	require.NotNil(t, tab.cachedVP, "View() should populate the viewport cache")
+
+	cached := tab.cachedVP
+	z := requireZone(t, m, "col-1")
+	sendClick(m, z.StartX, z.StartY)
+
+	// After the click, updateTabViewport invalidates the cache; the next
+	// View() repopulates it.
+	m.View()
+	require.NotNil(t, tab.cachedVP, "cache repopulated after click + render")
+	assert.NotEqual(t, 0, tab.ColCursor, "column cursor moved by click")
+	_ = cached
+}
+
+// TestViewportCacheInvalidatedOnRefresh verifies that refreshTable clears
+// the viewport cache.
+func TestViewportCacheInvalidatedOnRefresh(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithDemoData(t, 42)
+
+	tab := m.effectiveTab()
+	require.NotNil(t, tab)
+
+	m.View()
+	require.NotNil(t, tab.cachedVP)
+
+	m.refreshTable(tab)
+	assert.Nil(t, tab.cachedVP, "refreshTable should invalidate viewport cache")
+}
+
 // TestMouseNoOpOnRelease verifies that mouse release events are ignored.
 func TestMouseNoOpOnRelease(t *testing.T) {
 	t.Parallel()

@@ -93,14 +93,9 @@ func (m *Model) handleLeftClick(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 
 	// Column header click.
 	if tab := m.effectiveTab(); tab != nil {
-		vSpecs, _, visColCursor, _, _ := visibleProjection(tab)
-		_ = visColCursor
-		for i := range vSpecs {
+		vp := m.tabViewport(tab)
+		for i := range vp.Specs {
 			if m.zones.Get(fmt.Sprintf("%s%d", zoneCol, i)).InBounds(msg) {
-				// Map viewport column back to full tab column.
-				width := m.effectiveWidth()
-				normalSep := m.styles.TableSeparator().Render(" │ ")
-				vp := computeTableViewport(tab, width, normalSep, m.cur.Symbol())
 				if i < len(vp.VisToFull) {
 					tab.ColCursor = vp.VisToFull[i]
 					m.updateTabViewport(tab)
@@ -315,11 +310,8 @@ func (m *Model) selectExtractionPreviewColumn(
 // zone the click's X coordinate falls within. Column header zones (col-N)
 // share the same X ranges as body cells, so we reuse them.
 func (m *Model) selectClickedColumn(tab *Tab, msg tea.MouseMsg) {
-	vSpecs, _, _, _, _ := visibleProjection(tab)
-	width := m.effectiveWidth()
-	normalSep := m.styles.TableSeparator().Render(" │ ")
-	vp := computeTableViewport(tab, width, normalSep, m.cur.Symbol())
-	for i := range vSpecs {
+	vp := m.tabViewport(tab)
+	for i := range vp.Specs {
 		z := m.zones.Get(fmt.Sprintf("%s%d", zoneCol, i))
 		if z == nil || z.IsZero() {
 			continue
