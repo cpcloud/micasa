@@ -878,12 +878,11 @@ func (m *Model) tableView(tab *Tab) string {
 		return ""
 	}
 
-	width := m.effectiveWidth()
 	normalSep := m.styles.TableSeparator().Render(" │ ")
 	normalDiv := m.styles.TableSeparator().Render("─┼─")
 	sepW := lipgloss.Width(normalSep)
 
-	vp := computeTableViewport(tab, width, normalSep, m.cur.Symbol())
+	vp := m.tabViewport(tab)
 	if len(vp.Specs) == 0 {
 		return ""
 	}

@@ -199,6 +199,11 @@ type Tab struct {
 	FullRows     []table.Row
 	FullMeta     []rowMeta
 	FullCellRows [][]cell
+
+	// cachedVP holds the last computed tableViewport, populated during View()
+	// and reused by mouse click handlers to avoid O(rows*cols) recomputation.
+	// Nil when stale; call Model.tabViewport to get-or-compute.
+	cachedVP *tableViewport
 }
 
 type statusKind int
