@@ -210,6 +210,12 @@ func (m *Model) handleHintClick(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}},
+		{"search", func() (tea.Model, tea.Cmd) {
+			if m.mode == modeNormal && m.effectiveTab().isDocumentTab() {
+				return m, m.openDocSearch()
+			}
+			return m, nil
+		}},
 		{"ask", func() (tea.Model, tea.Cmd) {
 			if m.mode == modeNormal {
 				return m, m.openChat()
@@ -242,6 +248,17 @@ func (m *Model) handleOverlayClick(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 					m.dash.cursor = i
 					m.lastDashClick = rowClickState{at: now, row: i}
 				}
+				return m, nil
+			}
+		}
+	}
+
+	// Search result clicks: single click selects, double-click navigates.
+	if ds := m.docSearch; ds != nil {
+		for i := range ds.Results {
+			if m.zones.Get(fmt.Sprintf("%s%d", zoneSearchRow, i)).InBounds(msg) {
+				ds.Cursor = i
+				m.docSearchNavigate()
 				return m, nil
 			}
 		}
@@ -367,6 +384,8 @@ func (m *Model) dismissActiveOverlay() {
 		m.notePreview = nil
 	case m.columnFinder != nil:
 		m.columnFinder = nil
+	case m.docSearch != nil:
+		m.docSearch = nil
 	case m.ex.extraction != nil && m.ex.extraction.Visible:
 		m.ex.extraction.Visible = false
 	case m.chat != nil && m.chat.Visible:

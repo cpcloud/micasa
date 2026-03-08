@@ -69,6 +69,7 @@ Complete reference of every keybinding in micasa, organized by mode.
 | <kbd>enter</kbd> | Drill into detail view, follow FK link, or preview notes |
 | <kbd>o</kbd>     | Open selected document with OS viewer (<a href="/docs/guide/documents/" class="tab-pill">Docs</a> tab only) |
 | <kbd>i</kbd>     | Enter Edit mode |
+| <kbd>ctrl+f</kbd> | Search documents (<a href="/docs/guide/documents/" class="tab-pill">Docs</a> tab only) |
 | <kbd>@</kbd>     | Open LLM chat overlay |
 | <kbd>?</kbd>     | Open help overlay |
 | <kbd>esc</kbd>   | Close detail view, or clear status message |
@@ -218,6 +219,17 @@ overlay has two modes. See the
 | <kbd>a</kbd>       | Accept results |
 | <kbd>x</kbd>       | Return to pipeline mode |
 | <kbd>esc</kbd>     | Return to pipeline mode |
+
+## Document search overlay
+
+Press <kbd>ctrl+f</kbd> on the Docs tab to open the full-text search overlay.
+
+| Key       | Action |
+|-----------|--------|
+| <kbd>up</kbd> / <kbd>ctrl+k</kbd>   | Move cursor up |
+| <kbd>down</kbd> / <kbd>ctrl+j</kbd> | Move cursor down |
+| <kbd>enter</kbd>   | Jump to selected document |
+| <kbd>esc</kbd>     | Close search |
 
 ## Help overlay
 

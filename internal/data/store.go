@@ -309,7 +309,10 @@ func (s *Store) IsMicasaDB() (bool, error) {
 }
 
 func (s *Store) AutoMigrate() error {
-	return s.db.AutoMigrate(Models()...)
+	if err := s.db.AutoMigrate(Models()...); err != nil {
+		return err
+	}
+	return s.setupFTS()
 }
 
 func (s *Store) SeedDefaults() error {

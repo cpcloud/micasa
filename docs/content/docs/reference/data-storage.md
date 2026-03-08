@@ -44,6 +44,7 @@ startup. See [Upgrades](#upgrades) for what this covers and what it doesn't.
 | `appliances`           | Physical equipment |
 | `service_log_entries`  | Service history per maintenance item |
 | `documents`            | File metadata + attachments linked to records |
+| `documents_fts`        | FTS5 full-text search index for documents (virtual table) |
 | `deletion_records`     | Audit trail for soft deletes/restores |
 
 ### Pre-seeded data

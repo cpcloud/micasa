@@ -37,6 +37,7 @@ func (m *Model) buildView() string {
 		{m.calendar != nil, m.buildCalendarOverlay},
 		{m.notePreview != nil, m.buildNotePreviewOverlay},
 		{m.columnFinder != nil, m.buildColumnFinderOverlay},
+		{m.docSearch != nil, m.buildDocSearchOverlay},
 		{m.ex.extraction != nil && m.ex.extraction.Visible, m.buildExtractionOverlay},
 		{m.chat != nil && m.chat.Visible, m.buildChatOverlay},
 		{m.helpViewport != nil, m.buildHelpOverlay},
@@ -437,6 +438,13 @@ func (m *Model) normalModeStatusHints(modeBadge string) []statusHint {
 			id: "open", full: m.helpItem(keyO, "open"), priority: 2,
 		})
 	}
+	if m.effectiveTab().isDocumentTab() {
+		hints = append(hints, statusHint{
+			id:       "search",
+			full:     m.helpItem(keyCtrlF, "search"),
+			priority: 3,
+		})
+	}
 	if m.llmClient != nil {
 		hints = append(hints, statusHint{
 			id:       "ask",
@@ -775,6 +783,7 @@ func (m *Model) helpContent() string {
 				{keyShiftB + "/" + keyShiftF, "First/last tab"},
 				{keyS + "/" + keyShiftS, "Sort / clear sorts"},
 				{keyT, "Toggle settled projects"},
+				{keyCtrlF, "Search documents"},
 				{keySlash, "Find column"},
 				{keyC + "/" + keyShiftC, "Toggle column visibility"},
 				{keyShiftN, "Toggle filter"},
