@@ -50,6 +50,9 @@ const (
 	keyCtrlC = "ctrl+c"
 	keyCtrlD = "ctrl+d"
 	keyCtrlE = "ctrl+e"
+	keyCtrlF = "ctrl+f"
+	keyCtrlJ = "ctrl+j"
+	keyCtrlK = "ctrl+k"
 	keyCtrlN = "ctrl+n"
 	keyCtrlO = "ctrl+o"
 	keyCtrlP = "ctrl+p"
@@ -195,6 +198,7 @@ type Model struct {
 	notePreview           *notePreviewState
 	calendar              *calendarState
 	columnFinder          *columnFinderState
+	docSearch             *docSearchState
 	dash                  dashState
 	unitSystem            data.UnitSystem
 	hasHouse              bool
@@ -770,6 +774,10 @@ func (m *Model) handleNormalKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 	case keySlash:
 		m.openColumnFinder()
 		return nil, true
+	case keyCtrlF:
+		if m.effectiveTab().isDocumentTab() {
+			return m.openDocSearch(), true
+		}
 	case keyO:
 		if cmd := m.openSelectedDocument(); cmd != nil {
 			return cmd, true
@@ -2549,6 +2557,7 @@ func (m *Model) hasActiveOverlay() bool {
 		m.calendar != nil ||
 		m.notePreview != nil ||
 		m.columnFinder != nil ||
+		m.docSearch != nil ||
 		(m.ex.extraction != nil && m.ex.extraction.Visible) ||
 		m.helpViewport != nil
 }
@@ -2568,6 +2577,8 @@ func (m *Model) dispatchOverlay(msg tea.Msg) (tea.Cmd, bool) {
 		handler = m.handleCalendarKey
 	case m.columnFinder != nil:
 		handler = m.handleColumnFinderKey
+	case m.docSearch != nil:
+		handler = m.handleDocSearchKey
 	case m.inlineInput != nil:
 		handler = m.handleInlineInputKey
 	default:
