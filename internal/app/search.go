@@ -148,9 +148,7 @@ func (m *Model) docSearchNavigate() {
 	// Select the matching row by document ID.
 	tab := m.effectiveTab()
 	if tab != nil {
-		if selectRowByID(tab, result.ID) {
-			m.setStatusInfo(fmt.Sprintf("Found: %s", result.Title))
-		}
+		selectRowByID(tab, result.ID)
 	}
 }
 
