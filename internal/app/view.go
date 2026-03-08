@@ -278,7 +278,7 @@ func (m *Model) statusView() string {
 	if m.inlineInput != nil {
 		return m.withPullProgress(m.inlineInputStatusView())
 	}
-	if m.confirmHardDelete {
+	if m.confirm == confirmHardDelete {
 		prompt := m.styles.FormDirty().Render("Permanently delete this incident?")
 		hints := joinWithSeparator(
 			m.helpSeparator(),
@@ -288,7 +288,7 @@ func (m *Model) statusView() string {
 		return m.withPullProgress(prompt + "  " + hints)
 	}
 	if m.mode == modeForm {
-		if m.fs.confirmDiscard {
+		if m.confirm.isFormConfirm() {
 			prompt := m.styles.FormDirty().Render("Discard unsaved changes?")
 			hints := joinWithSeparator(
 				m.helpSeparator(),

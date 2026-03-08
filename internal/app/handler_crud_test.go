@@ -769,7 +769,7 @@ func TestIncidentHardDeleteUserFlow(t *testing.T) {
 	// Enter edit mode, D on a live row should be rejected.
 	sendKey(m, "i")
 	sendKey(m, "D")
-	assert.False(t, m.confirmHardDelete, "should not prompt on non-deleted row")
+	assert.NotEqual(t, confirmHardDelete, m.confirm, "should not prompt on non-deleted row")
 	assert.Contains(t, m.statusView(), "Resolve the incident first")
 
 	// Soft-delete first, then hard delete.
@@ -777,12 +777,12 @@ func TestIncidentHardDeleteUserFlow(t *testing.T) {
 	require.NoError(t, m.reloadActiveTab())
 
 	sendKey(m, "D")
-	assert.True(t, m.confirmHardDelete, "should be in confirm state")
+	assert.Equal(t, confirmHardDelete, m.confirm, "should be in confirm state")
 	assert.Contains(t, m.statusView(), "Permanently delete")
 
 	// Press n to cancel.
 	sendKey(m, "n")
-	assert.False(t, m.confirmHardDelete, "confirm should be dismissed")
+	assert.Equal(t, confirmNone, m.confirm, "confirm should be dismissed")
 
 	// Row should still exist.
 	require.NoError(t, m.reloadActiveTab())
@@ -791,7 +791,7 @@ func TestIncidentHardDeleteUserFlow(t *testing.T) {
 	// Press D then y to confirm.
 	sendKey(m, "D")
 	sendKey(m, "y")
-	assert.False(t, m.confirmHardDelete)
+	assert.Equal(t, confirmNone, m.confirm)
 	assert.Contains(t, m.statusView(), "Permanently deleted")
 
 	// Row is gone even with showDeleted.
@@ -862,7 +862,12 @@ func TestIncidentHardDeleteOnlyWorksOnIncidents(t *testing.T) {
 
 	sendKey(m, "i")
 	sendKey(m, "D")
-	assert.False(t, m.confirmHardDelete, "hard delete should not activate on projects tab")
+	assert.NotEqual(
+		t,
+		confirmHardDelete,
+		m.confirm,
+		"hard delete should not activate on projects tab",
+	)
 }
 
 // ---------------------------------------------------------------------------

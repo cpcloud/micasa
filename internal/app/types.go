@@ -38,14 +38,29 @@ const (
 	formDocument
 )
 
+// confirmKind represents mutually exclusive confirmation dialog states.
+// Only one confirmation can be active at a time, making illegal states
+// unrepresentable.
+type confirmKind int
+
+const (
+	confirmNone            confirmKind = iota
+	confirmHardDelete                  // permanent incident deletion (y/n)
+	confirmFormDiscard                 // discard dirty form changes, stay in app
+	confirmFormQuitDiscard             // discard dirty form changes and quit
+)
+
+// isFormConfirm reports whether the confirmation is a form-related dialog.
+func (k confirmKind) isFormConfirm() bool {
+	return k == confirmFormDiscard || k == confirmFormQuitDiscard
+}
+
 type formState struct {
 	formKind        FormKind
 	form            *huh.Form
 	formData        any
 	formSnapshot    any
 	formDirty       bool
-	confirmDiscard  bool
-	confirmQuit     bool
 	formHasRequired bool
 	pendingFormInit tea.Cmd
 	editID          *uint
