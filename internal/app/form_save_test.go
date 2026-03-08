@@ -577,7 +577,7 @@ func TestUserEscDirtyFormShowsConfirmation(t *testing.T) {
 	// User presses ESC — should see confirmation instead of exiting.
 	sendKey(m, "esc")
 	assert.Equal(t, modeForm, m.mode, "should still be in form mode")
-	assert.True(t, m.fs.confirmDiscard, "confirm dialog should be active")
+	assert.Equal(t, confirmFormDiscard, m.confirm, "confirm dialog should be active")
 	status := m.statusView()
 	assert.Contains(t, status, "Discard unsaved changes?")
 	assert.Contains(t, status, "discard")
@@ -596,9 +596,9 @@ func TestUserConfirmsDiscardWithY(t *testing.T) {
 
 	// ESC triggers confirmation, y discards.
 	sendKey(m, "esc")
-	require.True(t, m.fs.confirmDiscard)
+	require.Equal(t, confirmFormDiscard, m.confirm)
 	sendKey(m, "y")
-	assert.False(t, m.fs.confirmDiscard, "confirm dialog should be dismissed")
+	assert.Equal(t, confirmNone, m.confirm, "confirm dialog should be dismissed")
 	assert.NotEqual(t, modeForm, m.mode, "should have exited form mode")
 	assert.Nil(t, m.fs.form, "form should be nil after discard")
 
@@ -619,9 +619,9 @@ func TestUserCancelsDiscardWithN(t *testing.T) {
 
 	// ESC triggers confirmation, n cancels it.
 	sendKey(m, "esc")
-	require.True(t, m.fs.confirmDiscard)
+	require.Equal(t, confirmFormDiscard, m.confirm)
 	sendKey(m, "n")
-	assert.False(t, m.fs.confirmDiscard, "confirm dialog should be dismissed")
+	assert.Equal(t, confirmNone, m.confirm, "confirm dialog should be dismissed")
 	assert.Equal(t, modeForm, m.mode, "should remain in form mode")
 	assert.NotNil(t, m.fs.form, "form should still be open")
 
@@ -641,9 +641,9 @@ func TestUserCancelsDiscardWithEsc(t *testing.T) {
 
 	// ESC triggers confirmation, a second ESC cancels it.
 	sendKey(m, "esc")
-	require.True(t, m.fs.confirmDiscard)
+	require.Equal(t, confirmFormDiscard, m.confirm)
 	sendKey(m, "esc")
-	assert.False(t, m.fs.confirmDiscard, "confirm dialog should be dismissed")
+	assert.Equal(t, confirmNone, m.confirm, "confirm dialog should be dismissed")
 	assert.Equal(t, modeForm, m.mode, "should remain in form mode")
 }
 
@@ -655,7 +655,7 @@ func TestCleanFormExitsImmediatelyOnEsc(t *testing.T) {
 	// Form is clean (no edits), so ESC should exit immediately.
 	require.False(t, m.fs.formDirty)
 	sendKey(m, "esc")
-	assert.False(t, m.fs.confirmDiscard, "confirm should not appear for clean forms")
+	assert.Equal(t, confirmNone, m.confirm, "confirm should not appear for clean forms")
 	assert.NotEqual(t, modeForm, m.mode, "should exit form on ESC when clean")
 }
 
@@ -670,13 +670,13 @@ func TestConfirmDiscardSwallowsOtherKeys(t *testing.T) {
 	m.checkFormDirty()
 
 	sendKey(m, "esc")
-	require.True(t, m.fs.confirmDiscard)
+	require.Equal(t, confirmFormDiscard, m.confirm)
 
 	// Keys other than y/n/esc should be swallowed.
 	sendKey(m, "a")
-	assert.True(t, m.fs.confirmDiscard, "confirm should still be active after 'a'")
+	assert.Equal(t, confirmFormDiscard, m.confirm, "confirm should still be active after 'a'")
 	sendKey(m, "x")
-	assert.True(t, m.fs.confirmDiscard, "confirm should still be active after 'x'")
+	assert.Equal(t, confirmFormDiscard, m.confirm, "confirm should still be active after 'x'")
 	assert.Equal(t, modeForm, m.mode, "should remain in form mode")
 }
 
@@ -695,7 +695,7 @@ func TestSavedFormExitsImmediatelyOnEsc(t *testing.T) {
 
 	// ESC should exit immediately since form is no longer dirty.
 	sendKey(m, "esc")
-	assert.False(t, m.fs.confirmDiscard, "no confirm needed after save")
+	assert.Equal(t, confirmNone, m.confirm, "no confirm needed after save")
 	assert.NotEqual(t, modeForm, m.mode, "should exit form mode")
 
 	// Saved data should persist.
@@ -717,7 +717,7 @@ func TestCtrlQDirtyFormShowsConfirmation(t *testing.T) {
 	// ctrl+q on a dirty form should show confirmation, not quit.
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlQ})
 	assert.Nil(t, cmd, "should not quit immediately")
-	assert.True(t, m.fs.confirmDiscard, "confirm dialog should be active")
+	assert.Equal(t, confirmFormQuitDiscard, m.confirm, "confirm dialog should be active")
 	assert.Equal(t, modeForm, m.mode, "should still be in form mode")
 }
 
@@ -733,7 +733,7 @@ func TestCtrlQDirtyFormConfirmQuits(t *testing.T) {
 
 	// ctrl+q triggers confirmation, y quits.
 	m.Update(tea.KeyMsg{Type: tea.KeyCtrlQ})
-	require.True(t, m.fs.confirmDiscard)
+	require.Equal(t, confirmFormQuitDiscard, m.confirm)
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")})
 	assert.NotNil(t, cmd, "y after ctrl+q should return quit command")
 
@@ -754,10 +754,9 @@ func TestCtrlQDirtyFormCancelStaysInForm(t *testing.T) {
 
 	// ctrl+q triggers confirmation, n cancels.
 	m.Update(tea.KeyMsg{Type: tea.KeyCtrlQ})
-	require.True(t, m.fs.confirmDiscard)
+	require.Equal(t, confirmFormQuitDiscard, m.confirm)
 	sendKey(m, "n")
-	assert.False(t, m.fs.confirmDiscard, "confirm should be dismissed")
-	assert.False(t, m.fs.confirmQuit, "quit flag should be cleared")
+	assert.Equal(t, confirmNone, m.confirm, "confirm should be dismissed")
 	assert.Equal(t, modeForm, m.mode, "should remain in form mode")
 	assert.NotNil(t, m.fs.form, "form should still be open")
 }
@@ -771,7 +770,22 @@ func TestCtrlQCleanFormQuitsImmediately(t *testing.T) {
 	// ctrl+q on a clean form should quit immediately.
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlQ})
 	assert.NotNil(t, cmd, "clean form ctrl+q should quit immediately")
-	assert.False(t, m.fs.confirmDiscard, "no confirm needed for clean form")
+	assert.Equal(t, confirmNone, m.confirm, "no confirm needed for clean form")
+}
+
+func TestResetFormStateClearsFormConfirmOnly(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithStore(t)
+
+	// Form-related confirm is cleared by resetFormState.
+	m.confirm = confirmFormDiscard
+	m.resetFormState()
+	assert.Equal(t, confirmNone, m.confirm, "form confirm should be cleared")
+
+	// Hard-delete confirm survives resetFormState (not form-related).
+	m.confirm = confirmHardDelete
+	m.resetFormState()
+	assert.Equal(t, confirmHardDelete, m.confirm, "hard-delete confirm should survive form reset")
 }
 
 func TestUserCreatesIncidentWithRelativeDateYesterday(t *testing.T) {

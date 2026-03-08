@@ -204,9 +204,9 @@ type Model struct {
 	prevMode              Mode // mode to restore after form closes
 	fs                    formState
 	inlineInput           *inlineInputState
-	magMode               bool // easter egg: display numbers as order-of-magnitude
-	confirmHardDelete     bool // true while waiting for y/n on permanent delete
-	hardDeleteID          uint // entity ID pending permanent deletion
+	magMode               bool        // easter egg: display numbers as order-of-magnitude
+	confirm               confirmKind // active confirmation dialog (zero = none)
+	hardDeleteID          uint        // entity ID pending permanent deletion
 	lastRowClick          rowClickState
 	lastDashClick         rowClickState
 	cur                   locale.Currency
@@ -319,8 +319,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		if typed.String() == keyCtrlQ {
 			if m.mode == modeForm && m.fs.formDirty {
-				m.fs.confirmDiscard = true
-				m.fs.confirmQuit = true
+				m.confirm = confirmFormQuitDiscard
 				return m, nil
 			}
 			m.cancelChatOperations()
@@ -431,7 +430,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch typed := msg.(type) {
 	case tea.KeyMsg:
-		if m.confirmHardDelete {
+		if m.confirm == confirmHardDelete {
 			m.handleConfirmHardDelete(typed)
 			return m, nil
 		}
@@ -474,7 +473,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // updateForm handles input while a form is active.
 func (m *Model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Handle confirm-discard dialog: only y/n/esc are active.
-	if m.fs.confirmDiscard {
+	if m.confirm.isFormConfirm() {
 		if keyMsg, ok := msg.(tea.KeyMsg); ok {
 			return m.handleConfirmDiscard(keyMsg)
 		}
@@ -529,7 +528,7 @@ func (m *Model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == keyEsc {
 		mandatoryHouse := m.fs.formKind == formHouse && !m.hasHouse
 		if m.fs.formDirty && !mandatoryHouse {
-			m.fs.confirmDiscard = true
+			m.confirm = confirmFormDiscard
 			return m, nil
 		}
 	}
@@ -561,17 +560,16 @@ func (m *Model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) handleConfirmDiscard(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch key.String() {
 	case keyY:
-		m.fs.confirmDiscard = false
-		if m.fs.confirmQuit {
-			m.fs.confirmQuit = false
+		if m.confirm == confirmFormQuitDiscard {
+			m.confirm = confirmNone
 			m.cancelChatOperations()
 			m.cancelPull()
 			return m, tea.Quit
 		}
+		m.confirm = confirmNone
 		m.exitForm()
 	case keyN, keyEsc:
-		m.fs.confirmDiscard = false
-		m.fs.confirmQuit = false
+		m.confirm = confirmNone
 	}
 	return m, nil
 }
@@ -1687,14 +1685,14 @@ func (m *Model) promptHardDelete() {
 		m.setStatusError("Resolve the incident first (d), then permanently delete (D).")
 		return
 	}
-	m.confirmHardDelete = true
+	m.confirm = confirmHardDelete
 	m.hardDeleteID = meta.ID
 }
 
 func (m *Model) handleConfirmHardDelete(key tea.KeyMsg) {
 	switch key.String() {
 	case keyY:
-		m.confirmHardDelete = false
+		m.confirm = confirmNone
 		if err := m.store.HardDeleteIncident(m.hardDeleteID); err != nil {
 			m.setStatusError(err.Error())
 			return
@@ -1702,7 +1700,7 @@ func (m *Model) handleConfirmHardDelete(key tea.KeyMsg) {
 		m.setStatusInfo("Permanently deleted.")
 		m.surfaceError(m.reloadEffectiveTab())
 	case keyN, keyEsc:
-		m.confirmHardDelete = false
+		m.confirm = confirmNone
 	}
 }
 
@@ -2410,11 +2408,13 @@ func (m *Model) resetFormState() {
 	m.fs.formData = nil
 	m.fs.formSnapshot = nil
 	m.fs.formDirty = false
-	m.fs.confirmDiscard = false
 	m.fs.pendingFormInit = nil
 	m.fs.editID = nil
 	m.fs.notesEditMode = false
 	m.fs.notesFieldPtr = nil
+	if m.confirm.isFormConfirm() {
+		m.confirm = confirmNone
+	}
 }
 
 func (m *Model) closeInlineInput() {

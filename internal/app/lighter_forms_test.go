@@ -117,7 +117,7 @@ func TestSaveFormInPlaceThenDiscardFocusesNewItem(t *testing.T) {
 
 	// Esc on dirty form triggers confirm dialog, y confirms discard.
 	sendKey(m, "esc")
-	require.True(t, m.fs.confirmDiscard, "dirty form esc should show confirm dialog")
+	require.Equal(t, confirmFormDiscard, m.confirm, "dirty form esc should show confirm dialog")
 	sendKey(m, "y")
 
 	meta, ok := m.selectedRowMeta()
