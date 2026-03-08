@@ -4,8 +4,15 @@
 name: Release Artifacts
 
 on:
-  release:
-    types: [created]
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v1.75.0)"
+        required: true
+        type: string
 
 concurrency:
   group: release-artifacts
@@ -27,7 +34,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ inputs.tag || github.ref_name }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -55,7 +62,7 @@ jobs:
       - name: Publish release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release edit "${{ github.event.release.tag_name }}" --draft=false
+        run: gh release edit "${{ inputs.tag || github.ref_name }}" --draft=false
 
       - name: Clean up untagged GHCR images
         env:
