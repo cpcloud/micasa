@@ -149,23 +149,33 @@ jobs:
       - name: Run smoke benchmarks
         run: go test -bench . -benchtime 1x -timeout 5m -run '^$' ./...
 
-  deadcode:
-    name: Dead Code
+  nix-tools:
+    name: ${{ matrix.name }}
     runs-on: ubuntu-latest
     concurrency:
-      group: ci-deadcode-${{ github.ref }}
+      group: ci-${{ matrix.tool }}-${{ github.ref }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    strategy:
+      fail-fast: ${{ github.event_name == 'pull_request' }}
+      matrix:
+        include:
+          - tool: deadcode
+            name: Dead Code
+          - tool: golangci-lint
+            name: Lint
+          - tool: govulncheck
+            name: Vulnerability Check
+          - tool: osv-scanner
+            name: OSV Scan
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
 
-      - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6
-        with:
-          go-version: "1.25"
+      - uses: cachix/install-nix-action@4e002c8ec80594ecd40e759629461e26c8abed15 # v31
 
-      - name: Check for dead code
-        run: go run golang.org/x/tools/cmd/deadcode@v0.42.0 -test ./...
+      - name: Run ${{ matrix.tool }}
+        run: nix run '.#${{ matrix.tool }}'
 
   pre-commit:
     name: Pre-commit
@@ -176,12 +186,13 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       - uses: cachix/install-nix-action@4e002c8ec80594ecd40e759629461e26c8abed15 # v31
 
       - name: Run pre-commit hooks
-        run: nix run '.#pre-commit'
+        run: nix run '.#pre-commit' -- --from-ref 'origin/${{ github.base_ref || 'main' }}' --to-ref HEAD
 
   nix-build:
     name: Nix Build
@@ -246,7 +257,7 @@ jobs:
 
   semantic-release:
     name: Semantic Release
-    needs: [test, deadcode, pre-commit, nix-build, docs, secrets]
+    needs: [test, nix-tools, pre-commit, nix-build, docs, secrets]
     runs-on: ubuntu-latest
     concurrency:
       group: semantic-release-${{ github.ref }}
