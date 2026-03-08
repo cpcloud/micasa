@@ -65,23 +65,22 @@ const (
 // EntityKindToTable maps document entity_kind values (polymorphicValue)
 // to their corresponding table names. Derived from GORM polymorphic
 // tags via schema introspection at init time.
-var EntityKindToTable = buildEntityKindToTable()
+var EntityKindToTable = BuildEntityKindToTable(Models())
 
-// buildEntityKindToTable derives the entity_kind-to-table mapping from
-// GORM polymorphic tags on the owning models. Each model with a
-// `Documents []Document gorm:"polymorphic:Entity;polymorphicValue:..."` field
-// contributes one entry: polymorphicValue -> table name.
-func buildEntityKindToTable() map[string]string {
+// BuildEntityKindToTable derives the entity_kind-to-table mapping from
+// GORM polymorphic tags on the given models. Each model with a polymorphic
+// HasMany to the documents table contributes one entry:
+// polymorphicValue -> owner table name.
+func BuildEntityKindToTable(models []any) map[string]string {
 	namer := schema.NamingStrategy{}
 	cacheStore := &sync.Map{}
 
-	models := Models()
 	result := make(map[string]string)
 
 	for _, model := range models {
 		s, err := schema.Parse(model, cacheStore, namer)
 		if err != nil {
-			panic(fmt.Sprintf("buildEntityKindToTable: parse %T: %v", model, err))
+			panic(fmt.Sprintf("BuildEntityKindToTable: parse %T: %v", model, err))
 		}
 
 		for _, rel := range s.Relationships.HasMany {

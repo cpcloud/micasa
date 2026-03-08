@@ -37,6 +37,39 @@ func TestEntityKindToTableDerivedFromPolymorphicTags(t *testing.T) {
 	assert.Equal(t, expected, EntityKindToTable)
 }
 
+func TestBuildEntityKindToTableSkipsNonPolymorphicHasMany(t *testing.T) {
+	t.Parallel()
+
+	type child struct {
+		ID       uint `gorm:"primaryKey"`
+		ParentID uint
+	}
+	type parent struct {
+		ID       uint    `gorm:"primaryKey"`
+		Children []child // non-polymorphic HasMany
+	}
+
+	result := BuildEntityKindToTable([]any{&parent{}, &child{}})
+	assert.Empty(t, result)
+}
+
+func TestBuildEntityKindToTableSkipsPolymorphicToNonDocuments(t *testing.T) {
+	t.Parallel()
+
+	type comment struct {
+		ID         uint `gorm:"primaryKey"`
+		EntityKind string
+		EntityID   uint
+	}
+	type owner struct {
+		ID       uint      `gorm:"primaryKey"`
+		Comments []comment `gorm:"polymorphic:Entity;polymorphicType:EntityKind;polymorphicValue:owner"`
+	}
+
+	result := BuildEntityKindToTable([]any{&owner{}, &comment{}})
+	assert.Empty(t, result)
+}
+
 func TestGeneratedColumnNames(t *testing.T) {
 	assert.Equal(t, "vendor_id", ColVendorID)
 	assert.Equal(t, "project_id", ColProjectID)
