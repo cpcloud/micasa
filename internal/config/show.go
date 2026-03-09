@@ -337,16 +337,21 @@ func writeAligned(w io.Writer, blk sectionBlock) error {
 	return nil
 }
 
-// FormatDuration formats a duration in a human-friendly way, using day
-// notation for whole-day multiples.
+// FormatDuration formats a duration in a human-friendly way, using
+// clean notation for whole-unit multiples (days, hours, minutes).
 func FormatDuration(d time.Duration) string {
-	if d == 0 {
+	switch {
+	case d == 0:
 		return "0s"
-	}
-	if d%(24*time.Hour) == 0 {
+	case d%(24*time.Hour) == 0:
 		return fmt.Sprintf("%dd", d/(24*time.Hour))
+	case d%time.Hour == 0:
+		return fmt.Sprintf("%dh", d/time.Hour)
+	case d%time.Minute == 0:
+		return fmt.Sprintf("%dm", d/time.Minute)
+	default:
+		return d.String()
 	}
-	return d.String()
 }
 
 // formatTOMLValue formats a reflected value as a TOML value string.

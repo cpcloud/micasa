@@ -111,7 +111,7 @@ You can always infer the env var name from the config key.
 | `MICASA_LLM_MODEL` | `qwen3` | `llm.model` | LLM model name |
 | `MICASA_LLM_API_KEY` | (empty) | `llm.api_key` | LLM API key for cloud providers |
 | `MICASA_LLM_EXTRA_CONTEXT` | (empty) | `llm.extra_context` | Custom context appended to LLM system prompts |
-| `MICASA_LLM_TIMEOUT` | `5s` | `llm.timeout` | LLM operation timeout |
+| `MICASA_LLM_TIMEOUT` | `5m` | `llm.timeout` | Max time for a single LLM response |
 | `MICASA_LLM_THINKING` | (unset) | `llm.thinking` | Enable model thinking for chat |
 | `MICASA_DOCUMENTS_MAX_FILE_SIZE` | `50 MiB` | `documents.max_file_size` | Max document import size |
 | `MICASA_DOCUMENTS_CACHE_TTL` | `30d` | `documents.cache_ttl` | Document cache lifetime |
@@ -178,12 +178,12 @@ micasa   # uses llama3.3 instead of the default qwen3
 
 ### `MICASA_LLM_TIMEOUT`
 
-Sets the LLM timeout for quick operations (ping, model listing), overriding
-the config file value. Uses Go duration syntax:
+Sets the maximum time for a single LLM response (including streaming),
+overriding the config file value. Uses Go duration syntax:
 
 ```sh
-export MICASA_LLM_TIMEOUT=15s
-micasa   # waits up to 15s for LLM server responses
+export MICASA_LLM_TIMEOUT=10m
+micasa   # waits up to 10m for LLM responses
 ```
 
 ### `MICASA_DOCUMENTS_MAX_FILE_SIZE`
@@ -279,10 +279,10 @@ model = "qwen3"
 # Use this to inject domain-specific details about your house, region, etc.
 # extra_context = "My house is a 1920s craftsman in Portland, OR."
 
-# Timeout for quick LLM server operations (ping, model listing).
-# Go duration syntax: "5s", "10s", "500ms", etc. Default: "5s".
-# Increase if your LLM server is slow to respond.
-# timeout = "5s"
+# Max time for a single LLM response (including streaming).
+# Go duration syntax: "5m", "10m", etc. Default: "5m".
+# Increase for slow models or complex queries.
+# timeout = "5m"
 
 # Enable model thinking mode for chat (e.g. qwen3 <think> blocks).
 # Unset = don't send (server default), true = enable, false = disable.
@@ -335,7 +335,7 @@ set in `[llm.chat]` and `[llm.extraction]`.
 | `model` | string | `qwen3` | Model identifier sent in chat requests. Must be available on the server. |
 | `api_key` | string | (empty) | Authentication credential. Required for cloud providers (Anthropic, OpenAI, etc.). Leave empty for local servers. |
 | `extra_context` | string | (empty) | Free-form text appended to all LLM system prompts. Useful for telling the model about your house or regional conventions. Currency is handled automatically via `[locale]`. |
-| `timeout` | string | `"5s"` | Max wait time for quick LLM operations (ping, model listing). Go duration syntax, e.g. `"10s"`, `"500ms"`. Increase for slow servers. |
+| `timeout` | string | `"5m"` | Max time for a single LLM response (including streaming). Go duration syntax, e.g. `"10m"`. Increase for slow models. |
 | `thinking` | bool | (unset) | Enable model thinking mode (e.g. qwen3 `<think>` blocks). Unset = don't send the option (server default). |
 
 ### `[llm.chat]` section

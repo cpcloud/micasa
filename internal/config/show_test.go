@@ -349,9 +349,12 @@ func TestFormatDuration(t *testing.T) {
 	}{
 		{0, "0s"},
 		{5 * time.Second, "5s"},
+		{5 * time.Minute, "5m"},
+		{90 * time.Minute, "90m"},
+		{2 * time.Hour, "2h"},
 		{30 * 24 * time.Hour, "30d"},
 		{7 * 24 * time.Hour, "7d"},
-		{90 * time.Minute, "1h30m0s"},
+		{90*time.Minute + 30*time.Second, "1h30m30s"},
 		{500 * time.Millisecond, "500ms"},
 	}
 	for _, tt := range tests {
