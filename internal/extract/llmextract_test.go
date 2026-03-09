@@ -324,6 +324,34 @@ func TestBuildExtractionPrompt_TSVSourceWithoutData(t *testing.T) {
 	assert.Contains(t, user, "Fallback text")
 }
 
+func TestBuildExtractionPrompt_SpatialFallbackOnEmptyTSV(t *testing.T) {
+	t.Parallel()
+	// TSV with only a header (no data rows) should fall back to plain text.
+	headerOnlyTSV := "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n"
+	msgs := BuildExtractionPrompt(ExtractionPromptInput{
+		DocID:         1,
+		Filename:      "scan.pdf",
+		MIME:          "application/pdf",
+		SendTSV:       true,
+		ConfThreshold: DefaultOCRConfThreshold,
+		Sources: []TextSource{
+			{
+				Tool: "tesseract",
+				Desc: "OCR.",
+				Text: "Fallback plain text",
+				Data: []byte(headerOnlyTSV),
+			},
+		},
+	})
+
+	require.Len(t, msgs, 2)
+	user := msgs[1].Content
+	assert.Contains(t, user, "Fallback plain text",
+		"should fall back to plain text when TSV conversion yields empty")
+	assert.NotContains(t, user, "[",
+		"no bounding boxes when falling back to plain text")
+}
+
 func TestBuildExtractionPrompt_TSVPreambleMentionsSpatial(t *testing.T) {
 	t.Parallel()
 	msgs := BuildExtractionPrompt(ExtractionPromptInput{

@@ -181,6 +181,33 @@ func TestSpatialTextFromTSV_MixedConfidenceLines(t *testing.T) {
 	assert.Contains(t, lines[1], "Garbled text")
 }
 
+func TestSpatialTextFromTSV_PageBreak(t *testing.T) {
+	t.Parallel()
+	// Simulate concatenated per-page TSV output. Each page is OCR'd
+	// independently, so page_num is always 1. A decreasing block number
+	// (e.g., page 1 ends with block 2, page 2 starts with block 1)
+	// signals a page boundary and should produce a blank line.
+	tsv := []byte(
+		"level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n" +
+			// Page 1, block 1
+			"5\t1\t1\t1\t1\t1\t100\t200\t50\t12\t96\tPage1\n" +
+			// Page 1, block 2
+			"5\t1\t2\t1\t1\t1\t100\t300\t60\t12\t95\tStill1\n" +
+			// Page 2 starts: block resets to 1 (< lastBlock 2) => page break
+			"5\t1\t1\t1\t1\t1\t100\t200\t70\t12\t94\tPage2\n",
+	)
+
+	result := SpatialTextFromTSV(tsv, DefaultOCRConfThreshold)
+	lines := strings.Split(result, "\n")
+	// Expect: "Page1" / "" (block break) / "Still1" / "" (page break) / "Page2"
+	require.Len(t, lines, 5, "expected 5 lines (3 content + 2 blank separators)")
+	assert.Contains(t, lines[0], "Page1")
+	assert.Empty(t, lines[1], "blank line between blocks")
+	assert.Contains(t, lines[2], "Still1")
+	assert.Empty(t, lines[3], "blank line at page break")
+	assert.Contains(t, lines[4], "Page2")
+}
+
 func TestSpatialTextFromTSV_Empty(t *testing.T) {
 	t.Parallel()
 	assert.Empty(t, SpatialTextFromTSV(nil, DefaultOCRConfThreshold))

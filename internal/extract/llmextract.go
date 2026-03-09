@@ -73,13 +73,18 @@ func operationExtractionUserMessage(in ExtractionPromptInput) string {
 	fmt.Fprintf(&b, "Size: %d bytes\n", in.SizeBytes)
 
 	for _, src := range in.Sources {
-		// When SendTSV is enabled and the source has TSV data, send
-		// a compact spatial format (line-level bounding boxes) instead
-		// of reconstructed plain text.
+		// When SendTSV is enabled and the source has TSV data, prefer
+		// a compact spatial format (line-level bounding boxes). If TSV
+		// conversion yields no content (e.g., header-only/invalid TSV),
+		// fall back to the reconstructed plain text.
 		content := strings.TrimSpace(src.Text)
-		hasSpatial := in.SendTSV && len(src.Data) > 0
-		if hasSpatial {
-			content = strings.TrimSpace(SpatialTextFromTSV(src.Data, in.ConfThreshold))
+		hasSpatial := false
+		if in.SendTSV && len(src.Data) > 0 {
+			spatialContent := strings.TrimSpace(SpatialTextFromTSV(src.Data, in.ConfThreshold))
+			if spatialContent != "" {
+				content = spatialContent
+				hasSpatial = true
+			}
 		}
 		if content == "" {
 			continue

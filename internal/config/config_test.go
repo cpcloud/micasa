@@ -1506,6 +1506,23 @@ func TestExtractionOCRSpatialConfThresholdEnvInvalidReturnsError(t *testing.T) {
 	assert.Contains(t, err.Error(), "MICASA_EXTRACTION_OCR_SPATIAL_CONF_THRESHOLD")
 }
 
+func TestExtractionOCRSpatialConfThresholdOutOfRange(t *testing.T) {
+	t.Parallel()
+	path := writeConfig(t, "[extraction.ocr]\nspatial_conf_threshold = 101\n")
+	_, err := LoadFromPath(path)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "extraction.ocr.spatial_conf_threshold")
+	assert.Contains(t, err.Error(), "0-100")
+}
+
+func TestExtractionOCRSpatialConfThresholdNegative(t *testing.T) {
+	t.Parallel()
+	path := writeConfig(t, "[extraction.ocr]\nspatial_conf_threshold = -1\n")
+	_, err := LoadFromPath(path)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "extraction.ocr.spatial_conf_threshold")
+}
+
 func TestFilePickerDir_FromTOML(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

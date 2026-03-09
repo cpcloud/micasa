@@ -370,8 +370,8 @@ const DefaultOCRConfThreshold = 70
 //
 //	[left,top,width;minConf] word1 word2 ...
 //
-// Lines within the same block/paragraph are separated by newlines; block
-// breaks produce a blank line.
+// Lines within the same block/paragraph are separated by newlines; block or
+// paragraph breaks produce a blank line.
 func SpatialTextFromTSV(tsv []byte, confThreshold int) string {
 	lines := bytes.Split(tsv, []byte("\n"))
 	if len(lines) < 2 {
@@ -436,11 +436,16 @@ func SpatialTextFromTSV(tsv []byte, confThreshold int) string {
 		newLine := firstLine || lineNum != cur.lineNum ||
 			block != cur.block || par != cur.par
 
+		// Detect page breaks in concatenated per-page TSV output.
+		// Each page is OCR'd independently so page_num is always 1;
+		// a decreasing block number signals a new page's data.
+		pageBreak := !firstLine && block < lastBlock
+
 		if !firstLine && newLine {
-			// Insert block/paragraph break before flushing.
-			if block != lastBlock || par != lastPar {
+			// Insert block/paragraph/page break before flushing.
+			if pageBreak || block != lastBlock || par != lastPar {
 				flush()
-				result.WriteByte('\n') // blank line for block break
+				result.WriteByte('\n') // blank line for break
 			} else {
 				flush()
 			}
