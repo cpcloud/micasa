@@ -205,7 +205,7 @@ type Documents struct {
 	// MaxFileSize is the largest file that can be imported as a document
 	// attachment. Accepts unitized strings ("50 MiB") or bare integers
 	// (bytes). Default: 50 MiB.
-	MaxFileSize ByteSize `toml:"max_file_size" default:"52428800"`
+	MaxFileSize ByteSize `toml:"max_file_size"`
 
 	// CacheTTL is the preferred cache lifetime setting. Accepts unitized
 	// strings ("30d", "720h") or bare integers (seconds). Default: 30d.
@@ -346,10 +346,12 @@ const (
 )
 
 // defaults returns a Config with all default values populated from
-// `default` struct tags.
+// `default` struct tags, plus runtime-derived values that can't be
+// expressed as string literals in tags.
 func defaults() Config {
 	var cfg Config
 	data.ApplyDefaults(&cfg)
+	cfg.Documents.MaxFileSize = ByteSize(data.MaxDocumentSize)
 	return cfg
 }
 

@@ -67,6 +67,9 @@ func applyDefaultsValue(rv reflect.Value) {
 func StructDefault[T any](fieldName string) string {
 	var zero T
 	rt := reflect.TypeOf(zero)
+	if rt == nil {
+		return ""
+	}
 	if rt.Kind() == reflect.Ptr {
 		rt = rt.Elem()
 	}

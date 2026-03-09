@@ -143,3 +143,8 @@ func TestStructDefault_noTag(t *testing.T) {
 	got := StructDefault[Incident]("Title")
 	assert.Empty(t, got)
 }
+
+func TestStructDefault_interfaceType(t *testing.T) {
+	got := StructDefault[any]("Anything")
+	assert.Empty(t, got)
+}
