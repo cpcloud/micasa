@@ -117,6 +117,71 @@ func BuildSystemPrompt(
 	return b.String()
 }
 
+// BuildInsightsPrompt creates a system prompt instructing the LLM to analyze
+// the full home dataset and produce proactive observations. The LLM returns
+// a JSON array of insight objects. dataSummary is the output of DataDump().
+func BuildInsightsPrompt(
+	dataSummary string,
+	now time.Time,
+	extraContext string,
+) string {
+	var b strings.Builder
+	b.WriteString(insightsPreamble)
+	b.WriteString(dateContext(now))
+	if dataSummary != "" {
+		b.WriteString("\n\n## Current Data\n\n")
+		b.WriteString(dataSummary)
+	}
+	b.WriteString("\n\n")
+	b.WriteString(insightsGuidelines)
+	if extraContext != "" {
+		b.WriteString("\n\n## Additional context\n\n")
+		b.WriteString(extraContext)
+	}
+	return b.String()
+}
+
+// InsightsJSONSchema returns the JSON Schema used with structured output
+// to constrain the LLM's insights response.
+func InsightsJSONSchema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"insights": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"text": map[string]any{
+							"type":        "string",
+							"description": "Short, actionable insight (one sentence)",
+						},
+						"tab": map[string]any{
+							"type":        "string",
+							"description": "Target tab for navigation: projects, quotes, maintenance, incidents, appliances, vendors, documents",
+							"enum": []string{
+								"projects",
+								"quotes",
+								"maintenance",
+								"incidents",
+								"appliances",
+								"vendors",
+								"documents",
+							},
+						},
+						"entity_id": map[string]any{
+							"type":        "integer",
+							"description": "Database ID of the specific entity, or 0 if the insight is about a group",
+						},
+					},
+					"required": []string{"text", "tab", "entity_id"},
+				},
+			},
+		},
+		"required": []string{"insights"},
+	}
+}
+
 // FormatResultsTable renders query results as a pipe-delimited text table,
 // compact enough for an LLM context window.
 func FormatResultsTable(columns []string, rows [][]string) string {
@@ -373,3 +438,40 @@ Example question: "What's my most expensive project?"
 Example answer: "Kitchen Remodel at $12,500.00."
 
 Now answer the user's question based solely on the data provided.`
+
+// ---------- Proactive insights ----------
+
+const insightsPreamble = `You are a home maintenance advisor. Analyze the homeowner's data and surface 3-7 proactive insights they might not have noticed. Focus on cross-entity patterns, aging equipment, spending trends, and maintenance gaps.
+
+RULES:
+1. Only use data shown below. Never invent or assume facts.
+2. Do NOT duplicate information that is obviously visible at a glance (e.g. overdue maintenance items, open incidents). Focus on non-obvious patterns and cross-entity observations.
+3. Each insight should be a single short sentence -- concise and actionable.
+4. Money values in the data are already formatted as dollars.
+5. Reference specific entity names so the user can find them.
+6. Output valid JSON only. No commentary outside the JSON.`
+
+const insightsGuidelines = `## Output format
+
+Return a JSON object with an "insights" array. Each element has:
+- "text": one-sentence insight
+- "tab": which app tab is most relevant (projects, quotes, maintenance, incidents, appliances, vendors, documents)
+- "entity_id": the database ID of the specific entity, or 0 if the insight is about a group/pattern
+
+Example:
+{"insights":[
+  {"text":"Water heater is 12 years old -- average lifespan is 10-15 years","tab":"appliances","entity_id":5},
+  {"text":"4 HVAC service calls this year totaling $3,200 -- a maintenance contract might save money","tab":"maintenance","entity_id":0},
+  {"text":"Roof was last inspected 3 years ago","tab":"maintenance","entity_id":12}
+]}
+
+Focus on:
+- Appliance age vs typical lifespan
+- Recurring maintenance costs that suggest a pattern
+- Warranties expiring in the next 6 months
+- Projects that have been in planning/delayed status for a long time
+- Cost outliers (unusually expensive items)
+- Maintenance items with no recent service history
+- Cross-entity connections (e.g. an appliance linked to many incidents)
+
+Now analyze the data and produce insights.`

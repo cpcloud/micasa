@@ -5,14 +5,18 @@ package app
 
 import (
 	"cmp"
+	"context"
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/cpcloud/micasa/internal/data"
+	"github.com/cpcloud/micasa/internal/llm"
 )
 
 // Dashboard section title constants.
@@ -23,6 +27,7 @@ const (
 	dashSectionSeasonal  = "Seasonal"
 	dashSectionProjects  = "Active Projects"
 	dashSectionExpiring  = "Expiring Soon"
+	dashSectionInsights  = "Insights"
 )
 
 // ---------------------------------------------------------------------------
@@ -412,6 +417,19 @@ func (m *Model) buildDashNav() {
 	}
 	add(dashSectionExpiring, expiring)
 
+	// Insights: LLM-generated items with navigation targets.
+	if insRows := m.dashInsightsRows(); len(insRows) > 0 {
+		entries := make([]dashNavEntry, len(insRows))
+		for i, row := range insRows {
+			if row.Target != nil {
+				entries[i] = *row.Target
+			} else {
+				entries[i] = dashNavEntry{Section: dashSectionInsights, InfoOnly: true}
+			}
+		}
+		add(dashSectionInsights, entries)
+	}
+
 	var nav []dashNavEntry
 	for _, g := range groups {
 		nav = append(nav, dashNavEntry{
@@ -513,7 +531,19 @@ func (m *Model) dashboardView(budget, maxWidth int) string {
 		})
 	}
 
-	if len(sections) == 0 {
+	if insRows := m.dashInsightsRows(); len(insRows) > 0 {
+		sections = append(sections, dashSection{
+			title:   dashSectionInsights,
+			headers: []string{"", "tab"},
+			rows:    insRows,
+		})
+	}
+
+	// Show loading/error state for insights even when there are no items yet.
+	showInsightsLoading := m.insightsEnabled && m.dash.insights.loading
+	showInsightsError := m.insightsEnabled && m.dash.insights.err != nil && !m.dash.insights.loading
+
+	if len(sections) == 0 && !showInsightsLoading && !showInsightsError {
 		return ""
 	}
 
@@ -572,6 +602,37 @@ func (m *Model) dashboardView(budget, maxWidth int) string {
 			lines = append(lines, row)
 		}
 		navIdx = dataNavIdx
+	}
+
+	// Insights loading/error indicator (shown even when no insight items exist yet).
+	if showInsightsLoading {
+		if len(lines) > 0 {
+			lines = append(lines, "")
+		}
+		dimmed := cursorSection != "" && cursorSection != dashSectionInsights
+		hdr := m.dashSectionHeader(dashSectionInsights, 0, dimmed)
+		lines = append(lines, hdr, "  "+m.dash.spinner.View()+" analyzing...")
+	} else if showInsightsError {
+		if len(lines) > 0 {
+			lines = append(lines, "")
+		}
+		dimmed := cursorSection != "" && cursorSection != dashSectionInsights
+		hdr := m.dashSectionHeader(dashSectionInsights, 0, dimmed)
+		lines = append(lines, hdr, "  "+m.styles.Error().Render("error: "+m.dash.insights.err.Error()))
+	}
+
+	// Staleness indicator for insights section header.
+	if m.insightsEnabled && !m.dash.insights.loading && len(m.dash.insights.items) > 0 {
+		// Append staleness to the insights header line (already in lines).
+		staleness := m.insightsStaleness()
+		if staleness != "" {
+			for i := len(lines) - 1; i >= 0; i-- {
+				if strings.Contains(lines[i], dashSectionInsights) {
+					lines[i] += "  " + m.styles.DashLabel().Render(staleness)
+					break
+				}
+			}
+		}
 	}
 
 	// Scroll windowing: show only `budget` lines, following the cursor.
@@ -904,6 +965,187 @@ func (m *Model) dashToggleAll() {
 			m.dash.expanded[entry.Section] = !allExpanded
 		}
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Proactive insights (LLM-powered)
+// ---------------------------------------------------------------------------
+
+// insightsResultMsg delivers the result of an async insights fetch.
+type insightsResultMsg struct {
+	Items []insightItem
+	Err   error
+}
+
+// insightsWanted reports whether insights should be shown on the dashboard.
+func (m *Model) insightsWanted() bool {
+	return m.insightsEnabled && m.llmClient != nil
+}
+
+// fetchInsights starts an async LLM call to generate proactive insights.
+// Returns a tea.Cmd that resolves to insightsResultMsg. The returned cmd
+// runs in a background goroutine.
+func (m *Model) fetchInsights() tea.Cmd {
+	if !m.insightsWanted() {
+		return nil
+	}
+
+	// Cancel any in-flight request.
+	if m.dash.insights.cancel != nil {
+		m.dash.insights.cancel()
+	}
+
+	m.dash.insights.loading = true
+	m.dash.insights.err = nil
+
+	client := m.llmClient
+	store := m.store
+	extraContext := m.llmExtraContext
+
+	ctx, cancel := context.WithCancel(context.Background())
+	m.dash.insights.cancel = cancel
+
+	return func() tea.Msg {
+		dataSummary := ""
+		if store != nil {
+			dataSummary = store.DataDump()
+		}
+		if dataSummary == "" {
+			return insightsResultMsg{Err: fmt.Errorf("no data to analyze")}
+		}
+
+		prompt := llm.BuildInsightsPrompt(dataSummary, time.Now(), extraContext)
+		messages := []llm.Message{
+			{Role: "system", Content: prompt},
+			{Role: "user", Content: "Analyze my home data and provide proactive insights."},
+		}
+
+		raw, err := client.ChatComplete(
+			ctx, messages,
+			llm.WithJSONSchema("insights", llm.InsightsJSONSchema()),
+		)
+		if err != nil {
+			return insightsResultMsg{Err: err}
+		}
+
+		var result struct {
+			Insights []insightItem `json:"insights"`
+		}
+		if err := json.Unmarshal([]byte(raw), &result); err != nil {
+			return insightsResultMsg{Err: fmt.Errorf("parse insights: %w", err)}
+		}
+
+		return insightsResultMsg{Items: result.Insights}
+	}
+}
+
+// refreshInsights cancels any in-flight request and starts a fresh fetch.
+func (m *Model) refreshInsights() tea.Cmd {
+	m.dash.insights.stale = true
+	return m.maybeStartInsights()
+}
+
+// maybeStartInsights starts an insights fetch if needed (stale/absent and
+// not already loading).
+func (m *Model) maybeStartInsights() tea.Cmd {
+	if !m.insightsWanted() {
+		return nil
+	}
+	if m.dash.insights.loading {
+		return nil
+	}
+	// Already have fresh results.
+	if len(m.dash.insights.items) > 0 && !m.dash.insights.stale {
+		return nil
+	}
+	return tea.Batch(m.fetchInsights(), m.dash.spinner.Tick)
+}
+
+// markInsightsStale flags insights for refresh on next dashboard open.
+func (m *Model) markInsightsStale() {
+	m.dash.insights.stale = true
+}
+
+// tabKindFromString maps a tab name string to a TabKind.
+func tabKindFromString(s string) (TabKind, bool) {
+	switch s {
+	case "projects":
+		return tabProjects, true
+	case "quotes":
+		return tabQuotes, true
+	case "maintenance":
+		return tabMaintenance, true
+	case "incidents":
+		return tabIncidents, true
+	case "appliances":
+		return tabAppliances, true
+	case "vendors":
+		return tabVendors, true
+	case "documents":
+		return tabDocuments, true
+	}
+	return 0, false
+}
+
+// tabAbbrev returns a short 5-char abbreviation for a tab name.
+func tabAbbrev(tab string) string {
+	switch tab {
+	case "projects":
+		return "Proj."
+	case "quotes":
+		return "Quot."
+	case "maintenance":
+		return "Mnt."
+	case "incidents":
+		return "Inc."
+	case "appliances":
+		return "Appl."
+	case "vendors":
+		return "Vend."
+	case "documents":
+		return "Docs."
+	}
+	return tab
+}
+
+// dashInsightsRows returns dashboard rows for the insights section.
+func (m *Model) dashInsightsRows() []dashRow {
+	ins := m.dash.insights
+	if ins.loading || len(ins.items) == 0 {
+		return nil
+	}
+	rows := make([]dashRow, 0, len(ins.items))
+	for _, item := range ins.items {
+		target := &dashNavEntry{Section: dashSectionInsights, InfoOnly: true}
+		if tab, ok := tabKindFromString(item.Tab); ok {
+			target = &dashNavEntry{
+				Tab:     tab,
+				ID:      item.EntityID,
+				Section: dashSectionInsights,
+			}
+			if item.EntityID == 0 {
+				target.InfoOnly = true
+			}
+		}
+		rows = append(rows, dashRow{
+			Cells: []dashCell{
+				{Text: item.Text, Style: m.styles.DashValue()},
+				{Text: tabAbbrev(item.Tab), Style: m.styles.DashLabel(), Align: alignRight},
+			},
+			Target: target,
+		})
+	}
+	return rows
+}
+
+// insightsStaleness returns a human-readable staleness indicator.
+func (m *Model) insightsStaleness() string {
+	ins := m.dash.insights
+	if ins.generatedAt.IsZero() {
+		return ""
+	}
+	d := time.Since(ins.generatedAt)
+	return shortDur(d) + " ago"
 }
 
 // ---------------------------------------------------------------------------

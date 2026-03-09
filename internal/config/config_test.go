@@ -623,6 +623,7 @@ func TestEnvVars(t *testing.T) {
 		"MICASA_LLM_EXTRA_CONTEXT": "llm.extra_context",
 		"MICASA_LLM_TIMEOUT":       "llm.timeout",
 		"MICASA_LLM_THINKING":      "llm.thinking",
+		"MICASA_LLM_INSIGHTS":      "llm.insights",
 
 		"MICASA_DOCUMENTS_MAX_FILE_SIZE":   "documents.max_file_size",
 		"MICASA_DOCUMENTS_CACHE_TTL":       "documents.cache_ttl",
@@ -1540,4 +1541,41 @@ func TestFilePickerDir_FromEnv(t *testing.T) {
 	cfg, err := LoadFromPath(noConfig(t))
 	require.NoError(t, err)
 	assert.Equal(t, dir, cfg.Documents.FilePickerDir)
+}
+
+// --- Insights ---
+
+func TestInsightsEnabled_DefaultFalse(t *testing.T) {
+	t.Parallel()
+	cfg, err := LoadFromPath(noConfig(t))
+	require.NoError(t, err)
+	assert.False(t, cfg.LLM.InsightsEnabled())
+}
+
+func TestInsightsEnabled_FromTOML(t *testing.T) {
+	t.Parallel()
+	path := writeConfig(t, "[llm]\ninsights = true\n")
+	cfg, err := LoadFromPath(path)
+	require.NoError(t, err)
+	assert.True(t, cfg.LLM.InsightsEnabled())
+}
+
+func TestInsightsEnabled_FromEnv(t *testing.T) {
+	t.Setenv("MICASA_LLM_INSIGHTS", "true")
+	cfg, err := LoadFromPath(noConfig(t))
+	require.NoError(t, err)
+	assert.True(t, cfg.LLM.InsightsEnabled())
+}
+
+func TestInsightsEnabled_EnvFalse(t *testing.T) {
+	t.Setenv("MICASA_LLM_INSIGHTS", "false")
+	cfg, err := LoadFromPath(noConfig(t))
+	require.NoError(t, err)
+	assert.False(t, cfg.LLM.InsightsEnabled())
+}
+
+func TestExampleTOML_IncludesInsights(t *testing.T) {
+	t.Parallel()
+	example := ExampleTOML()
+	assert.Contains(t, example, "insights")
 }

@@ -156,6 +156,7 @@ func (cmd *runCmd) Run() error {
 		chatCfg.ExtraContext,
 		chatCfg.Timeout,
 		chatCfg.Thinking,
+		cfg.LLM.InsightsEnabled(),
 	)
 
 	exCfg := cfg.LLM.ExtractionConfig()

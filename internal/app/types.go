@@ -271,13 +271,15 @@ type Options struct {
 // TOML config. Kept as a separate type so the app package doesn't import
 // config directly.
 type llmConfig struct {
-	Provider     string
-	BaseURL      string
-	Model        string
-	APIKey       string //nolint:gosec // G101 false positive: field name triggers heuristic, not a hardcoded credential
-	ExtraContext string
-	Timeout      time.Duration // inference context deadline
-	Thinking     string        // reasoning effort: none|low|medium|high|auto
+	Provider        string
+	BaseURL         string
+	Model           string
+	APIKey          string //nolint:gosec // G101 false positive: field name triggers heuristic, not a hardcoded credential
+	ExtraContext    string
+	Timeout         time.Duration // inference context deadline
+	Thinking        string        // reasoning effort: none|low|medium|high|auto
+	ContextLength   int           // Ollama context window size; 0 = provider default
+	InsightsEnabled bool          // proactive dashboard insights
 }
 
 // extractionConfig holds resolved extraction pipeline settings.
@@ -328,19 +330,21 @@ func (o *Options) SetLLM(
 	provider, baseURL, model, apiKey, extraContext string,
 	timeout time.Duration,
 	thinking string,
+	insightsEnabled bool,
 ) {
 	if model == "" {
 		o.LLMConfig = nil
 		return
 	}
 	o.LLMConfig = &llmConfig{
-		Provider:     provider,
-		BaseURL:      baseURL,
-		Model:        model,
-		APIKey:       apiKey,
-		ExtraContext: extraContext,
-		Timeout:      timeout,
-		Thinking:     thinking,
+		Provider:        provider,
+		BaseURL:         baseURL,
+		Model:           model,
+		APIKey:          apiKey,
+		ExtraContext:    extraContext,
+		Timeout:         timeout,
+		Thinking:        thinking,
+		InsightsEnabled: insightsEnabled,
 	}
 }
 

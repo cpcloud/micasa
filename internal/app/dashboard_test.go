@@ -1275,3 +1275,230 @@ func TestOverlayContentWidth(t *testing.T) {
 		})
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Proactive Insights tests
+// ---------------------------------------------------------------------------
+
+func TestInsightsWanted_DisabledByDefault(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	assert.False(t, m.insightsWanted(), "insights should be off by default")
+}
+
+func TestInsightsWanted_EnabledWithLLM(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.insightsEnabled = true
+	// Still false because llmClient is nil.
+	assert.False(t, m.insightsWanted(), "insights needs llmClient")
+}
+
+func TestInsightsState_InitiallyEmpty(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.insightsEnabled = true
+	assert.Empty(t, m.dash.insights.items)
+	assert.False(t, m.dash.insights.loading)
+	assert.False(t, m.dash.insights.stale)
+	assert.NoError(t, m.dash.insights.err)
+}
+
+func TestInsightsRows_Empty(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	rows := m.dashInsightsRows()
+	assert.Empty(t, rows)
+}
+
+func TestInsightsRows_WithItems(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.insightsEnabled = true
+	m.dash.insights.items = []insightItem{
+		{Text: "Water heater is 12y old", Tab: "appliances", EntityID: 5},
+		{Text: "4 HVAC calls this year", Tab: "maintenance", EntityID: 0},
+	}
+	rows := m.dashInsightsRows()
+	require.Len(t, rows, 2)
+	assert.Equal(t, "Water heater is 12y old", rows[0].Cells[0].Text)
+	assert.Equal(t, "Appl.", rows[0].Cells[1].Text)
+	assert.Equal(t, tabAppliances, rows[0].Target.Tab)
+	assert.Equal(t, uint(5), rows[0].Target.ID)
+	assert.False(t, rows[0].Target.InfoOnly)
+	// EntityID 0 should be InfoOnly (no specific entity to jump to).
+	assert.True(t, rows[1].Target.InfoOnly)
+}
+
+func TestInsightsSection_AppearsInDashboardView(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.insightsEnabled = true
+	m.showDashboard = true
+	m.dash.data = nonEmptyDashboard()
+	m.dash.insights.items = []insightItem{
+		{Text: "Test insight", Tab: "appliances", EntityID: 1},
+	}
+	m.dash.insights.generatedAt = time.Now()
+	m.dash.expanded = map[string]bool{dashSectionInsights: true}
+	m.buildDashNav()
+
+	view := m.dashboardView(50, 80)
+	assert.Contains(t, view, dashSectionInsights)
+	assert.Contains(t, view, "Test insight")
+}
+
+func TestInsightsSection_LoadingState(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.insightsEnabled = true
+	// Need llmClient to be non-nil for insightsWanted.
+	// We can just set the flag directly for rendering tests.
+	m.showDashboard = true
+	m.dash.data = nonEmptyDashboard()
+	m.dash.insights.loading = true
+	m.buildDashNav()
+
+	view := m.dashboardView(50, 80)
+	assert.Contains(t, view, "analyzing...")
+}
+
+func TestInsightsSection_ErrorState(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.insightsEnabled = true
+	m.showDashboard = true
+	m.dash.data = nonEmptyDashboard()
+	m.dash.insights.err = fmt.Errorf("network timeout")
+	m.buildDashNav()
+
+	view := m.dashboardView(50, 80)
+	assert.Contains(t, view, "network timeout")
+}
+
+func TestInsightsNav_JumpsToEntity(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.showDashboard = true
+	m.dash.data = nonEmptyDashboard()
+	m.dash.insights.items = []insightItem{
+		{Text: "Test insight", Tab: "appliances", EntityID: 42},
+	}
+	m.dash.expanded = map[string]bool{dashSectionInsights: true}
+	m.buildDashNav()
+
+	// Find the insights data entry in nav.
+	found := false
+	for i, entry := range m.dash.nav {
+		if entry.Section == dashSectionInsights && !entry.IsHeader {
+			found = true
+			m.dash.cursor = i
+			break
+		}
+	}
+	require.True(t, found, "should have an insights nav entry")
+
+	// Press enter to jump.
+	sendKey(m, "enter")
+	assert.False(t, m.showDashboard, "enter should close dashboard")
+	assert.Equal(t, tabIndex(tabAppliances), m.active)
+}
+
+func TestInsightsRefreshKey(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.showDashboard = true
+	m.insightsEnabled = true
+	m.dash.data = nonEmptyDashboard()
+	m.dash.insights.items = []insightItem{
+		{Text: "Old insight", Tab: "appliances", EntityID: 1},
+	}
+	m.dash.insights.stale = false
+	m.buildDashNav()
+
+	// r key should mark insights stale (even without llmClient).
+	sendKey(m, "r")
+	assert.True(t, m.dash.insights.stale)
+}
+
+func TestMarkInsightsStale_OnMutation(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithStore(t)
+	m.insightsEnabled = true
+	m.dash.insights.items = []insightItem{
+		{Text: "Old insight", Tab: "appliances", EntityID: 1},
+	}
+	m.dash.insights.stale = false
+
+	m.reloadAfterMutation()
+	assert.True(t, m.dash.insights.stale, "mutation should mark insights stale")
+}
+
+func TestTabKindFromString(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		input string
+		want  TabKind
+		ok    bool
+	}{
+		{"projects", tabProjects, true},
+		{"quotes", tabQuotes, true},
+		{"maintenance", tabMaintenance, true},
+		{"incidents", tabIncidents, true},
+		{"appliances", tabAppliances, true},
+		{"vendors", tabVendors, true},
+		{"documents", tabDocuments, true},
+		{"unknown", 0, false},
+	}
+	for _, tt := range tests {
+		got, ok := tabKindFromString(tt.input)
+		assert.Equal(t, tt.ok, ok, "tabKindFromString(%q) ok", tt.input)
+		if ok {
+			assert.Equal(t, tt.want, got, "tabKindFromString(%q)", tt.input)
+		}
+	}
+}
+
+func TestTabAbbrev(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "Proj.", tabAbbrev("projects"))
+	assert.Equal(t, "Appl.", tabAbbrev("appliances"))
+	assert.Equal(t, "Mnt.", tabAbbrev("maintenance"))
+}
+
+func TestDashboardVisible_WithInsightsOnly(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.showDashboard = true
+	m.insightsEnabled = true
+	// No deterministic dashboard data.
+	m.dash.data = dashboardData{}
+	assert.False(t, m.dashboardVisible(), "should be hidden when empty")
+
+	// But if insights are loading, it should be visible.
+	m.dash.insights.loading = true
+	assert.True(t, m.dashboardVisible(), "should show when insights loading")
+
+	// Or if insights have items.
+	m.dash.insights.loading = false
+	m.dash.insights.items = []insightItem{{Text: "test"}}
+	assert.True(t, m.dashboardVisible(), "should show when insights have items")
+
+	// Or if insights have an error.
+	m.dash.insights.items = nil
+	m.dash.insights.err = fmt.Errorf("err")
+	assert.True(t, m.dashboardVisible(), "should show when insights errored")
+}
+
+func TestInsightsStaleness(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+
+	// No generated time means empty string.
+	assert.Empty(t, m.insightsStaleness())
+
+	// Recent generation shows short duration.
+	m.dash.insights.generatedAt = time.Now().Add(-2 * time.Minute)
+	s := m.insightsStaleness()
+	assert.Contains(t, s, "ago")
+}

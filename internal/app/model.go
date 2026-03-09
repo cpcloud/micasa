@@ -158,6 +158,23 @@ type pullState struct {
 	progress progress.Model     // bubbles progress bar widget
 }
 
+// insightItem is one LLM-generated insight for the dashboard.
+type insightItem struct {
+	Text     string `json:"text"`
+	Tab      string `json:"tab"`
+	EntityID uint   `json:"entity_id"`
+}
+
+// insightsState tracks the async insights fetch.
+type insightsState struct {
+	items       []insightItem
+	loading     bool
+	stale       bool
+	err         error
+	generatedAt time.Time
+	cancel      context.CancelFunc
+}
+
 // dashState groups dashboard overlay fields.
 type dashState struct {
 	data         dashboardData
@@ -167,6 +184,8 @@ type dashState struct {
 	scrollOffset int
 	totalLines   int
 	flash        string
+	insights     insightsState
+	spinner      spinner.Model
 }
 
 // notePreviewState holds the text shown in the note preview overlay.
@@ -183,6 +202,7 @@ type Model struct {
 	llmClient             *llm.Client
 	llmConfig             *llmConfig // saved for extraction client creation
 	llmExtraContext       string     // user-provided context appended to prompts
+	insightsEnabled       bool       // proactive LLM insights on dashboard
 	filePickerDir         string     // starting directory for document file picker
 	ex                    extractState
 	pull                  pullState
@@ -223,6 +243,7 @@ type Model struct {
 func NewModel(store *data.Store, options Options) (*Model, error) {
 	var client *llm.Client
 	var extraContext string
+	var insightsEnabled bool
 	if options.LLMConfig != nil {
 		model := options.LLMConfig.Model
 		cfg := options.LLMConfig
@@ -248,6 +269,7 @@ func NewModel(store *data.Store, options Options) (*Model, error) {
 			client.SetThinking(cfg.Thinking)
 		}
 		extraContext = cfg.ExtraContext
+		insightsEnabled = cfg.InsightsEnabled
 	}
 
 	pprog := progress.New(
@@ -255,6 +277,9 @@ func NewModel(store *data.Store, options Options) (*Model, error) {
 		progress.WithFillCharacters('━', '┄'),
 	)
 	pprog.PercentageStyle = appStyles.TextDim()
+
+	dashSp := spinner.New(spinner.WithSpinner(spinner.Dot))
+	dashSp.Style = appStyles.AccentText()
 
 	model := &Model{
 		zones:           zone.New(),
@@ -264,6 +289,7 @@ func NewModel(store *data.Store, options Options) (*Model, error) {
 		llmClient:       client,
 		llmConfig:       options.LLMConfig,
 		llmExtraContext: extraContext,
+		insightsEnabled: insightsEnabled,
 		filePickerDir:   options.FilePickerDir,
 		ex: extractState{
 			extractionProvider: options.ExtractionConfig.Provider,
@@ -278,6 +304,7 @@ func NewModel(store *data.Store, options Options) (*Model, error) {
 			extractors:         options.ExtractionConfig.Extractors,
 		},
 		pull:      pullState{progress: pprog},
+		dash:      dashState{spinner: dashSp},
 		styles:    appStyles,
 		tabs:      NewTabs(),
 		active:    0,
@@ -311,7 +338,13 @@ func NewModel(store *data.Store, options Options) (*Model, error) {
 }
 
 func (m *Model) Init() tea.Cmd {
-	return m.formInitCmd()
+	cmds := []tea.Cmd{m.formInitCmd()}
+	if m.showDashboard {
+		if cmd := m.maybeStartInsights(); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+	}
+	return tea.Batch(cmds...)
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -377,6 +410,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.handleExtractionLLMChunk(typed)
 	case extractionLLMPingMsg:
 		return m, m.handleExtractionLLMPing(typed)
+	case insightsResultMsg:
+		m.dash.insights.loading = false
+		if typed.Err != nil {
+			m.dash.insights.err = typed.Err
+		} else {
+			m.dash.insights.items = typed.Items
+			m.dash.insights.stale = false
+			m.dash.insights.err = nil
+			m.dash.insights.generatedAt = time.Now()
+		}
+		m.buildDashNav()
+		return m, nil
 	case modelsListMsg:
 		// Feed the extraction model picker first if it's waiting.
 		if ex := m.ex.extraction; ex != nil && ex.modelPicker != nil && ex.modelPicker.Loading {
@@ -412,6 +457,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				bg.Spinner, cmd = bg.Spinner.Update(msg)
 				cmds = append(cmds, cmd)
 			}
+		}
+		if m.dash.insights.loading {
+			var cmd tea.Cmd
+			m.dash.spinner, cmd = m.dash.spinner.Update(msg)
+			cmds = append(cmds, cmd)
 		}
 		return m, tea.Batch(cmds...)
 	case tea.MouseMsg:
@@ -620,6 +670,13 @@ func (m *Model) handleDashboardKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 	case keyH, keyL, keyLeft, keyRight:
 		// Block column movement on dashboard.
 		return nil, true
+	case keyR:
+		if m.insightsEnabled {
+			cmd := m.refreshInsights()
+			m.setStatusInfo("refreshing insights")
+			return cmd, true
+		}
+		return nil, true
 	case keyS, keyShiftS, keyC, keyShiftC, keyI, keySlash, keyN, keyShiftN, keyBang:
 		// Block table-specific keys on dashboard.
 		return nil, true
@@ -701,8 +758,7 @@ func (m *Model) handleCommonKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 func (m *Model) handleNormalKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 	switch key.String() {
 	case keyShiftD:
-		m.toggleDashboard()
-		return nil, true
+		return m.toggleDashboard(), true
 	case keyF:
 		if !m.inDetail() {
 			if m.showDashboard {
@@ -1459,6 +1515,7 @@ func (m *Model) reloadAfterMutation() {
 	if m.showDashboard {
 		m.surfaceError(m.loadDashboard())
 	}
+	m.markInsightsStale()
 }
 
 // markNonEffectiveStale marks all tabs except the effective (active or
@@ -1484,7 +1541,20 @@ func (m *Model) reloadIfStale(tab *Tab) error {
 // dashboardVisible reports whether the dashboard overlay should actually
 // render. The preference may be on but there's nothing to show.
 func (m *Model) dashboardVisible() bool {
-	return m.showDashboard && !m.dash.data.empty()
+	if !m.showDashboard {
+		return false
+	}
+	if !m.dash.data.empty() {
+		return true
+	}
+	// Show dashboard if insights are loading, have items, or errored.
+	if m.insightsEnabled {
+		ins := m.dash.insights
+		if ins.loading || len(ins.items) > 0 || ins.err != nil {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *Model) toggleUnitSystem() {
@@ -1499,16 +1569,19 @@ func (m *Model) toggleUnitSystem() {
 	}
 }
 
-func (m *Model) toggleDashboard() {
+func (m *Model) toggleDashboard() tea.Cmd {
 	m.showDashboard = !m.showDashboard
+	var cmd tea.Cmd
 	if m.showDashboard {
 		m.surfaceError(m.loadDashboard())
 		// Close all drilldown levels when returning to dashboard.
 		m.closeAllDetails()
+		cmd = m.maybeStartInsights()
 	}
 	if m.store != nil {
 		m.surfaceError(m.store.PutShowDashboard(m.showDashboard))
 	}
+	return cmd
 }
 
 // switchToTab sets the active tab index, reloads it (lazy if stale), and

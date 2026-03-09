@@ -9,6 +9,7 @@ import (
 
 	"github.com/cpcloud/micasa/internal/data"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var testTables = []TableInfo{
@@ -276,4 +277,105 @@ func TestBuildSystemPromptIncludesIncidentFallbackNotes(t *testing.T) {
 	prompt := BuildSystemPrompt(testTables, "", testNow, "")
 	assert.Contains(t, prompt, "Incident statuses: open, in_progress")
 	assert.Contains(t, prompt, "Incident severities: urgent, soon, whenever")
+}
+
+// --- BuildInsightsPrompt ---
+
+func TestBuildInsightsPromptIncludesData(t *testing.T) {
+	t.Parallel()
+	prompt := BuildInsightsPrompt(
+		"### appliances (2 rows)\n\n- id: 1, name: Water heater\n",
+		testNow,
+		"",
+	)
+	assert.Contains(t, prompt, "Water heater")
+	assert.Contains(t, prompt, "Current Data")
+}
+
+func TestBuildInsightsPromptOmitsDataWhenEmpty(t *testing.T) {
+	t.Parallel()
+	prompt := BuildInsightsPrompt("", testNow, "")
+	assert.NotContains(t, prompt, "Current Data")
+}
+
+func TestBuildInsightsPromptIncludesCurrentDate(t *testing.T) {
+	t.Parallel()
+	prompt := BuildInsightsPrompt("", testNow, "")
+	assert.Contains(t, prompt, "Friday, February 13, 2026")
+}
+
+func TestBuildInsightsPromptIncludesPreamble(t *testing.T) {
+	t.Parallel()
+	prompt := BuildInsightsPrompt("", testNow, "")
+	assert.Contains(t, prompt, "home maintenance advisor")
+	assert.Contains(t, prompt, "proactive insights")
+}
+
+func TestBuildInsightsPromptIncludesGuidelines(t *testing.T) {
+	t.Parallel()
+	prompt := BuildInsightsPrompt("", testNow, "")
+	assert.Contains(t, prompt, "Output format")
+	assert.Contains(t, prompt, "entity_id")
+	assert.Contains(t, prompt, "Appliance age vs typical lifespan")
+}
+
+func TestBuildInsightsPromptIncludesExtraContext(t *testing.T) {
+	t.Parallel()
+	prompt := BuildInsightsPrompt("", testNow, "House built in 1998.")
+	assert.Contains(t, prompt, "Additional context")
+	assert.Contains(t, prompt, "House built in 1998")
+}
+
+// --- InsightsJSONSchema ---
+
+func TestInsightsJSONSchemaStructure(t *testing.T) {
+	t.Parallel()
+	schema := InsightsJSONSchema()
+	assert.Equal(t, "object", schema["type"])
+
+	props, ok := schema["properties"].(map[string]any)
+	require.True(t, ok)
+
+	insights, ok := props["insights"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "array", insights["type"])
+
+	items, ok := insights["items"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "object", items["type"])
+
+	itemProps, ok := items["properties"].(map[string]any)
+	require.True(t, ok)
+	assert.Contains(t, itemProps, "text")
+	assert.Contains(t, itemProps, "tab")
+	assert.Contains(t, itemProps, "entity_id")
+
+	required, ok := items["required"].([]string)
+	require.True(t, ok)
+	assert.ElementsMatch(t, []string{"text", "tab", "entity_id"}, required)
+}
+
+func TestInsightsJSONSchemaTabEnum(t *testing.T) {
+	t.Parallel()
+	schema := InsightsJSONSchema()
+	props, ok := schema["properties"].(map[string]any)
+	require.True(t, ok)
+	insights, ok := props["insights"].(map[string]any)
+	require.True(t, ok)
+	items, ok := insights["items"].(map[string]any)
+	require.True(t, ok)
+	itemProps, ok := items["properties"].(map[string]any)
+	require.True(t, ok)
+	tab, ok := itemProps["tab"].(map[string]any)
+	require.True(t, ok)
+
+	tabEnum, ok := tab["enum"].([]string)
+	require.True(t, ok)
+	assert.Contains(t, tabEnum, "projects")
+	assert.Contains(t, tabEnum, "appliances")
+	assert.Contains(t, tabEnum, "maintenance")
+	assert.Contains(t, tabEnum, "incidents")
+	assert.Contains(t, tabEnum, "vendors")
+	assert.Contains(t, tabEnum, "documents")
+	assert.Contains(t, tabEnum, "quotes")
 }

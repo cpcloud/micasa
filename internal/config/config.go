@@ -75,6 +75,12 @@ type LLM struct {
 	// none, low, medium, high, auto. Empty string = don't send (server default).
 	Thinking string `toml:"thinking,omitempty"`
 
+	// Insights enables proactive LLM-generated insights on the dashboard.
+	// When enabled, the LLM analyzes all home data and surfaces observations
+	// like aging appliances, spending patterns, or overdue inspections.
+	// Opt-in; defaults to false when unset. Requires a configured LLM.
+	Insights *bool `toml:"insights,omitempty" env:"MICASA_LLM_INSIGHTS"`
+
 	// Chat holds per-pipeline overrides for the chat (NL-to-SQL) pipeline.
 	// Non-empty fields take precedence over the base values above.
 	Chat LLMChatOverride `toml:"chat" doc:"Per-pipeline LLM overrides for chat. Inherits from [llm]."`
@@ -116,6 +122,15 @@ type ResolvedLLM struct {
 	ExtraContext string
 	Timeout      time.Duration // inference context deadline for this pipeline
 	Thinking     string
+}
+
+// InsightsEnabled returns whether proactive LLM insights are enabled.
+// Defaults to false when the field is unset.
+func (l LLM) InsightsEnabled() bool {
+	if l.Insights != nil {
+		return *l.Insights
+	}
+	return false
 }
 
 // TimeoutDuration returns the parsed LLM timeout, falling back to
@@ -1124,6 +1139,11 @@ model = "` + DefaultModel + `"
 # Model reasoning effort level. Supported: none, low, medium, high, auto.
 # Empty = don't send (server default).
 # thinking = "medium"
+
+# Enable proactive LLM insights on the dashboard. When enabled, the LLM
+# analyzes your home data and surfaces observations like aging appliances,
+# spending patterns, or overdue inspections. Default: false.
+# insights = true
 
 # [llm.chat]
 # Per-pipeline overrides for the chat (NL-to-SQL) pipeline.
