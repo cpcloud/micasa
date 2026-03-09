@@ -244,6 +244,7 @@ func TestNoSpinnerAfterCancellation(t *testing.T) {
 	m.openChat()
 
 	_, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
 	m.chat.Streaming = true
 	m.chat.StreamingSQL = true
 	m.chat.CancelFn = cancel
@@ -278,6 +279,7 @@ func TestLateSQLChunkAfterCancellationIsDropped(t *testing.T) {
 	m.openChat()
 
 	_, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
 	m.chat.Streaming = true
 	m.chat.StreamingSQL = true
 	m.chat.CancelFn = cancel
@@ -314,6 +316,7 @@ func TestLateChatChunkAfterCancellationIsDropped(t *testing.T) {
 	m.openChat()
 
 	_, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
 	m.chat.Streaming = true
 	m.chat.CancelFn = cancel
 	m.chat.Messages = []chatMessage{
