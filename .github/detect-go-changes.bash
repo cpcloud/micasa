@@ -32,7 +32,7 @@ fi
 if [ "$event_name" != "pull_request" ]; then
   file_count=$(echo "$changed" | wc -l)
   if [ "$file_count" -ge 300 ]; then
-    echo "::warning::Compare API file cap hit ($file_count files), assuming Go changes" >&2
+    echo "::warning::Compare API file cap hit ($file_count files), assuming Go changes"
     echo true
     exit 0
   fi

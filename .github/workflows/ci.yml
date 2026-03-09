@@ -231,6 +231,7 @@ jobs:
       always()
       && !contains(needs.*.result, 'failure')
       && !contains(needs.*.result, 'cancelled')
+      && (needs.changes.outputs.go != 'true' || (needs.test.result == 'success' && needs.nix-build.result == 'success'))
     runs-on: ubuntu-latest
     concurrency:
       group: semantic-release-${{ github.ref }}
