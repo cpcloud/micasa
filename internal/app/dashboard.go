@@ -618,7 +618,8 @@ func (m *Model) dashboardView(budget, maxWidth int) string {
 		}
 		dimmed := cursorSection != "" && cursorSection != dashSectionInsights
 		hdr := m.dashSectionHeader(dashSectionInsights, 0, dimmed)
-		lines = append(lines, hdr, "  "+m.styles.Error().Render("error: "+m.dash.insights.err.Error()))
+		msg := m.styles.DashSubtitle().Render("  unavailable: " + m.dash.insights.err.Error())
+		lines = append(lines, hdr, msg)
 	}
 
 	// Staleness indicator for insights section header.

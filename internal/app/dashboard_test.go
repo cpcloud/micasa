@@ -1373,7 +1373,9 @@ func TestInsightsSection_ErrorState(t *testing.T) {
 	m.buildDashNav()
 
 	view := m.dashboardView(50, 80)
+	assert.Contains(t, view, "unavailable")
 	assert.Contains(t, view, "network timeout")
+	assert.NotContains(t, view, "error:")
 }
 
 func TestInsightsNav_JumpsToEntity(t *testing.T) {
