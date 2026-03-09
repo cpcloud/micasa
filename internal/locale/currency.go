@@ -79,11 +79,15 @@ func DefaultCurrency() Currency {
 }
 
 // ResolveDefault resolves the currency code using the config layering:
-// explicit code > MICASA_CURRENCY env > LC_MONETARY/LANG auto-detect > USD.
+// explicit code > MICASA_LOCALE_CURRENCY env > LC_MONETARY/LANG auto-detect > USD.
 // The formatting locale is always detected from the environment.
 func ResolveDefault(configured string) (Currency, error) {
 	code := configured
 	if code == "" {
+		code = os.Getenv("MICASA_LOCALE_CURRENCY")
+	}
+	if code == "" {
+		// Deprecated; prefer MICASA_LOCALE_CURRENCY.
 		code = os.Getenv("MICASA_CURRENCY")
 	}
 	if code == "" {

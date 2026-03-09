@@ -120,12 +120,12 @@ Col* (e.g., ColID = "id", ColName = "name", ColDeletedAt = "deleted_at")
 - LLM (provider, model, baseURL, apiKey, timeout, thinking, extraContext)
   - Chat/Extraction overrides (LLMChatOverride, LLMExtractionOverride)
 - Documents (MaxFileSize ByteSize, CacheTTL Duration)
-- Extraction (MaxExtractPages int, Enabled *bool, TextTimeout, LLMTimeout)
+- Extraction (MaxPages int, Enabled *bool, TextTimeout, LLMTimeout)
 - Locale (Currency string)
 
 ### Defaults
 - Provider: "ollama", Model: "qwen3", BaseURL: "http://localhost:11434"
-- MaxExtractPages: 20, CacheTTL: 30 days, TextTimeout: 30s, LLMTimeout: 5m
+- MaxPages: 20, CacheTTL: 30 days, TextTimeout: 30s, LLMTimeout: 5m
 
 ## LLM Types (internal/llm/)
 

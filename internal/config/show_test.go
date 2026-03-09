@@ -37,7 +37,7 @@ func TestShowConfigDefaults(t *testing.T) {
 	assert.Contains(t, out, `timeout = "5m0s"`)
 	assert.Contains(t, out, `max_file_size = "50 MiB"`)
 	assert.Contains(t, out, `cache_ttl = "30d"`)
-	assert.Contains(t, out, "max_extract_pages = 0")
+	assert.Contains(t, out, "max_pages = 0")
 	assert.Contains(t, out, "enabled = true")
 	assert.Contains(t, out, `text_timeout = "30s"`)
 
@@ -62,7 +62,7 @@ max_file_size = "100 MiB"
 cache_ttl = "7d"
 
 [extraction]
-max_extract_pages = 10
+max_pages = 10
 enabled = false
 `)
 	cfg, err := LoadFromPath(path)
@@ -94,7 +94,7 @@ max_file_size = "100 MiB"
 cache_ttl = "7d"
 
 [extraction]
-max_extract_pages = 10
+max_pages = 10
 enabled = false
 text_timeout = "1m"
 `)
@@ -121,7 +121,7 @@ text_timeout = "1m"
 	assert.Equal(t,
 		orig.Documents.CacheTTLDuration(),
 		parsed.Documents.CacheTTLDuration())
-	assert.Equal(t, orig.Extraction.MaxExtractPages, parsed.Extraction.MaxExtractPages)
+	assert.Equal(t, orig.Extraction.MaxPages, parsed.Extraction.MaxPages)
 	assert.Equal(t, orig.Extraction.IsEnabled(), parsed.Extraction.IsEnabled())
 	assert.Equal(t, orig.Extraction.TextTimeout, parsed.Extraction.TextTimeout)
 

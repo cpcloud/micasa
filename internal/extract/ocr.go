@@ -16,9 +16,9 @@ import (
 	"sync"
 )
 
-// DefaultMaxExtractPages is the default page limit for extraction.
+// DefaultMaxPages is the default page limit for extraction.
 // 0 means no limit (all pages are processed).
-const DefaultMaxExtractPages = 0
+const DefaultMaxPages = 0
 
 // ocrPageResult holds the OCR output for a single page.
 type ocrPageResult struct {

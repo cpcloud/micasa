@@ -160,7 +160,7 @@ func (cmd *runCmd) Run() error {
 
 	exCfg := cfg.LLM.ExtractionConfig()
 	extractors := extract.DefaultExtractors(
-		cfg.Extraction.MaxExtractPages,
+		cfg.Extraction.MaxPages,
 		cfg.Extraction.TextTimeoutDuration(),
 	)
 	opts.SetExtraction(

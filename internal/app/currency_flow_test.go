@@ -954,8 +954,8 @@ func TestCurrencyFlow_DBPortability_DifferentLocale(t *testing.T) {
 }
 
 func TestCurrencyFlow_EnvCurrency_FirstRun(t *testing.T) {
-	// Simulate: MICASA_CURRENCY=GBP micasa (first run, no DB currency yet).
-	t.Setenv("MICASA_CURRENCY", "GBP")
+	// Simulate: MICASA_LOCALE_CURRENCY=GBP micasa (first run, no DB currency yet).
+	t.Setenv("MICASA_LOCALE_CURRENCY", "GBP")
 	t.Setenv("LC_MONETARY", "")
 	t.Setenv("LC_ALL", "")
 	t.Setenv("LANG", "en_GB.UTF-8")
@@ -966,7 +966,7 @@ func TestCurrencyFlow_EnvCurrency_FirstRun(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
 
-	// ResolveCurrency with empty config should pick up MICASA_CURRENCY.
+	// ResolveCurrency with empty config should pick up MICASA_LOCALE_CURRENCY.
 	require.NoError(t, store.ResolveCurrency(""))
 	assert.Equal(t, "GBP", store.Currency().Code())
 	cur := store.Currency()

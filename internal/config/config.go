@@ -37,7 +37,7 @@ type Config struct {
 type Locale struct {
 	// Currency is the ISO 4217 code (e.g. "USD", "EUR", "GBP").
 	// Used as the default when the database has no currency set yet.
-	Currency string `toml:"currency" env:"MICASA_CURRENCY"`
+	Currency string `toml:"currency"`
 }
 
 // LLM holds settings for the LLM inference backend.
@@ -45,35 +45,35 @@ type LLM struct {
 	// Provider selects which LLM provider to use. Supported values:
 	// ollama, anthropic, openai, openrouter, deepseek, gemini, groq,
 	// mistral, llamacpp, llamafile. Auto-detected when empty.
-	Provider string `toml:"provider" env:"MICASA_LLM_PROVIDER"`
+	Provider string `toml:"provider"`
 
 	// BaseURL is the base URL for the provider's API.
 	// Default varies by provider (e.g. http://localhost:11434 for Ollama).
 	// No /v1 suffix needed -- the provider handles path construction.
-	BaseURL string `toml:"base_url" env:"MICASA_LLM_BASE_URL"`
+	BaseURL string `toml:"base_url"`
 
 	// Model is the model identifier passed in chat requests.
 	// Default: qwen3
-	Model string `toml:"model" env:"MICASA_LLM_MODEL"`
+	Model string `toml:"model"`
 
 	// APIKey is the authentication credential. Required for cloud
 	// providers (Anthropic, OpenAI, OpenRouter, etc.). Leave empty for local
 	// servers like Ollama that don't require authentication.
-	APIKey string `toml:"api_key" env:"MICASA_LLM_API_KEY"` //nolint:gosec // config field, not a hardcoded credential
+	APIKey string `toml:"api_key"` //nolint:gosec // config field, not a hardcoded credential
 
 	// ExtraContext is custom text appended to all system prompts.
 	// Useful for domain-specific details: house style, location, etc.
 	// Currency is handled by [locale] section. Optional; defaults to empty.
-	ExtraContext string `toml:"extra_context" env:"MICASA_LLM_EXTRA_CONTEXT"`
+	ExtraContext string `toml:"extra_context"`
 
 	// Timeout is the maximum time for a single LLM response (including
 	// streaming). Go duration string, e.g. "5m", "10m". Default: "5m".
 	// Quick operations (ping, model listing) use a shorter fixed deadline.
-	Timeout string `toml:"timeout" env:"MICASA_LLM_TIMEOUT"`
+	Timeout string `toml:"timeout"`
 
 	// Thinking controls the model's reasoning effort level. Supported values:
 	// none, low, medium, high, auto. Empty string = don't send (server default).
-	Thinking string `toml:"thinking,omitempty" env:"MICASA_LLM_THINKING"`
+	Thinking string `toml:"thinking,omitempty"`
 
 	// Chat holds per-pipeline overrides for the chat (NL-to-SQL) pipeline.
 	// Non-empty fields take precedence over the base values above.
@@ -87,23 +87,23 @@ type LLM struct {
 // LLMChatOverride holds optional per-pipeline overrides for the chat
 // pipeline. Empty fields inherit from the parent [llm] section.
 type LLMChatOverride struct {
-	Provider string `toml:"provider"           env:"MICASA_LLM_CHAT_PROVIDER"`
-	BaseURL  string `toml:"base_url"           env:"MICASA_LLM_CHAT_BASE_URL"`
-	Model    string `toml:"model"              env:"MICASA_LLM_CHAT_MODEL"`
-	APIKey   string `toml:"api_key"            env:"MICASA_LLM_CHAT_API_KEY"` //nolint:gosec // config field, not a hardcoded credential
-	Timeout  string `toml:"timeout"            env:"MICASA_LLM_CHAT_TIMEOUT"`
-	Thinking string `toml:"thinking,omitempty" env:"MICASA_LLM_CHAT_THINKING"`
+	Provider string `toml:"provider"`
+	BaseURL  string `toml:"base_url"`
+	Model    string `toml:"model"`
+	APIKey   string `toml:"api_key"` //nolint:gosec // config field, not a hardcoded credential
+	Timeout  string `toml:"timeout"`
+	Thinking string `toml:"thinking,omitempty"`
 }
 
 // LLMExtractionOverride holds optional per-pipeline overrides for the
 // extraction pipeline. Empty fields inherit from the parent [llm] section.
 type LLMExtractionOverride struct {
-	Provider string `toml:"provider"           env:"MICASA_LLM_EXTRACTION_PROVIDER"`
-	BaseURL  string `toml:"base_url"           env:"MICASA_LLM_EXTRACTION_BASE_URL"`
-	Model    string `toml:"model"              env:"MICASA_LLM_EXTRACTION_MODEL"`
-	APIKey   string `toml:"api_key"            env:"MICASA_LLM_EXTRACTION_API_KEY"` //nolint:gosec // config field, not a hardcoded credential
-	Timeout  string `toml:"timeout"            env:"MICASA_LLM_EXTRACTION_TIMEOUT"`
-	Thinking string `toml:"thinking,omitempty" env:"MICASA_LLM_EXTRACTION_THINKING"`
+	Provider string `toml:"provider"`
+	BaseURL  string `toml:"base_url"`
+	Model    string `toml:"model"`
+	APIKey   string `toml:"api_key"` //nolint:gosec // config field, not a hardcoded credential
+	Timeout  string `toml:"timeout"`
+	Thinking string `toml:"thinking,omitempty"`
 }
 
 // ResolvedLLM is a fully-resolved LLM configuration for a single pipeline.
@@ -205,19 +205,19 @@ type Documents struct {
 	// MaxFileSize is the largest file that can be imported as a document
 	// attachment. Accepts unitized strings ("50 MiB") or bare integers
 	// (bytes). Default: 50 MiB.
-	MaxFileSize ByteSize `toml:"max_file_size" env:"MICASA_MAX_DOCUMENT_SIZE"`
+	MaxFileSize ByteSize `toml:"max_file_size"`
 
 	// CacheTTL is the preferred cache lifetime setting. Accepts unitized
 	// strings ("30d", "720h") or bare integers (seconds). Default: 30d.
-	CacheTTL *Duration `toml:"cache_ttl,omitempty" env:"MICASA_CACHE_TTL"`
+	CacheTTL *Duration `toml:"cache_ttl,omitempty"`
 
 	// CacheTTLDays is deprecated; use CacheTTL instead. Kept for backward
 	// compatibility. Bare integer interpreted as days.
-	CacheTTLDays *int `toml:"cache_ttl_days,omitempty" env:"MICASA_CACHE_TTL_DAYS"`
+	CacheTTLDays *int `toml:"cache_ttl_days,omitempty"`
 
 	// FilePickerDir is the starting directory for the document file picker.
 	// Default: the system Downloads folder (e.g. ~/Downloads).
-	FilePickerDir string `toml:"file_picker_dir" env:"MICASA_FILE_PICKER_DIR"`
+	FilePickerDir string `toml:"file_picker_dir"`
 }
 
 // ResolvedFilePickerDir returns the starting directory for the file picker.
@@ -258,29 +258,29 @@ type Extraction struct {
 	// Model overrides llm.model for extraction. Extraction wants a small,
 	// fast model optimized for structured JSON output. Defaults to the
 	// chat model if empty.
-	Model string `toml:"model" env:"MICASA_EXTRACTION_MODEL"`
+	Model string `toml:"model"`
 
-	// MaxExtractPages is the maximum number of pages for async extraction of scanned
+	// MaxPages is the maximum number of pages for async extraction of scanned
 	// documents. 0 means no limit (all pages). Default: 0.
-	MaxExtractPages int `toml:"max_extract_pages" env:"MICASA_MAX_EXTRACT_PAGES"`
+	MaxPages int `toml:"max_pages"`
 
 	// Enabled controls whether LLM-powered extraction runs when a document
 	// is uploaded. When disabled, no structured data is extracted -- OCR and
 	// pdftotext are internal pipeline steps, not standalone features. Default: true.
-	Enabled *bool `toml:"enabled,omitempty" env:"MICASA_EXTRACTION_ENABLED"`
+	Enabled *bool `toml:"enabled,omitempty"`
 
 	// TextTimeout is the maximum time to wait for pdftotext. Go duration
 	// string, e.g. "30s", "1m". Default: "30s".
-	TextTimeout string `toml:"text_timeout" env:"MICASA_TEXT_TIMEOUT"`
+	TextTimeout string `toml:"text_timeout"`
 
 	// LLMTimeout is the maximum time to wait for the LLM extraction
 	// inference step. Go duration string, e.g. "5m", "90s". Default: "5m".
-	LLMTimeout string `toml:"llm_timeout" env:"MICASA_EXTRACTION_LLM_TIMEOUT"`
+	LLMTimeout string `toml:"llm_timeout"`
 
 	// Thinking controls the model's reasoning effort level for extraction.
 	// Supported values: none, low, medium, high, auto.
 	// Empty string = don't send (server default). Default: empty.
-	Thinking string `toml:"thinking,omitempty" env:"MICASA_EXTRACTION_THINKING"`
+	Thinking string `toml:"thinking,omitempty"`
 }
 
 // IsEnabled returns whether LLM extraction is enabled. Defaults to true
@@ -340,7 +340,7 @@ const (
 	DefaultLLMTimeout           = 5 * time.Minute
 	DefaultLLMExtractionTimeout = DefaultLLMTimeout
 	DefaultCacheTTL             = 30 * 24 * time.Hour // 30 days
-	DefaultMaxExtractPages      = 0
+	DefaultMaxPages             = 0
 	DefaultTextTimeout          = 30 * time.Second
 	configRelPath               = "micasa/config.toml"
 )
@@ -357,7 +357,7 @@ func defaults() Config {
 			MaxFileSize: ByteSize(data.MaxDocumentSize),
 		},
 		Extraction: Extraction{
-			MaxExtractPages: DefaultMaxExtractPages,
+			MaxPages: DefaultMaxPages,
 		},
 	}
 }
@@ -388,9 +388,9 @@ func LoadFromPath(path string) (Config, error) {
 		migrateRenamedKeys(&cfg, md, path)
 	}
 
-	migrateRenamedEnvVars(&cfg)
+	envOverrides := migrateRenamedEnvVars(&cfg)
 
-	if err := applyEnvOverrides(&cfg); err != nil {
+	if err := applyEnvOverrides(&cfg, envOverrides); err != nil {
 		return cfg, err
 	}
 
@@ -485,16 +485,10 @@ func LoadFromPath(path string) (Config, error) {
 	}
 
 	if cfg.Documents.CacheTTLDays != nil {
-		deprecated := "documents.cache_ttl_days"
-		replacement := "documents.cache_ttl"
-		if os.Getenv("MICASA_CACHE_TTL_DAYS") != "" {
-			deprecated = "MICASA_CACHE_TTL_DAYS"
-			replacement = "MICASA_CACHE_TTL"
-		}
-		cfg.Warnings = append(cfg.Warnings, fmt.Sprintf(
-			"%s is deprecated -- use %s (e.g. \"30d\") instead",
-			deprecated, replacement,
-		))
+		cfg.Warnings = append(
+			cfg.Warnings,
+			"documents.cache_ttl_days is deprecated -- use documents.cache_ttl (e.g. \"30d\") instead",
+		)
 		if *cfg.Documents.CacheTTLDays < 0 {
 			return cfg, fmt.Errorf(
 				"documents.cache_ttl_days must be non-negative, got %d",
@@ -542,10 +536,10 @@ func LoadFromPath(path string) (Config, error) {
 		}
 	}
 
-	if cfg.Extraction.MaxExtractPages < 0 {
+	if cfg.Extraction.MaxPages < 0 {
 		return cfg, fmt.Errorf(
-			"extraction.max_extract_pages must be non-negative, got %d",
-			cfg.Extraction.MaxExtractPages,
+			"extraction.max_pages must be non-negative, got %d",
+			cfg.Extraction.MaxPages,
 		)
 	}
 
@@ -555,29 +549,46 @@ func LoadFromPath(path string) (Config, error) {
 }
 
 // applyEnvOverrides walks the Config struct and applies environment variable
-// overrides for every field carrying an `env` struct tag. Returns an error
-// if an env var is set but its value cannot be parsed for the target type.
-func applyEnvOverrides(cfg *Config) error {
-	return walkEnvFields(reflect.ValueOf(cfg).Elem())
+// overrides. Env var names are derived from the dotted TOML path via
+// [EnvVarName]. The extra map supplies values migrated from deprecated env
+// var names (checked when the canonical env var is unset).
+func applyEnvOverrides(cfg *Config, extra map[string]string) error {
+	return walkEnvFields(reflect.ValueOf(cfg).Elem(), "", extra)
 }
 
-func walkEnvFields(v reflect.Value) error {
+func walkEnvFields(v reflect.Value, prefix string, extra map[string]string) error {
 	t := v.Type()
 	for i := range t.NumField() {
 		f := t.Field(i)
 		fv := v.Field(i)
 
-		envVar := f.Tag.Get("env")
-		if envVar == "" {
-			// No env tag -- recurse into nested config sections.
-			if fv.Kind() == reflect.Struct && tomlTagName(f) != "" {
-				if err := walkEnvFields(fv); err != nil {
-					return err
-				}
-			}
+		tomlName := tomlTagName(f)
+		if tomlName == "" {
 			continue
 		}
+
+		key := tomlName
+		if prefix != "" {
+			key = prefix + "." + tomlName
+		}
+
+		// Recurse into nested config sections (structs whose first
+		// field carries a TOML tag).
+		if fv.Kind() == reflect.Struct {
+			ft := fv.Type()
+			if ft.NumField() > 0 && tomlTagName(ft.Field(0)) != "" {
+				if err := walkEnvFields(fv, key, extra); err != nil {
+					return err
+				}
+				continue
+			}
+		}
+
+		envVar := EnvVarName(key)
 		val := os.Getenv(envVar)
+		if val == "" {
+			val = extra[envVar]
+		}
 		if val == "" {
 			continue
 		}
@@ -645,7 +656,8 @@ func setFieldFromEnvPtr(fv reflect.Value, envVar, val string) error {
 }
 
 // EnvVars returns a mapping from environment variable names to their
-// dot-delimited config keys, derived from the `env` struct tags.
+// dot-delimited config keys. Env var names are derived from dotted paths
+// via [EnvVarName].
 func EnvVars() map[string]string {
 	m := make(map[string]string)
 	collectEnvVars(reflect.TypeOf(Config{}), "", m)
@@ -655,23 +667,23 @@ func EnvVars() map[string]string {
 func collectEnvVars(t reflect.Type, prefix string, m map[string]string) {
 	for i := range t.NumField() {
 		f := t.Field(i)
-		toml := tomlTagName(f)
-		if toml == "" {
+		tomlTag := tomlTagName(f)
+		if tomlTag == "" {
 			continue
 		}
-		key := toml
+		key := tomlTag
 		if prefix != "" {
-			key = prefix + "." + toml
+			key = prefix + "." + tomlTag
 		}
 		ft := f.Type
 		if ft.Kind() == reflect.Pointer {
 			ft = ft.Elem()
 		}
 
-		if envVar := f.Tag.Get("env"); envVar != "" {
-			m[envVar] = key
-		} else if ft.Kind() == reflect.Struct && ft.NumField() > 0 && tomlTagName(ft.Field(0)) != "" {
+		if ft.Kind() == reflect.Struct && ft.NumField() > 0 && tomlTagName(ft.Field(0)) != "" {
 			collectEnvVars(ft, key, m)
+		} else {
+			m[EnvVarName(key)] = key
 		}
 	}
 }
@@ -725,6 +737,16 @@ func tomlTagName(f reflect.StructField) string {
 		return tag[:i]
 	}
 	return tag
+}
+
+// EnvVarName derives the environment variable name from a dot-delimited
+// config key. The dotted path is the single source of truth:
+//
+//	MICASA_ + UPPER(key with "." replaced by "_")
+//
+// For example "llm.model" becomes "MICASA_LLM_MODEL".
+func EnvVarName(key string) string {
+	return "MICASA_" + strings.ToUpper(strings.ReplaceAll(key, ".", "_"))
 }
 
 // formatValue converts a reflected config field to its string representation.
@@ -869,7 +891,7 @@ func validateOverrideTimeout(timeout, prefix string) error {
 // migrateRenamedKeys checks for deprecated TOML keys and migrates their
 // values to the new field names, appending deprecation warnings.
 func migrateRenamedKeys(cfg *Config, md toml.MetaData, path string) {
-	// extraction.max_ocr_pages -> extraction.max_extract_pages (v1.47)
+	// extraction.max_ocr_pages -> extraction.max_pages (v1.47, updated v1.77)
 	if md.IsDefined("extraction", "max_ocr_pages") {
 		var raw struct {
 			Extraction struct {
@@ -877,10 +899,25 @@ func migrateRenamedKeys(cfg *Config, md toml.MetaData, path string) {
 			} `toml:"extraction"`
 		}
 		if _, err := toml.DecodeFile(path, &raw); err == nil && raw.Extraction.MaxOCRPages > 0 {
-			cfg.Extraction.MaxExtractPages = raw.Extraction.MaxOCRPages
+			cfg.Extraction.MaxPages = raw.Extraction.MaxOCRPages
 		}
 		cfg.Warnings = append(cfg.Warnings,
-			"extraction.max_ocr_pages is deprecated -- use extraction.max_extract_pages instead",
+			"extraction.max_ocr_pages is deprecated -- use extraction.max_pages instead",
+		)
+	}
+
+	// extraction.max_extract_pages -> extraction.max_pages (v1.77)
+	if md.IsDefined("extraction", "max_extract_pages") && !md.IsDefined("extraction", "max_pages") {
+		var raw struct {
+			Extraction struct {
+				MaxExtractPages int `toml:"max_extract_pages"`
+			} `toml:"extraction"`
+		}
+		if _, err := toml.DecodeFile(path, &raw); err == nil {
+			cfg.Extraction.MaxPages = raw.Extraction.MaxExtractPages
+		}
+		cfg.Warnings = append(cfg.Warnings,
+			"extraction.max_extract_pages is deprecated -- use extraction.max_pages instead",
 		)
 	}
 
@@ -901,43 +938,48 @@ func migrateRenamedKeys(cfg *Config, md toml.MetaData, path string) {
 	}
 }
 
-// migrateRenamedEnvVars checks for deprecated environment variables and
-// migrates their values directly into the config struct, appending deprecation
-// warnings. Does not modify the process environment.
-func migrateRenamedEnvVars(cfg *Config) {
-	// MICASA_MAX_OCR_PAGES -> MICASA_MAX_EXTRACT_PAGES (v1.47)
-	if val := os.Getenv("MICASA_MAX_OCR_PAGES"); val != "" {
-		if os.Getenv("MICASA_MAX_EXTRACT_PAGES") == "" {
-			n, err := strconv.Atoi(val)
-			if err == nil && n > 0 {
-				cfg.Extraction.MaxExtractPages = n
-			}
-			cfg.Warnings = append(cfg.Warnings,
-				"MICASA_MAX_OCR_PAGES is deprecated -- use MICASA_MAX_EXTRACT_PAGES instead",
-			)
-		}
-	}
+// envRenames maps deprecated environment variable names to their canonical
+// replacements. Processed newest-first so that the most recent intermediate
+// name wins when multiple generations of the same variable are set.
+var envRenames = []struct{ old, canonical string }{
+	// v1.77: env var names now derived from dotted config paths.
+	{"MICASA_CURRENCY", "MICASA_LOCALE_CURRENCY"},
+	{"MICASA_MAX_DOCUMENT_SIZE", "MICASA_DOCUMENTS_MAX_FILE_SIZE"},
+	{"MICASA_CACHE_TTL", "MICASA_DOCUMENTS_CACHE_TTL"},
+	{"MICASA_CACHE_TTL_DAYS", "MICASA_DOCUMENTS_CACHE_TTL_DAYS"},
+	{"MICASA_FILE_PICKER_DIR", "MICASA_DOCUMENTS_FILE_PICKER_DIR"},
+	{"MICASA_EXTRACTION_MAX_EXTRACT_PAGES", "MICASA_EXTRACTION_MAX_PAGES"},
+	{"MICASA_MAX_EXTRACT_PAGES", "MICASA_EXTRACTION_MAX_PAGES"},
+	{"MICASA_TEXT_TIMEOUT", "MICASA_EXTRACTION_TEXT_TIMEOUT"},
 
-	// MICASA_EXTRACTION_MODEL -> MICASA_LLM_EXTRACTION_MODEL (v1.59)
-	if val := os.Getenv("MICASA_EXTRACTION_MODEL"); val != "" {
-		if os.Getenv("MICASA_LLM_EXTRACTION_MODEL") == "" {
-			cfg.LLM.Extraction.Model = val
-			cfg.Warnings = append(cfg.Warnings,
-				"MICASA_EXTRACTION_MODEL is deprecated -- use MICASA_LLM_EXTRACTION_MODEL instead",
-			)
-		}
-	}
+	// v1.59
+	{"MICASA_EXTRACTION_MODEL", "MICASA_LLM_EXTRACTION_MODEL"},
+	{"MICASA_EXTRACTION_THINKING", "MICASA_LLM_EXTRACTION_THINKING"},
 
-	// MICASA_EXTRACTION_THINKING -> MICASA_LLM_EXTRACTION_THINKING (v1.59)
-	if val := os.Getenv("MICASA_EXTRACTION_THINKING"); val != "" {
-		if os.Getenv("MICASA_LLM_EXTRACTION_THINKING") == "" {
-			cfg.LLM.Extraction.Thinking = val
-			cfg.Warnings = append(
-				cfg.Warnings,
-				"MICASA_EXTRACTION_THINKING is deprecated -- use MICASA_LLM_EXTRACTION_THINKING instead",
-			)
+	// v1.47
+	{"MICASA_MAX_OCR_PAGES", "MICASA_EXTRACTION_MAX_PAGES"},
+}
+
+// migrateRenamedEnvVars checks for deprecated environment variable names and
+// returns a map of canonical env var -> value for [applyEnvOverrides] to
+// consume. Does not modify the process environment. Appends deprecation
+// warnings to cfg.Warnings.
+func migrateRenamedEnvVars(cfg *Config) map[string]string {
+	overrides := make(map[string]string)
+	for _, r := range envRenames {
+		val := os.Getenv(r.old)
+		if val == "" {
+			continue
 		}
+		if os.Getenv(r.canonical) != "" || overrides[r.canonical] != "" {
+			continue
+		}
+		overrides[r.canonical] = val
+		cfg.Warnings = append(cfg.Warnings, fmt.Sprintf(
+			"%s is deprecated -- use %s instead", r.old, r.canonical,
+		))
 	}
+	return overrides
 }
 
 // providers lists every supported provider name.
@@ -1085,7 +1127,7 @@ model = "` + DefaultModel + `"
 # llm_timeout = "5m"
 
 # Maximum pages for async extraction of scanned documents. 0 = no limit. Default: 0.
-# max_extract_pages = 0
+# max_pages = 0
 
 # Set to false to disable LLM-powered extraction even when LLM is configured.
 # When disabled, no structured data is extracted from documents.
@@ -1093,7 +1135,7 @@ model = "` + DefaultModel + `"
 
 [locale]
 # ISO 4217 currency code. Stored in the database on first run; after that the
-# database value is authoritative. Override: MICASA_CURRENCY env var.
+# database value is authoritative. Override: MICASA_LOCALE_CURRENCY env var.
 # Auto-detected from system locale if not set. Default: USD.
 # currency = "USD"
 `

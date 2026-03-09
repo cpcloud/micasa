@@ -92,6 +92,16 @@ micasa backup --source /path/to/micasa.db ~/backups/snapshot.db
 
 ## Environment variables
 
+Every config key has a corresponding environment variable derived
+mechanically from the dotted TOML path:
+
+```
+MICASA_ + UPPER(dotted.path with "." replaced by "_")
+```
+
+For example, `documents.max_file_size` becomes `MICASA_DOCUMENTS_MAX_FILE_SIZE`.
+You can always infer the env var name from the config key.
+
 | Variable | Default | Config equivalent | Description |
 |----------|---------|-------------------|-------------|
 | `MICASA_DB_PATH` | [Platform default](#platform-data-directory) | -- | Database file path |
@@ -102,16 +112,39 @@ micasa backup --source /path/to/micasa.db ~/backups/snapshot.db
 | `MICASA_LLM_API_KEY` | (empty) | `llm.api_key` | LLM API key for cloud providers |
 | `MICASA_LLM_EXTRA_CONTEXT` | (empty) | `llm.extra_context` | Custom context appended to LLM system prompts |
 | `MICASA_LLM_TIMEOUT` | `5s` | `llm.timeout` | LLM operation timeout |
-| `MICASA_MAX_DOCUMENT_SIZE` | `50 MiB` | `documents.max_file_size` | Max document import size |
-| `MICASA_CACHE_TTL` | `30d` | `documents.cache_ttl` | Document cache lifetime |
-| `MICASA_CACHE_TTL_DAYS` | -- | `documents.cache_ttl_days` | Deprecated; use `MICASA_CACHE_TTL` |
+| `MICASA_LLM_THINKING` | (unset) | `llm.thinking` | Enable model thinking for chat |
+| `MICASA_DOCUMENTS_MAX_FILE_SIZE` | `50 MiB` | `documents.max_file_size` | Max document import size |
+| `MICASA_DOCUMENTS_CACHE_TTL` | `30d` | `documents.cache_ttl` | Document cache lifetime |
+| `MICASA_DOCUMENTS_CACHE_TTL_DAYS` | -- | `documents.cache_ttl_days` | Deprecated; use `MICASA_DOCUMENTS_CACHE_TTL` |
+| `MICASA_DOCUMENTS_FILE_PICKER_DIR` | (Downloads) | `documents.file_picker_dir` | Starting directory for the file picker |
 | `MICASA_EXTRACTION_MODEL` | (chat model) | `extraction.model` | LLM model for document extraction |
 | `MICASA_EXTRACTION_ENABLED` | `true` | `extraction.enabled` | Enable/disable LLM extraction |
 | `MICASA_EXTRACTION_THINKING` | `false` | `extraction.thinking` | Enable model thinking for extraction |
-| `MICASA_TEXT_TIMEOUT` | `30s` | `extraction.text_timeout` | pdftotext timeout |
-| `MICASA_MAX_EXTRACT_PAGES` | `0` | `extraction.max_extract_pages` | Max pages to OCR per document (0 = no limit) |
-| `MICASA_LLM_THINKING` | (unset) | `llm.thinking` | Enable model thinking for chat |
-| `MICASA_CURRENCY` | (auto-detect) | `locale.currency` | ISO 4217 currency code (e.g. `USD`, `EUR`, `GBP`) |
+| `MICASA_EXTRACTION_TEXT_TIMEOUT` | `30s` | `extraction.text_timeout` | pdftotext timeout |
+| `MICASA_EXTRACTION_MAX_PAGES` | `0` | `extraction.max_pages` | Max pages to OCR per document (0 = no limit) |
+| `MICASA_EXTRACTION_LLM_TIMEOUT` | `5m` | `extraction.llm_timeout` | LLM extraction timeout |
+| `MICASA_LOCALE_CURRENCY` | (auto-detect) | `locale.currency` | ISO 4217 currency code (e.g. `USD`, `EUR`, `GBP`) |
+
+{{% details title="Deprecated env var names" closed="true" %}}
+
+The following old env var names are still accepted but emit a deprecation
+warning. They will be removed in a future release.
+
+| Old name | Replacement |
+|----------|-------------|
+| `MICASA_MAX_DOCUMENT_SIZE` | `MICASA_DOCUMENTS_MAX_FILE_SIZE` |
+| `MICASA_CACHE_TTL` | `MICASA_DOCUMENTS_CACHE_TTL` |
+| `MICASA_CACHE_TTL_DAYS` | `MICASA_DOCUMENTS_CACHE_TTL_DAYS` |
+| `MICASA_FILE_PICKER_DIR` | `MICASA_DOCUMENTS_FILE_PICKER_DIR` |
+| `MICASA_CURRENCY` | `MICASA_LOCALE_CURRENCY` |
+| `MICASA_EXTRACTION_MAX_EXTRACT_PAGES` | `MICASA_EXTRACTION_MAX_PAGES` |
+| `MICASA_MAX_EXTRACT_PAGES` | `MICASA_EXTRACTION_MAX_PAGES` |
+| `MICASA_TEXT_TIMEOUT` | `MICASA_EXTRACTION_TEXT_TIMEOUT` |
+| `MICASA_MAX_OCR_PAGES` | `MICASA_EXTRACTION_MAX_PAGES` |
+| `MICASA_EXTRACTION_MODEL` | `MICASA_LLM_EXTRACTION_MODEL` |
+| `MICASA_EXTRACTION_THINKING` | `MICASA_LLM_EXTRACTION_THINKING` |
+
+{{% /details %}}
 
 ### `MICASA_DB_PATH`
 
@@ -152,31 +185,31 @@ export MICASA_LLM_TIMEOUT=15s
 micasa   # waits up to 15s for LLM server responses
 ```
 
-### `MICASA_MAX_DOCUMENT_SIZE`
+### `MICASA_DOCUMENTS_MAX_FILE_SIZE`
 
 Sets the maximum file size for document imports, overriding the config file
 value. Accepts unitized strings or bare integers (bytes). Must be positive:
 
 ```sh
-export MICASA_MAX_DOCUMENT_SIZE="100 MiB"
+export MICASA_DOCUMENTS_MAX_FILE_SIZE="100 MiB"
 micasa   # allows documents up to 100 MiB
 ```
 
-### `MICASA_CACHE_TTL`
+### `MICASA_DOCUMENTS_CACHE_TTL`
 
 Sets the document cache lifetime, overriding the config file value. Accepts
 day-suffixed strings (`30d`), Go durations (`720h`), or bare integers
 (seconds). Set to `0` to disable eviction:
 
 ```sh
-export MICASA_CACHE_TTL=7d
+export MICASA_DOCUMENTS_CACHE_TTL=7d
 micasa   # evicts cache entries older than 7 days
 ```
 
-### `MICASA_CACHE_TTL_DAYS`
+### `MICASA_DOCUMENTS_CACHE_TTL_DAYS`
 
-Deprecated. Use `MICASA_CACHE_TTL` instead. Accepts a bare integer
-interpreted as days. Cannot be set alongside `MICASA_CACHE_TTL`.
+Deprecated. Use `MICASA_DOCUMENTS_CACHE_TTL` instead. Accepts a bare integer
+interpreted as days. Cannot be set alongside `MICASA_DOCUMENTS_CACHE_TTL`.
 
 ### Platform data directory
 
@@ -274,7 +307,7 @@ model = "qwen3"
 # text_timeout = "30s"
 
 # Maximum pages to OCR for scanned documents. 0 = no limit. Default: 0.
-# max_extract_pages = 0
+# max_pages = 0
 
 # Set to false to disable LLM-powered extraction.
 # When disabled, no structured data is extracted from documents.
@@ -288,7 +321,7 @@ model = "qwen3"
 # run; after that the database value is authoritative (portable DB files keep
 # their currency even when opened on a machine with different locale settings).
 # Auto-detected from LC_MONETARY/LANG if not set. Default: USD.
-# Override with MICASA_CURRENCY env var.
+# Override with MICASA_LOCALE_CURRENCY env var.
 # currency = "USD"
 ```
 
@@ -359,7 +392,7 @@ dates, vendor matching) from uploaded documents.
 |-----|------|---------|-------------|
 | `model` | string | (chat model) | **Deprecated.** Use `[llm.extraction] model` instead. Falls back to `llm.model` if empty. |
 | `text_timeout` | string | `"30s"` | Max time for `pdftotext` to run. Go duration syntax, e.g. `"1m"`. Increase for very large PDFs. |
-| `max_extract_pages` | int | `0` | Maximum pages to OCR per scanned document. 0 means no limit. |
+| `max_pages` | int | `0` | Maximum pages to OCR per scanned document. 0 means no limit. |
 | `enabled` | bool | `true` | Set to `false` to disable LLM-powered extraction. When disabled, no structured data is extracted from documents. |
 | `thinking` | bool | `false` | **Deprecated.** Use `[llm.extraction] thinking` instead. |
 
@@ -375,7 +408,7 @@ fields in the application.
 Currency resolution order (highest to lowest):
 
 1. Database value (authoritative once set -- makes the DB file portable)
-2. `MICASA_CURRENCY` environment variable
+2. `MICASA_LOCALE_CURRENCY` environment variable
 3. `[locale] currency` config value
 4. Auto-detect from `LC_MONETARY` or `LANG` locale
 5. `USD` fallback
@@ -455,4 +488,4 @@ restarts. These are controlled through the UI rather than config files:
 |------------|---------|---------------|
 | Dashboard on startup | Shown | Press <kbd>D</kbd> to toggle; your choice is remembered |
 | LLM model | From config | Changed automatically when you switch models in the chat interface |
-| Currency | USD | Set via `[locale] currency` in config, `MICASA_CURRENCY` env var, or auto-detected from system locale. Persisted to the database on first use |
+| Currency | USD | Set via `[locale] currency` in config, `MICASA_LOCALE_CURRENCY` env var, or auto-detected from system locale. Persisted to the database on first use |

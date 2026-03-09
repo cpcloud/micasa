@@ -32,28 +32,35 @@ var deprecatedPaths = map[string]string{
 	"extraction.thinking":      "llm.extraction.thinking",
 }
 
-// fallbackEnvVars maps config key paths to env var names checked when the
-// primary env struct tag yields no match. This covers deprecated env vars
-// whose values are surfaced under a modern key.
-var fallbackEnvVars = map[string][]string{
-	"documents.cache_ttl": {"MICASA_CACHE_TTL_DAYS"},
-}
-
 // ShowConfig writes the fully resolved configuration as valid TOML to w,
 // annotating each field with its env var name and marking active overrides.
 func (c Config) ShowConfig(w io.Writer) error {
 	dc := c.forDisplay()
 
-	envByKey := make(map[string]string)
-	for ev, key := range EnvVars() {
+	envMap := EnvVars() // env_var -> config_key
+	envByKey := make(map[string]string, len(envMap))
+	for ev, key := range envMap {
 		envByKey[key] = ev
 	}
+
+	// Build fallback env vars from the rename table so that
+	// deprecated env var names still show as "src(env): OLD_NAME".
+	fallbacks := make(map[string][]string)
+	for _, r := range envRenames {
+		if key, ok := envMap[r.canonical]; ok {
+			fallbacks[key] = append(fallbacks[key], r.old)
+		}
+	}
+	// Cross-field: deprecated cache_ttl_days env vars feed cache_ttl display.
+	fallbacks["documents.cache_ttl"] = append(fallbacks["documents.cache_ttl"],
+		"MICASA_DOCUMENTS_CACHE_TTL_DAYS", "MICASA_CACHE_TTL_DAYS",
+	)
 
 	v := reflect.ValueOf(dc)
 	allValues := make(map[string]string)
 	collectValues(v, "", allValues)
 
-	blocks := walkSections(v, "", "", envByKey, allValues)
+	blocks := walkSections(v, "", "", envByKey, fallbacks, allValues)
 	return renderBlocks(w, blocks)
 }
 
@@ -149,7 +156,9 @@ func collectValues(v reflect.Value, prefix string, vals map[string]string) {
 // omitempty, and env var comments.
 func walkSections(
 	v reflect.Value, prefix, doc string,
-	envByKey map[string]string, allValues map[string]string,
+	envByKey map[string]string,
+	fallbackEnvVars map[string][]string,
+	allValues map[string]string,
 ) []sectionBlock {
 	t := v.Type()
 
@@ -191,7 +200,7 @@ func walkSections(
 			}
 			fieldDoc := f.Tag.Get("doc")
 			nested = append(nested,
-				walkSections(val, path, fieldDoc, envByKey, allValues)...)
+				walkSections(val, path, fieldDoc, envByKey, fallbackEnvVars, allValues)...)
 			continue
 		}
 

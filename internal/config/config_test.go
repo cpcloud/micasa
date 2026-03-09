@@ -156,7 +156,7 @@ func TestExampleTOML(t *testing.T) {
 	assert.Contains(t, example, "max_file_size")
 	assert.Contains(t, example, "cache_ttl")
 	assert.Contains(t, example, "[extraction]")
-	assert.Contains(t, example, "max_extract_pages")
+	assert.Contains(t, example, "max_pages")
 }
 
 func TestMalformedConfigReturnsError(t *testing.T) {
@@ -197,14 +197,14 @@ func TestMaxDocumentSizeFromFileFractional(t *testing.T) {
 }
 
 func TestMaxDocumentSizeEnvOverrideInteger(t *testing.T) {
-	t.Setenv("MICASA_MAX_DOCUMENT_SIZE", "2097152")
+	t.Setenv("MICASA_DOCUMENTS_MAX_FILE_SIZE", "2097152")
 	cfg, err := LoadFromPath(noConfig(t))
 	require.NoError(t, err)
 	assert.Equal(t, uint64(2097152), cfg.Documents.MaxFileSize.Bytes())
 }
 
 func TestMaxDocumentSizeEnvOverrideUnitized(t *testing.T) {
-	t.Setenv("MICASA_MAX_DOCUMENT_SIZE", "100 MiB")
+	t.Setenv("MICASA_DOCUMENTS_MAX_FILE_SIZE", "100 MiB")
 	cfg, err := LoadFromPath(noConfig(t))
 	require.NoError(t, err)
 	assert.Equal(t, uint64(100<<20), cfg.Documents.MaxFileSize.Bytes())
@@ -260,14 +260,14 @@ func TestCacheTTLZeroDisables(t *testing.T) {
 }
 
 func TestCacheTTLEnvOverride(t *testing.T) {
-	t.Setenv("MICASA_CACHE_TTL", "14d")
+	t.Setenv("MICASA_DOCUMENTS_CACHE_TTL", "14d")
 	cfg, err := LoadFromPath(noConfig(t))
 	require.NoError(t, err)
 	assert.Equal(t, 14*24*time.Hour, cfg.Documents.CacheTTLDuration())
 }
 
 func TestCacheTTLEnvOverrideSeconds(t *testing.T) {
-	t.Setenv("MICASA_CACHE_TTL", "86400")
+	t.Setenv("MICASA_DOCUMENTS_CACHE_TTL", "86400")
 	cfg, err := LoadFromPath(noConfig(t))
 	require.NoError(t, err)
 	assert.Equal(t, 24*time.Hour, cfg.Documents.CacheTTLDuration())
@@ -299,12 +299,12 @@ func TestCacheTTLDaysZeroDisables(t *testing.T) {
 }
 
 func TestCacheTTLDaysEnvOverride(t *testing.T) {
-	t.Setenv("MICASA_CACHE_TTL_DAYS", "14")
+	t.Setenv("MICASA_DOCUMENTS_CACHE_TTL_DAYS", "14")
 	cfg, err := LoadFromPath(noConfig(t))
 	require.NoError(t, err)
 	assert.Equal(t, 14*24*time.Hour, cfg.Documents.CacheTTLDuration())
 	require.Len(t, cfg.Warnings, 1)
-	assert.Contains(t, cfg.Warnings[0], "MICASA_CACHE_TTL_DAYS")
+	assert.Contains(t, cfg.Warnings[0], "documents.cache_ttl_days")
 }
 
 func TestCacheTTLDaysRejectsNegative(t *testing.T) {
@@ -322,8 +322,8 @@ func TestCacheTTLAndCacheTTLDaysBothSetFails(t *testing.T) {
 }
 
 func TestCacheTTLAndCacheTTLDaysEnvBothSetFails(t *testing.T) {
-	t.Setenv("MICASA_CACHE_TTL", "30d")
-	t.Setenv("MICASA_CACHE_TTL_DAYS", "30")
+	t.Setenv("MICASA_DOCUMENTS_CACHE_TTL", "30d")
+	t.Setenv("MICASA_DOCUMENTS_CACHE_TTL_DAYS", "30")
 	_, err := LoadFromPath(noConfig(t))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot both be set")
@@ -430,7 +430,7 @@ func TestExtractionLLMTimeout(t *testing.T) {
 	})
 
 	t.Run("env override", func(t *testing.T) {
-		t.Setenv("MICASA_EXTRACTION_LLM_TIMEOUT", "3m")
+		t.Setenv("MICASA_EXTRACTION_LLM_TIMEOUT", "3m") // derived from extraction.llm_timeout
 		cfg, err := LoadFromPath(noConfig(t))
 		require.NoError(t, err)
 		assert.Equal(t, 3*time.Minute, cfg.Extraction.LLMTimeoutDuration())
@@ -454,7 +454,7 @@ func TestExtractionLLMTimeout(t *testing.T) {
 func TestExtractionDefaults(t *testing.T) {
 	cfg, err := LoadFromPath(noConfig(t))
 	require.NoError(t, err)
-	assert.Equal(t, DefaultMaxExtractPages, cfg.Extraction.MaxExtractPages)
+	assert.Equal(t, DefaultMaxPages, cfg.Extraction.MaxPages)
 	assert.True(t, cfg.Extraction.IsEnabled())
 	assert.Empty(t, cfg.Extraction.Model)
 }
@@ -462,13 +462,13 @@ func TestExtractionDefaults(t *testing.T) {
 func TestExtractionFromFile(t *testing.T) {
 	path := writeConfig(t, `[extraction]
 model = "qwen2.5:7b"
-max_extract_pages = 10
+max_pages = 10
 enabled = false
 `)
 	cfg, err := LoadFromPath(path)
 	require.NoError(t, err)
 	assert.Equal(t, "qwen2.5:7b", cfg.Extraction.Model)
-	assert.Equal(t, 10, cfg.Extraction.MaxExtractPages)
+	assert.Equal(t, 10, cfg.Extraction.MaxPages)
 	assert.False(t, cfg.Extraction.IsEnabled())
 }
 
@@ -485,18 +485,18 @@ func TestExtractionResolvedModel(t *testing.T) {
 
 func TestExtractionEnvOverrides(t *testing.T) {
 	t.Setenv("MICASA_EXTRACTION_MODEL", "phi3")
-	t.Setenv("MICASA_MAX_EXTRACT_PAGES", "5")
+	t.Setenv("MICASA_EXTRACTION_MAX_PAGES", "5")
 	t.Setenv("MICASA_EXTRACTION_ENABLED", "false")
 
 	cfg, err := LoadFromPath(noConfig(t))
 	require.NoError(t, err)
 	assert.Equal(t, "phi3", cfg.Extraction.Model)
-	assert.Equal(t, 5, cfg.Extraction.MaxExtractPages)
+	assert.Equal(t, 5, cfg.Extraction.MaxPages)
 	assert.False(t, cfg.Extraction.IsEnabled())
 }
 
 func TestExtractionRejectsNegativePages(t *testing.T) {
-	path := writeConfig(t, "[extraction]\nmax_extract_pages = -1\n")
+	path := writeConfig(t, "[extraction]\nmax_pages = -1\n")
 	_, err := LoadFromPath(path)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "must be non-negative")
@@ -510,11 +510,11 @@ func TestInvalidEnvVarReturnsError(t *testing.T) {
 		value   string
 		wantMsg string
 	}{
-		{"MICASA_MAX_EXTRACT_PAGES", "not-a-number", "expected integer"},
+		{"MICASA_EXTRACTION_MAX_PAGES", "not-a-number", "expected integer"},
 		{"MICASA_EXTRACTION_ENABLED", "maybe", "expected true or false"},
-		{"MICASA_MAX_DOCUMENT_SIZE", "lots", "expected byte size"},
-		{"MICASA_CACHE_TTL", "forever", "expected duration"},
-		{"MICASA_CACHE_TTL_DAYS", "many", "expected integer"},
+		{"MICASA_DOCUMENTS_MAX_FILE_SIZE", "lots", "expected byte size"},
+		{"MICASA_DOCUMENTS_CACHE_TTL", "forever", "expected duration"},
+		{"MICASA_DOCUMENTS_CACHE_TTL_DAYS", "many", "expected integer"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.envVar, func(t *testing.T) {
@@ -598,7 +598,7 @@ func TestKeys(t *testing.T) {
 	assert.Contains(t, keys, "llm.model")
 	assert.Contains(t, keys, "llm.base_url")
 	assert.Contains(t, keys, "documents.max_file_size")
-	assert.Contains(t, keys, "extraction.max_extract_pages")
+	assert.Contains(t, keys, "extraction.max_pages")
 	// Verify every key is resolvable against defaults.
 	cfg := defaults()
 	for _, k := range keys {
@@ -613,25 +613,30 @@ func TestEnvVars(t *testing.T) {
 	m := EnvVars()
 	assert.NotEmpty(t, m)
 
+	// Every env var name is derived from its dotted config path:
+	// MICASA_ + UPPER(key with "." -> "_").
 	want := map[string]string{
-		"MICASA_LLM_PROVIDER":           "llm.provider",
-		"MICASA_LLM_BASE_URL":           "llm.base_url",
-		"MICASA_LLM_API_KEY":            "llm.api_key",
-		"MICASA_LLM_MODEL":              "llm.model",
-		"MICASA_LLM_EXTRA_CONTEXT":      "llm.extra_context",
-		"MICASA_LLM_TIMEOUT":            "llm.timeout",
-		"MICASA_LLM_THINKING":           "llm.thinking",
-		"MICASA_MAX_DOCUMENT_SIZE":      "documents.max_file_size",
-		"MICASA_CACHE_TTL":              "documents.cache_ttl",
-		"MICASA_CACHE_TTL_DAYS":         "documents.cache_ttl_days",
-		"MICASA_FILE_PICKER_DIR":        "documents.file_picker_dir",
-		"MICASA_EXTRACTION_MODEL":       "extraction.model",
-		"MICASA_MAX_EXTRACT_PAGES":      "extraction.max_extract_pages",
-		"MICASA_EXTRACTION_ENABLED":     "extraction.enabled",
-		"MICASA_TEXT_TIMEOUT":           "extraction.text_timeout",
-		"MICASA_EXTRACTION_LLM_TIMEOUT": "extraction.llm_timeout",
-		"MICASA_EXTRACTION_THINKING":    "extraction.thinking",
-		"MICASA_CURRENCY":               "locale.currency",
+		"MICASA_LLM_PROVIDER":      "llm.provider",
+		"MICASA_LLM_BASE_URL":      "llm.base_url",
+		"MICASA_LLM_API_KEY":       "llm.api_key",
+		"MICASA_LLM_MODEL":         "llm.model",
+		"MICASA_LLM_EXTRA_CONTEXT": "llm.extra_context",
+		"MICASA_LLM_TIMEOUT":       "llm.timeout",
+		"MICASA_LLM_THINKING":      "llm.thinking",
+
+		"MICASA_DOCUMENTS_MAX_FILE_SIZE":   "documents.max_file_size",
+		"MICASA_DOCUMENTS_CACHE_TTL":       "documents.cache_ttl",
+		"MICASA_DOCUMENTS_CACHE_TTL_DAYS":  "documents.cache_ttl_days",
+		"MICASA_DOCUMENTS_FILE_PICKER_DIR": "documents.file_picker_dir",
+
+		"MICASA_EXTRACTION_MODEL":        "extraction.model",
+		"MICASA_EXTRACTION_MAX_PAGES":    "extraction.max_pages",
+		"MICASA_EXTRACTION_ENABLED":      "extraction.enabled",
+		"MICASA_EXTRACTION_TEXT_TIMEOUT": "extraction.text_timeout",
+		"MICASA_EXTRACTION_LLM_TIMEOUT":  "extraction.llm_timeout",
+		"MICASA_EXTRACTION_THINKING":     "extraction.thinking",
+
+		"MICASA_LOCALE_CURRENCY": "locale.currency",
 
 		// Per-pipeline chat overrides.
 		"MICASA_LLM_CHAT_PROVIDER": "llm.chat.provider",
@@ -650,6 +655,24 @@ func TestEnvVars(t *testing.T) {
 		"MICASA_LLM_EXTRACTION_THINKING": "llm.extraction.thinking",
 	}
 	assert.Equal(t, want, m)
+}
+
+func TestEnvVarName(t *testing.T) {
+	tests := []struct {
+		key  string
+		want string
+	}{
+		{"llm.model", "MICASA_LLM_MODEL"},
+		{"documents.max_file_size", "MICASA_DOCUMENTS_MAX_FILE_SIZE"},
+		{"extraction.text_timeout", "MICASA_EXTRACTION_TEXT_TIMEOUT"},
+		{"locale.currency", "MICASA_LOCALE_CURRENCY"},
+		{"llm.chat.provider", "MICASA_LLM_CHAT_PROVIDER"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.key, func(t *testing.T) {
+			assert.Equal(t, tt.want, EnvVarName(tt.key))
+		})
+	}
 }
 
 func TestEnvVarsCoverAllKeys(t *testing.T) {
@@ -671,28 +694,49 @@ func TestMaxOCRPagesTOMLMigration(t *testing.T) {
 	path := writeConfig(t, "[extraction]\nmax_ocr_pages = 10\n")
 	cfg, err := LoadFromPath(path)
 	require.NoError(t, err)
-	assert.Equal(t, 10, cfg.Extraction.MaxExtractPages)
+	assert.Equal(t, 10, cfg.Extraction.MaxPages)
 	require.Len(t, cfg.Warnings, 1)
 	assert.Contains(t, cfg.Warnings[0], "max_ocr_pages")
-	assert.Contains(t, cfg.Warnings[0], "max_extract_pages")
+	assert.Contains(t, cfg.Warnings[0], "max_pages")
 }
 
 func TestMaxOCRPagesEnvMigration(t *testing.T) {
 	t.Setenv("MICASA_MAX_OCR_PAGES", "15")
 	cfg, err := LoadFromPath(noConfig(t))
 	require.NoError(t, err)
-	assert.Equal(t, 15, cfg.Extraction.MaxExtractPages)
+	assert.Equal(t, 15, cfg.Extraction.MaxPages)
 	require.Len(t, cfg.Warnings, 1)
 	assert.Contains(t, cfg.Warnings[0], "MICASA_MAX_OCR_PAGES")
+	assert.Contains(t, cfg.Warnings[0], "MICASA_EXTRACTION_MAX_PAGES")
 }
 
 func TestMaxOCRPagesEnvIgnoredWhenNewEnvSet(t *testing.T) {
 	t.Setenv("MICASA_MAX_OCR_PAGES", "15")
-	t.Setenv("MICASA_MAX_EXTRACT_PAGES", "25")
+	t.Setenv("MICASA_EXTRACTION_MAX_PAGES", "25")
 	cfg, err := LoadFromPath(noConfig(t))
 	require.NoError(t, err)
-	assert.Equal(t, 25, cfg.Extraction.MaxExtractPages)
+	assert.Equal(t, 25, cfg.Extraction.MaxPages)
 	assert.Empty(t, cfg.Warnings)
+}
+
+func TestMaxPagesEnvMigration(t *testing.T) {
+	t.Setenv("MICASA_MAX_EXTRACT_PAGES", "20")
+	cfg, err := LoadFromPath(noConfig(t))
+	require.NoError(t, err)
+	assert.Equal(t, 20, cfg.Extraction.MaxPages)
+	require.Len(t, cfg.Warnings, 1)
+	assert.Contains(t, cfg.Warnings[0], "MICASA_MAX_EXTRACT_PAGES")
+	assert.Contains(t, cfg.Warnings[0], "MICASA_EXTRACTION_MAX_PAGES")
+}
+
+func TestMaxPagesEnvMigrationChain(t *testing.T) {
+	// Both old names set -- newest intermediate wins.
+	t.Setenv("MICASA_MAX_OCR_PAGES", "10")
+	t.Setenv("MICASA_MAX_EXTRACT_PAGES", "20")
+	cfg, err := LoadFromPath(noConfig(t))
+	require.NoError(t, err)
+	assert.Equal(t, 20, cfg.Extraction.MaxPages,
+		"MICASA_MAX_EXTRACT_PAGES (newer) should take precedence")
 }
 
 // --- Per-pipeline LLM config ---
@@ -1019,6 +1063,56 @@ func TestExtractionModelEnvMigrationNotOverrideNew(t *testing.T) {
 	assert.Equal(t, "new", cfg.LLM.Extraction.Model)
 }
 
+// --- Deprecation: v1.77 env var renames ---
+
+func TestDeprecatedEnvVarRenames(t *testing.T) {
+	tests := []struct {
+		old       string
+		canonical string
+		value     string
+	}{
+		{"MICASA_CURRENCY", "MICASA_LOCALE_CURRENCY", "EUR"},
+		{"MICASA_MAX_DOCUMENT_SIZE", "MICASA_DOCUMENTS_MAX_FILE_SIZE", "100 MiB"},
+		{"MICASA_CACHE_TTL", "MICASA_DOCUMENTS_CACHE_TTL", "7d"},
+		{"MICASA_FILE_PICKER_DIR", "MICASA_DOCUMENTS_FILE_PICKER_DIR", "/tmp"},
+		{"MICASA_TEXT_TIMEOUT", "MICASA_EXTRACTION_TEXT_TIMEOUT", "1m"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.old, func(t *testing.T) {
+			t.Setenv(tt.old, tt.value)
+			cfg, err := LoadFromPath(noConfig(t))
+			require.NoError(t, err)
+
+			// Value should be applied via the canonical env var.
+			got, err := cfg.Get(EnvVars()[tt.canonical])
+			require.NoError(t, err)
+			assert.NotEmpty(t, got)
+
+			// Should warn about the rename.
+			found := false
+			for _, w := range cfg.Warnings {
+				if strings.Contains(w, tt.old) && strings.Contains(w, tt.canonical) {
+					found = true
+				}
+			}
+			assert.True(t, found,
+				"expected deprecation warning mentioning %s -> %s", tt.old, tt.canonical)
+		})
+	}
+}
+
+func TestDeprecatedEnvVarIgnoredWhenCanonicalSet(t *testing.T) {
+	t.Setenv("MICASA_CURRENCY", "EUR")
+	t.Setenv("MICASA_LOCALE_CURRENCY", "GBP")
+	cfg, err := LoadFromPath(noConfig(t))
+	require.NoError(t, err)
+	assert.Equal(t, "GBP", cfg.Locale.Currency, "canonical should win")
+	// No rename warning when canonical is set.
+	for _, w := range cfg.Warnings {
+		assert.NotContains(t, w, "MICASA_CURRENCY is deprecated")
+	}
+}
+
 func TestExtractionThinkingTOMLMigration(t *testing.T) {
 	path := writeConfig(t, `[extraction]
 thinking = "low"
@@ -1263,7 +1357,7 @@ func TestFilePickerDir_FromTOML(t *testing.T) {
 
 func TestFilePickerDir_FromEnv(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("MICASA_FILE_PICKER_DIR", dir)
+	t.Setenv("MICASA_DOCUMENTS_FILE_PICKER_DIR", dir)
 	cfg, err := LoadFromPath(noConfig(t))
 	require.NoError(t, err)
 	assert.Equal(t, dir, cfg.Documents.FilePickerDir)
