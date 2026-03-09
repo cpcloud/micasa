@@ -990,6 +990,43 @@ func TestApplianceMaintenanceHandlerLoad(t *testing.T) {
 	assert.NotZero(t, meta[0].ID)
 }
 
+func TestApplianceMaintenanceInlineEditSeasonDispatchesCorrectly(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithStore(t)
+	cats, _ := m.store.MaintenanceCategories()
+
+	require.NoError(t, m.store.CreateAppliance(&data.Appliance{Name: "Furnace"}))
+	apps, _ := m.store.ListAppliances(false)
+	appID := apps[0].ID
+
+	require.NoError(t, m.store.CreateMaintenance(&data.MaintenanceItem{
+		Name:        "Replace Filter",
+		CategoryID:  cats[0].ID,
+		ApplianceID: &appID,
+		Season:      data.SeasonFall,
+	}))
+
+	h := newApplianceMaintenanceHandler(appID)
+	_, meta, _, err := h.Load(m.store, false)
+	require.NoError(t, err)
+	id := meta[0].ID
+
+	// In the sub-table (Appliance column removed), Season is at index 3.
+	// skipColEdit must remap this to maintenanceColSeason (4) in the full table,
+	// NOT to maintenanceColAppliance.
+	m.exitForm()
+	m.closeInlineInput()
+	require.NoError(t, h.InlineEdit(m, id, 3))
+	assert.Equal(t, modeForm, m.mode)
+
+	// Verify the form opened for season, not appliance:
+	// the form data should reflect the current season value.
+	fd, ok := m.fs.formData.(*maintenanceFormData)
+	require.True(t, ok)
+	assert.Equal(t, data.SeasonFall, fd.Season,
+		"inline edit on sub-table col 3 should dispatch to Season, not Appliance")
+}
+
 // ---------------------------------------------------------------------------
 // Regression: ctrl+s during add form must not create duplicates (#354)
 // ---------------------------------------------------------------------------

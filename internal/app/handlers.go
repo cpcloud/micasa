@@ -436,7 +436,7 @@ func newApplianceMaintenanceHandler(applianceID uint) scopedHandler {
 			rows, meta, cellRows := applianceMaintenanceRows(items, logCounts, docCounts)
 			return rows, meta, cellRows, nil
 		},
-		inlineEditFn: skipColEdit(parent, 3), // skip Appliance column
+		inlineEditFn: skipColEdit(parent, int(maintenanceColAppliance)), // skip Appliance column
 	}
 }
 
