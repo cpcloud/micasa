@@ -388,6 +388,15 @@ func LoadFromPath(path string) (Config, error) {
 		return cfg, err
 	}
 
+	// Clear deprecated Enabled again: applyEnvOverrides may have
+	// repopulated it from MICASA_EXTRACTION_ENABLED.
+	if cfg.Extraction.Enabled != nil {
+		if cfg.Extraction.Enable == nil {
+			cfg.Extraction.Enable = cfg.Extraction.Enabled
+		}
+		cfg.Extraction.Enabled = nil
+	}
+
 	// Normalize base URLs: strip trailing slash and /v1 suffix --
 	// providers handle their own path construction.
 	cfg.LLM.BaseURL = normalizeBaseURL(cfg.LLM.BaseURL)

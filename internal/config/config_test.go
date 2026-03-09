@@ -766,6 +766,7 @@ func TestEnabledEnvMigration(t *testing.T) {
 	cfg, err := LoadFromPath(noConfig(t))
 	require.NoError(t, err)
 	assert.False(t, cfg.Extraction.IsEnabled())
+	assert.Nil(t, cfg.Extraction.Enabled, "deprecated Enabled must be cleared after env migration")
 	require.Len(t, cfg.Warnings, 1)
 	assert.Contains(t, cfg.Warnings[0], "MICASA_EXTRACTION_ENABLED")
 	assert.Contains(t, cfg.Warnings[0], "MICASA_EXTRACTION_ENABLE")
