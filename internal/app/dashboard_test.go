@@ -1330,108 +1330,171 @@ func TestInsightsRows_WithItems(t *testing.T) {
 	assert.True(t, rows[1].Target.InfoOnly)
 }
 
-func TestInsightsSection_AppearsInDashboardView(t *testing.T) {
+func TestInsightsSection_AppearsAfterResultMsg(t *testing.T) {
 	t.Parallel()
 	m := newTestModel(t)
 	m.insightsEnabled = true
-	m.showDashboard = true
-	m.dash.data = nonEmptyDashboard()
-	m.dash.insights.items = []insightItem{
-		{Text: "Test insight", Tab: "appliances", EntityID: 1},
-	}
-	m.dash.insights.generatedAt = time.Now()
-	m.dash.expanded = map[string]bool{dashSectionInsights: true}
-	m.buildDashNav()
+	m.width = 120
+	m.height = 40
 
-	view := m.dashboardView(50, 80)
-	assert.Contains(t, view, dashSectionInsights)
-	assert.Contains(t, view, "Test insight")
-}
+	// Open dashboard with D.
+	sendKey(m, "D")
+	require.True(t, m.showDashboard)
 
-func TestInsightsSection_LoadingState(t *testing.T) {
-	t.Parallel()
-	m := newTestModel(t)
-	m.insightsEnabled = true
-	// Need llmClient to be non-nil for insightsWanted.
-	// We can just set the flag directly for rendering tests.
-	m.showDashboard = true
-	m.dash.data = nonEmptyDashboard()
-	m.dash.insights.loading = true
-	m.buildDashNav()
+	// Simulate LLM response arriving via insightsResultMsg.
+	m.Update(insightsResultMsg{
+		Items: []insightItem{
+			{Text: "Water heater is 12y old", Tab: "appliances", EntityID: 1},
+		},
+	})
+	m.prepareDashboardView()
 
-	view := m.dashboardView(50, 80)
-	assert.Contains(t, view, "analyzing...")
-}
-
-func TestInsightsSection_ErrorState(t *testing.T) {
-	t.Parallel()
-	m := newTestModel(t)
-	m.insightsEnabled = true
-	m.showDashboard = true
-	m.dash.data = nonEmptyDashboard()
-	m.dash.insights.err = fmt.Errorf("network timeout")
-	m.buildDashNav()
-
-	view := m.dashboardView(50, 80)
-	assert.Contains(t, view, "unavailable")
-	assert.Contains(t, view, "network timeout")
-	assert.NotContains(t, view, "error:")
-}
-
-func TestInsightsNav_JumpsToEntity(t *testing.T) {
-	t.Parallel()
-	m := newTestModel(t)
-	m.showDashboard = true
-	m.dash.data = nonEmptyDashboard()
-	m.dash.insights.items = []insightItem{
-		{Text: "Test insight", Tab: "appliances", EntityID: 42},
-	}
-	m.dash.expanded = map[string]bool{dashSectionInsights: true}
-	m.buildDashNav()
-
-	// Find the insights data entry in nav.
-	found := false
-	for i, entry := range m.dash.nav {
-		if entry.Section == dashSectionInsights && !entry.IsHeader {
-			found = true
-			m.dash.cursor = i
+	// Expand insights section (last section).
+	sendKey(m, "G") // jump to bottom
+	// Find and expand the insights header.
+	for m.dash.cursor > 0 {
+		entry := m.dash.nav[m.dash.cursor]
+		if entry.IsHeader && entry.Section == dashSectionInsights {
 			break
 		}
+		sendKey(m, "k")
 	}
-	require.True(t, found, "should have an insights nav entry")
+	sendKey(m, "e") // expand
+	m.prepareDashboardView()
 
-	// Press enter to jump.
+	overlay := m.buildDashboardOverlay()
+	assert.Contains(t, overlay, dashSectionInsights)
+	assert.Contains(t, overlay, "Water heater is 12y old")
+}
+
+func TestInsightsSection_LoadingShowsSpinner(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.insightsEnabled = true
+	m.width = 120
+	m.height = 40
+
+	// Open dashboard.
+	sendKey(m, "D")
+	require.True(t, m.showDashboard)
+
+	// Simulate loading state (insights fetch in progress).
+	m.dash.insights.loading = true
+	m.prepareDashboardView()
+
+	overlay := m.buildDashboardOverlay()
+	assert.Contains(t, overlay, "analyzing...")
+}
+
+func TestInsightsSection_ErrorShowsMutedMessage(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.insightsEnabled = true
+	m.width = 120
+	m.height = 40
+
+	// Open dashboard.
+	sendKey(m, "D")
+	require.True(t, m.showDashboard)
+
+	// Simulate error result arriving.
+	m.Update(insightsResultMsg{Err: fmt.Errorf("network timeout")})
+	m.prepareDashboardView()
+
+	overlay := m.buildDashboardOverlay()
+	assert.Contains(t, overlay, "unavailable")
+	assert.Contains(t, overlay, "network timeout")
+	assert.NotContains(t, overlay, "error:")
+}
+
+func TestInsightsNav_JumpsToEntityViaKeyboard(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.insightsEnabled = true
+	m.width = 120
+	m.height = 40
+
+	// Open dashboard.
+	sendKey(m, "D")
+	require.True(t, m.showDashboard)
+
+	// Deliver insights.
+	m.Update(insightsResultMsg{
+		Items: []insightItem{
+			{Text: "Test insight", Tab: "appliances", EntityID: 42},
+		},
+	})
+	m.prepareDashboardView()
+
+	// Navigate to the Insights section header with J (jump between sections).
+	for range 20 {
+		entry := m.dash.nav[m.dash.cursor]
+		if entry.IsHeader && entry.Section == dashSectionInsights {
+			break
+		}
+		sendKey(m, "J")
+	}
+	require.Equal(t, dashSectionInsights, m.dash.nav[m.dash.cursor].Section)
+
+	// Expand it.
+	sendKey(m, "e")
+	m.prepareDashboardView()
+
+	// Move down to the data row.
+	sendKey(m, "j")
+	require.False(t, m.dash.nav[m.dash.cursor].IsHeader, "should be on data row")
+
+	// Press enter to jump to the entity.
 	sendKey(m, "enter")
-	assert.False(t, m.showDashboard, "enter should close dashboard")
+	assert.False(t, m.showDashboard, "dashboard should close")
 	assert.Equal(t, tabIndex(tabAppliances), m.active)
 }
 
-func TestInsightsRefreshKey(t *testing.T) {
+func TestInsightsRefreshKey_MarksStale(t *testing.T) {
 	t.Parallel()
 	m := newTestModel(t)
-	m.showDashboard = true
 	m.insightsEnabled = true
-	m.dash.data = nonEmptyDashboard()
-	m.dash.insights.items = []insightItem{
-		{Text: "Old insight", Tab: "appliances", EntityID: 1},
-	}
-	m.dash.insights.stale = false
-	m.buildDashNav()
+	m.width = 120
+	m.height = 40
 
-	// r key should mark insights stale (even without llmClient).
+	// Open dashboard.
+	sendKey(m, "D")
+	require.True(t, m.showDashboard)
+
+	// Deliver insights so they're cached.
+	m.Update(insightsResultMsg{
+		Items: []insightItem{
+			{Text: "Old insight", Tab: "appliances", EntityID: 1},
+		},
+	})
+	m.prepareDashboardView()
+	require.False(t, m.dash.insights.stale)
+
+	// Press r to refresh.
 	sendKey(m, "r")
 	assert.True(t, m.dash.insights.stale)
 }
 
-func TestMarkInsightsStale_OnMutation(t *testing.T) {
+func TestInsightsStale_AfterMutation(t *testing.T) {
 	t.Parallel()
 	m := newTestModelWithStore(t)
 	m.insightsEnabled = true
-	m.dash.insights.items = []insightItem{
-		{Text: "Old insight", Tab: "appliances", EntityID: 1},
-	}
-	m.dash.insights.stale = false
+	m.width = 120
+	m.height = 40
 
+	// Open dashboard.
+	sendKey(m, "D")
+	require.True(t, m.showDashboard)
+
+	// Deliver insights.
+	m.Update(insightsResultMsg{
+		Items: []insightItem{
+			{Text: "Old insight", Tab: "appliances", EntityID: 1},
+		},
+	})
+	require.False(t, m.dash.insights.stale)
+
+	// Simulate a data mutation (e.g. user saved an edit).
 	m.reloadAfterMutation()
 	assert.True(t, m.dash.insights.stale, "mutation should mark insights stale")
 }
