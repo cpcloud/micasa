@@ -678,7 +678,7 @@ func (m *Model) handleDashboardKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 		// Block column movement on dashboard.
 		return nil, true
 	case keyR:
-		if m.insightsEnabled {
+		if m.insightsWanted() {
 			cmd := m.refreshInsights()
 			m.setStatusInfo("refreshing insights")
 			return cmd, true

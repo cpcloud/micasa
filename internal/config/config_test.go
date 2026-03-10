@@ -861,6 +861,17 @@ context_length = 65536
 	assert.Equal(t, 65536, cfg.LLM.ExtractionConfig().ContextLength)
 }
 
+func TestContextLengthRejectsNegative(t *testing.T) {
+	path := writeConfig(t, `[llm]
+provider = "ollama"
+model = "qwen3"
+context_length = -1
+`)
+	_, err := LoadFromPath(path)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "context_length")
+}
+
 func TestExtractionConfigInheritsBase(t *testing.T) {
 	path := writeConfig(t, `[llm]
 provider = "ollama"

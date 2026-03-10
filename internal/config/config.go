@@ -504,6 +504,14 @@ func LoadFromPath(path string) (Config, error) {
 		)
 	}
 
+	// Validate context_length.
+	if cfg.LLM.ContextLength < 0 {
+		return cfg, fmt.Errorf(
+			"llm.context_length: must be >= 0, got %d",
+			cfg.LLM.ContextLength,
+		)
+	}
+
 	// Validate timeouts.
 	if cfg.LLM.Timeout != "" {
 		d, err := time.ParseDuration(cfg.LLM.Timeout)

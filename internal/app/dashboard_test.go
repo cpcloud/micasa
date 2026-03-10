@@ -11,9 +11,19 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/cpcloud/micasa/internal/data"
+	"github.com/cpcloud/micasa/internal/llm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// testDummyLLMClient returns a non-nil LLM client for tests that need
+// insightsWanted() to return true. Not connected to a real server.
+func testDummyLLMClient(t *testing.T) *llm.Client {
+	t.Helper()
+	c, err := llm.NewClient("llamacpp", "http://127.0.0.1:1", "test", "", time.Second, 0)
+	require.NoError(t, err)
+	return c
+}
 
 // nonEmptyDashboard returns a minimal dashboardData that is not empty,
 // for tests that just need the dashboard overlay to render.
@@ -1454,6 +1464,7 @@ func TestInsightsRefreshKey_MarksStale(t *testing.T) {
 	t.Parallel()
 	m := newTestModel(t)
 	m.insightsEnabled = true
+	m.llmClient = testDummyLLMClient(t)
 	m.width = 120
 	m.height = 40
 
