@@ -1160,16 +1160,11 @@ model = "` + DefaultModel + `"
 # Maximum pages for async extraction of scanned documents. 0 = no limit. Default: 0.
 # max_pages = 0
 
-# [extraction.ocr]
+[extraction.ocr]
 # Set to false to disable OCR on uploaded documents. When disabled, scanned
 # pages and images produce no text. Default: true.
 # enable = true
 
-# Minimum tesseract word confidence (0-100) to keep. Words below this
-# threshold are dropped. 0 = no filtering. Default: 0.
-# confidence_threshold = 0
-
-[extraction.ocr]
 # Send spatial layout annotations (line-level bounding boxes) from tesseract
 # OCR to the LLM alongside text. Improves extraction accuracy for invoices
 # and forms with tabular data, at ~2x token overhead. Default: true.
