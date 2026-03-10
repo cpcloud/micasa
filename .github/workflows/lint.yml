@@ -91,7 +91,7 @@ jobs:
         run: nix run '.#pre-commit' -- --from-ref 'origin/${{ github.base_ref || 'main' }}' --to-ref HEAD
 
   result:
-    name: Result
+    name: Lint Result
     if: always()
     needs: [changes, deadcode, golangci-lint, pre-commit]
     runs-on: ubuntu-latest

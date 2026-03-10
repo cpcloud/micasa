@@ -265,12 +265,11 @@ jobs:
 
   # ---------------------------------------------------------------------------
   # Gate: single required check that rolls up all jobs above.
-  # After merging, update the repo ruleset to require only "CI / Result".
-  # The job name below is just "Result"; GitHub prefixes the workflow name.
+  # Ruleset requires "CI Result", "Lint Result", "Security Result".
   # ---------------------------------------------------------------------------
 
   result:
-    name: Result
+    name: CI Result
     if: always()
     needs: [changes, test, benchmarks, nix-build, docs, semantic-release]
     runs-on: ubuntu-latest
