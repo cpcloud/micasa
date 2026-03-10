@@ -1327,7 +1327,7 @@ func TestInsightsRows_WithItems(t *testing.T) {
 	m.insightsEnabled = true
 	m.dash.insights.items = []insightItem{
 		{Text: "Water heater is 12y old", Tab: "appliances", EntityID: 5},
-		{Text: "4 HVAC calls this year", Tab: "maintenance", EntityID: 0},
+		{Text: "4 HVAC calls this year", Tab: "maintenance", EntityID: 12},
 	}
 	rows := m.dashInsightsRows()
 	require.Len(t, rows, 2)
@@ -1336,8 +1336,9 @@ func TestInsightsRows_WithItems(t *testing.T) {
 	assert.Equal(t, tabAppliances, rows[0].Target.Tab)
 	assert.Equal(t, uint(5), rows[0].Target.ID)
 	assert.False(t, rows[0].Target.InfoOnly)
-	// EntityID 0 with a valid tab should still navigate to the tab.
+	assert.Equal(t, "4 HVAC calls this year", rows[1].Cells[0].Text)
 	assert.Equal(t, tabMaintenance, rows[1].Target.Tab)
+	assert.Equal(t, uint(12), rows[1].Target.ID)
 	assert.False(t, rows[1].Target.InfoOnly)
 }
 
@@ -1394,7 +1395,7 @@ func TestInsightsSection_LoadingShowsSpinner(t *testing.T) {
 	m.prepareDashboardView()
 
 	overlay := m.buildDashboardOverlay()
-	assert.Contains(t, overlay, "analyzing")
+	assert.Contains(t, overlay, "Insights")
 }
 
 func TestInsightsSection_ErrorShowsMutedMessage(t *testing.T) {

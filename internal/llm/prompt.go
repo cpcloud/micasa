@@ -171,7 +171,8 @@ func InsightsJSONSchema() map[string]any {
 						},
 						"entity_id": map[string]any{
 							"type":        "integer",
-							"description": "Database ID of the specific entity, or 0 if the insight is about a group",
+							"minimum":     1,
+							"description": "Database ID of the specific entity from the data",
 						},
 					},
 					"required": []string{"text", "tab", "entity_id"},
@@ -448,20 +449,21 @@ RULES:
 2. Do NOT duplicate information that is obviously visible at a glance (e.g. overdue maintenance items, open incidents). Focus on non-obvious patterns and cross-entity observations.
 3. Each insight should be a single short sentence -- concise and actionable.
 4. Money values in the data are already formatted as dollars.
-5. Reference specific entity names so the user can find them.
-6. Output valid JSON only. No commentary outside the JSON.`
+5. Reference specific entity names so the user can find them. NEVER include numeric IDs in the text -- use names only.
+6. Output valid JSON only. No commentary outside the JSON.
+7. Every insight MUST reference a specific entity by its exact "id" from the data. Do not include insights that cannot be tied to a specific entity ID.`
 
 const insightsGuidelines = `## Output format
 
 Return a JSON object with an "insights" array. Each element has:
 - "text": one-sentence insight
 - "tab": which app tab is most relevant (projects, quotes, maintenance, incidents, appliances, vendors, documents)
-- "entity_id": the database ID of the specific entity, or 0 if the insight is about a group/pattern
+- "entity_id": the EXACT numeric "id" value shown in the data for that entity. NEVER guess an ID -- only use IDs that appear in the data above. Every insight MUST reference a specific entity.
 
 Example:
 {"insights":[
   {"text":"Water heater is 12 years old -- average lifespan is 10-15 years","tab":"appliances","entity_id":5},
-  {"text":"4 HVAC service calls this year totaling $3,200 -- a maintenance contract might save money","tab":"maintenance","entity_id":0},
+  {"text":"4 HVAC service calls this year totaling $3,200 -- a maintenance contract might save money","tab":"maintenance","entity_id":8},
   {"text":"Roof was last inspected 3 years ago","tab":"maintenance","entity_id":12}
 ]}
 

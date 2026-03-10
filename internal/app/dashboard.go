@@ -612,7 +612,7 @@ func (m *Model) dashboardView(budget, maxWidth int) string {
 		}
 		dimmed := cursorSection != "" && cursorSection != dashSectionInsights
 		hdr := m.dashSectionHeader(dashSectionInsights, 0, dimmed)
-		lines = append(lines, hdr, "  "+m.dash.spinner.View()+" analyzing")
+		lines = append(lines, hdr+"  "+m.dash.spinner.View())
 	} else if showInsightsError {
 		if len(lines) > 0 {
 			lines = append(lines, "")
@@ -979,6 +979,17 @@ type insightsResultMsg struct {
 	Err   error
 }
 
+// insightsStaleTickMsg triggers a re-render to update the staleness timestamp.
+type insightsStaleTickMsg struct{}
+
+// insightsStaleTick returns a command that ticks every 30s to refresh the
+// staleness label while the dashboard is open.
+func insightsStaleTick() tea.Cmd {
+	return tea.Tick(30*time.Second, func(time.Time) tea.Msg {
+		return insightsStaleTickMsg{}
+	})
+}
+
 // insightsWanted reports whether insights should be shown on the dashboard.
 func (m *Model) insightsWanted() bool {
 	return m.insightsEnabled && m.llmClient != nil
@@ -1048,7 +1059,15 @@ func (m *Model) fetchInsights() tea.Cmd {
 			return insightsResultMsg{Err: fmt.Errorf("parse insights: %w", err)}
 		}
 
-		return insightsResultMsg{Items: result.Insights}
+		// Defense-in-depth: drop insights the LLM returned without a valid entity.
+		valid := result.Insights[:0]
+		for _, item := range result.Insights {
+			if item.EntityID >= 1 {
+				valid = append(valid, item)
+			}
+		}
+
+		return insightsResultMsg{Items: valid}
 	}
 }
 
@@ -1155,7 +1174,11 @@ func (m *Model) insightsStaleness() string {
 		return ""
 	}
 	d := time.Since(ins.generatedAt)
-	return shortDur(d) + " ago"
+	s := shortDur(d)
+	if s == "now" {
+		return "just now"
+	}
+	return s + " ago"
 }
 
 // ---------------------------------------------------------------------------

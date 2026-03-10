@@ -428,6 +428,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.dash.insights.generatedAt = time.Now()
 		}
 		m.buildDashNav()
+		if len(m.dash.insights.items) > 0 {
+			return m, insightsStaleTick()
+		}
+		return m, nil
+	case insightsStaleTickMsg:
+		if m.showDashboard && len(m.dash.insights.items) > 0 {
+			return m, insightsStaleTick()
+		}
 		return m, nil
 	case modelsListMsg:
 		// Feed the extraction model picker first if it's waiting.
