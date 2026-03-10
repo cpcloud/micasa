@@ -12,3 +12,4 @@ coverage:
 
 comment:
   layout: "files"
+  require_changes: true
