@@ -1024,9 +1024,17 @@ func (m *Model) fetchInsights() tea.Cmd {
 		raw, err := client.ChatComplete(
 			ctx, messages,
 			llm.WithJSONSchema("insights", llm.InsightsJSONSchema()),
+			llm.WithNoThinking(),
 		)
 		if err != nil {
 			return insightsResultMsg{Err: err}
+		}
+		if strings.TrimSpace(raw) == "" {
+			return insightsResultMsg{
+				Err: fmt.Errorf(
+					"model returned empty response -- try a larger context_length or smaller dataset",
+				),
+			}
 		}
 
 		var result struct {

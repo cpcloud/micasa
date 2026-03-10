@@ -28,7 +28,7 @@ const testTimeout = 5 * time.Second
 // llamacpp is OpenAI-compatible and does not require an API key.
 func newTestClient(t *testing.T, baseURL, model string) *Client {
 	t.Helper()
-	c, err := NewClient("llamacpp", baseURL, model, "", testTimeout)
+	c, err := NewClient("llamacpp", baseURL, model, "", testTimeout, 0)
 	require.NoError(t, err)
 	return c
 }
@@ -41,7 +41,7 @@ func jsonResponse(w http.ResponseWriter, body string) {
 
 func TestNewClientUnknownProvider(t *testing.T) {
 	t.Parallel()
-	_, err := NewClient("bogus", "", "model", "", testTimeout)
+	_, err := NewClient("bogus", "", "model", "", testTimeout, 0)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "bogus")
 }
@@ -86,7 +86,12 @@ func TestPingServerDown(t *testing.T) {
 func TestPingAnthropicNoOp(t *testing.T) {
 	t.Parallel()
 	client, err := NewClient(
-		"anthropic", "http://localhost:8080", "claude-sonnet-4-5-latest", "test-key", testTimeout,
+		"anthropic",
+		"http://localhost:8080",
+		"claude-sonnet-4-5-latest",
+		"test-key",
+		testTimeout,
+		0,
 	)
 	require.NoError(t, err)
 	assert.NoError(t, client.Ping(context.Background()))
@@ -300,7 +305,7 @@ func TestSupportsModelListing(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.provider, func(t *testing.T) {
 			c, err := NewClient(
-				tt.provider, "http://localhost:8080", "m", "k", testTimeout,
+				tt.provider, "http://localhost:8080", "m", "k", testTimeout, 0,
 			)
 			require.NoError(t, err)
 			assert.Equal(t, tt.supports, c.SupportsModelListing())
@@ -416,7 +421,7 @@ func TestPingModelNotFoundCloud(t *testing.T) {
 
 	// Build the client directly so the loopback-URL guard in NewClient
 	// does not strip the httptest server address.
-	opts := buildOpts(srv.URL+"/v1", "sk-test", testTimeout)
+	opts := buildOpts(srv.URL+"/v1", "sk-test", testTimeout, "openai", 0)
 	p, err := createProvider("openai", opts)
 	require.NoError(t, err)
 	client := &Client{
@@ -486,7 +491,7 @@ func TestCreateProviderAllSupported(t *testing.T) {
 	for _, p := range providers {
 		t.Run(p, func(t *testing.T) {
 			_, err := NewClient(
-				p, "http://localhost:8080", "model", "key", testTimeout,
+				p, "http://localhost:8080", "model", "key", testTimeout, 0,
 			)
 			assert.NoError(t, err)
 		})
@@ -777,7 +782,7 @@ func TestNewClientCloudProviderIgnoresLoopbackURL(t *testing.T) {
 	for _, p := range providers {
 		t.Run(p, func(t *testing.T) {
 			c, err := NewClient(
-				p, "http://localhost:11434", "model", "key", testTimeout,
+				p, "http://localhost:11434", "model", "key", testTimeout, 0,
 			)
 			require.NoError(t, err)
 			assert.False(t, c.IsLocalServer())
@@ -796,7 +801,7 @@ func TestNewClientLocalProviderKeepsLoopbackURL(t *testing.T) {
 	for _, p := range providers {
 		t.Run(p, func(t *testing.T) {
 			c, err := NewClient(
-				p, "http://localhost:11434", "model", "", testTimeout,
+				p, "http://localhost:11434", "model", "", testTimeout, 0,
 			)
 			require.NoError(t, err)
 			assert.True(t, c.IsLocalServer())
@@ -817,9 +822,69 @@ func TestNewClientOllamaCustomBaseURL(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c, err := NewClient("ollama", srv.URL, "qwen3", "", testTimeout)
+	c, err := NewClient("ollama", srv.URL, "qwen3", "", testTimeout, 0)
 	require.NoError(t, err)
 	assert.NoError(t, c.Ping(context.Background()))
+}
+
+func TestNumCtxTransport(t *testing.T) {
+	t.Parallel()
+	var captured map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/chat" {
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			captured = body
+			jsonResponse(w, `{"done":true,"message":{"role":"assistant","content":"hi"}}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	c, err := NewClient("ollama", srv.URL, "test", "", testTimeout, 65536)
+	require.NoError(t, err)
+
+	_, _ = c.ChatComplete(context.Background(), []Message{
+		{Role: "user", Content: "hello"},
+	})
+
+	require.NotNil(t, captured)
+	opts, ok := captured["options"].(map[string]any)
+	require.True(t, ok, "expected options in request body")
+	numCtx, ok := opts["num_ctx"].(float64)
+	require.True(t, ok, "expected num_ctx in options")
+	assert.Equal(t, float64(65536), numCtx)
+}
+
+func TestNumCtxTransport_ZeroUsesDefault(t *testing.T) {
+	t.Parallel()
+	var captured map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/chat" {
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			captured = body
+			jsonResponse(w, `{"done":true,"message":{"role":"assistant","content":"hi"}}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	c, err := NewClient("ollama", srv.URL, "test", "", testTimeout, 0)
+	require.NoError(t, err)
+
+	_, _ = c.ChatComplete(context.Background(), []Message{
+		{Role: "user", Content: "hello"},
+	})
+
+	require.NotNil(t, captured)
+	opts, ok := captured["options"].(map[string]any)
+	require.True(t, ok)
+	numCtx, ok := opts["num_ctx"].(float64)
+	require.True(t, ok)
+	assert.Equal(t, float64(32000), numCtx, "should use library default when numCtx=0")
 }
 
 // mockModelLister is a minimal anyllm.ModelLister for synctest-based timeout

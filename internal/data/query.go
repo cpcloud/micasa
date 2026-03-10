@@ -404,7 +404,7 @@ func (s *Store) ColumnHints() string {
 // clutter without helping the LLM answer user questions.
 func isNoiseColumn(col string) bool {
 	switch strings.ToLower(col) {
-	case ColID, ColCreatedAt, ColUpdatedAt, ColDeletedAt, ColData:
+	case ColCreatedAt, ColUpdatedAt, ColDeletedAt, ColData:
 		return true
 	}
 	return false

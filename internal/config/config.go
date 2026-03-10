@@ -75,6 +75,12 @@ type LLM struct {
 	// none, low, medium, high, auto. Empty string = don't send (server default).
 	Thinking string `toml:"thinking,omitempty"`
 
+	// ContextLength sets the Ollama context window size (num_ctx). Controls
+	// how many tokens the model can process in a single request
+	// (prompt + response). Default: 0 (use provider default, currently
+	// 32000 for Ollama). Only applies to Ollama; ignored for other providers.
+	ContextLength int `toml:"context_length,omitempty"`
+
 	// Insights enables proactive LLM-generated insights on the dashboard.
 	// When enabled, the LLM analyzes all home data and surfaces observations
 	// like aging appliances, spending patterns, or overdue inspections.
@@ -115,13 +121,14 @@ type LLMExtractionOverride struct {
 // ResolvedLLM is a fully-resolved LLM configuration for a single pipeline.
 // All fields are populated -- no empty-means-inherit semantics.
 type ResolvedLLM struct {
-	Provider     string
-	BaseURL      string
-	Model        string
-	APIKey       string //nolint:gosec // resolved config field, not a hardcoded credential
-	ExtraContext string
-	Timeout      time.Duration // inference context deadline for this pipeline
-	Thinking     string
+	Provider      string
+	BaseURL       string
+	Model         string
+	APIKey        string //nolint:gosec // resolved config field, not a hardcoded credential
+	ExtraContext  string
+	Timeout       time.Duration // inference context deadline for this pipeline
+	Thinking      string
+	ContextLength int // Ollama context window size; 0 = provider default
 }
 
 // InsightsEnabled returns whether proactive LLM insights are enabled.
@@ -180,13 +187,14 @@ func (l LLM) resolvePipeline(
 	}
 
 	return ResolvedLLM{
-		Provider:     resolvedProvider,
-		BaseURL:      resolvedBaseURL,
-		Model:        coalesce(model, l.Model),
-		APIKey:       resolvedAPIKey,
-		ExtraContext: l.ExtraContext,
-		Timeout:      parseDurationOr(coalesce(timeout, l.Timeout), DefaultLLMTimeout),
-		Thinking:     coalesce(thinking, l.Thinking),
+		Provider:      resolvedProvider,
+		BaseURL:       resolvedBaseURL,
+		Model:         coalesce(model, l.Model),
+		APIKey:        resolvedAPIKey,
+		ExtraContext:  l.ExtraContext,
+		Timeout:       parseDurationOr(coalesce(timeout, l.Timeout), DefaultLLMTimeout),
+		Thinking:      coalesce(thinking, l.Thinking),
+		ContextLength: l.ContextLength,
 	}
 }
 

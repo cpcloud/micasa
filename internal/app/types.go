@@ -330,6 +330,7 @@ func (o *Options) SetLLM(
 	provider, baseURL, model, apiKey, extraContext string,
 	timeout time.Duration,
 	thinking string,
+	contextLength int,
 	insightsEnabled bool,
 ) {
 	if model == "" {
@@ -344,6 +345,7 @@ func (o *Options) SetLLM(
 		ExtraContext:    extraContext,
 		Timeout:         timeout,
 		Thinking:        thinking,
+		ContextLength:   contextLength,
 		InsightsEnabled: insightsEnabled,
 	}
 }

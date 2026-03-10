@@ -30,7 +30,7 @@ func newTestLLMServer(t *testing.T, responseContent string) (*httptest.Server, *
 		)
 	}))
 	t.Cleanup(srv.Close)
-	client, err := llm.NewClient("llamacpp", srv.URL+"/v1", "test-model", "", 5*time.Second)
+	client, err := llm.NewClient("llamacpp", srv.URL+"/v1", "test-model", "", 5*time.Second, 0)
 	require.NoError(t, err)
 	return srv, client
 }
@@ -83,7 +83,14 @@ func TestPipeline_LLMExtractsOperationsFromText(t *testing.T) {
 func TestPipeline_LLMServerDown(t *testing.T) {
 	t.Parallel()
 	// Point at a port that's not listening.
-	client, err := llm.NewClient("llamacpp", "http://127.0.0.1:1/v1", "test-model", "", time.Second)
+	client, err := llm.NewClient(
+		"llamacpp",
+		"http://127.0.0.1:1/v1",
+		"test-model",
+		"",
+		time.Second,
+		0,
+	)
 	require.NoError(t, err)
 
 	p := &Pipeline{LLMClient: client}
@@ -109,7 +116,7 @@ func TestPipeline_LLMGarbageResponse(t *testing.T) {
 		)
 	}))
 	t.Cleanup(srv.Close)
-	client, err := llm.NewClient("llamacpp", srv.URL+"/v1", "test-model", "", 5*time.Second)
+	client, err := llm.NewClient("llamacpp", srv.URL+"/v1", "test-model", "", 5*time.Second, 0)
 	require.NoError(t, err)
 
 	p := &Pipeline{LLMClient: client}
@@ -133,7 +140,7 @@ func TestPipeline_LLMSkippedWithoutText(t *testing.T) {
 		_, _ = fmt.Fprint(w, `{"choices":[{"message":{"content":"[]"}}]}`)
 	}))
 	t.Cleanup(srv.Close)
-	client, err := llm.NewClient("llamacpp", srv.URL+"/v1", "test-model", "", 5*time.Second)
+	client, err := llm.NewClient("llamacpp", srv.URL+"/v1", "test-model", "", 5*time.Second, 0)
 	require.NoError(t, err)
 
 	p := &Pipeline{LLMClient: client}

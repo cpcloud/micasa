@@ -4,9 +4,12 @@
 package llm
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -55,6 +58,7 @@ type StreamChunk struct {
 // chatParams holds options that can be modified per-request.
 type chatParams struct {
 	responseFormat *anyllm.ResponseFormat
+	noThinking     bool
 }
 
 // ChatOption configures a chat completion request.
@@ -73,6 +77,15 @@ func WithJSONSchema(name string, schema map[string]any) ChatOption {
 	}
 }
 
+// WithNoThinking disables reasoning/thinking for this request, even if the
+// client has thinking enabled globally. Useful for structured JSON output
+// where thinking tokens would consume the response budget.
+func WithNoThinking() ChatOption {
+	return func(p *chatParams) {
+		p.noThinking = true
+	}
+}
+
 const providerOllama = "ollama"
 
 // localProviders are providers that run on the user's machine.
@@ -85,10 +98,13 @@ var localProviders = map[string]bool{
 // NewClient creates an LLM client for the named provider. The timeout is the
 // inference context deadline for this pipeline. The HTTP client timeout is
 // derived as max(timeout, QuickOpTimeout) to ensure quick operations don't
-// get killed by a short inference timeout.
+// get killed by a short inference timeout. contextLength sets the Ollama
+// context window size (num_ctx); 0 uses the library default.
+// Ignored for non-Ollama providers.
 func NewClient(
 	providerName, baseURL, model, apiKey string,
 	timeout time.Duration,
+	contextLength int,
 ) (*Client, error) {
 	// Cloud providers should not inherit a local base URL left over from
 	// a different provider's config (e.g. Ollama's localhost URL).
@@ -98,7 +114,7 @@ func NewClient(
 	}
 
 	httpTimeout := max(timeout, QuickOpTimeout)
-	opts := buildOpts(effectiveBase, apiKey, httpTimeout)
+	opts := buildOpts(effectiveBase, apiKey, httpTimeout, providerName, contextLength)
 	p, err := createProvider(providerName, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create %s provider: %w", providerName, err)
@@ -111,11 +127,28 @@ func NewClient(
 	}, nil
 }
 
-func buildOpts(baseURL, apiKey string, responseTimeout time.Duration) []anyllm.Option {
+func buildOpts(
+	baseURL, apiKey string,
+	responseTimeout time.Duration,
+	providerName string,
+	contextLength int,
+) []anyllm.Option {
 	// responseTimeout caps a single HTTP request (including streaming body
 	// reads). Quick operations enforce tighter deadlines via context.
+	httpClient := &http.Client{Timeout: responseTimeout}
+
+	// Ollama: inject num_ctx into API requests when configured.
+	// The any-llm-go library hardcodes num_ctx=32000; this transport
+	// wrapper overrides it with the user's configured value.
+	if providerName == providerOllama && contextLength > 0 {
+		httpClient.Transport = &numCtxTransport{
+			base:   http.DefaultTransport,
+			numCtx: contextLength,
+		}
+	}
+
 	opts := []anyllm.Option{
-		anyllm.WithHTTPClient(&http.Client{Timeout: responseTimeout}),
+		anyllm.WithHTTPClient(httpClient),
 	}
 	if baseURL != "" {
 		opts = append(opts, anyllm.WithBaseURL(baseURL))
@@ -124,6 +157,37 @@ func buildOpts(baseURL, apiKey string, responseTimeout time.Duration) []anyllm.O
 		opts = append(opts, anyllm.WithAPIKey(apiKey))
 	}
 	return opts
+}
+
+// numCtxTransport wraps an HTTP transport to override the num_ctx option
+// in Ollama API chat requests. This is necessary because the any-llm-go
+// library hardcodes num_ctx=32000 and doesn't expose a way to override it.
+type numCtxTransport struct {
+	base   http.RoundTripper
+	numCtx int
+}
+
+func (t *numCtxTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req.Method == http.MethodPost && req.Body != nil &&
+		strings.HasSuffix(req.URL.Path, "/api/chat") {
+		body, err := io.ReadAll(req.Body)
+		req.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("read request body: %w", err)
+		}
+		var m map[string]any
+		if err := json.Unmarshal(body, &m); err == nil {
+			if opts, ok := m["options"].(map[string]any); ok {
+				opts["num_ctx"] = t.numCtx
+			}
+			if modified, err := json.Marshal(m); err == nil {
+				body = modified
+			}
+		}
+		req.Body = io.NopCloser(bytes.NewReader(body))
+		req.ContentLength = int64(len(body))
+	}
+	return t.base.RoundTrip(req)
 }
 
 func createProvider(name string, opts []anyllm.Option) (anyllm.Provider, error) {
@@ -219,13 +283,12 @@ func (c *Client) completionParams(messages []Message, opts []ChatOption) anyllm.
 		Messages:    toMessages(messages),
 		Temperature: &temp,
 	}
-	if c.thinking != "" {
-		params.ReasoningEffort = anyllm.ReasoningEffort(c.thinking)
-	}
-
 	var cp chatParams
 	for _, opt := range opts {
 		opt(&cp)
+	}
+	if c.thinking != "" && !cp.noThinking {
+		params.ReasoningEffort = anyllm.ReasoningEffort(c.thinking)
 	}
 	if cp.responseFormat != nil {
 		params.ResponseFormat = cp.responseFormat

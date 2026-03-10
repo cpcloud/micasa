@@ -252,7 +252,7 @@ func NewModel(store *data.Store, options Options) (*Model, error) {
 			model = persisted
 		} else if cfg.Provider == "ollama" {
 			// No persisted model -- try auto-detecting if the server has exactly one.
-			tempClient, err := llm.NewClient(cfg.Provider, cfg.BaseURL, model, cfg.APIKey, cfg.Timeout)
+			tempClient, err := llm.NewClient(cfg.Provider, cfg.BaseURL, model, cfg.APIKey, cfg.Timeout, cfg.ContextLength)
 			if err == nil {
 				if detected := autoDetectModel(tempClient); detected != "" {
 					model = detected
@@ -261,7 +261,14 @@ func NewModel(store *data.Store, options Options) (*Model, error) {
 			}
 		}
 		var err error
-		client, err = llm.NewClient(cfg.Provider, cfg.BaseURL, model, cfg.APIKey, cfg.Timeout)
+		client, err = llm.NewClient(
+			cfg.Provider,
+			cfg.BaseURL,
+			model,
+			cfg.APIKey,
+			cfg.Timeout,
+			cfg.ContextLength,
+		)
 		if err != nil {
 			return nil, fmt.Errorf("create llm client: %w", err)
 		}
@@ -2174,7 +2181,7 @@ func (m *Model) extractionLLMClient() *llm.Client {
 		return nil
 	}
 
-	c, err := llm.NewClient(provider, baseURL, model, apiKey, timeout)
+	c, err := llm.NewClient(provider, baseURL, model, apiKey, timeout, 0)
 	if err != nil {
 		return nil
 	}

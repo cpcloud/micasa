@@ -2210,7 +2210,7 @@ func TestDispatch_TransactionRollbackOnFailure(t *testing.T) {
 // that don't hit a real server.
 func testExtractionOllamaClient(t *testing.T, model string) *llm.Client {
 	t.Helper()
-	c, err := llm.NewClient("ollama", "http://localhost:11434", model, "", 5*time.Second)
+	c, err := llm.NewClient("ollama", "http://localhost:11434", model, "", 5*time.Second, 0)
 	require.NoError(t, err)
 	return c
 }
