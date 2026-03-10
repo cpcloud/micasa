@@ -51,6 +51,7 @@ const (
 	SeasonFall   = "fall"
 	SeasonWinter = "winter"
 )
+
 // Document entity kind values for polymorphic linking.
 const (
 	DocumentEntityNone        = ""
