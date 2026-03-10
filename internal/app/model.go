@@ -694,9 +694,7 @@ func (m *Model) handleDashboardKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 		return nil, true
 	case keyR:
 		if m.insightsWanted() {
-			cmd := m.refreshInsights()
-			m.setStatusInfo("refreshing insights")
-			return cmd, true
+			return m.refreshInsights(), true
 		}
 		return nil, true
 	case keyS, keyShiftS, keyC, keyShiftC, keyI, keySlash, keyN, keyShiftN, keyBang:

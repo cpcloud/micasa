@@ -705,6 +705,8 @@ func (m *Model) dashSectionHeader(
 		style = m.styles.DashSectionWarn()
 	case dashSectionOverdue:
 		style = m.styles.DashSectionAlert()
+	case dashSectionInsights:
+		style = m.styles.DashSectionMuted()
 	}
 	if dimmed {
 		style = appStyles.Base().

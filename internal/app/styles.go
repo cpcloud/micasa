@@ -43,6 +43,7 @@ type Styles struct {
 	modeEdit         lipgloss.Style
 	dashSectionWarn  lipgloss.Style
 	dashSectionAlert lipgloss.Style
+	dashSectionMuted lipgloss.Style
 	calCursor        lipgloss.Style
 	calSelected      lipgloss.Style
 	modelActiveHL    lipgloss.Style
@@ -169,6 +170,11 @@ func DefaultStyles() *Styles {
 		dashSectionAlert: lipgloss.NewStyle().
 			Foreground(onAccent).
 			Background(warning).
+			Padding(0, 1).
+			Bold(true),
+		dashSectionMuted: lipgloss.NewStyle().
+			Foreground(onAccent).
+			Background(muted).
 			Padding(0, 1).
 			Bold(true),
 		calCursor: lipgloss.NewStyle().
@@ -347,6 +353,7 @@ func (s *Styles) TableSelected() lipgloss.Style    { return s.tableSelected }
 func (s *Styles) ModeEdit() lipgloss.Style         { return s.modeEdit }
 func (s *Styles) DashSectionWarn() lipgloss.Style  { return s.dashSectionWarn }
 func (s *Styles) DashSectionAlert() lipgloss.Style { return s.dashSectionAlert }
+func (s *Styles) DashSectionMuted() lipgloss.Style { return s.dashSectionMuted }
 func (s *Styles) CalCursor() lipgloss.Style        { return s.calCursor }
 func (s *Styles) CalSelected() lipgloss.Style      { return s.calSelected }
 func (s *Styles) ModelActiveHL() lipgloss.Style    { return s.modelActiveHL }
