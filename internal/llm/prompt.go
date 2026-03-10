@@ -119,7 +119,7 @@ func BuildSystemPrompt(
 
 // BuildInsightsPrompt creates a system prompt instructing the LLM to analyze
 // the full home dataset and produce proactive observations. The LLM returns
-// a JSON array of insight objects. dataSummary is the output of DataDump().
+// a JSON object with an "insights" array. dataSummary is the output of DataDump().
 func BuildInsightsPrompt(
 	dataSummary string,
 	now time.Time,

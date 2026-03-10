@@ -54,7 +54,7 @@ Urgent/actionable items stay on top; insights are supplementary analysis.
   JSON object `{"insights": [{text, tab, entity_id}, ...]}` via
   `WithJSONSchema`. Emphasizes cross-entity observations, max 5-7 items, no
   duplication of existing dashboard sections.
-- **Non-streaming**: uses `ChatComplete()` since output is a small JSON array.
+- **Non-streaming**: uses `ChatComplete()` since output is a small JSON object.
   Runs via `tea.Cmd` returning an `insightsResultMsg`.
 - **State**: `insightsState` struct on `dashState`. Tracks results, loading
   flag, staleness, error, generated-at timestamp, cancel func.
@@ -70,7 +70,7 @@ Urgent/actionable items stay on top; insights are supplementary analysis.
 type insightItem struct {
     Text     string  `json:"text"`
     Tab      string  `json:"tab"`       // tab name for navigation
-    EntityID uint    `json:"entity_id"` // 0 = no specific entity
+    EntityID uint    `json:"entity_id"` // minimum 1; references a specific entity
 }
 
 // insightsState tracks the async insights fetch.

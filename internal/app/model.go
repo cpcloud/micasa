@@ -173,6 +173,7 @@ type insightsState struct {
 	err         error
 	generatedAt time.Time
 	cancel      context.CancelFunc
+	generation  uint64 // monotonic; correlates results with requests
 }
 
 // dashState groups dashboard overlay fields.
@@ -299,16 +300,17 @@ func NewModel(store *data.Store, options Options) (*Model, error) {
 		insightsEnabled: insightsEnabled,
 		filePickerDir:   options.FilePickerDir,
 		ex: extractState{
-			extractionProvider: options.ExtractionConfig.Provider,
-			extractionBaseURL:  options.ExtractionConfig.BaseURL,
-			extractionModel:    options.ExtractionConfig.Model,
-			extractionAPIKey:   options.ExtractionConfig.APIKey,
-			extractionTimeout:  options.ExtractionConfig.Timeout,
-			extractionThinking: options.ExtractionConfig.Thinking,
-			extractionEnabled:  options.ExtractionConfig.Enabled,
-			ocrTSV:             options.ExtractionConfig.OCRTSV,
-			ocrConfThreshold:   options.ExtractionConfig.OCRConfThreshold,
-			extractors:         options.ExtractionConfig.Extractors,
+			extractionProvider:      options.ExtractionConfig.Provider,
+			extractionBaseURL:       options.ExtractionConfig.BaseURL,
+			extractionModel:         options.ExtractionConfig.Model,
+			extractionAPIKey:        options.ExtractionConfig.APIKey,
+			extractionTimeout:       options.ExtractionConfig.Timeout,
+			extractionThinking:      options.ExtractionConfig.Thinking,
+			extractionContextLength: options.ExtractionConfig.ContextLength,
+			extractionEnabled:       options.ExtractionConfig.Enabled,
+			ocrTSV:                  options.ExtractionConfig.OCRTSV,
+			ocrConfThreshold:        options.ExtractionConfig.OCRConfThreshold,
+			extractors:              options.ExtractionConfig.Extractors,
 		},
 		pull:      pullState{progress: pprog},
 		dash:      dashState{spinner: dashSp},
@@ -418,7 +420,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case extractionLLMPingMsg:
 		return m, m.handleExtractionLLMPing(typed)
 	case insightsResultMsg:
+		// Discard stale results from canceled requests.
+		if typed.Generation != m.dash.insights.generation {
+			return m, nil
+		}
 		m.dash.insights.loading = false
+		m.dash.insights.cancel = nil
 		if typed.Err != nil {
 			m.dash.insights.err = typed.Err
 		} else {
@@ -1592,6 +1599,8 @@ func (m *Model) toggleDashboard() tea.Cmd {
 		// Close all drilldown levels when returning to dashboard.
 		m.closeAllDetails()
 		cmd = m.maybeStartInsights()
+	} else {
+		m.cancelInsights()
 	}
 	if m.store != nil {
 		m.surfaceError(m.store.PutShowDashboard(m.showDashboard))
@@ -2189,7 +2198,7 @@ func (m *Model) extractionLLMClient() *llm.Client {
 		return nil
 	}
 
-	c, err := llm.NewClient(provider, baseURL, model, apiKey, timeout, 0)
+	c, err := llm.NewClient(provider, baseURL, model, apiKey, timeout, m.ex.extractionContextLength)
 	if err != nil {
 		return nil
 	}

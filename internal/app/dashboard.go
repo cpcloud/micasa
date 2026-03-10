@@ -417,7 +417,8 @@ func (m *Model) buildDashNav() {
 	}
 	add(dashSectionExpiring, expiring)
 
-	// Insights: LLM-generated items with navigation targets.
+	// Insights: LLM-generated items with navigation targets. Also add the
+	// section for loading/error states so nav stays aligned with rendering.
 	if insRows := m.dashInsightsRows(); len(insRows) > 0 {
 		entries := make([]dashNavEntry, len(insRows))
 		for i, row := range insRows {
@@ -428,6 +429,10 @@ func (m *Model) buildDashNav() {
 			}
 		}
 		add(dashSectionInsights, entries)
+	} else if m.insightsEnabled && (m.dash.insights.loading ||
+		(m.dash.insights.err != nil && len(m.dash.insights.items) == 0)) {
+		// Header-only section for loading/error state (no data rows).
+		groups = append(groups, sectionData{dashSectionInsights, nil})
 	}
 
 	var nav []dashNavEntry
@@ -531,7 +536,14 @@ func (m *Model) dashboardView(budget, maxWidth int) string {
 		})
 	}
 
-	if insRows := m.dashInsightsRows(); len(insRows) > 0 {
+	// Always include insights section when there is state to show (items,
+	// loading, or error-with-no-cached-items) so the section loop handles
+	// header rendering, dimming, and nav alignment uniformly.
+	insRows := m.dashInsightsRows()
+	insLoading := m.insightsEnabled && m.dash.insights.loading
+	insError := m.insightsEnabled && m.dash.insights.err != nil &&
+		!m.dash.insights.loading && len(m.dash.insights.items) == 0
+	if len(insRows) > 0 || insLoading || insError {
 		sections = append(sections, dashSection{
 			title:   dashSectionInsights,
 			headers: []string{"", "tab"},
@@ -539,12 +551,7 @@ func (m *Model) dashboardView(budget, maxWidth int) string {
 		})
 	}
 
-	// Show loading/error state for insights even when there are no items yet.
-	showInsightsLoading := m.insightsEnabled && m.dash.insights.loading
-	showInsightsError := m.insightsEnabled && m.dash.insights.err != nil &&
-		!m.dash.insights.loading && len(m.dash.insights.items) == 0
-
-	if len(sections) == 0 && !showInsightsLoading && !showInsightsError {
+	if len(sections) == 0 {
 		return ""
 	}
 
@@ -554,6 +561,7 @@ func (m *Model) dashboardView(budget, maxWidth int) string {
 	navIdx := 0
 	var lines []string
 	cursorLine := 0
+	insightsHeaderLine := -1
 
 	// Find which section the cursor belongs to so we can dim the rest.
 	cursorSection := ""
@@ -578,6 +586,10 @@ func (m *Model) dashboardView(budget, maxWidth int) string {
 		}
 		navIdx++
 		lines = append(lines, hdr)
+
+		if s.title == dashSectionInsights {
+			insightsHeaderLine = len(lines) - 1
+		}
 
 		if !expanded {
 			continue
@@ -605,34 +617,18 @@ func (m *Model) dashboardView(budget, maxWidth int) string {
 		navIdx = dataNavIdx
 	}
 
-	// Insights loading/error indicator (shown even when no insight items exist yet).
-	if showInsightsLoading {
-		if len(lines) > 0 {
-			lines = append(lines, "")
-		}
-		dimmed := cursorSection != "" && cursorSection != dashSectionInsights
-		hdr := m.dashSectionHeader(dashSectionInsights, 0, dimmed)
-		lines = append(lines, hdr+"  "+m.dash.spinner.View())
-	} else if showInsightsError {
-		if len(lines) > 0 {
-			lines = append(lines, "")
-		}
-		dimmed := cursorSection != "" && cursorSection != dashSectionInsights
-		hdr := m.dashSectionHeader(dashSectionInsights, 0, dimmed)
-		msg := m.styles.DashSubtitle().Render("  unavailable: " + m.dash.insights.err.Error())
-		lines = append(lines, hdr, msg)
-	}
-
-	// Staleness indicator for insights section header.
-	if m.insightsEnabled && !m.dash.insights.loading && len(m.dash.insights.items) > 0 {
-		// Append staleness to the insights header line (already in lines).
-		staleness := m.insightsStaleness()
-		if staleness != "" {
-			for i := len(lines) - 1; i >= 0; i-- {
-				if strings.Contains(lines[i], dashSectionInsights) {
-					lines[i] += "  " + m.styles.DashLabel().Render(staleness)
-					break
-				}
+	// Annotate the insights header with loading spinner, error, or staleness.
+	if insightsHeaderLine >= 0 {
+		ins := m.dash.insights
+		switch {
+		case insLoading:
+			lines[insightsHeaderLine] += "  " + m.dash.spinner.View()
+		case insError:
+			msg := m.styles.DashSubtitle().Render("  unavailable: " + ins.err.Error())
+			lines = slices.Insert(lines, insightsHeaderLine+1, msg)
+		default:
+			if s := m.insightsStaleness(); s != "" {
+				lines[insightsHeaderLine] += "  " + m.styles.DashLabel().Render(s)
 			}
 		}
 	}
@@ -974,9 +970,12 @@ func (m *Model) dashToggleAll() {
 // ---------------------------------------------------------------------------
 
 // insightsResultMsg delivers the result of an async insights fetch.
+// Generation correlates the result with the request that produced it;
+// stale results from canceled requests are discarded by the handler.
 type insightsResultMsg struct {
-	Items []insightItem
-	Err   error
+	Items      []insightItem
+	Err        error
+	Generation uint64
 }
 
 // insightsStaleTickMsg triggers a re-render to update the staleness timestamp.
@@ -995,6 +994,15 @@ func (m *Model) insightsWanted() bool {
 	return m.insightsEnabled && m.llmClient != nil
 }
 
+// cancelInsights cancels any in-flight insights request and releases the
+// cancel func so it can be garbage collected.
+func (m *Model) cancelInsights() {
+	if m.dash.insights.cancel != nil {
+		m.dash.insights.cancel()
+		m.dash.insights.cancel = nil
+	}
+}
+
 // fetchInsights starts an async LLM call to generate proactive insights.
 // Returns a tea.Cmd that resolves to insightsResultMsg. The returned cmd
 // runs in a background goroutine.
@@ -1003,17 +1011,15 @@ func (m *Model) fetchInsights() tea.Cmd {
 		return nil
 	}
 
-	// Cancel any in-flight request.
-	if m.dash.insights.cancel != nil {
-		m.dash.insights.cancel()
-	}
-
+	m.cancelInsights()
 	m.dash.insights.loading = true
 	m.dash.insights.err = nil
+	m.dash.insights.generation++
 
 	client := m.llmClient
 	store := m.store
 	extraContext := m.llmExtraContext
+	gen := m.dash.insights.generation
 
 	//nolint:gosec // cancel stored in m.dash.insights.cancel
 	ctx, cancel := context.WithCancel(
@@ -1027,7 +1033,7 @@ func (m *Model) fetchInsights() tea.Cmd {
 			dataSummary = store.DataDump()
 		}
 		if dataSummary == "" {
-			return insightsResultMsg{Err: fmt.Errorf("no data to analyze")}
+			return insightsResultMsg{Err: fmt.Errorf("no data to analyze"), Generation: gen}
 		}
 
 		prompt := llm.BuildInsightsPrompt(dataSummary, time.Now(), extraContext)
@@ -1042,13 +1048,14 @@ func (m *Model) fetchInsights() tea.Cmd {
 			llm.WithNoThinking(),
 		)
 		if err != nil {
-			return insightsResultMsg{Err: err}
+			return insightsResultMsg{Err: err, Generation: gen}
 		}
 		if strings.TrimSpace(raw) == "" {
 			return insightsResultMsg{
 				Err: fmt.Errorf(
 					"model returned empty response -- try a larger context_length or smaller dataset",
 				),
+				Generation: gen,
 			}
 		}
 
@@ -1056,7 +1063,7 @@ func (m *Model) fetchInsights() tea.Cmd {
 			Insights []insightItem `json:"insights"`
 		}
 		if err := json.Unmarshal([]byte(raw), &result); err != nil {
-			return insightsResultMsg{Err: fmt.Errorf("parse insights: %w", err)}
+			return insightsResultMsg{Err: fmt.Errorf("parse insights: %w", err), Generation: gen}
 		}
 
 		// Defense-in-depth: drop insights the LLM returned without a valid entity.
@@ -1067,7 +1074,7 @@ func (m *Model) fetchInsights() tea.Cmd {
 			}
 		}
 
-		return insightsResultMsg{Items: valid}
+		return insightsResultMsg{Items: valid, Generation: gen}
 	}
 }
 

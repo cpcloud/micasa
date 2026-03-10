@@ -890,7 +890,11 @@ func TestNumCtxTransport_ZeroUsesDefault(t *testing.T) {
 	require.True(t, ok)
 	numCtx, ok := opts["num_ctx"].(float64)
 	require.True(t, ok)
-	assert.InDelta(t, 32000, numCtx, 0.1, "should use library default when numCtx=0")
+	// contextLength=0 means our transport is NOT installed, so the library
+	// sets its own default. Don't assert a specific value -- just verify it
+	// exists and wasn't set to the custom value from the positive test.
+	assert.Greater(t, numCtx, float64(0), "library should set a default num_ctx")
+	assert.False(t, numCtx > 65535.9 && numCtx < 65536.1, "should not use the custom override")
 }
 
 // mockModelLister is a minimal anyllm.ModelLister for synctest-based timeout

@@ -179,6 +179,8 @@ func (t *numCtxTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		if err := json.Unmarshal(body, &m); err == nil {
 			if opts, ok := m["options"].(map[string]any); ok {
 				opts["num_ctx"] = t.numCtx
+			} else {
+				m["options"] = map[string]any{"num_ctx": t.numCtx}
 			}
 			if modified, err := json.Marshal(m); err == nil {
 				body = modified
