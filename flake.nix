@@ -416,7 +416,6 @@
               pkgs.goreleaser
               pkgs.nodejs
               pkgs.jq
-              pkgs.moreutils
               pkgs.glow
               relnotes
             ]

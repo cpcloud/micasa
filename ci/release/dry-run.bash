@@ -9,26 +9,30 @@ set -euo pipefail
 
 curdir="$PWD"
 worktree="$(mktemp -d)"
-branch="$(basename "$worktree")"
+branch="semantic-release-dry-run-$(basename "$worktree")"
 
-git worktree add "$worktree"
+git worktree add -b "$branch" "$worktree" HEAD
 
 cleanup() {
   cd "$curdir"
   git worktree remove --force "$worktree"
   git worktree prune
-  git branch -D "$branch"
+  if git show-ref --verify --quiet "refs/heads/$branch"; then
+    git branch -D "$branch"
+  fi
 }
 trap cleanup EXIT
 
 cd "$worktree"
 
 # Strip @semantic-release/github so the dry-run makes no API calls
+tmp=$(mktemp)
 jq '.plugins |= map(select(
   if type == "array" then .[0] != "@semantic-release/github"
   else . != "@semantic-release/github"
   end
-))' .releaserc.json | sponge .releaserc.json
+))' .releaserc.json > "$tmp"
+mv "$tmp" .releaserc.json
 
 git add .releaserc.json
 git commit -m "test: semantic-release dry run" --no-verify --no-gpg-sign
