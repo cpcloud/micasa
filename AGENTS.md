@@ -171,6 +171,7 @@ details; do not duplicate that detail here.
 - `/blog-post` -- when writing or updating Hugo blog content in `docs/`
 - `/debug-dump` -- when diagnosing rendering bugs (VHS or live TUI)
 - `/rev` -- rebase onto main, address PR review feedback, fix failing CI
+- `/fix-ci` -- diagnose and fix failing CI jobs on the current PR
 
 ### Shell and tools
 
