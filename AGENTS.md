@@ -170,6 +170,7 @@ details; do not duplicate that detail here.
 - `/pre-commit-check` -- before committing, to verify code compiles and tests pass
 - `/blog-post` -- when writing or updating Hugo blog content in `docs/`
 - `/debug-dump` -- when diagnosing rendering bugs (VHS or live TUI)
+- `/rev` -- rebase onto main, address PR review feedback, fix failing CI
 
 ### Shell and tools
 
