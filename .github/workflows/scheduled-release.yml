@@ -39,7 +39,7 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          sha=$(git rev-parse HEAD)
+          sha="${{ github.sha }}"
 
           # Fetch required check names from the branch ruleset
           required=$(gh api "repos/${{ github.repository }}/rules/branches/main" \
