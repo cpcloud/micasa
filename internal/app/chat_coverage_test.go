@@ -49,7 +49,7 @@ func requireOllama(t *testing.T) {
 // real server. llamacpp is OpenAI-compatible and needs no API key.
 func testLLMClient(t *testing.T, model string) *llm.Client {
 	t.Helper()
-	c, err := llm.NewClient("llamacpp", "http://localhost:11434/v1", model, "", 5*time.Second)
+	c, err := llm.NewClient("llamacpp", "http://localhost:11434/v1", model, "", 5*time.Second, 0)
 	require.NoError(t, err)
 	return c
 }
@@ -57,7 +57,7 @@ func testLLMClient(t *testing.T, model string) *llm.Client {
 // testOllamaClient creates an Ollama client for live integration tests.
 func testOllamaClient(t *testing.T, model string) *llm.Client {
 	t.Helper()
-	c, err := llm.NewClient("ollama", "http://localhost:11434", model, "", 10*time.Second)
+	c, err := llm.NewClient("ollama", "http://localhost:11434", model, "", 10*time.Second, 0)
 	require.NoError(t, err)
 	return c
 }

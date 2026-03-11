@@ -5,14 +5,18 @@ package app
 
 import (
 	"cmp"
+	"context"
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/cpcloud/micasa/internal/data"
+	"github.com/cpcloud/micasa/internal/llm"
 )
 
 // Dashboard section title constants.
@@ -23,6 +27,7 @@ const (
 	dashSectionSeasonal  = "Seasonal"
 	dashSectionProjects  = "Active Projects"
 	dashSectionExpiring  = "Expiring Soon"
+	dashSectionInsights  = "Insights"
 )
 
 // ---------------------------------------------------------------------------
@@ -85,6 +90,7 @@ type dashNavEntry struct {
 	Section  string // section title this entry belongs to
 	IsHeader bool   // true = section header, not a data row
 	InfoOnly bool   // true = cursor can land here but Enter is a no-op
+	Skip     bool   // true = cursor skips this entry (decorative sub-headers)
 }
 
 // ---------------------------------------------------------------------------
@@ -412,6 +418,24 @@ func (m *Model) buildDashNav() {
 	}
 	add(dashSectionExpiring, expiring)
 
+	// Insights: LLM-generated items with navigation targets. Also add the
+	// section for loading/error states so nav stays aligned with rendering.
+	if insRows := m.dashInsightsRows(); len(insRows) > 0 {
+		entries := make([]dashNavEntry, len(insRows))
+		for i, row := range insRows {
+			if row.Target != nil {
+				entries[i] = *row.Target
+			} else {
+				entries[i] = dashNavEntry{Section: dashSectionInsights, InfoOnly: true}
+			}
+		}
+		add(dashSectionInsights, entries)
+	} else if m.insightsEnabled && (m.dash.insights.loading ||
+		(m.dash.insights.err != nil && len(m.dash.insights.items) == 0)) {
+		// Header-only section for loading/error state (no data rows).
+		groups = append(groups, sectionData{dashSectionInsights, nil})
+	}
+
 	var nav []dashNavEntry
 	for _, g := range groups {
 		nav = append(nav, dashNavEntry{
@@ -513,6 +537,21 @@ func (m *Model) dashboardView(budget, maxWidth int) string {
 		})
 	}
 
+	// Always include insights section when there is state to show (items,
+	// loading, or error-with-no-cached-items) so the section loop handles
+	// header rendering, dimming, and nav alignment uniformly.
+	insRows := m.dashInsightsRows()
+	insLoading := m.insightsEnabled && m.dash.insights.loading
+	insError := m.insightsEnabled && m.dash.insights.err != nil &&
+		!m.dash.insights.loading && len(m.dash.insights.items) == 0
+	if len(insRows) > 0 || insLoading || insError {
+		sections = append(sections, dashSection{
+			title:   dashSectionInsights,
+			headers: []string{"", "tab"},
+			rows:    insRows,
+		})
+	}
+
 	if len(sections) == 0 {
 		return ""
 	}
@@ -523,6 +562,7 @@ func (m *Model) dashboardView(budget, maxWidth int) string {
 	navIdx := 0
 	var lines []string
 	cursorLine := 0
+	insightsHeaderLine := -1
 
 	// Find which section the cursor belongs to so we can dim the rest.
 	cursorSection := ""
@@ -548,6 +588,10 @@ func (m *Model) dashboardView(budget, maxWidth int) string {
 		navIdx++
 		lines = append(lines, hdr)
 
+		if s.title == dashSectionInsights {
+			insightsHeaderLine = len(lines) - 1
+		}
+
 		if !expanded {
 			continue
 		}
@@ -572,6 +616,23 @@ func (m *Model) dashboardView(budget, maxWidth int) string {
 			lines = append(lines, row)
 		}
 		navIdx = dataNavIdx
+	}
+
+	// Annotate the insights header with loading spinner, error, or staleness.
+	if insightsHeaderLine >= 0 {
+		ins := m.dash.insights
+		switch {
+		case insLoading:
+			lines[insightsHeaderLine] += "  " + m.dash.spinner.View()
+		case insError:
+			errText, _, _ := strings.Cut(ansi.Strip(ins.err.Error()), "\n")
+			msg := m.styles.DashSubtitle().Render("  unavailable: " + errText)
+			lines = slices.Insert(lines, insightsHeaderLine+1, msg)
+		default:
+			if s := m.insightsStaleness(); s != "" {
+				lines[insightsHeaderLine] += "  " + m.styles.DashLabel().Render(s)
+			}
+		}
 	}
 
 	// Scroll windowing: show only `budget` lines, following the cursor.
@@ -646,6 +707,8 @@ func (m *Model) dashSectionHeader(
 		style = m.styles.DashSectionWarn()
 	case dashSectionOverdue:
 		style = m.styles.DashSectionAlert()
+	case dashSectionInsights:
+		style = m.styles.DashSectionMuted()
 	}
 	if dimmed {
 		style = appStyles.Base().
@@ -800,6 +863,10 @@ func (m *Model) dashDown() {
 		return
 	}
 	m.dash.cursor++
+	// Skip non-interactive sub-headers (InfoOnly && !IsHeader).
+	for m.dash.cursor < n && m.dashNavSkippable(m.dash.cursor) {
+		m.dash.cursor++
+	}
 	if m.dash.cursor >= n {
 		m.dash.cursor = n - 1
 	}
@@ -807,9 +874,22 @@ func (m *Model) dashDown() {
 
 func (m *Model) dashUp() {
 	m.dash.cursor--
+	// Skip non-interactive sub-headers (InfoOnly && !IsHeader).
+	for m.dash.cursor > 0 && m.dashNavSkippable(m.dash.cursor) {
+		m.dash.cursor--
+	}
 	if m.dash.cursor < 0 {
 		m.dash.cursor = 0
 	}
+}
+
+// dashNavSkippable reports whether the nav entry at idx is a decorative
+// sub-header that the cursor should skip over (e.g. insight category labels).
+func (m *Model) dashNavSkippable(idx int) bool {
+	if idx < 0 || idx >= len(m.dash.nav) {
+		return false
+	}
+	return m.dash.nav[idx].Skip
 }
 
 func (m *Model) dashTop() {
@@ -823,6 +903,9 @@ func (m *Model) dashBottom() {
 		return
 	}
 	m.dash.cursor = n - 1
+	for m.dash.cursor > 0 && m.dashNavSkippable(m.dash.cursor) {
+		m.dash.cursor--
+	}
 }
 
 // dashNextSection jumps the cursor to the next section header.
@@ -904,6 +987,328 @@ func (m *Model) dashToggleAll() {
 			m.dash.expanded[entry.Section] = !allExpanded
 		}
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Proactive insights (LLM-powered)
+// ---------------------------------------------------------------------------
+
+// insightsResultMsg delivers an error from an insights fetch that failed
+// before streaming could begin (no data, stream start failure).
+type insightsResultMsg struct {
+	Err        error
+	Generation uint64
+}
+
+// insightsStreamStartedMsg delivers the stream channel to the update loop.
+type insightsStreamStartedMsg struct {
+	Channel    <-chan llm.StreamChunk
+	Generation uint64
+}
+
+// insightsChunkMsg carries one streamed token from the insights LLM call.
+type insightsChunkMsg struct {
+	Content    string
+	Done       bool
+	Err        error
+	Generation uint64
+}
+
+// insightsStaleTickMsg triggers a re-render to update the staleness timestamp.
+type insightsStaleTickMsg struct{}
+
+// insightsStaleTick returns a command that ticks every 30s to refresh the
+// staleness label while the dashboard is open.
+func insightsStaleTick() tea.Cmd {
+	return tea.Tick(30*time.Second, func(time.Time) tea.Msg {
+		return insightsStaleTickMsg{}
+	})
+}
+
+// insightsWanted reports whether insights should be shown on the dashboard.
+func (m *Model) insightsWanted() bool {
+	return m.insightsEnabled && m.llmClient != nil
+}
+
+// cancelInsights cancels any in-flight insights request and releases the
+// cancel func so it can be garbage collected.
+func (m *Model) cancelInsights() {
+	if m.dash.insights.cancel != nil {
+		m.dash.insights.cancel()
+		m.dash.insights.cancel = nil
+	}
+	m.dash.insights.streamCh = nil
+}
+
+// fetchInsights starts a streaming LLM call to generate proactive insights.
+// Items appear incrementally as each complete JSON object streams in.
+func (m *Model) fetchInsights() tea.Cmd {
+	if !m.insightsWanted() {
+		return nil
+	}
+
+	m.cancelInsights()
+	m.dash.insights.loading = true
+	m.dash.insights.err = nil
+	m.dash.insights.generation++
+	m.dash.insights.streamBuf.Reset()
+
+	client := m.llmClient
+	store := m.store
+	extraContext := m.llmExtraContext
+	gen := m.dash.insights.generation
+	timeout := m.chatInferenceTimeout()
+
+	//nolint:gosec // cancel stored in m.dash.insights.cancel
+	ctx, cancel := context.WithTimeout(
+		context.Background(), timeout,
+	)
+	m.dash.insights.cancel = cancel
+
+	return func() tea.Msg {
+		dataSummary := ""
+		if store != nil {
+			dataSummary = store.DataDump()
+		}
+		if dataSummary == "" {
+			return insightsResultMsg{Err: fmt.Errorf("no data to analyze"), Generation: gen}
+		}
+
+		prompt := llm.BuildInsightsPrompt(dataSummary, time.Now(), extraContext)
+		messages := []llm.Message{
+			{Role: "system", Content: prompt},
+			{Role: "user", Content: "Analyze my home data and provide proactive insights."},
+		}
+
+		streamCh, err := client.ChatStream(
+			ctx, messages,
+			llm.WithJSONSchema("insights", llm.InsightsJSONSchema()),
+			llm.WithNoThinking(),
+		)
+		if err != nil {
+			return insightsResultMsg{Err: err, Generation: gen}
+		}
+		return insightsStreamStartedMsg{Channel: streamCh, Generation: gen}
+	}
+}
+
+// waitForInsightChunk returns a Cmd that reads the next chunk from the
+// insights stream channel.
+func waitForInsightChunk(ch <-chan llm.StreamChunk, gen uint64) tea.Cmd {
+	return waitForStream(ch, func(c llm.StreamChunk) tea.Msg {
+		return insightsChunkMsg{
+			Content:    c.Content,
+			Done:       c.Done,
+			Err:        c.Err,
+			Generation: gen,
+		}
+	}, insightsChunkMsg{Done: true, Generation: gen})
+}
+
+// parsePartialInsights extracts complete insightItem objects from a partial
+// JSON stream. It finds balanced top-level {...} blocks within the first
+// JSON array and parses each individually, so items appear as they complete.
+func parsePartialInsights(partial string) []insightItem {
+	// Find the opening bracket of the insights array.
+	idx := strings.Index(partial, "[")
+	if idx < 0 {
+		return nil
+	}
+
+	var items []insightItem
+	depth := 0
+	inString := false
+	escaped := false
+	objStart := -1
+	for i := idx; i < len(partial); i++ {
+		ch := partial[i]
+		if escaped {
+			escaped = false
+			continue
+		}
+		if ch == '\\' && inString {
+			escaped = true
+			continue
+		}
+		if ch == '"' {
+			inString = !inString
+			continue
+		}
+		if inString {
+			continue
+		}
+		switch ch {
+		case '{':
+			if depth == 0 {
+				objStart = i
+			}
+			depth++
+		case '}':
+			depth--
+			if depth == 0 && objStart >= 0 {
+				var item insightItem
+				if err := json.Unmarshal([]byte(partial[objStart:i+1]), &item); err == nil &&
+					item.EntityID >= 1 {
+					items = append(items, item)
+				}
+				objStart = -1
+			}
+		}
+	}
+	return items
+}
+
+// refreshInsights cancels any in-flight request and starts a fresh fetch.
+func (m *Model) refreshInsights() tea.Cmd {
+	m.cancelInsights()
+	m.dash.insights.loading = false
+	m.dash.insights.stale = true
+	return m.maybeStartInsights()
+}
+
+// maybeStartInsights starts an insights fetch if needed (stale/absent and
+// not already loading).
+func (m *Model) maybeStartInsights() tea.Cmd {
+	if !m.insightsWanted() {
+		return nil
+	}
+	if m.dash.insights.loading {
+		return nil
+	}
+	// Already have fresh results — just keep the staleness tick running.
+	if len(m.dash.insights.items) > 0 && !m.dash.insights.stale {
+		return insightsStaleTick()
+	}
+	return tea.Batch(m.fetchInsights(), m.dash.spinner.Tick)
+}
+
+// markInsightsStale flags insights for refresh on next dashboard open.
+func (m *Model) markInsightsStale() {
+	m.dash.insights.stale = true
+}
+
+// tabKindFromString maps a tab name string to a TabKind.
+func tabKindFromString(s string) (TabKind, bool) {
+	switch s {
+	case "projects":
+		return tabProjects, true
+	case "quotes":
+		return tabQuotes, true
+	case "maintenance":
+		return tabMaintenance, true
+	case "incidents":
+		return tabIncidents, true
+	case "appliances":
+		return tabAppliances, true
+	case "vendors":
+		return tabVendors, true
+	case "documents":
+		return tabDocuments, true
+	}
+	return 0, false
+}
+
+// tabAbbrev returns a short 5-char abbreviation for a tab name.
+func tabAbbrev(tab string) string {
+	switch tab {
+	case "projects":
+		return "Proj."
+	case "quotes":
+		return "Quot."
+	case "maintenance":
+		return "Mnt."
+	case "incidents":
+		return "Inc."
+	case "appliances":
+		return "Appl."
+	case "vendors":
+		return "Vend."
+	case "documents":
+		return "Docs."
+	}
+	return tab
+}
+
+// dashInsightsRows returns dashboard rows for the insights section,
+// grouped by category with sub-header rows.
+func (m *Model) dashInsightsRows() []dashRow {
+	ins := m.dash.insights
+	if len(ins.items) == 0 {
+		return nil
+	}
+
+	// Group items by category in display order, enforcing hard caps.
+	order := []insightCategory{insightAttention, insightStale, insightPattern}
+	grouped := make(map[insightCategory][]insightItem, len(order))
+	for _, item := range ins.items {
+		g := grouped[item.Category]
+		if len(g) < maxInsightsPerCategory {
+			grouped[item.Category] = append(g, item)
+		}
+	}
+
+	var rows []dashRow
+	total := 0
+	for _, cat := range order {
+		items := grouped[cat]
+		if len(items) == 0 {
+			continue
+		}
+		if total >= maxInsights {
+			break
+		}
+		// Trim this category if it would exceed the global cap.
+		if total+len(items) > maxInsights {
+			items = items[:maxInsights-total]
+		}
+		// Category sub-header row.
+		rows = append(rows, dashRow{
+			Cells: []dashCell{
+				{
+					Text:  insightCategoryLabel(cat),
+					Style: m.styles.DashLabel(),
+				},
+			},
+			Target: &dashNavEntry{Section: dashSectionInsights, InfoOnly: true, Skip: true},
+		})
+		for _, item := range items {
+			target := &dashNavEntry{Section: dashSectionInsights, InfoOnly: true}
+			if tab, ok := tabKindFromString(item.Tab); ok {
+				target = &dashNavEntry{
+					Tab:     tab,
+					ID:      item.EntityID,
+					Section: dashSectionInsights,
+				}
+			}
+			rows = append(rows, dashRow{
+				Cells: []dashCell{
+					{Text: item.Text, Style: m.styles.DashValue()},
+					{
+						Text:  tabAbbrev(item.Tab),
+						Style: m.styles.DashLabel(),
+						Align: alignRight,
+					},
+				},
+				Target: target,
+			})
+		}
+		total += len(items)
+	}
+	return rows
+}
+
+// insightsStaleness returns a human-readable staleness indicator.
+func (m *Model) insightsStaleness() string {
+	ins := m.dash.insights
+	if ins.generatedAt.IsZero() {
+		return ""
+	}
+	d := time.Since(ins.generatedAt)
+	s := shortDur(d)
+	if s == "now" {
+		return "just now"
+	}
+	return s + " ago"
 }
 
 // ---------------------------------------------------------------------------

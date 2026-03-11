@@ -156,6 +156,8 @@ func (cmd *runCmd) Run() error {
 		chatCfg.ExtraContext,
 		chatCfg.Timeout,
 		chatCfg.Thinking,
+		chatCfg.ContextLength,
+		cfg.LLM.InsightsEnabled(),
 	)
 
 	exCfg := cfg.LLM.ExtractionConfig()
@@ -171,6 +173,7 @@ func (cmd *runCmd) Run() error {
 		exCfg.APIKey,
 		exCfg.Timeout,
 		exCfg.Thinking,
+		exCfg.ContextLength,
 		extractors,
 		cfg.Extraction.IsEnabled(),
 		cfg.Extraction.IsOCRTSV(),

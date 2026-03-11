@@ -174,6 +174,9 @@ func (m *Model) buildDashboardOverlay() string {
 		m.helpItem(keyShiftD, "close"),
 		m.helpItem(keyQuestion, "help"),
 	}
+	if m.insightsWanted() {
+		hintParts = append(hintParts, m.helpItem(keyR, "refresh"))
+	}
 	if m.dash.flash != "" {
 		hintParts = append(hintParts, m.styles.DashHouseValue().Render(m.dash.flash))
 	}

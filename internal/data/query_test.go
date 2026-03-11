@@ -229,6 +229,15 @@ func TestDataDump(t *testing.T) {
 	assert.Contains(t, dump, "- ")
 }
 
+func TestDataDumpIncludesEntityIDs(t *testing.T) {
+	t.Parallel()
+	store := newTestStore(t)
+	require.NoError(t, store.db.Create(&Vendor{Name: "TestVendor"}).Error)
+
+	dump := store.DataDump()
+	assert.Contains(t, dump, "id: ", "DataDump should include entity IDs for LLM navigation")
+}
+
 func TestDataDumpExcludesSoftDeletedRecords(t *testing.T) {
 	t.Parallel()
 	store := newTestStore(t)

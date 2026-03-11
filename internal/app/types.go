@@ -87,18 +87,19 @@ func (fs *formState) formKind() FormKind {
 type extractState struct {
 	// Extraction-specific LLM connection settings. When extractionProvider
 	// differs from the chat provider, an independent client is created.
-	extractionProvider string
-	extractionBaseURL  string
-	extractionModel    string
-	extractionAPIKey   string
-	extractionTimeout  time.Duration // inference context deadline
-	extractionThinking string
-	extractionEnabled  bool
-	ocrTSV             bool
-	ocrConfThreshold   int
-	extractionClient   *llm.Client
-	extractors         []extract.Extractor
-	extractionReady    bool
+	extractionProvider      string
+	extractionBaseURL       string
+	extractionModel         string
+	extractionAPIKey        string
+	extractionTimeout       time.Duration // inference context deadline
+	extractionThinking      string
+	extractionContextLength int
+	extractionEnabled       bool
+	ocrTSV                  bool
+	ocrConfThreshold        int
+	extractionClient        *llm.Client
+	extractors              []extract.Extractor
+	extractionReady         bool
 
 	pendingExtractionDocID *uint
 	extraction             *extractionLogState
@@ -271,13 +272,15 @@ type Options struct {
 // TOML config. Kept as a separate type so the app package doesn't import
 // config directly.
 type llmConfig struct {
-	Provider     string
-	BaseURL      string
-	Model        string
-	APIKey       string //nolint:gosec // G101 false positive: field name triggers heuristic, not a hardcoded credential
-	ExtraContext string
-	Timeout      time.Duration // inference context deadline
-	Thinking     string        // reasoning effort: none|low|medium|high|auto
+	Provider        string
+	BaseURL         string
+	Model           string
+	APIKey          string //nolint:gosec // G101 false positive: field name triggers heuristic, not a hardcoded credential
+	ExtraContext    string
+	Timeout         time.Duration // inference context deadline
+	Thinking        string        // reasoning effort: none|low|medium|high|auto
+	ContextLength   int           // Ollama context window size; 0 = provider default
+	InsightsEnabled bool          // proactive dashboard insights
 }
 
 // extractionConfig holds resolved extraction pipeline settings.
@@ -285,12 +288,13 @@ type extractionConfig struct {
 	// LLM connection settings for extraction. When Provider is non-empty,
 	// the extraction pipeline creates its own LLM client independent of
 	// the chat client. When empty, falls back to the chat client.
-	Provider string
-	BaseURL  string
-	Model    string
-	APIKey   string        //nolint:gosec // G117 false positive: field name, not a hardcoded credential
-	Timeout  time.Duration // inference context deadline
-	Thinking string        // reasoning effort level
+	Provider      string
+	BaseURL       string
+	Model         string
+	APIKey        string        //nolint:gosec // G117 false positive: field name, not a hardcoded credential
+	Timeout       time.Duration // inference context deadline
+	Thinking      string        // reasoning effort level
+	ContextLength int           // Ollama context window size; 0 = provider default
 
 	Extractors       []extract.Extractor // configured extractors; nil = defaults
 	Enabled          bool                // LLM extraction enabled
@@ -303,6 +307,7 @@ func (o *Options) SetExtraction(
 	provider, baseURL, model, apiKey string,
 	timeout time.Duration,
 	thinking string,
+	contextLength int,
 	extractors []extract.Extractor,
 	enabled bool,
 	ocrTSV bool,
@@ -315,6 +320,7 @@ func (o *Options) SetExtraction(
 		APIKey:           apiKey,
 		Timeout:          timeout,
 		Thinking:         thinking,
+		ContextLength:    contextLength,
 		Extractors:       extractors,
 		Enabled:          enabled,
 		OCRTSV:           ocrTSV,
@@ -328,19 +334,23 @@ func (o *Options) SetLLM(
 	provider, baseURL, model, apiKey, extraContext string,
 	timeout time.Duration,
 	thinking string,
+	contextLength int,
+	insightsEnabled bool,
 ) {
 	if model == "" {
 		o.LLMConfig = nil
 		return
 	}
 	o.LLMConfig = &llmConfig{
-		Provider:     provider,
-		BaseURL:      baseURL,
-		Model:        model,
-		APIKey:       apiKey,
-		ExtraContext: extraContext,
-		Timeout:      timeout,
-		Thinking:     thinking,
+		Provider:        provider,
+		BaseURL:         baseURL,
+		Model:           model,
+		APIKey:          apiKey,
+		ExtraContext:    extraContext,
+		Timeout:         timeout,
+		Thinking:        thinking,
+		ContextLength:   contextLength,
+		InsightsEnabled: insightsEnabled,
 	}
 }
 

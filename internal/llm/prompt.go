@@ -117,6 +117,78 @@ func BuildSystemPrompt(
 	return b.String()
 }
 
+// BuildInsightsPrompt creates a system prompt instructing the LLM to analyze
+// the full home dataset and produce proactive observations. The LLM returns
+// a JSON object with an "insights" array. dataSummary is the output of DataDump().
+func BuildInsightsPrompt(
+	dataSummary string,
+	now time.Time,
+	extraContext string,
+) string {
+	var b strings.Builder
+	b.WriteString(insightsPreamble)
+	b.WriteString(dateContext(now))
+	if dataSummary != "" {
+		b.WriteString("\n\n## Current Data\n\n")
+		b.WriteString(dataSummary)
+	}
+	b.WriteString("\n\n")
+	b.WriteString(insightsGuidelines)
+	if extraContext != "" {
+		b.WriteString("\n\n## Additional context\n\n")
+		b.WriteString(extraContext)
+	}
+	return b.String()
+}
+
+// InsightsJSONSchema returns the JSON Schema used with structured output
+// to constrain the LLM's insights response.
+func InsightsJSONSchema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"insights": map[string]any{
+				"type":     "array",
+				"maxItems": 5,
+				"items": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"text": map[string]any{
+							"type":        "string",
+							"description": "Short, natural insight (one sentence)",
+						},
+						"tab": map[string]any{
+							"type":        "string",
+							"description": "Target tab for navigation",
+							"enum": []string{
+								"projects",
+								"quotes",
+								"maintenance",
+								"incidents",
+								"appliances",
+								"vendors",
+								"documents",
+							},
+						},
+						"entity_id": map[string]any{
+							"type":        "integer",
+							"minimum":     1,
+							"description": "Database ID of the specific entity from the data",
+						},
+						"category": map[string]any{
+							"type":        "string",
+							"description": "Insight category",
+							"enum":        []string{"attention", "stale", "pattern"},
+						},
+					},
+					"required": []string{"text", "tab", "entity_id", "category"},
+				},
+			},
+		},
+		"required": []string{"insights"},
+	}
+}
+
 // FormatResultsTable renders query results as a pipe-delimited text table,
 // compact enough for an LLM context window.
 func FormatResultsTable(columns []string, rows [][]string) string {
@@ -373,3 +445,56 @@ Example question: "What's my most expensive project?"
 Example answer: "Kitchen Remodel at $12,500.00."
 
 Now answer the user's question based solely on the data provided.`
+
+// ---------- Proactive insights ----------
+
+const insightsPreamble = `You are a home maintenance analyst. Find things the homeowner would NOT notice by glancing at their data.
+
+HARD LIMIT: Return AT MOST 5 insights total. Fewer is better. Only include an insight if it's genuinely non-obvious.
+
+RULES:
+1. Only use data shown below. Never invent or assume facts.
+2. Do NOT restate what's already visible: overdue items, open incidents, upcoming dates, project statuses, or quote amounts. The dashboard already shows all of those. If the user could see it by scrolling, it's NOT an insight.
+3. Each insight is one short sentence. Write like a person, not a database -- "interior paint hasn't been touched up since 2022", not "interior paint has not been serviced since August 2022".
+4. Use context-appropriate verbs. Paint gets "touched up", filters get "replaced", inspections get "done", gutters get "cleaned". Never use generic "serviced" for everything.
+5. Money values in the data are already formatted as dollars.
+6. NEVER include numeric IDs in the text -- use names only.
+7. Output valid JSON only. No commentary outside the JSON.
+8. Every insight MUST reference a specific entity by its exact "id" from the data.
+9. No duplicates -- each entity appears in at most one insight.
+10. DO NOT list every project, every quote, or every vendor. Pick only the most surprising or actionable ONE from each pattern.`
+
+const insightsGuidelines = `## Output format
+
+JSON object with an "insights" array (MAX 5 elements). Each element:
+- "text": one short natural sentence
+- "tab": target tab (projects, quotes, maintenance, incidents, appliances, vendors, documents)
+- "entity_id": exact numeric "id" from the data
+- "category": "attention", "stale", or "pattern"
+
+### Categories (pick AT MOST 2 per category)
+
+**"attention"** -- needs action soon but ISN'T already flagged as overdue/open:
+- Appliance age approaching typical lifespan
+- Warranty expiring soon that the user might not realize
+- An appliance linked to multiple incidents (reliability red flag)
+
+**"stale"** -- user started something and apparently forgot about it:
+- A quote sitting for 6+ months with no project movement
+- A project stuck in planning/delayed for an unusually long time
+Pick only the single most forgotten-looking item, not every stale project.
+
+**"pattern"** -- cross-entity trend the user can't see by looking at one tab:
+- Repeated spend on one system that suggests a service contract
+- One vendor handling most of the work (concentration risk)
+- Cost outlier compared to similar items
+Pick the single most striking pattern, not a list of every vendor's quote count.
+
+### Example (this is the right length -- 3 items)
+{"insights":[
+  {"text":"Water heater is 12 years old -- typical lifespan is 10-15 years","tab":"appliances","entity_id":5,"category":"attention"},
+  {"text":"Kitchen remodel was quoted 18 months ago but never started","tab":"quotes","entity_id":3,"category":"stale"},
+  {"text":"4 HVAC service calls this year totaling $3,200 -- a maintenance contract might save money","tab":"maintenance","entity_id":8,"category":"pattern"}
+]}
+
+STOP after 3-5 insights. Quality over quantity.`

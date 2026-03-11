@@ -616,13 +616,15 @@ func TestEnvVars(t *testing.T) {
 	// Every env var name is derived from its dotted config path:
 	// MICASA_ + UPPER(key with "." -> "_").
 	want := map[string]string{
-		"MICASA_LLM_PROVIDER":      "llm.provider",
-		"MICASA_LLM_BASE_URL":      "llm.base_url",
-		"MICASA_LLM_API_KEY":       "llm.api_key",
-		"MICASA_LLM_MODEL":         "llm.model",
-		"MICASA_LLM_EXTRA_CONTEXT": "llm.extra_context",
-		"MICASA_LLM_TIMEOUT":       "llm.timeout",
-		"MICASA_LLM_THINKING":      "llm.thinking",
+		"MICASA_LLM_PROVIDER":       "llm.provider",
+		"MICASA_LLM_BASE_URL":       "llm.base_url",
+		"MICASA_LLM_API_KEY":        "llm.api_key",
+		"MICASA_LLM_MODEL":          "llm.model",
+		"MICASA_LLM_EXTRA_CONTEXT":  "llm.extra_context",
+		"MICASA_LLM_TIMEOUT":        "llm.timeout",
+		"MICASA_LLM_THINKING":       "llm.thinking",
+		"MICASA_LLM_CONTEXT_LENGTH": "llm.context_length",
+		"MICASA_LLM_INSIGHTS":       "llm.insights",
 
 		"MICASA_DOCUMENTS_MAX_FILE_SIZE":   "documents.max_file_size",
 		"MICASA_DOCUMENTS_CACHE_TTL":       "documents.cache_ttl",
@@ -844,6 +846,30 @@ extra_context = "My house is old."
 	assert.Equal(t, 5*time.Second, chat.Timeout)
 	assert.Equal(t, "medium", chat.Thinking)
 	assert.Equal(t, "My house is old.", chat.ExtraContext)
+}
+
+func TestContextLengthInheritsIntoResolvedConfig(t *testing.T) {
+	path := writeConfig(t, `[llm]
+provider = "ollama"
+model = "qwen3"
+context_length = 65536
+`)
+	cfg, err := LoadFromPath(path)
+	require.NoError(t, err)
+	assert.Equal(t, 65536, cfg.LLM.ContextLength)
+	assert.Equal(t, 65536, cfg.LLM.ChatConfig().ContextLength)
+	assert.Equal(t, 65536, cfg.LLM.ExtractionConfig().ContextLength)
+}
+
+func TestContextLengthRejectsNegative(t *testing.T) {
+	path := writeConfig(t, `[llm]
+provider = "ollama"
+model = "qwen3"
+context_length = -1
+`)
+	_, err := LoadFromPath(path)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "context_length")
 }
 
 func TestExtractionConfigInheritsBase(t *testing.T) {
@@ -1540,4 +1566,41 @@ func TestFilePickerDir_FromEnv(t *testing.T) {
 	cfg, err := LoadFromPath(noConfig(t))
 	require.NoError(t, err)
 	assert.Equal(t, dir, cfg.Documents.FilePickerDir)
+}
+
+// --- Insights ---
+
+func TestInsightsEnabled_DefaultFalse(t *testing.T) {
+	t.Parallel()
+	cfg, err := LoadFromPath(noConfig(t))
+	require.NoError(t, err)
+	assert.False(t, cfg.LLM.InsightsEnabled())
+}
+
+func TestInsightsEnabled_FromTOML(t *testing.T) {
+	t.Parallel()
+	path := writeConfig(t, "[llm]\ninsights = true\n")
+	cfg, err := LoadFromPath(path)
+	require.NoError(t, err)
+	assert.True(t, cfg.LLM.InsightsEnabled())
+}
+
+func TestInsightsEnabled_FromEnv(t *testing.T) {
+	t.Setenv("MICASA_LLM_INSIGHTS", "true")
+	cfg, err := LoadFromPath(noConfig(t))
+	require.NoError(t, err)
+	assert.True(t, cfg.LLM.InsightsEnabled())
+}
+
+func TestInsightsEnabled_EnvFalse(t *testing.T) {
+	t.Setenv("MICASA_LLM_INSIGHTS", "false")
+	cfg, err := LoadFromPath(noConfig(t))
+	require.NoError(t, err)
+	assert.False(t, cfg.LLM.InsightsEnabled())
+}
+
+func TestExampleTOML_IncludesInsights(t *testing.T) {
+	t.Parallel()
+	example := ExampleTOML()
+	assert.Contains(t, example, "insights")
 }

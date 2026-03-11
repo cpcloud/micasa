@@ -261,8 +261,8 @@ func firstWord(s string) string {
 //
 // The output is optimized for small LLMs: null/empty values are omitted,
 // money columns (ending in "_ct") are formatted as dollars, and internal
-// columns (id, created_at, updated_at, deleted_at) are excluded to reduce
-// noise.
+// columns (created_at, updated_at, deleted_at) are excluded to reduce
+// noise. Entity IDs are included so the LLM can reference specific records.
 func (s *Store) DataDump() string {
 	names, err := s.TableNames()
 	if err != nil {
@@ -404,7 +404,7 @@ func (s *Store) ColumnHints() string {
 // clutter without helping the LLM answer user questions.
 func isNoiseColumn(col string) bool {
 	switch strings.ToLower(col) {
-	case ColID, ColCreatedAt, ColUpdatedAt, ColDeletedAt, ColData:
+	case ColCreatedAt, ColUpdatedAt, ColDeletedAt, ColData:
 		return true
 	}
 	return false

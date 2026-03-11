@@ -11,9 +11,19 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/cpcloud/micasa/internal/data"
+	"github.com/cpcloud/micasa/internal/llm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// testDummyLLMClient returns a non-nil LLM client for tests that need
+// insightsWanted() to return true. Not connected to a real server.
+func testDummyLLMClient(t *testing.T) *llm.Client {
+	t.Helper()
+	c, err := llm.NewClient("llamacpp", "http://127.0.0.1:1", "test", "", time.Second, 0)
+	require.NoError(t, err)
+	return c
+}
 
 // nonEmptyDashboard returns a minimal dashboardData that is not empty,
 // for tests that just need the dashboard overlay to render.
@@ -1274,4 +1284,507 @@ func TestOverlayContentWidth(t *testing.T) {
 			assert.Equal(t, tt.want, m.overlayContentWidth())
 		})
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Proactive Insights tests
+// ---------------------------------------------------------------------------
+
+func TestInsightsWanted_DisabledByDefault(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	assert.False(t, m.insightsWanted(), "insights should be off by default")
+}
+
+func TestInsightsWanted_EnabledWithLLM(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.insightsEnabled = true
+	// Still false because llmClient is nil.
+	assert.False(t, m.insightsWanted(), "insights needs llmClient")
+}
+
+func TestInsightsState_InitiallyEmpty(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.insightsEnabled = true
+	assert.Empty(t, m.dash.insights.items)
+	assert.False(t, m.dash.insights.loading)
+	assert.False(t, m.dash.insights.stale)
+	assert.NoError(t, m.dash.insights.err)
+}
+
+func TestInsightsRows_Empty(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	rows := m.dashInsightsRows()
+	assert.Empty(t, rows)
+}
+
+func TestInsightsRows_WithItems(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.insightsEnabled = true
+	m.dash.insights.items = []insightItem{
+		{
+			Text:     "Water heater is 12y old",
+			Tab:      "appliances",
+			EntityID: 5,
+			Category: insightAttention,
+		},
+		{
+			Text:     "4 HVAC calls this year",
+			Tab:      "maintenance",
+			EntityID: 12,
+			Category: insightPattern,
+		},
+	}
+	rows := m.dashInsightsRows()
+	// 2 category headers + 2 data rows = 4
+	require.Len(t, rows, 4)
+	// First: attention header (skippable sub-header).
+	assert.Equal(t, "Needs Attention", rows[0].Cells[0].Text)
+	assert.True(t, rows[0].Target.InfoOnly)
+	assert.True(t, rows[0].Target.Skip)
+	// Second: data row.
+	assert.Equal(t, "Water heater is 12y old", rows[1].Cells[0].Text)
+	assert.Equal(t, "Appl.", rows[1].Cells[1].Text)
+	assert.Equal(t, tabAppliances, rows[1].Target.Tab)
+	assert.Equal(t, uint(5), rows[1].Target.ID)
+	assert.False(t, rows[1].Target.InfoOnly)
+	// Third: pattern header.
+	assert.Equal(t, "Patterns", rows[2].Cells[0].Text)
+	// Fourth: data row.
+	assert.Equal(t, "4 HVAC calls this year", rows[3].Cells[0].Text)
+	assert.Equal(t, tabMaintenance, rows[3].Target.Tab)
+	assert.Equal(t, uint(12), rows[3].Target.ID)
+	assert.False(t, rows[3].Target.InfoOnly)
+}
+
+func TestInsightsRows_CapsPerCategoryAndTotal(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.insightsEnabled = true
+	// Feed 4 attention + 4 stale + 4 pattern = 12 items. Expect caps to kick in.
+	m.dash.insights.items = []insightItem{
+		{Text: "a1", Tab: "appliances", EntityID: 1, Category: insightAttention},
+		{Text: "a2", Tab: "appliances", EntityID: 2, Category: insightAttention},
+		{Text: "a3", Tab: "appliances", EntityID: 3, Category: insightAttention},
+		{Text: "a4", Tab: "appliances", EntityID: 4, Category: insightAttention},
+		{Text: "s1", Tab: "projects", EntityID: 10, Category: insightStale},
+		{Text: "s2", Tab: "projects", EntityID: 11, Category: insightStale},
+		{Text: "s3", Tab: "projects", EntityID: 12, Category: insightStale},
+		{Text: "s4", Tab: "projects", EntityID: 13, Category: insightStale},
+		{Text: "p1", Tab: "maintenance", EntityID: 20, Category: insightPattern},
+		{Text: "p2", Tab: "maintenance", EntityID: 21, Category: insightPattern},
+		{Text: "p3", Tab: "maintenance", EntityID: 22, Category: insightPattern},
+		{Text: "p4", Tab: "maintenance", EntityID: 23, Category: insightPattern},
+	}
+	rows := m.dashInsightsRows()
+	// maxInsightsPerCategory=2, maxInsights=5
+	// attention: 2 items, stale: 2 items, pattern: 1 item (capped by global 5)
+	// Plus 3 category headers = 8 rows total.
+	dataRows := 0
+	for _, r := range rows {
+		if r.Target != nil && !r.Target.InfoOnly {
+			dataRows++
+		}
+	}
+	assert.LessOrEqual(t, dataRows, maxInsights)
+	assert.Equal(t, 5, dataRows)
+}
+
+func TestInsightsNav_SkipsCategorySubHeaders(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.insightsEnabled = true
+	m.width = 120
+	m.height = 40
+
+	sendKey(m, "D")
+	require.True(t, m.showDashboard)
+
+	m.dash.insights.items = []insightItem{
+		{Text: "Aging heater", Tab: "appliances", EntityID: 1, Category: insightAttention},
+		{Text: "Stale project", Tab: "projects", EntityID: 2, Category: insightStale},
+	}
+	m.dash.insights.loading = false
+	m.buildDashNav()
+	m.prepareDashboardView()
+
+	// Navigate to insights header.
+	for range 20 {
+		entry := m.dash.nav[m.dash.cursor]
+		if entry.IsHeader && entry.Section == dashSectionInsights {
+			break
+		}
+		sendKey(m, "J")
+	}
+	require.Equal(t, dashSectionInsights, m.dash.nav[m.dash.cursor].Section)
+	sendKey(m, "e") // expand
+	m.prepareDashboardView()
+
+	// First j should land on data row, not category sub-header.
+	sendKey(m, "j")
+	entry := m.dash.nav[m.dash.cursor]
+	assert.False(t, entry.InfoOnly, "cursor should skip sub-headers")
+	assert.Equal(t, "Aging heater", m.dash.insights.items[0].Text)
+
+	// Second j should land on the next data row (skipping stale sub-header).
+	sendKey(m, "j")
+	entry = m.dash.nav[m.dash.cursor]
+	assert.False(t, entry.InfoOnly, "cursor should skip sub-headers")
+	assert.Equal(t, uint(2), entry.ID)
+}
+
+func TestInsightsSection_AppearsAfterResultMsg(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.insightsEnabled = true
+	m.width = 120
+	m.height = 40
+
+	// Open dashboard with D.
+	sendKey(m, "D")
+	require.True(t, m.showDashboard)
+
+	// Simulate streamed insights arriving.
+	m.dash.insights.items = []insightItem{
+		{
+			Text:     "Water heater is 12y old",
+			Tab:      "appliances",
+			EntityID: 1,
+			Category: insightAttention,
+		},
+	}
+	m.dash.insights.loading = false
+	m.buildDashNav()
+	m.prepareDashboardView()
+
+	// Expand insights section (last section).
+	sendKey(m, "G") // jump to bottom
+	// Find and expand the insights header.
+	for m.dash.cursor > 0 {
+		entry := m.dash.nav[m.dash.cursor]
+		if entry.IsHeader && entry.Section == dashSectionInsights {
+			break
+		}
+		sendKey(m, "k")
+	}
+	sendKey(m, "e") // expand
+	m.prepareDashboardView()
+
+	overlay := m.buildDashboardOverlay()
+	assert.Contains(t, overlay, dashSectionInsights)
+	assert.Contains(t, overlay, "Water heater is 12y old")
+}
+
+func TestInsightsSection_LoadingShowsSpinner(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.insightsEnabled = true
+	m.width = 120
+	m.height = 40
+
+	// Open dashboard.
+	sendKey(m, "D")
+	require.True(t, m.showDashboard)
+
+	// Simulate loading state (insights fetch in progress).
+	m.dash.insights.loading = true
+	m.prepareDashboardView()
+
+	overlay := m.buildDashboardOverlay()
+	assert.Contains(t, overlay, "Insights")
+}
+
+func TestInsightsSection_ErrorShowsMutedMessage(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.insightsEnabled = true
+	m.width = 120
+	m.height = 40
+
+	// Open dashboard.
+	sendKey(m, "D")
+	require.True(t, m.showDashboard)
+
+	// Simulate error result arriving.
+	m.Update(insightsResultMsg{Err: fmt.Errorf("network timeout")})
+	m.prepareDashboardView()
+
+	overlay := m.buildDashboardOverlay()
+	assert.Contains(t, overlay, "unavailable")
+	assert.Contains(t, overlay, "network timeout")
+	assert.NotContains(t, overlay, "error:")
+}
+
+func TestInsightsNav_JumpsToEntityViaKeyboard(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.insightsEnabled = true
+	m.width = 120
+	m.height = 40
+
+	// Open dashboard.
+	sendKey(m, "D")
+	require.True(t, m.showDashboard)
+
+	// Deliver insights.
+	m.dash.insights.items = []insightItem{
+		{Text: "Test insight", Tab: "appliances", EntityID: 42, Category: insightAttention},
+	}
+	m.dash.insights.loading = false
+	m.buildDashNav()
+	m.prepareDashboardView()
+
+	// Navigate to the Insights section header with J (jump between sections).
+	for range 20 {
+		entry := m.dash.nav[m.dash.cursor]
+		if entry.IsHeader && entry.Section == dashSectionInsights {
+			break
+		}
+		sendKey(m, "J")
+	}
+	require.Equal(t, dashSectionInsights, m.dash.nav[m.dash.cursor].Section)
+
+	// Expand it.
+	sendKey(m, "e")
+	m.prepareDashboardView()
+
+	// Move to the data row (sub-headers are auto-skipped).
+	sendKey(m, "j")
+	require.False(t, m.dash.nav[m.dash.cursor].IsHeader, "should be on data row")
+	require.False(t, m.dash.nav[m.dash.cursor].InfoOnly, "should not be info-only")
+
+	// Press enter to jump to the entity.
+	sendKey(m, "enter")
+	assert.False(t, m.showDashboard, "dashboard should close")
+	assert.Equal(t, tabIndex(tabAppliances), m.active)
+}
+
+func TestInsightsRefreshKey_MarksStale(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.insightsEnabled = true
+	m.llmClient = testDummyLLMClient(t)
+	m.width = 120
+	m.height = 40
+
+	// Open dashboard.
+	sendKey(m, "D")
+	require.True(t, m.showDashboard)
+
+	// Deliver insights so they're cached.
+	m.dash.insights.items = []insightItem{
+		{Text: "Old insight", Tab: "appliances", EntityID: 1, Category: insightAttention},
+	}
+	m.dash.insights.loading = false
+	m.buildDashNav()
+	m.prepareDashboardView()
+	require.False(t, m.dash.insights.stale)
+
+	// Press r to refresh.
+	sendKey(m, "r")
+	assert.True(t, m.dash.insights.stale)
+}
+
+func TestInsightsStale_AfterMutation(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithStore(t)
+	m.insightsEnabled = true
+	m.width = 120
+	m.height = 40
+
+	// Open dashboard.
+	sendKey(m, "D")
+	require.True(t, m.showDashboard)
+
+	// Deliver insights.
+	m.dash.insights.items = []insightItem{
+		{Text: "Old insight", Tab: "appliances", EntityID: 1, Category: insightAttention},
+	}
+	m.dash.insights.loading = false
+	m.buildDashNav()
+	require.False(t, m.dash.insights.stale)
+
+	// Simulate a data mutation (e.g. user saved an edit).
+	m.reloadAfterMutation()
+	assert.True(t, m.dash.insights.stale, "mutation should mark insights stale")
+}
+
+func TestTabKindFromString(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		input string
+		want  TabKind
+		ok    bool
+	}{
+		{"projects", tabProjects, true},
+		{"quotes", tabQuotes, true},
+		{"maintenance", tabMaintenance, true},
+		{"incidents", tabIncidents, true},
+		{"appliances", tabAppliances, true},
+		{"vendors", tabVendors, true},
+		{"documents", tabDocuments, true},
+		{"unknown", 0, false},
+	}
+	for _, tt := range tests {
+		got, ok := tabKindFromString(tt.input)
+		assert.Equal(t, tt.ok, ok, "tabKindFromString(%q) ok", tt.input)
+		if ok {
+			assert.Equal(t, tt.want, got, "tabKindFromString(%q)", tt.input)
+		}
+	}
+}
+
+func TestTabAbbrev(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "Proj.", tabAbbrev("projects"))
+	assert.Equal(t, "Appl.", tabAbbrev("appliances"))
+	assert.Equal(t, "Mnt.", tabAbbrev("maintenance"))
+}
+
+func TestDashboardVisible_WithInsightsOnly(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.showDashboard = true
+	m.insightsEnabled = true
+	// No deterministic dashboard data.
+	m.dash.data = dashboardData{}
+	assert.False(t, m.dashboardVisible(), "should be hidden when empty")
+
+	// But if insights are loading, it should be visible.
+	m.dash.insights.loading = true
+	assert.True(t, m.dashboardVisible(), "should show when insights loading")
+
+	// Or if insights have items.
+	m.dash.insights.loading = false
+	m.dash.insights.items = []insightItem{{Text: "test", Category: insightAttention}}
+	assert.True(t, m.dashboardVisible(), "should show when insights have items")
+
+	// Or if insights have an error.
+	m.dash.insights.items = nil
+	m.dash.insights.err = fmt.Errorf("err")
+	assert.True(t, m.dashboardVisible(), "should show when insights errored")
+}
+
+func TestInsightsStaleness(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+
+	// No generated time means empty string.
+	assert.Empty(t, m.insightsStaleness())
+
+	// Recent generation shows short duration.
+	m.dash.insights.generatedAt = time.Now().Add(-2 * time.Minute)
+	s := m.insightsStaleness()
+	assert.Contains(t, s, "ago")
+}
+
+func TestParsePartialInsights(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+		want  int
+	}{
+		{"empty", "", 0},
+		{"no array", `{"insights":`, 0},
+		{"array start only", `{"insights": [`, 0},
+		{
+			"one complete item",
+			`{"insights": [{"text": "old heater", "tab": "appliances", "entity_id": 5, "category": "attention"}`,
+			1,
+		},
+		{
+			"one complete, one partial",
+			`{"insights": [{"text": "old heater", "tab": "appliances", "entity_id": 5, "category": "attention"}, {"text": "lots of`,
+			1,
+		},
+		{
+			"two complete",
+			`{"insights": [{"text": "a", "tab": "appliances", "entity_id": 1, "category": "attention"}, {"text": "b", "tab": "maintenance", "entity_id": 2, "category": "pattern"}]}`,
+			2,
+		},
+		{
+			"brace in string",
+			`{"insights": [{"text": "has } brace", "tab": "appliances", "entity_id": 3, "category": "stale"}]}`,
+			1,
+		},
+		{
+			"entity_id zero filtered",
+			`{"insights": [{"text": "a", "tab": "appliances", "entity_id": 0, "category": "attention"}]}`,
+			0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			items := parsePartialInsights(tt.input)
+			assert.Len(t, items, tt.want)
+		})
+	}
+}
+
+func TestInsightsChunkMsg_ItemsAppearIncrementally(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.insightsEnabled = true
+	m.llmClient = testDummyLLMClient(t)
+	m.width = 120
+	m.height = 40
+
+	// Open dashboard.
+	sendKey(m, "D")
+	require.True(t, m.showDashboard)
+
+	// Simulate stream started.
+	m.dash.insights.loading = true
+	m.dash.insights.generation = 1
+
+	// First chunk: partial JSON with one complete item.
+	m.Update(insightsChunkMsg{
+		Content:    `{"insights": [{"text": "old heater", "tab": "appliances", "entity_id": 5, "category": "attention"}`,
+		Generation: 1,
+	})
+	assert.Len(t, m.dash.insights.items, 1)
+	assert.True(t, m.dash.insights.loading)
+
+	// Second chunk: completes another item.
+	m.Update(insightsChunkMsg{
+		Content:    `, {"text": "roof needs check", "tab": "maintenance", "entity_id": 8, "category": "pattern"}`,
+		Generation: 1,
+	})
+	assert.Len(t, m.dash.insights.items, 2)
+	assert.True(t, m.dash.insights.loading)
+
+	// Final chunk: stream done.
+	m.Update(insightsChunkMsg{
+		Content:    `]}`,
+		Done:       true,
+		Generation: 1,
+	})
+	assert.Len(t, m.dash.insights.items, 2)
+	assert.False(t, m.dash.insights.loading)
+	assert.False(t, m.dash.insights.generatedAt.IsZero())
+}
+
+func TestInsightsChunkMsg_StaleGenerationIgnored(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.insightsEnabled = true
+	m.width = 120
+	m.height = 40
+
+	m.dash.insights.generation = 2
+
+	// Chunk from generation 1 should be ignored.
+	m.Update(insightsChunkMsg{
+		Content:    `{"insights": [{"text": "stale", "tab": "appliances", "entity_id": 1}]}`,
+		Done:       true,
+		Generation: 1,
+	})
+	assert.Empty(t, m.dash.insights.items)
 }

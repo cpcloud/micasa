@@ -217,7 +217,7 @@ func TestQuickDocumentCtrlSSavesWithoutExtraction(t *testing.T) {
 
 	// Configure an LLM client so extraction WOULD be triggered if the
 	// deferred path ran. This is the key condition that exposes the bug.
-	client, err := llm.NewClient("ollama", "http://localhost:11434", "test", "", 30*time.Second)
+	client, err := llm.NewClient("ollama", "http://localhost:11434", "test", "", 30*time.Second, 0)
 	require.NoError(t, err)
 	m.ex.extractionClient = client
 	m.ex.extractionEnabled = true
