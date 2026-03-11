@@ -5,16 +5,14 @@ Diagnose and fix failing CI jobs on the current branch's PR.
 
 ## 1. Identify failures
 
-1. Find the PR: `gh pr view --json number --jq '.number'`
-2. List check runs: `gh pr checks --json name,state,conclusion,detailsUrl`
-3. If all checks pass, report that and stop.
+1. List check runs: `gh pr checks --json name,state,conclusion,detailsUrl`
+2. If all checks pass, report that and stop.
 
 ## 2. Diagnose each failure
 
 For each failing job:
 
-1. Get the run ID from the details URL or via
-   `gh run list --branch "$(git branch --show-current)" --status failure --json databaseId,name --jq '.[0].databaseId'`
+1. Extract the run ID from the `detailsUrl` returned in step 1.
 2. Fetch failed logs: `gh run view <run_id> --log-failed`
 3. Read the relevant source files to understand the root cause.
 4. Common failure categories:

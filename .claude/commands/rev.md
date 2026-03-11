@@ -10,11 +10,13 @@ Rebase onto the latest main, address PR review feedback, and fix failing CI.
 3. If there are conflicts, resolve them, `git add` the resolved files, and
    `git rebase --continue`. Repeat until the rebase completes.
 
-## 2. Address PR review feedback
+## 2. Address PR review feedback and fix CI (parallel)
 
-1. Find the PR for the current branch:
-   `gh pr view --json number,url --jq '.number'`
-2. Fetch all review comments (use the GraphQL API for threaded context):
+These two steps are independent -- start both in parallel.
+
+### 2a. PR review feedback
+
+1. Fetch unresolved review threads (use the GraphQL API for threaded context):
    ```
    gh api graphql -f query='
      query($owner:String!, $repo:String!, $pr:Int!) {
@@ -24,31 +26,25 @@ Rebase onto the latest main, address PR review feedback, and fix failing CI.
              nodes {
                isResolved
                comments(first:50) {
-                 nodes { author{login} body path line }
+                 nodes { id author{login} body path line }
                }
              }
            }
          }
        }
-     }' -f owner=cpcloud -f repo=micasa -F pr=<number>
+     }' -f owner=cpcloud -f repo=micasa \
+        -F pr="$(gh pr view --json number --jq '.number')"
    ```
-3. For each **unresolved** thread:
+2. For each **unresolved** thread:
    - Read the referenced file and line to understand the context
    - Make the requested change (or explain in a reply why not)
-   - After pushing the fix, reply to the review comment via
-     `gh api repos/cpcloud/micasa/pulls/<pr>/comments/<comment_id>/replies`
-     explaining how it was addressed (commit hash, what changed)
-4. Skip resolved threads -- they need no action.
+   - After pushing the fix, reply to the review comment explaining how
+     it was addressed (commit hash, what changed)
+3. Skip resolved threads -- they need no action.
 
-## 3. Fix failing CI
+### 2b. Fix failing CI
 
-1. List recent check runs:
-   `gh pr checks --json name,state,conclusion,detailsUrl`
-2. For each failing job:
-   - Fetch the logs: `gh run view <run_id> --log-failed`
-   - Diagnose the root cause from the logs
-   - Fix the issue in code, config, or dependencies
-3. After fixing, run `/pre-commit-check` to verify locally before pushing.
+Use `/fix-ci` to diagnose and fix each failing job.
 
 ## 4. Push and verify
 
