@@ -20,6 +20,7 @@ jobs:
     name: Semantic Release
     runs-on: ubuntu-latest
     permissions:
+      checks: read
       contents: write
     steps:
       - name: Generate app token
@@ -40,7 +41,7 @@ jobs:
         run: |
           sha=$(git rev-parse HEAD)
           conclusion=$(gh api "repos/${{ github.repository }}/commits/$sha/check-runs" \
-            --jq '.check_runs[] | select(.name == "CI Result") | .conclusion')
+            --jq '[.check_runs[] | select(.name == "CI Result")] | sort_by(.completed_at) | last | .conclusion')
           if [ "$conclusion" != "success" ]; then
             echo "::error::HEAD ($sha) CI Result is '$conclusion', expected 'success'. Aborting release."
             exit 1

@@ -363,6 +363,8 @@
           runtimeInputs = [
             pkgs.nodejs
             pkgs.glow
+            pkgs.ncurses
+            pkgs.less
           ];
           text = ''
             notes=$(npx -y -p conventional-changelog-cli -- conventional-changelog --config ./.conventionalcommits.js --tag-prefix v)
