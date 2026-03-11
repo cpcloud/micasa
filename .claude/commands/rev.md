@@ -27,7 +27,7 @@ These two steps are independent -- start both in parallel.
                id
                isResolved
                comments(first:50) {
-                 nodes { id author{login} body path line }
+                 nodes { id databaseId author{login} body path line }
                }
              }
            }
@@ -39,8 +39,10 @@ These two steps are independent -- start both in parallel.
 2. For each **unresolved** thread:
    - Read the referenced file and line to understand the context
    - Make the requested change (or explain in a reply why not)
-   - After pushing the fix, reply to the review comment explaining how
-     it was addressed (commit hash, what changed)
+   - After pushing the fix, reply to the review comment using its
+     `databaseId` from the query:
+     `gh api repos/cpcloud/micasa/pulls/<pr>/comments/<databaseId>/replies -f body='...'`
+     Explain how it was addressed (commit hash, what changed).
    - **Resolve the thread** if you are extremely confident the feedback
      has been fully addressed. Use the GraphQL mutation:
      ```
