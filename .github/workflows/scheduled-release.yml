@@ -35,17 +35,19 @@ jobs:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
 
-      - name: Verify HEAD passed CI
+      - name: Verify HEAD passed required checks
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           sha=$(git rev-parse HEAD)
-          conclusion=$(gh api "repos/${{ github.repository }}/commits/$sha/check-runs" \
-            --jq '[.check_runs[] | select(.name == "CI Result")] | sort_by(.completed_at) | last | .conclusion')
-          if [ "$conclusion" != "success" ]; then
-            echo "::error::HEAD ($sha) CI Result is '$conclusion', expected 'success'. Aborting release."
-            exit 1
-          fi
+          for check_name in "CI Result" "Lint Result" "Security Result"; do
+            conclusion=$(gh api "repos/${{ github.repository }}/commits/$sha/check-runs" \
+              --jq "[.check_runs[] | select(.name == \"$check_name\")] | sort_by(.completed_at) | last | .conclusion")
+            if [ "$conclusion" != "success" ]; then
+              echo "::error::HEAD ($sha) $check_name is '${conclusion:-none}', expected 'success'. Aborting release."
+              exit 1
+            fi
+          done
 
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
