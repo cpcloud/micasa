@@ -24,6 +24,7 @@ These two steps are independent -- start both in parallel.
          pullRequest(number:$pr) {
            reviewThreads(first:100) {
              nodes {
+               id
                isResolved
                comments(first:50) {
                  nodes { id author{login} body path line }
@@ -40,6 +41,16 @@ These two steps are independent -- start both in parallel.
    - Make the requested change (or explain in a reply why not)
    - After pushing the fix, reply to the review comment explaining how
      it was addressed (commit hash, what changed)
+   - **Resolve the thread** if you are extremely confident the feedback
+     has been fully addressed. Use the GraphQL mutation:
+     ```
+     gh api graphql -f query='
+       mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) {
+         thread { isResolved }
+       }}' -f id=<thread_node_id>
+     ```
+     If there is any doubt the comment hasn't been fully addressed, leave
+     the thread open for the reviewer.
 3. Skip resolved threads -- they need no action.
 
 ### 2b. Fix failing CI
