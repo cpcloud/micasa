@@ -1342,9 +1342,10 @@ func TestInsightsRows_WithItems(t *testing.T) {
 	rows := m.dashInsightsRows()
 	// 2 category headers + 2 data rows = 4
 	require.Len(t, rows, 4)
-	// First: attention header.
+	// First: attention header (skippable sub-header).
 	assert.Equal(t, "Needs Attention", rows[0].Cells[0].Text)
 	assert.True(t, rows[0].Target.InfoOnly)
+	assert.True(t, rows[0].Target.Skip)
 	// Second: data row.
 	assert.Equal(t, "Water heater is 12y old", rows[1].Cells[0].Text)
 	assert.Equal(t, "Appl.", rows[1].Cells[1].Text)
@@ -1358,6 +1359,82 @@ func TestInsightsRows_WithItems(t *testing.T) {
 	assert.Equal(t, tabMaintenance, rows[3].Target.Tab)
 	assert.Equal(t, uint(12), rows[3].Target.ID)
 	assert.False(t, rows[3].Target.InfoOnly)
+}
+
+func TestInsightsRows_CapsPerCategoryAndTotal(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.insightsEnabled = true
+	// Feed 4 attention + 4 stale + 4 pattern = 12 items. Expect caps to kick in.
+	m.dash.insights.items = []insightItem{
+		{Text: "a1", Tab: "appliances", EntityID: 1, Category: insightAttention},
+		{Text: "a2", Tab: "appliances", EntityID: 2, Category: insightAttention},
+		{Text: "a3", Tab: "appliances", EntityID: 3, Category: insightAttention},
+		{Text: "a4", Tab: "appliances", EntityID: 4, Category: insightAttention},
+		{Text: "s1", Tab: "projects", EntityID: 10, Category: insightStale},
+		{Text: "s2", Tab: "projects", EntityID: 11, Category: insightStale},
+		{Text: "s3", Tab: "projects", EntityID: 12, Category: insightStale},
+		{Text: "s4", Tab: "projects", EntityID: 13, Category: insightStale},
+		{Text: "p1", Tab: "maintenance", EntityID: 20, Category: insightPattern},
+		{Text: "p2", Tab: "maintenance", EntityID: 21, Category: insightPattern},
+		{Text: "p3", Tab: "maintenance", EntityID: 22, Category: insightPattern},
+		{Text: "p4", Tab: "maintenance", EntityID: 23, Category: insightPattern},
+	}
+	rows := m.dashInsightsRows()
+	// maxInsightsPerCategory=2, maxInsights=5
+	// attention: 2 items, stale: 2 items, pattern: 1 item (capped by global 5)
+	// Plus 3 category headers = 8 rows total.
+	dataRows := 0
+	for _, r := range rows {
+		if r.Target != nil && !r.Target.InfoOnly {
+			dataRows++
+		}
+	}
+	assert.LessOrEqual(t, dataRows, maxInsights)
+	assert.Equal(t, 5, dataRows)
+}
+
+func TestInsightsNav_SkipsCategorySubHeaders(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.insightsEnabled = true
+	m.width = 120
+	m.height = 40
+
+	sendKey(m, "D")
+	require.True(t, m.showDashboard)
+
+	m.dash.insights.items = []insightItem{
+		{Text: "Aging heater", Tab: "appliances", EntityID: 1, Category: insightAttention},
+		{Text: "Stale project", Tab: "projects", EntityID: 2, Category: insightStale},
+	}
+	m.dash.insights.loading = false
+	m.buildDashNav()
+	m.prepareDashboardView()
+
+	// Navigate to insights header.
+	for range 20 {
+		entry := m.dash.nav[m.dash.cursor]
+		if entry.IsHeader && entry.Section == dashSectionInsights {
+			break
+		}
+		sendKey(m, "J")
+	}
+	require.Equal(t, dashSectionInsights, m.dash.nav[m.dash.cursor].Section)
+	sendKey(m, "e") // expand
+	m.prepareDashboardView()
+
+	// First j should land on data row, not category sub-header.
+	sendKey(m, "j")
+	entry := m.dash.nav[m.dash.cursor]
+	assert.False(t, entry.InfoOnly, "cursor should skip sub-headers")
+	assert.Equal(t, "Aging heater", m.dash.insights.items[0].Text)
+
+	// Second j should land on the next data row (skipping stale sub-header).
+	sendKey(m, "j")
+	entry = m.dash.nav[m.dash.cursor]
+	assert.False(t, entry.InfoOnly, "cursor should skip sub-headers")
+	assert.Equal(t, uint(2), entry.ID)
 }
 
 func TestInsightsSection_AppearsAfterResultMsg(t *testing.T) {
@@ -1475,9 +1552,8 @@ func TestInsightsNav_JumpsToEntityViaKeyboard(t *testing.T) {
 	sendKey(m, "e")
 	m.prepareDashboardView()
 
-	// Move past category sub-header to the data row.
-	sendKey(m, "j") // category sub-header (InfoOnly)
-	sendKey(m, "j") // actual data row
+	// Move to the data row (sub-headers are auto-skipped).
+	sendKey(m, "j")
 	require.False(t, m.dash.nav[m.dash.cursor].IsHeader, "should be on data row")
 	require.False(t, m.dash.nav[m.dash.cursor].InfoOnly, "should not be info-only")
 

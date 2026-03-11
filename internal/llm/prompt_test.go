@@ -308,7 +308,7 @@ func TestBuildInsightsPromptIncludesPreamble(t *testing.T) {
 	t.Parallel()
 	prompt := BuildInsightsPrompt("", testNow, "")
 	assert.Contains(t, prompt, "home maintenance analyst")
-	assert.Contains(t, prompt, "non-obvious patterns")
+	assert.Contains(t, prompt, "AT MOST 5 insights")
 }
 
 func TestBuildInsightsPromptIncludesGuidelines(t *testing.T) {

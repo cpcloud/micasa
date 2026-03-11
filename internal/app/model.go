@@ -165,6 +165,9 @@ const (
 	insightAttention insightCategory = "attention"
 	insightStale     insightCategory = "stale"
 	insightPattern   insightCategory = "pattern"
+
+	maxInsights            = 5
+	maxInsightsPerCategory = 2
 )
 
 // insightCategoryLabel returns the dashboard section header for a category.

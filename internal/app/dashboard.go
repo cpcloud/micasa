@@ -90,6 +90,7 @@ type dashNavEntry struct {
 	Section  string // section title this entry belongs to
 	IsHeader bool   // true = section header, not a data row
 	InfoOnly bool   // true = cursor can land here but Enter is a no-op
+	Skip     bool   // true = cursor skips this entry (decorative sub-headers)
 }
 
 // ---------------------------------------------------------------------------
@@ -862,6 +863,10 @@ func (m *Model) dashDown() {
 		return
 	}
 	m.dash.cursor++
+	// Skip non-interactive sub-headers (InfoOnly && !IsHeader).
+	for m.dash.cursor < n && m.dashNavSkippable(m.dash.cursor) {
+		m.dash.cursor++
+	}
 	if m.dash.cursor >= n {
 		m.dash.cursor = n - 1
 	}
@@ -869,9 +874,22 @@ func (m *Model) dashDown() {
 
 func (m *Model) dashUp() {
 	m.dash.cursor--
+	// Skip non-interactive sub-headers (InfoOnly && !IsHeader).
+	for m.dash.cursor > 0 && m.dashNavSkippable(m.dash.cursor) {
+		m.dash.cursor--
+	}
 	if m.dash.cursor < 0 {
 		m.dash.cursor = 0
 	}
+}
+
+// dashNavSkippable reports whether the nav entry at idx is a decorative
+// sub-header that the cursor should skip over (e.g. insight category labels).
+func (m *Model) dashNavSkippable(idx int) bool {
+	if idx < 0 || idx >= len(m.dash.nav) {
+		return false
+	}
+	return m.dash.nav[idx].Skip
 }
 
 func (m *Model) dashTop() {
@@ -885,6 +903,9 @@ func (m *Model) dashBottom() {
 		return
 	}
 	m.dash.cursor = n - 1
+	for m.dash.cursor > 0 && m.dashNavSkippable(m.dash.cursor) {
+		m.dash.cursor--
+	}
 }
 
 // dashNextSection jumps the cursor to the next section header.
@@ -1216,18 +1237,29 @@ func (m *Model) dashInsightsRows() []dashRow {
 		return nil
 	}
 
-	// Group items by category in display order.
+	// Group items by category in display order, enforcing hard caps.
 	order := []insightCategory{insightAttention, insightStale, insightPattern}
 	grouped := make(map[insightCategory][]insightItem, len(order))
 	for _, item := range ins.items {
-		grouped[item.Category] = append(grouped[item.Category], item)
+		g := grouped[item.Category]
+		if len(g) < maxInsightsPerCategory {
+			grouped[item.Category] = append(g, item)
+		}
 	}
 
 	var rows []dashRow
+	total := 0
 	for _, cat := range order {
 		items := grouped[cat]
 		if len(items) == 0 {
 			continue
+		}
+		if total >= maxInsights {
+			break
+		}
+		// Trim this category if it would exceed the global cap.
+		if total+len(items) > maxInsights {
+			items = items[:maxInsights-total]
 		}
 		// Category sub-header row.
 		rows = append(rows, dashRow{
@@ -1237,7 +1269,7 @@ func (m *Model) dashInsightsRows() []dashRow {
 					Style: m.styles.DashLabel(),
 				},
 			},
-			Target: &dashNavEntry{Section: dashSectionInsights, InfoOnly: true},
+			Target: &dashNavEntry{Section: dashSectionInsights, InfoOnly: true, Skip: true},
 		})
 		for _, item := range items {
 			target := &dashNavEntry{Section: dashSectionInsights, InfoOnly: true}
@@ -1260,6 +1292,7 @@ func (m *Model) dashInsightsRows() []dashRow {
 				Target: target,
 			})
 		}
+		total += len(items)
 	}
 	return rows
 }
