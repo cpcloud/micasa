@@ -24,9 +24,7 @@ var hiddenPaths = map[string]bool{
 
 // deprecatedPaths maps deprecated TOML key paths to a human-readable
 // replacement hint shown in ShowConfig output.
-var deprecatedPaths = map[string]string{
-	"documents.cache_ttl_days": "documents.cache_ttl",
-}
+var deprecatedPaths = map[string]string{}
 
 // ShowConfig writes the fully resolved configuration as valid TOML to w,
 // annotating each field with its env var name and marking active overrides.

@@ -311,53 +311,13 @@ func TestCacheTTLRejectsNegative(t *testing.T) {
 	assert.Contains(t, err.Error(), "must be non-negative")
 }
 
-// --- CacheTTLDays (deprecated) ---
-
-func TestCacheTTLDaysStillWorks(t *testing.T) {
+func TestCacheTTLDaysRemovedReturnsError(t *testing.T) {
 	path := writeConfig(t, "[documents]\ncache_ttl_days = 7\n")
-	cfg, err := LoadFromPath(path)
-	require.NoError(t, err)
-	assert.Equal(t, 7*24*time.Hour, cfg.Documents.CacheTTLDuration())
-	require.Len(t, cfg.Warnings, 1)
-	assert.Contains(t, cfg.Warnings[0], "documents.cache_ttl_days")
-}
-
-func TestCacheTTLDaysZeroDisables(t *testing.T) {
-	path := writeConfig(t, "[documents]\ncache_ttl_days = 0\n")
-	cfg, err := LoadFromPath(path)
-	require.NoError(t, err)
-	assert.Equal(t, time.Duration(0), cfg.Documents.CacheTTLDuration())
-}
-
-func TestCacheTTLDaysEnvOverride(t *testing.T) {
-	t.Setenv("MICASA_DOCUMENTS_CACHE_TTL_DAYS", "14")
-	cfg, err := LoadFromPath(noConfig(t))
-	require.NoError(t, err)
-	assert.Equal(t, 14*24*time.Hour, cfg.Documents.CacheTTLDuration())
-	require.Len(t, cfg.Warnings, 1)
-	assert.Contains(t, cfg.Warnings[0], "documents.cache_ttl_days")
-}
-
-func TestCacheTTLDaysRejectsNegative(t *testing.T) {
-	path := writeConfig(t, "[documents]\ncache_ttl_days = -1\n")
 	_, err := LoadFromPath(path)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "must be non-negative")
-}
-
-func TestCacheTTLAndCacheTTLDaysBothSetFails(t *testing.T) {
-	path := writeConfig(t, "[documents]\ncache_ttl = \"30d\"\ncache_ttl_days = 30\n")
-	_, err := LoadFromPath(path)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot both be set")
-}
-
-func TestCacheTTLAndCacheTTLDaysEnvBothSetFails(t *testing.T) {
-	t.Setenv("MICASA_DOCUMENTS_CACHE_TTL", "30d")
-	t.Setenv("MICASA_DOCUMENTS_CACHE_TTL_DAYS", "30")
-	_, err := LoadFromPath(noConfig(t))
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot both be set")
+	assert.Contains(t, err.Error(), "cache_ttl_days")
+	assert.Contains(t, err.Error(), "removed")
+	assert.Contains(t, err.Error(), "cache_ttl")
 }
 
 // --- API Keys ---
@@ -565,7 +525,6 @@ func TestInvalidEnvVarReturnsError(t *testing.T) {
 		{"MICASA_EXTRACTION_LLM_ENABLE", "maybe", "expected true or false"},
 		{"MICASA_DOCUMENTS_MAX_FILE_SIZE", "lots", "expected byte size"},
 		{"MICASA_DOCUMENTS_CACHE_TTL", "forever", "expected duration"},
-		{"MICASA_DOCUMENTS_CACHE_TTL_DAYS", "many", "expected integer"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.envVar, func(t *testing.T) {
@@ -736,7 +695,6 @@ func TestEnvVars(t *testing.T) {
 
 		"MICASA_DOCUMENTS_MAX_FILE_SIZE":   "documents.max_file_size",
 		"MICASA_DOCUMENTS_CACHE_TTL":       "documents.cache_ttl",
-		"MICASA_DOCUMENTS_CACHE_TTL_DAYS":  "documents.cache_ttl_days",
 		"MICASA_DOCUMENTS_FILE_PICKER_DIR": "documents.file_picker_dir",
 
 		"MICASA_LOCALE_CURRENCY": "locale.currency",

@@ -126,7 +126,6 @@ You can always infer the env var name from the config key.
 | `MICASA_EXTRACTION_OCR_TSV_CONFIDENCE_THRESHOLD` | `70` | `extraction.ocr.tsv.confidence_threshold` | OCR confidence threshold (0-100) |
 | `MICASA_DOCUMENTS_MAX_FILE_SIZE` | `50 MiB` | `documents.max_file_size` | Max document import size |
 | `MICASA_DOCUMENTS_CACHE_TTL` | `30d` | `documents.cache_ttl` | Document cache lifetime |
-| `MICASA_DOCUMENTS_CACHE_TTL_DAYS` | -- | `documents.cache_ttl_days` | Deprecated; use `MICASA_DOCUMENTS_CACHE_TTL` |
 | `MICASA_DOCUMENTS_FILE_PICKER_DIR` | (Downloads) | `documents.file_picker_dir` | Starting directory for the file picker |
 | `MICASA_LOCALE_CURRENCY` | (auto-detect) | `locale.currency` | ISO 4217 currency code (e.g. `USD`, `EUR`, `GBP`) |
 
@@ -318,7 +317,6 @@ Document attachment limits and caching.
 |-----|------|---------|-------------|
 | `max_file_size` | string or integer | `"50 MiB"` | Maximum file size for document imports. Accepts unitized strings (`"50 MiB"`, `"1.5 GiB"`) or bare integers (bytes). Must be positive. |
 | `cache_ttl` | string or integer | `"30d"` | Cache lifetime for extracted documents. Accepts `"30d"`, `"720h"`, or bare integers (seconds). Set to `"0s"` to disable eviction. |
-| `cache_ttl_days` | integer | -- | Deprecated. Use `cache_ttl` instead. Bare integer interpreted as days. Cannot be set alongside `cache_ttl`. |
 
 ### `[extraction]` section
 
