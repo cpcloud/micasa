@@ -66,7 +66,7 @@ type ChatLLM struct {
 	// ollama, anthropic, openai, openrouter, deepseek, gemini, groq,
 	// mistral, llamacpp, llamafile. Auto-detected from base_url and
 	// api_key when empty.
-	Provider string `toml:"provider"`
+	Provider string `toml:"provider" validate:"provider"`
 
 	// BaseURL is the base URL for the provider's API.
 	// No /v1 suffix needed -- the provider handles path construction.
@@ -81,11 +81,11 @@ type ChatLLM struct {
 
 	// Timeout is the inference timeout for LLM responses (including
 	// streaming). Go duration string, e.g. "5m", "10m". Default: "5m".
-	Timeout string `toml:"timeout" default:"5m"`
+	Timeout string `toml:"timeout" default:"5m" validate:"omitempty,positive_duration"`
 
 	// Thinking controls the model's reasoning effort level.
 	// Supported: none, low, medium, high, auto. Empty = server default.
-	Thinking string `toml:"thinking,omitempty"`
+	Thinking string `toml:"thinking,omitempty" validate:"omitempty,oneof=none low medium high auto"`
 
 	// ExtraContext is custom text appended to chat system prompts.
 	// Useful for domain-specific details: house style, location, etc.
@@ -102,7 +102,7 @@ func (l ChatLLM) TimeoutDuration() time.Duration {
 type Extraction struct {
 	// MaxPages is the maximum number of pages for async extraction of
 	// scanned documents. 0 means no limit. Default: 0.
-	MaxPages int `toml:"max_pages"`
+	MaxPages int `toml:"max_pages" validate:"min=0"`
 
 	// LLM holds the LLM connection settings for the extraction pipeline.
 	LLM ExtractionLLM `toml:"llm" doc:"LLM connection settings for extraction."`
@@ -121,7 +121,7 @@ type ExtractionLLM struct {
 
 	// Provider selects which LLM provider to use. See ChatLLM.Provider
 	// for supported values. Auto-detected when empty.
-	Provider string `toml:"provider"`
+	Provider string `toml:"provider" validate:"provider"`
 
 	// BaseURL is the base URL for the provider's API.
 	BaseURL string `toml:"base_url" default:"http://localhost:11434"`
@@ -134,11 +134,11 @@ type ExtractionLLM struct {
 	APIKey string `toml:"api_key"` //nolint:gosec // config field, not a hardcoded credential
 
 	// Timeout is the inference timeout for extraction LLM responses.
-	Timeout string `toml:"timeout" default:"5m"`
+	Timeout string `toml:"timeout" default:"5m" validate:"omitempty,positive_duration"`
 
 	// Thinking controls the model's reasoning effort level.
 	// Supported: none, low, medium, high, auto. Empty = server default.
-	Thinking string `toml:"thinking,omitempty"`
+	Thinking string `toml:"thinking,omitempty" validate:"omitempty,oneof=none low medium high auto"`
 }
 
 // IsEnabled returns whether LLM extraction is enabled. Defaults to true.
@@ -186,7 +186,7 @@ type OCRTSV struct {
 	// OCR confidence annotations are included in spatial layout output.
 	// Lines with min confidence >= this value omit the score to save
 	// tokens. Set to 0 to never show confidence. Default: 70.
-	ConfidenceThreshold *int `toml:"confidence_threshold,omitempty"`
+	ConfidenceThreshold *int `toml:"confidence_threshold,omitempty" validate:"omitempty,min=0,max=100"`
 }
 
 // IsEnabled returns whether TSV spatial annotations are enabled.
@@ -230,15 +230,12 @@ type Documents struct {
 	// MaxFileSize is the largest file that can be imported as a document
 	// attachment. Accepts unitized strings ("50 MiB") or bare integers
 	// (bytes). Default: 50 MiB.
-	MaxFileSize ByteSize `toml:"max_file_size" default:"52428800"`
+	MaxFileSize ByteSize `toml:"max_file_size" default:"52428800" validate:"required"`
 
-	// CacheTTL is the preferred cache lifetime setting. Accepts unitized
-	// strings ("30d", "720h") or bare integers (seconds). Default: 30d.
-	CacheTTL *Duration `toml:"cache_ttl,omitempty"`
-
-	// CacheTTLDays is deprecated; use CacheTTL instead. Kept for backward
-	// compatibility. Bare integer interpreted as days.
-	CacheTTLDays *int `toml:"cache_ttl_days,omitempty"`
+	// CacheTTL is the cache lifetime for extracted documents. Accepts
+	// unitized strings ("30d", "720h") or bare integers (seconds).
+	// Set to "0s" to disable eviction. Default: 30d.
+	CacheTTL *Duration `toml:"cache_ttl,omitempty" validate:"omitempty,nonneg_duration"`
 
 	// FilePickerDir is the starting directory for the document file picker.
 	// Default: the system Downloads folder (e.g. ~/Downloads).
@@ -266,13 +263,10 @@ func (d Documents) ResolvedFilePickerDir() string {
 }
 
 // CacheTTLDuration returns the resolved cache TTL as a time.Duration.
-// CacheTTL takes precedence over CacheTTLDays. Returns 0 to disable.
+// Returns 0 to disable eviction.
 func (d Documents) CacheTTLDuration() time.Duration {
 	if d.CacheTTL != nil {
 		return d.CacheTTL.Duration
-	}
-	if d.CacheTTLDays != nil {
-		return time.Duration(*d.CacheTTLDays) * 24 * time.Hour
 	}
 	return DefaultCacheTTL
 }
@@ -307,8 +301,12 @@ func LoadFromPath(path string) (Config, error) {
 	data.ApplyDefaults(&cfg)
 
 	if _, err := os.Stat(path); err == nil {
-		if _, err := toml.DecodeFile(path, &cfg); err != nil {
+		md, err := toml.DecodeFile(path, &cfg)
+		if err != nil {
 			return cfg, fmt.Errorf("parse %s: %w", path, err)
+		}
+		if err := checkRemovedKeys(md); err != nil {
+			return cfg, err
 		}
 	}
 
@@ -332,107 +330,11 @@ func LoadFromPath(path string) (Config, error) {
 		)
 	}
 
-	// Validate providers.
-	if !validProvider(cfg.Chat.LLM.Provider) {
-		return cfg, fmt.Errorf(
-			"chat.llm.provider: unknown provider %q -- supported: %s",
-			cfg.Chat.LLM.Provider, strings.Join(providerNames(), ", "),
-		)
-	}
-	if !validProvider(cfg.Extraction.LLM.Provider) {
-		return cfg, fmt.Errorf(
-			"extraction.llm.provider: unknown provider %q -- supported: %s",
-			cfg.Extraction.LLM.Provider, strings.Join(providerNames(), ", "),
-		)
-	}
-
-	// Validate thinking levels.
-	if cfg.Chat.LLM.Thinking != "" && !validThinkingLevel(cfg.Chat.LLM.Thinking) {
-		return cfg, fmt.Errorf(
-			"chat.llm.thinking: invalid level %q -- supported: none, low, medium, high, auto",
-			cfg.Chat.LLM.Thinking,
-		)
-	}
-	if cfg.Extraction.LLM.Thinking != "" && !validThinkingLevel(cfg.Extraction.LLM.Thinking) {
-		return cfg, fmt.Errorf(
-			"extraction.llm.thinking: invalid level %q -- supported: none, low, medium, high, auto",
-			cfg.Extraction.LLM.Thinking,
-		)
-	}
-
-	// Validate timeouts.
-	if err := validateTimeout(cfg.Chat.LLM.Timeout, "chat.llm"); err != nil {
+	if err := cfg.validate(path); err != nil {
 		return cfg, err
 	}
-	if err := validateTimeout(cfg.Extraction.LLM.Timeout, "extraction.llm"); err != nil {
-		return cfg, err
-	}
-
-	if cfg.Documents.MaxFileSize == 0 {
-		return cfg, fmt.Errorf("documents.max_file_size must be positive")
-	}
-
-	if cfg.Documents.CacheTTL != nil && cfg.Documents.CacheTTLDays != nil {
-		return cfg, fmt.Errorf(
-			"documents.cache_ttl and documents.cache_ttl_days cannot both be set -- " +
-				"remove cache_ttl_days (deprecated) and use cache_ttl instead",
-		)
-	}
-
-	if cfg.Documents.CacheTTLDays != nil {
-		cfg.Warnings = append(
-			cfg.Warnings,
-			"documents.cache_ttl_days is deprecated -- use documents.cache_ttl (e.g. \"30d\") instead",
-		)
-		if *cfg.Documents.CacheTTLDays < 0 {
-			return cfg, fmt.Errorf(
-				"documents.cache_ttl_days must be non-negative, got %d",
-				*cfg.Documents.CacheTTLDays,
-			)
-		}
-	}
-
-	if cfg.Documents.CacheTTL != nil && cfg.Documents.CacheTTL.Duration < 0 {
-		return cfg, fmt.Errorf(
-			"documents.cache_ttl must be non-negative, got %s",
-			cfg.Documents.CacheTTL.Duration,
-		)
-	}
-
-	if cfg.Extraction.MaxPages < 0 {
-		return cfg, fmt.Errorf(
-			"extraction.max_pages must be non-negative, got %d",
-			cfg.Extraction.MaxPages,
-		)
-	}
-
-	if t := cfg.Extraction.OCR.TSV.Threshold(); t < 0 || t > 100 {
-		return cfg, fmt.Errorf(
-			"extraction.ocr.tsv.confidence_threshold must be 0-100, got %d", t,
-		)
-	}
-
-	checkFilePermissions(&cfg, path)
 
 	return cfg, nil
-}
-
-// validateTimeout validates a pipeline timeout string.
-func validateTimeout(timeout, prefix string) error {
-	if timeout == "" {
-		return nil
-	}
-	d, err := time.ParseDuration(timeout)
-	if err != nil {
-		return fmt.Errorf(
-			"%s.timeout: invalid duration %q -- use Go syntax like \"5m\" or \"10m\"",
-			prefix, timeout,
-		)
-	}
-	if d <= 0 {
-		return fmt.Errorf("%s.timeout must be positive, got %s", prefix, timeout)
-	}
-	return nil
 }
 
 // applyEnvOverrides walks the Config struct and applies environment variable
@@ -792,14 +694,6 @@ func validProvider(name string) bool {
 		}
 	}
 	return false
-}
-
-var thinkingLevels = map[string]bool{
-	"none": true, "low": true, "medium": true, "high": true, "auto": true,
-}
-
-func validThinkingLevel(level string) bool {
-	return thinkingLevels[level]
 }
 
 // detectProvider infers the provider from the base URL and API key.

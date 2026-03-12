@@ -43,8 +43,6 @@ func TestShowConfigDefaults(t *testing.T) {
 	assert.Contains(t, out, `cache_ttl = "30d"`)
 	assert.Contains(t, out, "max_pages = 0")
 	assert.Contains(t, out, "enable = true")
-
-	assert.NotContains(t, out, "cache_ttl_days")
 }
 
 func TestShowConfigOutputIsValidTOML(t *testing.T) {
@@ -155,34 +153,6 @@ func TestShowConfigCurrencyEnv(t *testing.T) {
 	out := showConfig(t, cfg)
 
 	assert.Regexp(t, `currency = "EUR"\s+# src\(env\): MICASA_LOCALE_CURRENCY`, out)
-}
-
-func TestShowConfigDeprecatedCacheTTLDaysFile(t *testing.T) {
-	path := writeConfig(t, `[documents]
-cache_ttl_days = 7
-`)
-	cfg, err := LoadFromPath(path)
-	require.NoError(t, err)
-
-	out := showConfig(t, cfg)
-
-	assert.Regexp(t, `cache_ttl_days = 7\s+#.*DEPRECATED: use documents\.cache_ttl`, out)
-	assert.Contains(t, out, `cache_ttl = "7d"`)
-}
-
-func TestShowConfigDeprecatedCacheTTLDaysEnv(t *testing.T) {
-	t.Setenv("MICASA_DOCUMENTS_CACHE_TTL_DAYS", "14")
-
-	cfg, err := LoadFromPath(noConfig(t))
-	require.NoError(t, err)
-
-	out := showConfig(t, cfg)
-
-	assert.Regexp(
-		t,
-		`cache_ttl_days = 14\s+# src\(env\): MICASA_DOCUMENTS_CACHE_TTL_DAYS; DEPRECATED: use documents\.cache_ttl`,
-		out,
-	)
 }
 
 func TestShowConfigFromFile(t *testing.T) {
