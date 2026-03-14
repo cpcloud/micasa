@@ -754,12 +754,14 @@ func (m *Model) handleNormalKeys(key tea.KeyMsg) (tea.Cmd, bool) {
 		if tab := m.effectiveTab(); tab != nil {
 			toggleSort(tab, tab.ColCursor)
 			applySorts(tab)
+			tab.cachedVP = nil
 		}
 		return nil, true
 	case keyShiftS:
 		if tab := m.effectiveTab(); tab != nil {
 			clearSorts(tab)
 			applySorts(tab)
+			tab.cachedVP = nil
 		}
 		return nil, true
 	case keyShiftU:
