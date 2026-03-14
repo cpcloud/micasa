@@ -1912,7 +1912,7 @@ func (m *Model) renderExtractionStep(
 	raw := strings.Join(info.Logs, "\n")
 
 	var rendered string
-	if si == stepLLM && info.Status != stepSkipped {
+	if si == stepLLM && info.Status != stepSkipped && info.Status != stepFailed {
 		// Pretty-print JSON, then render as a fenced code block via glamour.
 		formatted := raw
 		var buf bytes.Buffer
@@ -1921,6 +1921,8 @@ func (m *Model) renderExtractionStep(
 		}
 		md := fmt.Sprintf("```json\n%s\n```", formatted)
 		rendered = strings.TrimSpace(ex.renderMarkdown(md, logW))
+	} else if info.Status == stepFailed {
+		rendered = m.styles.ExtFail().Render(wordWrap(raw, logW))
 	} else if info.Status == stepSkipped {
 		rendered = m.styles.ExtSkipLog().Render(wordWrap(raw, logW))
 	} else {
