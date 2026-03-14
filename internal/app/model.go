@@ -1395,8 +1395,23 @@ func (m *Model) closeDetail() {
 			selectRowByID(tab, top.ParentRowID)
 		}
 	}
+
+	// When closing a mutated service log detail, move the column cursor
+	// to the "Last" column so the user sees the synced date.
+	if top.Mutated {
+		if _, ok := top.Tab.Handler.(serviceLogHandler); ok {
+			if tab := m.effectiveTab(); tab != nil {
+				tab.ColCursor = int(maintenanceColLast)
+				m.updateTabViewport(tab)
+				m.setStatusInfo("Last serviced date synced from service log.")
+			}
+		}
+	}
+
 	m.resizeTables()
-	m.status = statusMsg{}
+	if !top.Mutated {
+		m.status = statusMsg{}
+	}
 }
 
 // closeAllDetails collapses the entire drilldown stack back to the top-level tab.
@@ -1458,6 +1473,9 @@ func (m *Model) reloadAll() {
 func (m *Model) reloadAfterMutation() {
 	if m.store == nil {
 		return
+	}
+	if dc := m.detail(); dc != nil {
+		dc.Mutated = true
 	}
 	m.surfaceError(m.reloadEffectiveTab())
 	m.markNonEffectiveStale()

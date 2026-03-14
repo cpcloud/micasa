@@ -257,6 +257,7 @@ type detailContext struct {
 	ParentRowID    uint
 	Breadcrumb     string
 	Tab            Tab
+	Mutated        bool // true when any CUD operation occurred in this detail
 }
 
 type Options struct {

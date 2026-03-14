@@ -134,9 +134,7 @@ func (m *Model) docSearchNavigate() {
 	// If in a scoped document detail view, pop back to the top-level
 	// Documents tab so the full document list is visible for selection.
 	if m.inDetail() {
-		for m.inDetail() {
-			m.closeDetail()
-		}
+		m.closeAllDetails()
 		for i, tab := range m.tabs {
 			if tab.Kind == tabDocuments {
 				m.active = i
