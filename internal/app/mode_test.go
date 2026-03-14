@@ -657,7 +657,7 @@ func TestDeleteRespectsExplicitHideDeleted(t *testing.T) {
 	tab = m.activeTab()
 	assert.False(t, tab.ShowDeleted,
 		"ShowDeleted must stay off when user explicitly hid deleted rows")
-	assert.Len(t, tab.Rows, 0,
+	assert.Empty(t, tab.Rows,
 		"deleted row should be hidden because user explicitly chose to hide deleted")
 	assert.Contains(t, m.status.Text, "Deleted",
 		"status should confirm deletion")
