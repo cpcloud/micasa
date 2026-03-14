@@ -4,6 +4,7 @@
 package app
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -280,6 +281,56 @@ func TestSortWorksInDetailView(t *testing.T) {
 
 	sendKey(m, "s")
 	assert.NotEmpty(t, tab.Sorts, "expected sort entry after 's' in detail view")
+}
+
+func TestSortIndicatorAppearsImmediately(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithDetailRows(t)
+
+	tab := m.effectiveTab()
+	tab.ColCursor = 1 // Date column
+
+	// Render before sort -- no sort indicator.
+	before := m.View()
+	require.NotContains(t, before, symTriUp,
+		"sort indicator should not appear before sorting")
+
+	// Press sort -- the rendered output must show the indicator
+	// immediately, without requiring a navigation keypress.
+	sendKey(m, "s")
+	after := m.View()
+	assert.Contains(t, after, symTriUp,
+		"sort indicator must appear in rendered view immediately after pressing 's'")
+}
+
+func TestSortImmediatelyReordersRenderedRows(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithDetailRows(t)
+
+	tab := m.effectiveTab()
+	tab.ColCursor = 1 // Date column
+
+	// Render before sort -- first date should appear before second.
+	before := m.View()
+	idx1 := strings.Index(before, "2026-01-15")
+	idx2 := strings.Index(before, "2026-02-01")
+	require.Greater(t, idx1, -1, "first date should be in initial render")
+	require.Greater(t, idx2, -1, "second date should be in initial render")
+	require.Less(t, idx1, idx2, "earlier date should render first initially")
+
+	// Sort ascending by date -- already in order, so press twice for desc.
+	sendKey(m, "s")
+	sendKey(m, "s")
+
+	// The rendered view must show rows in descending date order
+	// immediately, without any navigation keypress.
+	after := m.View()
+	idx1 = strings.Index(after, "2026-01-15")
+	idx2 = strings.Index(after, "2026-02-01")
+	require.Greater(t, idx1, -1, "first date should be in render after sort")
+	require.Greater(t, idx2, -1, "second date should be in render after sort")
+	assert.Less(t, idx2, idx1,
+		"sort desc must put later date before earlier date in rendered view without navigation")
 }
 
 // newTestModelWithDetailRows creates a model with detail open and seeded rows.
