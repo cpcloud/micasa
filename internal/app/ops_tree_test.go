@@ -83,7 +83,7 @@ func TestOpsTreeNavigateJK(t *testing.T) {
 	// operations, [0], action, table, data, email, name, phone, [1], action, table, data, title
 	// = 13 visible nodes.
 	nodes := m.opsTree.visibleNodes()
-	require.Equal(t, 13, len(nodes))
+	require.Len(t, nodes, 13)
 
 	assert.Equal(t, 0, m.opsTree.cursor)
 
@@ -262,11 +262,11 @@ func TestOpsCellEmpty(t *testing.T) {
 	t.Parallel()
 
 	c := opsCell(nil)
-	assert.Equal(t, "", c.Value)
+	assert.Empty(t, c.Value)
 	assert.Equal(t, cellOps, c.Kind)
 
 	c = opsCell([]byte("[]"))
-	assert.Equal(t, "", c.Value)
+	assert.Empty(t, c.Value)
 	assert.Equal(t, cellOps, c.Kind)
 }
 
@@ -359,7 +359,7 @@ func TestBuildJSONTree(t *testing.T) {
 	assert.Equal(t, "operations", ops.key)
 	assert.True(t, ops.isArray)
 	assert.True(t, ops.isExpandable())
-	assert.Equal(t, "", ops.treePrefix, "root has no tree prefix")
+	assert.Empty(t, ops.treePrefix, "root has no tree prefix")
 
 	// Two array elements under operations.
 	require.Len(t, ops.children, 2)

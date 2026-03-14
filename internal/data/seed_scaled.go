@@ -756,7 +756,10 @@ func demoExtractionOps(docType string) []byte {
 	default:
 		return nil
 	}
-	b, _ := json.Marshal(ops)
+	b, err := json.Marshal(ops)
+	if err != nil {
+		return nil
+	}
 	return b
 }
 

@@ -238,9 +238,9 @@ func collapsedPreview(node *jsonTreeNode, maxW int) string {
 	if len(node.children) == 0 {
 		return ""
 	}
-	open, close := "{", "}"
+	open, cls := "{", "}"
 	if node.isArray {
-		open, close = "[", "]"
+		open, cls = "[", "]"
 	}
 	var b strings.Builder
 	b.WriteString(open)
@@ -254,13 +254,13 @@ func collapsedPreview(node *jsonTreeNode, maxW int) string {
 		} else {
 			entry = child.key + ": " + childPreviewValue(child)
 		}
-		if b.Len()+len(entry)+len(close) > maxW {
+		if b.Len()+len(entry)+len(cls) > maxW {
 			b.WriteString(symEllipsis)
 			break
 		}
 		b.WriteString(entry)
 	}
-	b.WriteString(close)
+	b.WriteString(cls)
 	return b.String()
 }
 
