@@ -126,10 +126,6 @@ type extractionLogState struct {
 	previewRow    int                 // row cursor within active tab
 	previewCol    int                 // column cursor within active tab
 
-	// LLM ping state: ping runs concurrently with earlier steps.
-	llmPingDone bool  // true once ping completed (success or fail)
-	llmPingErr  error // non-nil if LLM was unreachable
-
 	// Model picker: inline model selection before rerunning LLM step.
 	modelPicker *modelCompleter // non-nil when picker is showing
 	modelFilter string          // current filter text for fuzzy matching
@@ -712,19 +708,14 @@ func (m *Model) handleExtractionLLMPing(msg extractionLLMPingMsg) tea.Cmd {
 	if ex == nil {
 		return nil
 	}
-	ex.llmPingDone = true
-
 	if msg.Err != nil {
 		// Providers that don't support model listing (e.g. Anthropic)
 		// return ErrPingNotSupported. Treat this as "proceed
 		// optimistically" -- the real error will surface when
 		// ChatStream is attempted.
 		if errors.Is(msg.Err, llm.ErrPingNotSupported) {
-			ex.llmPingErr = nil
 			return nil
 		}
-
-		ex.llmPingErr = msg.Err
 
 		// Mark LLM as skipped immediately so the strikethrough renders
 		// in real time, even while earlier steps are still running.
@@ -1008,8 +999,6 @@ func (m *Model) rerunLLMExtraction() tea.Cmd {
 
 	// Reset LLM state (including any prior ping failure).
 	ex.llmAccum.Reset()
-	ex.llmPingDone = false
-	ex.llmPingErr = nil
 	ex.operations = nil
 	ex.closeShadowDB()
 	ex.previewGroups = nil

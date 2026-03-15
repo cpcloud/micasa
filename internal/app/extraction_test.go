@@ -2671,8 +2671,6 @@ func TestExtractionLLMPing_FailSkipsLLMStep(t *testing.T) {
 
 	// Ping comes back with an error while extraction is still running.
 	m.Update(extractionLLMPingMsg{ID: id, Err: errors.New("connection refused")})
-	assert.True(t, ex.llmPingDone)
-	require.Error(t, ex.llmPingErr)
 	// LLM step should be skipped immediately (strikethrough in real time).
 	assert.Equal(t, stepSkipped, ex.Steps[stepLLM].Status)
 	assert.False(t, ex.Done, "pipeline not done -- extraction still running")
@@ -2720,8 +2718,6 @@ func TestExtractionLLMPing_SuccessAllowsLLM(t *testing.T) {
 
 	// Ping succeeds.
 	m.Update(extractionLLMPingMsg{ID: id, Err: nil})
-	assert.True(t, ex.llmPingDone)
-	require.NoError(t, ex.llmPingErr)
 	// LLM still pending -- extraction hasn't finished.
 	assert.Equal(t, stepPending, ex.Steps[stepLLM].Status)
 }
@@ -2739,8 +2735,6 @@ func TestExtractionLLMPing_NotSupportedProceedsOptimistically(t *testing.T) {
 	// ErrPingNotSupported (e.g. Anthropic) should proceed optimistically,
 	// NOT mark LLM as skipped.
 	m.Update(extractionLLMPingMsg{ID: id, Err: llm.ErrPingNotSupported})
-	assert.True(t, ex.llmPingDone)
-	require.NoError(t, ex.llmPingErr, "ping-not-supported should clear error")
 	assert.Equal(t, stepPending, ex.Steps[stepLLM].Status,
 		"LLM step should remain pending, not be skipped")
 }
@@ -2801,7 +2795,7 @@ func TestExtractionSkippedStep_RerunHintShows(t *testing.T) {
 		"rerun hint should appear for skipped LLM step")
 }
 
-func TestExtractionRerun_ClearsPingState(t *testing.T) {
+func TestExtractionRerun_ResetsLLMStep(t *testing.T) {
 	t.Parallel()
 	m := newExtractionModel(t, map[extractionStep]stepStatus{
 		stepText: stepDone,
@@ -2809,13 +2803,11 @@ func TestExtractionRerun_ClearsPingState(t *testing.T) {
 	})
 	ex := m.ex.extraction
 	ex.Done = true
-	ex.llmPingDone = true
-	ex.llmPingErr = errors.New("was unreachable")
 
-	// Simulate rerun (which resets LLM state).
 	m.rerunLLMExtraction()
-	assert.False(t, ex.llmPingDone, "ping state should be cleared on rerun")
-	assert.NoError(t, ex.llmPingErr, "ping error should be cleared on rerun")
+	assert.Equal(t, stepRunning, ex.Steps[stepLLM].Status,
+		"LLM step should be running after rerun")
+	assert.False(t, ex.Done, "pipeline should not be done after rerun")
 }
 
 func TestExtractionLLMPing_FailAfterExtractFailed(t *testing.T) {
