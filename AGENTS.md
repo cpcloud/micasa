@@ -264,6 +264,13 @@ details; do not duplicate that detail here.
 
 ### Architecture and code style
 
+- **Render API errors as-is**: When calling third-party APIs (LLM
+  providers, HTTP services, etc.), prefer returning the upstream error
+  directly. Do not rewrite, paraphrase, or tack advice onto API error
+  messages. If context is needed (which endpoint, which model), wrap with
+  `fmt.Errorf("context: %w", err)` -- but never replace the original
+  message with a hand-crafted approximation. The upstream library knows
+  its own errors better than we do.
 - **Never switch on bare integers that represent enums**: Define typed
   `iota` constants. The `exhaustive` linter catches missing cases.
 - **Use stdlib/codebase constants**: No magic numbers when `math.MaxInt64`
