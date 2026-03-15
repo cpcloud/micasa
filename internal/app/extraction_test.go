@@ -2606,26 +2606,6 @@ func TestExtractionClient_NilWhenNoConfig(t *testing.T) {
 	assert.Nil(t, m.extractionLLMClient())
 }
 
-func TestExtractionClient_CachesCreationError(t *testing.T) {
-	t.Parallel()
-	m := newExtractionModel(t, map[extractionStep]stepStatus{
-		stepLLM: stepPending,
-	})
-
-	// Use a bogus provider name to trigger NewClient error.
-	m.ex.extractionProvider = "nonexistent-provider"
-	m.ex.extractionModel = "some-model"
-	m.ex.extractionClient = nil
-
-	// First call: returns nil and caches the error.
-	assert.Nil(t, m.extractionLLMClient())
-	require.Error(t, m.ex.extractionClientErr)
-	assert.Contains(t, m.ex.extractionClientErr.Error(), "nonexistent-provider")
-
-	// Second call: returns nil without retrying (cached).
-	assert.Nil(t, m.extractionLLMClient())
-}
-
 // --- Auto-follow vs manual cursor mode ---
 
 func TestExtractionCursor_AutoFollowDisengagesOnJK(t *testing.T) {

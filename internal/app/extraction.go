@@ -263,12 +263,6 @@ func (m *Model) startExtractionOverlay(
 	needsExtract := extract.NeedsOCR(m.ex.extractors, mime)
 	needsLLM := m.extractionLLMClient() != nil
 
-	// Surface cached client creation errors so misconfigured providers
-	// don't silently skip LLM extraction.
-	if !needsLLM && m.ex.extractionClientErr != nil {
-		m.setStatusError("extraction LLM: " + m.ex.extractionClientErr.Error())
-	}
-
 	// Skip OCR when the document already has extracted text from a
 	// previous run -- feed existing text directly to the LLM.
 	hasExistingText := strings.TrimSpace(extractedText) != ""
@@ -1243,8 +1237,6 @@ func (m *Model) handleExtractionModelPickerKey(msg tea.KeyMsg) tea.Cmd {
 func (m *Model) switchExtractionModel(name string, isLocal bool) tea.Cmd {
 	m.ex.extractionModel = name
 	m.ex.extractionClient = nil
-	m.ex.extractionClientErr = nil
-
 	if isLocal {
 		m.ex.extractionReady = true
 		return m.rerunLLMExtraction()
