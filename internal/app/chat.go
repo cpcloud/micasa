@@ -300,7 +300,7 @@ func (m *Model) submitChat() tea.Cmd {
 		})
 		m.chat.Messages = append(m.chat.Messages, chatMessage{
 			Role:    roleError,
-			Content: "no LLM configured -- add [chat.llm] to your config",
+			Content: "no LLM configured",
 		})
 		m.refreshChatViewport()
 		return nil
@@ -678,7 +678,7 @@ func (m *Model) cmdSwitchModel(name string) tea.Cmd {
 		}
 		if !isLocal {
 			return pullProgressMsg{
-				Err:  fmt.Errorf("model %q not found -- check the model name", name),
+				Err:  fmt.Errorf("model %q not found", name),
 				Done: true,
 			}
 		}

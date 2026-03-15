@@ -70,7 +70,7 @@ func TestPingModelNotFound(t *testing.T) {
 	client := newTestClient(t, srv.URL+"/v1", "qwen3")
 	err := client.Ping(context.Background())
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not available")
+	assert.Contains(t, err.Error(), "not found")
 }
 
 func TestPingServerDown(t *testing.T) {
@@ -146,7 +146,7 @@ func TestPingNonLLMServerEmptyJSON(t *testing.T) {
 	err := client.Ping(context.Background())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no models found")
-	assert.Contains(t, err.Error(), "base_url")
+	assert.Contains(t, err.Error(), srv.URL)
 }
 
 // TestPingAnthropicNotSupported verifies that Ping returns ErrPingNotSupported
@@ -507,28 +507,25 @@ func TestPingModelNotFoundCloud(t *testing.T) {
 	}
 	err = client.Ping(context.Background())
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not available")
-	assert.Contains(t, err.Error(), "base_url")
+	assert.Contains(t, err.Error(), "not found")
+	assert.Contains(t, err.Error(), srv.URL)
 }
 
 func TestPingServerDownCloud(t *testing.T) {
 	t.Parallel()
-	// Use wrapError directly: a ECONNREFUSED wrapped in ProviderError
-	// from a cloud provider should say "cannot reach ... check your
-	// base_url" and NOT mention ollama.
 	inner := fmt.Errorf("dial tcp: connection refused")
-	c := &Client{providerName: "openai"}
+	c := &Client{
+		providerName: "openai",
+		baseURL:      "https://api.openai.com/v1",
+	}
 	err := c.wrapError(anyllmerrors.NewProviderError("openai", inner))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot reach")
-	assert.Contains(t, err.Error(), "check your base_url")
-	assert.NotContains(
-		t, err.Error(), "ollama", "cloud error should not mention ollama",
-	)
+	assert.Contains(t, err.Error(), c.baseURL)
 }
 
 // TestPingModelNotFoundLlamacpp verifies that when a local server
-// doesn't have the requested model, the user gets a "not available" message.
+// doesn't have the requested model, the error includes the URL.
 func TestPingModelNotFoundLlamacpp(t *testing.T) {
 	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -539,7 +536,8 @@ func TestPingModelNotFoundLlamacpp(t *testing.T) {
 	client := newTestClient(t, srv.URL+"/v1", "qwen3")
 	err := client.Ping(context.Background())
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not available")
+	assert.Contains(t, err.Error(), "not found")
+	assert.Contains(t, err.Error(), srv.URL)
 }
 
 // TestPingMatchesModelPrefix verifies that model names with tags
@@ -574,34 +572,31 @@ func TestCreateProviderAllSupported(t *testing.T) {
 	}
 }
 
-// TestWrapErrorProviderError exercises the wrapError path for ProviderError.
+// TestWrapErrorProviderError exercises the wrapError path for ProviderError
+// with a network error: all providers get "cannot reach <provider> at <url>".
 func TestWrapErrorProviderError(t *testing.T) {
 	t.Parallel()
 	connErr := fmt.Errorf("dial tcp: connection refused")
-	tests := []struct {
-		provider string
-		wantMsg  string
-	}{
-		{"ollama", "ollama serve"},
-		{"llamacpp", "is it running"},
-		{"llamafile", "is it running"},
-		{"anthropic", "check your base_url"},
-		{"openai", "check your base_url"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.provider, func(t *testing.T) {
-			c := &Client{providerName: tt.provider}
+	providers := []string{"ollama", "llamacpp", "llamafile", "anthropic", "openai"}
+	for _, provider := range providers {
+		t.Run(provider, func(t *testing.T) {
+			c := &Client{
+				providerName: provider,
+				baseURL:      "http://localhost:11434",
+			}
 			err := c.wrapError(
-				anyllmerrors.NewProviderError(tt.provider, connErr),
+				anyllmerrors.NewProviderError(provider, connErr),
 			)
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), tt.wantMsg)
+			assert.Contains(t, err.Error(), "cannot reach")
+			assert.Contains(t, err.Error(), c.baseURL)
+			assert.Contains(t, err.Error(), "connection refused")
 		})
 	}
 }
 
 // TestWrapErrorDeadlineExceeded verifies that a context deadline exceeded
-// error produces a friendly timeout message instead of a raw error.
+// error passes through unchanged.
 func TestWrapErrorDeadlineExceeded(t *testing.T) {
 	t.Parallel()
 
@@ -610,8 +605,7 @@ func TestWrapErrorDeadlineExceeded(t *testing.T) {
 		c := &Client{providerName: "ollama"}
 		err := c.wrapError(context.DeadlineExceeded)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "timed out")
-		assert.NotContains(t, err.Error(), "cannot reach")
+		assert.ErrorIs(t, err, context.DeadlineExceeded)
 	})
 
 	t.Run("wrapped in provider error", func(t *testing.T) {
@@ -622,8 +616,8 @@ func TestWrapErrorDeadlineExceeded(t *testing.T) {
 			anyllmerrors.NewProviderError("ollama", timeoutErr),
 		)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "timed out")
-		assert.NotContains(t, err.Error(), "cannot reach")
+		// ProviderError with non-network inner error passes through.
+		assert.ErrorIs(t, err, timeoutErr)
 	})
 }
 
@@ -658,19 +652,19 @@ func TestWrapErrorProviderErrorPreservesNonConnectionErrors(t *testing.T) {
 }
 
 // TestWrapErrorModelNotFound exercises the wrapError path when the LLM
-// returns a "model not found" error. Ollama gets a "pull it" suggestion.
+// returns a "model not found" error — includes model name and URL.
 func TestWrapErrorModelNotFound(t *testing.T) {
 	t.Parallel()
-	t.Run("ollama suggests pull", func(t *testing.T) {
+	t.Run("ollama", func(t *testing.T) {
 		c := &Client{providerName: "ollama", model: "qwen3", baseURL: "http://localhost:11434"}
 		err := c.wrapError(
 			anyllmerrors.NewModelNotFoundError("ollama", fmt.Errorf("not found")),
 		)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "ollama pull qwen3")
-		assert.Contains(t, err.Error(), "base_url")
+		assert.Contains(t, err.Error(), "qwen3")
+		assert.Contains(t, err.Error(), c.baseURL)
 	})
-	t.Run("cloud suggests config check", func(t *testing.T) {
+	t.Run("cloud", func(t *testing.T) {
 		c := &Client{
 			providerName: "anthropic",
 			model:        "claude-opus-4-6",
@@ -682,9 +676,8 @@ func TestWrapErrorModelNotFound(t *testing.T) {
 			),
 		)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "not available")
-		assert.Contains(t, err.Error(), "base_url")
-		assert.NotContains(t, err.Error(), "pull")
+		assert.Contains(t, err.Error(), "claude-opus-4-6")
+		assert.Contains(t, err.Error(), c.baseURL)
 	})
 }
 
@@ -697,8 +690,8 @@ func TestWrapErrorAuthenticationError(t *testing.T) {
 		anyllmerrors.NewAuthenticationError("anthropic", fmt.Errorf("invalid key")),
 	)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "authentication failed")
-	assert.Contains(t, err.Error(), "check your api_key")
+	assert.Contains(t, err.Error(), "auth_error")
+	assert.Contains(t, err.Error(), "invalid key")
 }
 
 // TestWrapErrorRateLimitError exercises the path when a user exceeds the
@@ -710,8 +703,8 @@ func TestWrapErrorRateLimitError(t *testing.T) {
 		anyllmerrors.NewRateLimitError("openai", fmt.Errorf("429")),
 	)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "rate limited")
-	assert.Contains(t, err.Error(), "try again")
+	assert.Contains(t, err.Error(), "rate_limit")
+	assert.Contains(t, err.Error(), "429")
 }
 
 // TestWrapErrorNil verifies that nil passes through without error.
@@ -955,7 +948,7 @@ func TestPingTimesOutAtQuickOpTimeout(t *testing.T) {
 
 		elapsed := time.Since(start)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "timed out")
+		assert.ErrorIs(t, err, context.DeadlineExceeded)
 		assert.InDelta(t,
 			QuickOpTimeout.Seconds(), elapsed.Seconds(), 1,
 			"should time out at QuickOpTimeout, not sooner or later",

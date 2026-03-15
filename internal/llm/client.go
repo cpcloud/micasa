@@ -292,26 +292,11 @@ func (c *Client) Ping(ctx context.Context) error {
 		}
 	}
 
-	// Zero models usually means the URL doesn't point to an LLM server
-	// (e.g. a non-LLM HTTP endpoint that returns 404/HTML). Point the
-	// user at the URL rather than the model name.
 	if len(resp.Data) == 0 {
-		return fmt.Errorf(
-			"no models found at %s -- verify the base_url points to a running LLM server",
-			c.baseURL,
-		)
+		return fmt.Errorf("no models found at %s", c.baseURL)
 	}
 
-	if c.providerName == providerOllama {
-		return fmt.Errorf(
-			"model %q not found at %s -- pull it with `ollama pull %s` or check base_url",
-			c.model, c.baseURL, c.model,
-		)
-	}
-	return fmt.Errorf(
-		"model %q not available at %s -- check model name and base_url in your config",
-		c.model, c.baseURL,
-	)
+	return fmt.Errorf("model %q not found at %s", c.model, c.baseURL)
 }
 
 // ChatComplete sends a non-streaming chat completion request and returns the
@@ -329,9 +314,8 @@ func (c *Client) ChatComplete(
 	}
 	if len(resp.Choices) == 0 {
 		return "", fmt.Errorf(
-			"%s returned no response for model %q -- the server may be overloaded or the model may not support this request",
-			c.providerName,
-			c.model,
+			"%s returned no response for model %q",
+			c.providerName, c.model,
 		)
 	}
 	return resp.Choices[0].Message.ContentString(), nil
@@ -400,65 +384,20 @@ func (c *Client) wrapError(err error) error {
 		return nil
 	}
 
-	if errors.Is(err, context.DeadlineExceeded) {
-		return fmt.Errorf(
-			"%s timed out -- the server may be overloaded or the model is too slow; "+
-				"check timeout settings (chat.llm.timeout, extraction.llm.timeout) "+
-				"or try a smaller model",
-			c.providerName,
-		)
-	}
-
+	// Network errors and model-not-found get the base URL appended so the
+	// user can see which endpoint failed. Everything else passes through
+	// as-is -- the upstream library already formats provider + code + detail.
 	var providerErr *anyllmerrors.ProviderError
-	if errors.As(err, &providerErr) {
-		if isNetworkError(err) {
-			if c.providerName == providerOllama {
-				return fmt.Errorf(
-					"cannot reach ollama -- start it with `ollama serve`",
-				)
-			}
-			if c.IsLocalServer() {
-				return fmt.Errorf(
-					"cannot reach %s server -- is it running?",
-					c.providerName,
-				)
-			}
-			return fmt.Errorf(
-				"cannot reach %s -- check your base_url and network",
-				c.providerName,
-			)
-		}
-		return fmt.Errorf("%s: %w", c.providerName, providerErr.Err)
+	if errors.As(err, &providerErr) && isNetworkError(err) {
+		return fmt.Errorf(
+			"cannot reach %s at %s: %w",
+			c.providerName, c.baseURL, providerErr.Err,
+		)
 	}
 
 	var modelErr *anyllmerrors.ModelNotFoundError
 	if errors.As(err, &modelErr) {
-		if c.providerName == providerOllama {
-			return fmt.Errorf(
-				"model %q not found at %s -- pull it with `ollama pull %s` or check base_url",
-				c.model, c.baseURL, c.model,
-			)
-		}
-		return fmt.Errorf(
-			"model %q not available at %s -- check model name and base_url in your config",
-			c.model, c.baseURL,
-		)
-	}
-
-	var authErr *anyllmerrors.AuthenticationError
-	if errors.As(err, &authErr) {
-		return fmt.Errorf(
-			"authentication failed for %s -- check your api_key",
-			c.providerName,
-		)
-	}
-
-	var rateLimitErr *anyllmerrors.RateLimitError
-	if errors.As(err, &rateLimitErr) {
-		return fmt.Errorf(
-			"rate limited by %s -- try again shortly",
-			c.providerName,
-		)
+		return fmt.Errorf("model %q not found at %s", c.model, c.baseURL)
 	}
 
 	return err
