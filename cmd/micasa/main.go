@@ -28,9 +28,13 @@ var version = "dev"
 // runOpts holds flags for the root (TUI launcher) command.
 type runOpts struct {
 	dbPath    string
-	demo      bool
-	years     int
 	printPath bool
+}
+
+// demoOpts holds flags for the demo subcommand.
+type demoOpts struct {
+	dbPath string
+	years  int
 }
 
 // backupOpts holds flags for the backup subcommand.
@@ -64,13 +68,10 @@ func newRootCmd() *cobra.Command {
 	root.CompletionOptions.HiddenDefaultCmd = true
 
 	root.Flags().
-		BoolVar(&opts.demo, "demo", false, "Launch with sample data in an in-memory database")
-	root.Flags().
-		IntVar(&opts.years, "years", 0, "Generate N years of simulated home ownership data (requires --demo)")
-	root.Flags().
 		BoolVar(&opts.printPath, "print-path", false, "Print the resolved database path and exit")
 
 	root.AddCommand(
+		newDemoCmd(),
 		newBackupCmd(),
 		newConfigCmd(),
 		newCompletionCmd(root),
@@ -99,12 +100,18 @@ func runTUI(w io.Writer, opts *runOpts) error {
 		_, _ = fmt.Fprintln(w, dbPath)
 		return nil
 	}
-	if opts.years > 0 && !opts.demo {
-		return fmt.Errorf("--years requires --demo")
-	}
-	if opts.years < 0 {
-		return fmt.Errorf("--years must be non-negative")
-	}
+	return launchTUI(dbPath, nil)
+}
+
+// seedOpts controls optional demo-data seeding passed from the demo
+// subcommand. A nil value means no seeding. A non-nil value always
+// triggers demo seeding: years==0 seeds the small fixed demo, years>0
+// seeds N years of scaled data.
+type seedOpts struct {
+	years int
+}
+
+func launchTUI(dbPath string, seed *seedOpts) error {
 	store, err := data.Open(dbPath)
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
@@ -115,16 +122,16 @@ func runTUI(w io.Writer, opts *runOpts) error {
 	if err := store.SeedDefaults(); err != nil {
 		return fmt.Errorf("seed defaults: %w", err)
 	}
-	if opts.demo {
-		if opts.years > 0 {
-			summary, err := store.SeedScaledData(opts.years)
+	if seed != nil {
+		if seed.years > 0 {
+			summary, err := store.SeedScaledData(seed.years)
 			if err != nil {
 				return fmt.Errorf("seed scaled data: %w", err)
 			}
 			fmt.Fprintf(
 				os.Stderr,
 				"seeded %d years: %d vendors, %d projects, %d appliances, %d maintenance, %d service logs, %d quotes, %d documents\n",
-				opts.years,
+				seed.years,
 				summary.Vendors,
 				summary.Projects,
 				summary.Appliances,
@@ -221,16 +228,54 @@ func runTUI(w io.Writer, opts *runOpts) error {
 
 // resolveDBPath returns the database path to use. Precedence:
 // 1. Explicit positional arg (opts.dbPath)
-// 2. --demo → ":memory:"
-// 3. data.DefaultDBPath(), which honors MICASA_DB_PATH env var internally
+// 2. data.DefaultDBPath(), which honors MICASA_DB_PATH env var internally
 func (opts *runOpts) resolveDBPath() (string, error) {
 	if opts.dbPath != "" {
 		return data.ExpandHome(opts.dbPath), nil
 	}
-	if opts.demo {
-		return ":memory:", nil
-	}
 	return data.DefaultDBPath()
+}
+
+func newDemoCmd() *cobra.Command {
+	opts := &demoOpts{}
+
+	cmd := &cobra.Command{
+		Use:           "demo [database-path]",
+		Short:         "Launch with sample data in an in-memory database",
+		Long:          "Launch with fictitious sample data. Without a path argument, uses an in-memory database.",
+		Args:          cobra.MaximumNArgs(1),
+		SilenceErrors: true,
+		SilenceUsage:  true,
+		RunE: func(_ *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				opts.dbPath = args[0]
+			}
+			return runDemo(opts)
+		},
+	}
+
+	cmd.Flags().
+		IntVar(&opts.years, "years", 0, "Generate N years of simulated home ownership data")
+
+	return cmd
+}
+
+// resolveDBPath returns the database path for demo mode. Defaults to
+// ":memory:" when no explicit path is given.
+func (opts *demoOpts) resolveDBPath() string {
+	if opts.dbPath != "" {
+		return data.ExpandHome(opts.dbPath)
+	}
+	return ":memory:"
+}
+
+func runDemo(opts *demoOpts) error {
+	if opts.years < 0 {
+		return fmt.Errorf("--years must be non-negative")
+	}
+	// Non-nil seedOpts always triggers demo seeding; years==0 seeds the
+	// small fixed demo, years>0 seeds N years of scaled data.
+	return launchTUI(opts.resolveDBPath(), &seedOpts{years: opts.years})
 }
 
 func newBackupCmd() *cobra.Command {
