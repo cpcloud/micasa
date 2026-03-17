@@ -26,14 +26,17 @@
       system:
       let
         pkgs = import nixpkgs { inherit system; };
+        go = pkgs.go_1_26;
         version = builtins.replaceStrings [ "\n" "\r" ] [ "" "" ] (builtins.readFile ./VERSION);
 
-        micasa = pkgs.buildGoModule {
+        buildGoModule = pkgs.buildGoModule.override { inherit go; };
+
+        micasa = buildGoModule {
           pname = "micasa";
           inherit version;
           src = ./.;
           subPackages = [ "cmd/micasa" ];
-          vendorHash = "sha256-QNM5befb9GmsF6XYORg259Q/x7f/DP9ukgKhwujb+uc=";
+          vendorHash = "sha256-my1oClaNceVd8nhBmaa6hIEF/7Vw8CcxKw9jED/bSNI=";
           env.CGO_ENABLED = 0;
           preCheck = ''
             export HOME="$(mktemp -d)"
@@ -214,7 +217,7 @@
           fontDirectories = [ "${pkgs.nerd-fonts.hack}/share/fonts/truetype" ];
         };
 
-        deadcode = pkgs.buildGoModule {
+        deadcode = buildGoModule {
           pname = "deadcode";
           version = "0.43.0";
           src = pkgs.fetchFromGitHub {
@@ -232,7 +235,7 @@
           name = "run-deadcode";
           runtimeInputs = [
             deadcode
-            pkgs.go
+            go
           ];
           runtimeEnv.CGO_ENABLED = "0";
           text = ''
@@ -248,7 +251,7 @@
           name = "run-govulncheck";
           runtimeInputs = [
             pkgs.govulncheck
-            pkgs.go
+            go
             pkgs.jq
             pkgs.ripgrep
           ];
@@ -288,7 +291,7 @@
           name = "run-osv-scanner";
           runtimeInputs = [ pkgs.osv-scanner ];
           text = ''
-            osv-scanner scan --config osv-scanner.toml --no-ignore --recursive .
+            osv-scanner scan --config osv-scanner.toml --no-ignore --no-call-analysis=go --recursive .
           '';
         };
 
@@ -296,7 +299,7 @@
           name = "run-golangci-lint";
           runtimeInputs = [
             pkgs.golangci-lint
-            pkgs.go
+            go
           ];
           runtimeEnv.CGO_ENABLED = "0";
           text = ''
@@ -311,7 +314,7 @@
         goModTidyCheck = pkgs.writeShellApplication {
           name = "go-mod-tidy-check";
           runtimeInputs = [
-            pkgs.go
+            go
             pkgs.git
           ];
           text = ''
@@ -326,7 +329,7 @@
         goGenerateCheck = pkgs.writeShellApplication {
           name = "go-generate-check";
           runtimeInputs = [
-            pkgs.go
+            go
             pkgs.git
           ];
           runtimeEnv.CGO_ENABLED = "0";
@@ -391,6 +394,9 @@
             shellHook = ''
               ${preCommit.shellHook}
 
+              # lipgloss v2 does not detect tmux-256color as truecolor-capable (#789)
+              export TERM=xterm-256color
+
               # Generate test document fixtures if missing.
               if [[ ! -f internal/extract/testdata/mixed-inspection.pdf ]]; then
                 bash internal/extract/gen-sample-pdf.bash
@@ -403,7 +409,7 @@
             CGO_ENABLED = "0";
             GOFLAGS = "-trimpath";
             packages = [
-              pkgs.go
+              go
               pkgs.osv-scanner
               pkgs.git
               pkgs.hugo
@@ -645,7 +651,7 @@
           run-pre-commit = pkgs.writeShellApplication {
             name = "run-pre-commit";
             runtimeInputs = [
-              pkgs.go
+              go
               pkgs.git
             ]
             ++ preCommit.enabledPackages;
