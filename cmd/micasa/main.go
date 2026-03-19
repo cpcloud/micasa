@@ -75,6 +75,7 @@ func newRootCmd() *cobra.Command {
 		newBackupCmd(),
 		newConfigCmd(),
 		newCompletionCmd(root),
+		newProCmd(),
 	)
 
 	return root
@@ -213,6 +214,8 @@ func launchTUI(dbPath string, seed *seedOpts) error {
 		cfg.Extraction.OCR.TSV.IsEnabled(),
 		cfg.Extraction.OCR.TSV.Threshold(),
 	)
+
+	tryLoadSyncConfig(store, &appOpts)
 
 	model, err := app.NewModel(store, appOpts)
 	if err != nil {

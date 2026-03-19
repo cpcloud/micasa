@@ -280,7 +280,11 @@ func (m *Model) statusView() string {
 		return m.withPullProgress(m.inlineInputStatusView())
 	}
 	if m.confirm == confirmHardDelete {
-		prompt := m.styles.FormDirty().Render("Permanently delete this incident?")
+		entity := "incident"
+		if tab := m.effectiveTab(); tab != nil && tab.Kind == tabMaintenance {
+			entity = "item"
+		}
+		prompt := m.styles.FormDirty().Render("Permanently delete this " + entity + "?")
 		hints := joinWithSeparator(
 			m.helpSeparator(),
 			m.helpItem(keyY, "delete forever"),
@@ -349,7 +353,9 @@ func (m *Model) statusView() string {
 		help = m.editModeStatusHelp(modeBadge)
 	}
 
-	return m.withBgExtractionIndicator(m.withPullProgress(m.withStatusMessage(help)))
+	return m.withSyncIndicator(
+		m.withBgExtractionIndicator(m.withPullProgress(m.withStatusMessage(help))),
+	)
 }
 
 // withBgExtractionIndicator prepends a background extraction indicator when
@@ -633,7 +639,7 @@ func (m *Model) editHint() string {
 	spec := tab.Specs[col]
 	// Show "follow link" hint when on a linked cell with a target.
 	if spec.Link != nil || spec.Kind == cellEntity {
-		if c, ok := m.selectedCell(col); ok && c.LinkID > 0 {
+		if c, ok := m.selectedCell(col); ok && c.LinkID != "" {
 			return "follow " + linkArrow
 		}
 	}
@@ -665,7 +671,7 @@ func (m *Model) enterHint() string {
 		return m.drilldownHint(tab, spec)
 	}
 	if spec.Link != nil || spec.Kind == cellEntity {
-		if c, ok := m.selectedCell(col); ok && c.LinkID > 0 {
+		if c, ok := m.selectedCell(col); ok && c.LinkID != "" {
 			return "follow " + linkArrow
 		}
 	}
