@@ -448,6 +448,7 @@
               hugo --source docs --destination ../website \
                 --minify \
                 --gc \
+                --noBuildLock \
                 --noChmod \
                 --noTimes \
                 --printPathWarnings \
@@ -471,7 +472,7 @@
               # Build once to generate the pagefind index, then copy it
               # into docs/static/ so hugo server serves it as a static asset.
               _tmpsite=$(mktemp -d)
-              hugo --source docs --destination "$_tmpsite" --buildDrafts --buildFuture --minify --quiet
+              hugo --source docs --destination "$_tmpsite" --buildDrafts --buildFuture --minify --noBuildLock --quiet
               pagefind --site "$_tmpsite" --quiet
               rm -rf docs/static/pagefind
               cp -r "$_tmpsite/pagefind" docs/static/pagefind
@@ -648,6 +649,20 @@
             run-osv-scanner
             run-golangci-lint
             ;
+          coverage = pkgs.writeShellApplication {
+            name = "coverage";
+            runtimeInputs = [
+              go
+              pkgs.sd
+            ];
+            runtimeEnv.CGO_ENABLED = "1";
+            text = ''
+              go test -coverprofile cover.out ./...
+              go tool cover -func cover.out \
+                | sd '^github.com/micasa-dev/micasa/' "" \
+                | column -t
+            '';
+          };
           run-pre-commit = pkgs.writeShellApplication {
             name = "run-pre-commit";
             runtimeInputs = [
