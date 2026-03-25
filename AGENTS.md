@@ -101,6 +101,9 @@ comment; if it is older than 30 days, spot-check and update it.
 
 - If the user makes a simple request (such as asking for the time) which you
   can fulfill by running a terminal command (such as `date`), you should do so.
+- If the user asks whether an issue is done, check the **codebase** for whether
+  the described functionality is already implemented (or redundant), not just
+  whether the GitHub issue is open or closed.
 - If the user asks for a "review", default to a code review mindset: prioritise
   identifying bugs, risks, behavioral regressions, and missing tests. Present
   findings first (ordered by severity with file/line references), follow with
