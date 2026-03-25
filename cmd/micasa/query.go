@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -45,7 +46,7 @@ with a 10-second timeout.`,
 }
 
 func runQuery(w io.Writer, store *data.Store, sql string, asJSON bool) error {
-	columns, rows, err := store.ReadOnlyQuery(sql)
+	columns, rows, err := store.ReadOnlyQuery(context.Background(), sql)
 	if err != nil {
 		return err
 	}
