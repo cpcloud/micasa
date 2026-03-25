@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       go: ${{ steps.detect.outputs.go }}
+      ci: ${{ steps.detect.outputs.ci }}
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
@@ -30,21 +31,21 @@ jobs:
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          sparse-checkout: .github/detect-go-changes.bash
+          sparse-checkout: .github/detect-ci-changes.bash
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
-      - name: Check for Go-related changes
+      - name: Check for changes
         id: detect
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
         run: |
-          go=$(bash .github/detect-go-changes.bash \
-            "${{ github.event_name }}" \
-            "${{ github.event.pull_request.number }}" \
-            "${{ github.event.before }}" \
-            "${{ github.sha }}")
-          echo "go=$go" >> "$GITHUB_OUTPUT"
+          bash .github/detect-ci-changes.bash \
+            "$EVENT_NAME" "$PR_NUMBER" "$BEFORE_SHA" "$HEAD_SHA" >> "$GITHUB_OUTPUT"
 
   deadcode:
     name: Dead Code
@@ -110,6 +111,8 @@ jobs:
 
   pre-commit:
     name: Pre-commit
+    needs: changes
+    if: needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     concurrency:
       group: lint-pre-commit-${{ github.ref }}
@@ -136,7 +139,9 @@ jobs:
       - uses: cachix/install-nix-action@1ca7d21a94afc7c957383a2d217460d980de4934 # v31.10.1
 
       - name: Run pre-commit hooks
-        run: nix run '.#pre-commit' -- --from-ref 'origin/${{ github.base_ref || 'main' }}' --to-ref HEAD
+        env:
+          BASE_REF: ${{ github.base_ref || 'main' }}
+        run: nix run '.#pre-commit' -- --from-ref "origin/$BASE_REF" --to-ref HEAD
 
   result:
     name: Lint Result
