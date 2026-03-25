@@ -7,9 +7,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 const (
@@ -88,9 +91,12 @@ var disallowedKeywords = []string{
 //     whitespace and SQL comments).
 //  2. Semicolon check: rejects multi-statement payloads.
 //  3. Keyword blocklist (containsWord): catches obvious mutation keywords.
-//  4. EXPLAIN opcode check: runs EXPLAIN on the query and rejects it if any
-//     write-related VDBE opcodes appear. This is the primary structural
-//     validation and catches attacks that bypass keyword matching.
+//  4. PRAGMA query_only + EXPLAIN opcode check: pins a database connection,
+//     sets PRAGMA query_only = 1, then runs EXPLAIN on the query to reject it
+//     if any write-related VDBE opcodes appear. Both the EXPLAIN and the
+//     actual query execute on the same query_only connection, so SQLite itself
+//     rejects any write at the engine level. The pragma is cleared before
+//     releasing the connection.
 //  5. Timeout: the actual query runs under a 10-second context deadline to
 //     prevent long-running queries from hanging the app.
 func (s *Store) ReadOnlyQuery(
@@ -125,58 +131,76 @@ func (s *Store) ReadOnlyQuery(
 		}
 	}
 
-	// --- Layer 4: EXPLAIN opcode validation ---
-	if err := s.explainIsReadOnly(trimmed); err != nil {
-		return nil, nil, err
-	}
-
-	// --- Layer 5: execute with timeout ---
+	// --- Layers 4+5+6: pinned connection with PRAGMA query_only ---
+	// All untrusted SQL (EXPLAIN check + actual query) runs on a single
+	// pinned connection with query_only = 1, so SQLite itself rejects any
+	// write at the engine level.
 	ctx, cancel := context.WithTimeout(ctx, readOnlyQueryTimeout)
 	defer cancel()
 
-	sqlRows, err := s.db.WithContext(ctx).Raw(trimmed).Rows()
-	if err != nil {
-		return nil, nil, fmt.Errorf("execute query: %w", err)
-	}
-	defer func() {
-		_ = sqlRows.Close()
-	}()
-
-	columns, err = sqlRows.Columns()
-	if err != nil {
-		return nil, nil, fmt.Errorf("get columns: %w", err)
-	}
-
-	for sqlRows.Next() {
-		if len(rows) >= maxQueryRows {
-			break
+	err = s.db.WithContext(ctx).Connection(func(tx *gorm.DB) error {
+		if err := tx.Exec("PRAGMA query_only = 1").Error; err != nil {
+			return fmt.Errorf("set query_only: %w", err)
 		}
-		values := make([]any, len(columns))
-		ptrs := make([]any, len(columns))
-		for i := range values {
-			ptrs[i] = &values[i]
-		}
-		if err := sqlRows.Scan(ptrs...); err != nil {
-			return nil, nil, fmt.Errorf("scan row: %w", err)
-		}
-		row := make([]string, len(columns))
-		for i, v := range values {
-			if v == nil {
-				row[i] = ""
-			} else {
-				row[i] = fmt.Sprintf("%v", v)
+		defer func() {
+			// Always clear the pragma before releasing the connection back
+			// to the pool, even if the query fails.
+			if clearErr := tx.Exec("PRAGMA query_only = 0").Error; clearErr != nil {
+				slog.Error("failed to clear query_only pragma", "error", clearErr)
 			}
+		}()
+
+		// --- Layer 4: EXPLAIN opcode validation ---
+		if err := s.explainIsReadOnly(tx, trimmed); err != nil {
+			return err
 		}
-		rows = append(rows, row)
-	}
-	return columns, rows, sqlRows.Err()
+
+		// --- Layer 5: execute query ---
+		sqlRows, qErr := tx.Raw(trimmed).Rows()
+		if qErr != nil {
+			return fmt.Errorf("execute query: %w", qErr)
+		}
+		defer func() { _ = sqlRows.Close() }()
+
+		columns, qErr = sqlRows.Columns()
+		if qErr != nil {
+			return fmt.Errorf("get columns: %w", qErr)
+		}
+
+		for sqlRows.Next() {
+			if len(rows) >= maxQueryRows {
+				break
+			}
+			values := make([]any, len(columns))
+			ptrs := make([]any, len(columns))
+			for i := range values {
+				ptrs[i] = &values[i]
+			}
+			if qErr = sqlRows.Scan(ptrs...); qErr != nil {
+				return fmt.Errorf("scan row: %w", qErr)
+			}
+			row := make([]string, len(columns))
+			for i, v := range values {
+				if v == nil {
+					row[i] = ""
+				} else {
+					row[i] = fmt.Sprintf("%v", v)
+				}
+			}
+			rows = append(rows, row)
+		}
+		return sqlRows.Err()
+	})
+	return columns, rows, err
 }
 
 // explainIsReadOnly runs EXPLAIN on the query and inspects the resulting VDBE
 // program for write-related opcodes. Returns nil if the query is read-only, or
-// an error describing which opcode was found.
-func (s *Store) explainIsReadOnly(query string) error {
-	explainRows, err := s.db.Raw("EXPLAIN " + query).Rows()
+// an error describing which opcode was found. The caller provides the *gorm.DB
+// to use so the EXPLAIN runs on the same pinned, query_only connection as the
+// actual query.
+func (s *Store) explainIsReadOnly(db *gorm.DB, query string) error {
+	explainRows, err := db.Raw("EXPLAIN " + query).Rows()
 	if err != nil {
 		return fmt.Errorf("EXPLAIN validation failed: %w", err)
 	}
