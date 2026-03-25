@@ -25,10 +25,10 @@ func fmtMoney(cents *int64) string {
 }
 
 func fmtDate(t *time.Time) string {
-	if t == nil || t.IsZero() {
+	if t == nil {
 		return "-"
 	}
-	return t.Format("2006-01-02")
+	return fmtDateVal(*t)
 }
 
 func fmtInt(n int) string {
@@ -368,12 +368,12 @@ func showHouseText(w io.Writer, h data.HouseProfile) error {
 }
 
 func formatAddress(h data.HouseProfile) string {
-	var lines []string
+	var parts []string
 	if h.AddressLine1 != "" {
-		lines = append(lines, h.AddressLine1)
+		parts = append(parts, h.AddressLine1)
 	}
 	if h.AddressLine2 != "" {
-		lines = append(lines, h.AddressLine2)
+		parts = append(parts, h.AddressLine2)
 	}
 	var cityState []string
 	if h.City != "" {
@@ -389,9 +389,9 @@ func formatAddress(h data.HouseProfile) string {
 		csStr = h.PostalCode
 	}
 	if csStr != "" {
-		lines = append(lines, csStr)
+		parts = append(parts, csStr)
 	}
-	return strings.Join(lines, "\n                   ")
+	return strings.Join(parts, ", ")
 }
 
 func showHouseJSON(w io.Writer, h data.HouseProfile) error {
@@ -662,9 +662,6 @@ func showServiceLog(w io.Writer, store *data.Store, asJSON, includeDeleted bool)
 // --- documents ---
 
 func fmtSize(n int64) string {
-	if n == 0 {
-		return "-"
-	}
 	return fmt.Sprintf("%d", n)
 }
 

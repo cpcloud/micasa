@@ -77,7 +77,9 @@ func writeQueryJSON(w io.Writer, columns []string, rows [][]string) error {
 	for i, row := range rows {
 		obj := make(map[string]any, len(columns))
 		for j, col := range columns {
-			obj[col] = row[j]
+			if j < len(row) {
+				obj[col] = row[j]
+			}
 		}
 		out[i] = obj
 	}

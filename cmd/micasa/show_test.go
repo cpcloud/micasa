@@ -77,6 +77,33 @@ func TestShowHouseEmpty(t *testing.T) {
 	assert.Empty(t, buf.String())
 }
 
+func TestFormatAddress(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		h    data.HouseProfile
+		want string
+	}{
+		{"full", data.HouseProfile{
+			AddressLine1: "123 Main St", City: "Springfield", State: "IL", PostalCode: "62701",
+		}, "123 Main St, Springfield, IL 62701"},
+		{"with line2", data.HouseProfile{
+			AddressLine1: "123 Main", AddressLine2: "Apt 4", City: "NYC", State: "NY", PostalCode: "10001",
+		}, "123 Main, Apt 4, NYC, NY 10001"},
+		{"city only", data.HouseProfile{City: "Denver"}, "Denver"},
+		{"state only", data.HouseProfile{State: "CO"}, "CO"},
+		{"postal only", data.HouseProfile{PostalCode: "80202"}, "80202"},
+		{"empty", data.HouseProfile{}, ""},
+		{"line1 only", data.HouseProfile{AddressLine1: "PO Box 42"}, "PO Box 42"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, formatAddress(tt.h))
+		})
+	}
+}
+
 func TestShowUnknownEntity(t *testing.T) {
 	t.Parallel()
 	store := newTestStoreWithMigration(t)

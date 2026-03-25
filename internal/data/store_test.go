@@ -1924,15 +1924,26 @@ func TestListAllServiceLogEntries(t *testing.T) {
 	item2 := MaintenanceItem{Name: "Coils", CategoryID: cats[0].ID, Season: "fall"}
 	require.NoError(t, store.CreateMaintenance(&item2))
 
-	entry1 := ServiceLogEntry{MaintenanceItemID: item.ID, ServicedAt: time.Now()}
+	earlier := time.Now().Add(-time.Hour)
+	later := time.Now()
+
+	entry1 := ServiceLogEntry{MaintenanceItemID: item.ID, ServicedAt: earlier}
 	require.NoError(t, store.CreateServiceLog(&entry1, Vendor{}))
 
-	entry2 := ServiceLogEntry{MaintenanceItemID: item2.ID, ServicedAt: time.Now()}
+	entry2 := ServiceLogEntry{MaintenanceItemID: item2.ID, ServicedAt: later}
 	require.NoError(t, store.CreateServiceLog(&entry2, Vendor{}))
 
 	entries, err := store.ListAllServiceLogEntries(false)
 	require.NoError(t, err)
-	assert.Len(t, entries, 2)
+	require.Len(t, entries, 2)
+
+	// Ordered by serviced_at desc.
+	assert.Equal(t, entry2.ID, entries[0].ID)
+	assert.Equal(t, entry1.ID, entries[1].ID)
+
+	// Preloaded associations populated.
+	assert.Equal(t, "Coils", entries[0].MaintenanceItem.Name)
+	assert.Equal(t, "Filter", entries[1].MaintenanceItem.Name)
 }
 
 func TestDocumentCRUD(t *testing.T) {
