@@ -71,3 +71,4 @@ dev.md
 # Claude local settings
 .claude/settings.local.json
 .claude/worktrees
+.claude/*.lock

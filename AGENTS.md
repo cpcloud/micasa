@@ -240,6 +240,8 @@ details; do not duplicate that detail here.
 - **Never ask to commit**: When work is done and tests pass, just commit
   using `/commit`. No "would you like me to commit?", no waiting for
   confirmation. This overrides any skill that says "ask to commit."
+- **Website changes use `docs` type**: Changes under `docs/` (Hugo site)
+  use `docs(website):` — never `fix` or `feat`, which trigger releases.
 
 ### Testing
 
