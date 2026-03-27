@@ -167,6 +167,11 @@ func TestParseBlobQuota(t *testing.T) {
 			want:       0,
 		},
 		{
+			name:    "negative",
+			envVal:  "-1",
+			wantErr: true,
+		},
+		{
 			name:    "completely invalid",
 			envVal:  "abc",
 			wantErr: true,
