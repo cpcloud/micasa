@@ -302,6 +302,8 @@ func seedTabMoneyCells(tab *Tab, amounts []string) {
 			case cellText, cellDate, cellStatus, cellDrilldown, cellWarranty,
 				cellUrgency, cellNotes, cellEntity, cellOps:
 				cr[j] = cell{Value: "test", Kind: spec.Kind}
+			default:
+				panic(fmt.Sprintf("unhandled cellKind: %d", spec.Kind))
 			}
 			r[j] = cr[j].Value
 		}
@@ -390,6 +392,8 @@ func seedMoneyCells(m *Model) {
 		case cellText, cellDate, cellStatus, cellDrilldown, cellWarranty,
 			cellUrgency, cellNotes, cellEntity, cellOps:
 			row[i] = cell{Value: "test", Kind: spec.Kind}
+		default:
+			panic(fmt.Sprintf("unhandled cellKind: %d", spec.Kind))
 		}
 	}
 	tab.CellRows = [][]cell{row}

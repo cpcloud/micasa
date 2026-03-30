@@ -34,6 +34,8 @@ func magFormat(c cell, includeUnit bool, currencySymbol string) string {
 	case cellText, cellReadonly, cellDate, cellStatus, cellWarranty,
 		cellUrgency, cellNotes, cellEntity:
 		return value
+	default:
+		panic(fmt.Sprintf("unhandled cellKind: %d", c.Kind))
 	}
 
 	sign := ""

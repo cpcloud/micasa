@@ -1114,6 +1114,8 @@ func (m *Model) reloadAfterFormSave(kind FormKind) {
 	case formNone, formProject, formQuote, formMaintenance, formAppliance,
 		formIncident, formServiceLog, formDocument:
 		m.reloadAfterMutation()
+	default:
+		panic(fmt.Sprintf("unhandled FormKind: %d", kind))
 	}
 }
 
