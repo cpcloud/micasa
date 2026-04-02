@@ -158,19 +158,21 @@ const providerClaudeCLI = "claude-cli"
 func (c *Config) validateClaudeCLI() error {
 	// claude-cli does not yet support chat (multi-turn transport unverified).
 	if c.Chat.LLM.Provider == providerClaudeCLI {
-		return fmt.Errorf(
+		return errors.New(
 			"claude-cli does not yet support chat; use it under [extraction.llm] only",
 		)
 	}
 
 	// claude-cli requires an explicit model (not the provider-agnostic default).
-	m := strings.TrimSpace(c.Extraction.LLM.Model)
-	if c.Extraction.LLM.Provider == providerClaudeCLI &&
-		(m == "" || m == DefaultModel) {
-		return fmt.Errorf(
-			"claude-cli requires an explicit model (e.g. claude-sonnet-4-5-latest), got %q",
-			c.Extraction.LLM.Model,
-		)
+	// Normalize whitespace so " model " doesn't pass validation but fail at runtime.
+	if c.Extraction.LLM.Provider == providerClaudeCLI {
+		c.Extraction.LLM.Model = strings.TrimSpace(c.Extraction.LLM.Model)
+		if c.Extraction.LLM.Model == "" || c.Extraction.LLM.Model == DefaultModel {
+			return fmt.Errorf(
+				"claude-cli requires an explicit model (e.g. claude-sonnet-4-5-latest), got %q",
+				c.Extraction.LLM.Model,
+			)
+		}
 	}
 
 	return nil
