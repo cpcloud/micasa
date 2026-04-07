@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -156,4 +157,254 @@ func TestExtractWithProgress_PDF_Integration(t *testing.T) {
 	assert.True(t, hasAcquireTools, "should see AcquireTools progress messages")
 	assert.Contains(t, phases, "extract")
 	assert.NotEmpty(t, finalText, "should extract text from the scanned PDF")
+}
+
+// TestOcrProgressLoop_NoDeadlockOnPhantomRasterSignals verifies that
+// the consumer loop completes when pageDone is signalled for every
+// page but rasterDone is never signalled. This is the exact pattern
+// ocrPDFPages produces when every per-page goroutine hits ocrPage's
+// early-return path before invoking onRasterDone -- e.g. when
+// cairoCmd.Start() fails because pdftocairo is missing from PATH or
+// the context is cancelled before the subprocess is launched.
+//
+// Drives ocrProgressLoop directly with synthetic channels so the test
+// has zero subprocess dependencies.
+func TestOcrProgressLoop_NoDeadlockOnPhantomRasterSignals(t *testing.T) {
+	t.Parallel()
+
+	const total = 3
+	rasterDone := make(chan struct{}, total)
+	pageDone := make(chan struct{}, total)
+	// Buffer ch so the loop's send-or-cancel selects never block;
+	// the test does not need to drain progress messages.
+	ch := make(chan ExtractProgress, 2*total)
+
+	cairoState := &AcquireToolState{Tool: "pdftocairo", Running: true}
+	tessState := &AcquireToolState{Tool: "tesseract", Running: true}
+
+	// Simulate ocrPDFPages with a producer that fails to call
+	// onRasterDone (cairoCmd.Start() failure path) but still signals
+	// pageDone for every page.
+	for range total {
+		pageDone <- struct{}{}
+	}
+
+	result := make(chan bool, 1)
+	go func() {
+		result <- ocrProgressLoop(
+			t.Context(), total, 0,
+			cairoState, tessState,
+			rasterDone, pageDone, ch,
+		)
+	}()
+
+	select {
+	case cancelled := <-result:
+		assert.False(t, cancelled, "loop should complete normally")
+		assert.Equal(t, total, tessState.Count,
+			"tesseract count should reach total even without rasterDone signals")
+	case <-time.After(2 * time.Second):
+		require.FailNow(t, "ocrProgressLoop deadlocked waiting for "+
+			"rasterDone signals that ocrPDFPages never sent")
+	}
+}
+
+// TestOcrProgressLoop_CatchesUpCairoOnExit verifies that when the main
+// loop exits via pageDone before fully consuming rasterDone (which
+// happens non-deterministically because Go's select is uniformly random
+// when multiple cases are ready), the last progress message still shows
+// cairoState.Count == total. Without the post-loop drain, the last
+// message can show cairo < tess -- a visible one-frame stutter in the UI.
+func TestOcrProgressLoop_CatchesUpCairoOnExit(t *testing.T) {
+	t.Parallel()
+
+	const total = 20 // large enough that select virtually never fully drains rasterDone first
+	rasterDone := make(chan struct{}, total)
+	pageDone := make(chan struct{}, total)
+	ch := make(chan ExtractProgress, 4*total) // plenty of room
+
+	cairoState := &AcquireToolState{Tool: "pdftocairo", Running: true}
+	tessState := &AcquireToolState{Tool: "tesseract", Running: true}
+
+	// Pre-fill both channels -- simulates the happy path where every
+	// page rasterizes and OCRs successfully.
+	for range total {
+		rasterDone <- struct{}{}
+		pageDone <- struct{}{}
+	}
+
+	cancelled := ocrProgressLoop(
+		t.Context(), total, 0,
+		cairoState, tessState,
+		rasterDone, pageDone, ch,
+	)
+	require.False(t, cancelled, "loop should complete normally")
+
+	// Deterministic assertion: the drain must have consumed every
+	// buffered rasterDone signal regardless of select ordering.
+	assert.Empty(t, rasterDone,
+		"drain should have consumed all buffered rasterDone signals")
+	assert.Equal(t, total, cairoState.Count,
+		"cairoState pointer should reflect total after drain")
+
+	// Drain ch and find the last progress message.
+	close(ch)
+	var last ExtractProgress
+	for msg := range ch {
+		last = msg
+	}
+
+	// The last progress message must show cairo caught up to total.
+	require.NotEmpty(t, last.AcquireTools, "should have AcquireTools in last message")
+	cairoSnap := last.AcquireTools[0]
+	assert.Equal(t, total, cairoSnap.Count,
+		"last progress message should show cairo count == total (no stutter)")
+	assert.Equal(t, total, last.AcquireTools[1].Count,
+		"last progress message should show tess count == total")
+}
+
+// TestDrainBuffered verifies the drain helper deterministically:
+// it reads exactly the signals present in the buffer and returns.
+func TestDrainBuffered(t *testing.T) {
+	t.Parallel()
+
+	ch := make(chan struct{}, 10)
+	assert.Equal(t, 0, drainBuffered(ch), "empty channel should drain 0")
+
+	for range 7 {
+		ch <- struct{}{}
+	}
+	assert.Equal(t, 7, drainBuffered(ch), "should drain all 7 buffered signals")
+	assert.Empty(t, ch, "channel should be empty after drain")
+
+	// Draining again finds nothing.
+	assert.Equal(t, 0, drainBuffered(ch), "second drain should find nothing")
+}
+
+// TestCatchUpRasterProgress_DrainAndUpdate verifies the catch-up helper
+// deterministically: it drains buffered signals, updates cairoState,
+// and emits a progress message.
+func TestCatchUpRasterProgress_DrainAndUpdate(t *testing.T) {
+	t.Parallel()
+
+	rasterDone := make(chan struct{}, 5)
+	for range 3 {
+		rasterDone <- struct{}{}
+	}
+	ch := make(chan ExtractProgress, 1)
+	cairoState := &AcquireToolState{Tool: "pdftocairo", Running: true, Count: 2}
+	tessState := &AcquireToolState{Tool: "tesseract", Running: false, Count: 5}
+	snapshot := func() []AcquireToolState {
+		return []AcquireToolState{*cairoState, *tessState}
+	}
+
+	catchUpRasterProgress(t.Context(), rasterDone, 2, 5, 5, 0,
+		cairoState, snapshot, ch)
+
+	assert.Equal(t, 5, cairoState.Count, "should drain 3 signals and add to rasterized=2")
+	assert.False(t, cairoState.Running, "should mark not running at total")
+	assert.Empty(t, rasterDone, "channel should be fully drained")
+
+	require.Len(t, ch, 1, "should have emitted one progress message")
+	msg := <-ch
+	assert.Equal(t, 5, msg.AcquireTools[0].Count)
+}
+
+// TestCatchUpRasterProgress_NothingToDrain verifies the helper is a
+// no-op when the channel is empty (error path where ocrPage skipped
+// onRasterDone).
+func TestCatchUpRasterProgress_NothingToDrain(t *testing.T) {
+	t.Parallel()
+
+	rasterDone := make(chan struct{}, 5) // empty
+	ch := make(chan ExtractProgress, 1)
+	cairoState := &AcquireToolState{Tool: "pdftocairo", Running: true, Count: 0}
+	tessState := &AcquireToolState{Tool: "tesseract", Running: false, Count: 3}
+	snapshot := func() []AcquireToolState {
+		return []AcquireToolState{*cairoState, *tessState}
+	}
+
+	catchUpRasterProgress(t.Context(), rasterDone, 0, 3, 3, 0,
+		cairoState, snapshot, ch)
+
+	assert.Equal(t, 0, cairoState.Count, "count should be unchanged")
+	assert.True(t, cairoState.Running, "running should be unchanged")
+	assert.Empty(t, ch, "no progress message should be sent")
+}
+
+// TestCatchUpRasterProgress_LateCancelDoesNotBlock verifies that
+// cancelling ctx while the catch-up send is already blocked on the
+// unbuffered ch makes it fall through without deadlocking. The
+// snapshot callback is used as a synchronization point: Go evaluates
+// select case values before entering the select, so when snapshot is
+// called the goroutine is about to block on the send.
+func TestCatchUpRasterProgress_LateCancelDoesNotBlock(t *testing.T) {
+	t.Parallel()
+
+	rasterDone := make(chan struct{}, 3)
+	for range 3 {
+		rasterDone <- struct{}{}
+	}
+	ch := make(chan ExtractProgress) // unbuffered, nobody receiving
+	cairoState := &AcquireToolState{Tool: "pdftocairo", Running: true}
+	tessState := &AcquireToolState{Tool: "tesseract", Running: false, Count: 3}
+
+	snapshotReady := make(chan struct{}, 1)
+	snapshot := func() []AcquireToolState {
+		select {
+		case snapshotReady <- struct{}{}:
+		default:
+		}
+		return []AcquireToolState{*cairoState, *tessState}
+	}
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	done := make(chan struct{})
+	go func() {
+		catchUpRasterProgress(ctx, rasterDone, 0, 3, 3, 0,
+			cairoState, snapshot, ch)
+		close(done)
+	}()
+
+	// Wait until the goroutine has built the progress message (snapshot
+	// called) and is about to enter the select with a live context.
+	<-snapshotReady
+	cancel()
+
+	select {
+	case <-done:
+		// Returned without blocking.
+	case <-time.After(2 * time.Second):
+		require.FailNow(t, "catchUpRasterProgress blocked after ctx cancel")
+	}
+
+	assert.Equal(t, 3, cairoState.Count, "state should be updated even if send was dropped")
+	assert.False(t, cairoState.Running)
+}
+
+// TestOcrProgressLoop_CancelledContext verifies that cancelling ctx
+// before any signals are sent makes the loop return cancelled=true
+// without blocking.
+func TestOcrProgressLoop_CancelledContext(t *testing.T) {
+	t.Parallel()
+
+	const total = 3
+	rasterDone := make(chan struct{}, total)
+	pageDone := make(chan struct{}, total)
+	ch := make(chan ExtractProgress, 2*total)
+
+	cairoState := &AcquireToolState{Tool: "pdftocairo", Running: true}
+	tessState := &AcquireToolState{Tool: "tesseract", Running: true}
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	cancelled := ocrProgressLoop(
+		ctx, total, 0,
+		cairoState, tessState,
+		rasterDone, pageDone, ch,
+	)
+	assert.True(t, cancelled)
 }
