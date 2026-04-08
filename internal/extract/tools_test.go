@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -161,14 +162,7 @@ func TestOCRTools_StubPath_OcrPage_TesseractOnly(t *testing.T) {
 
 	// Need a real PDF so pdftocairo starts successfully and only
 	// tesseract fails. Using an existing fixture from testdata.
-	data, err := os.ReadFile(filepath.Join("testdata", "sample.pdf"))
-	if err != nil {
-		t.Skip("test fixture not found: testdata/sample.pdf")
-	}
-	pdfPath := filepath.Join(t.TempDir(), "input.pdf")
-	//nolint:gosec // pdfPath is t.TempDir() + constant filename; data is a test fixture
-	err = os.WriteFile(pdfPath, data, 0o600)
-	require.NoError(t, err)
+	pdfPath := writeSamplePDFOrSkip(t)
 
 	tools := &OCRTools{
 		PDFToCairo: DefaultOCRTools().PDFToCairo,
@@ -177,6 +171,71 @@ func TestOCRTools_StubPath_OcrPage_TesseractOnly(t *testing.T) {
 	result := ocrPage(t.Context(), tools, pdfPath, 1, nil)
 	require.Error(t, result.err)
 	assert.Contains(t, result.err.Error(), "tesseract")
+}
+
+// TestOCRTools_OcrPage_TesseractStartFailure_ReturnsPromptly is a
+// regression guard for the Windows hang where ocrPage would block in
+// cairoCmd.Wait() for the full 5-minute test timeout because pdftocairo
+// kept running after tesseract failed to start. The fix was to kill
+// pdftocairo explicitly in the cleanup path; this test asserts ocrPage
+// returns within a bounded deadline so a future removal of that kill
+// (or a regression in pipe-close propagation) fails loudly instead of
+// silently stalling CI.
+//
+// Unlike TestOCRTools_StubPath_OcrPage_TesseractOnly, this test uses a
+// goroutine + time.After rather than a context timeout: a context
+// timeout would cause exec.CommandContext to kill pdftocairo itself,
+// masking the exact cleanup path under test.
+func TestOCRTools_OcrPage_TesseractStartFailure_ReturnsPromptly(t *testing.T) {
+	if !HasPDFToCairo() {
+		t.Skip("pdftocairo not available")
+	}
+	t.Parallel()
+
+	pdfPath := writeSamplePDFOrSkip(t)
+
+	tools := &OCRTools{
+		PDFToCairo: DefaultOCRTools().PDFToCairo,
+		Tesseract:  stubBinPath(t, "tesseract"),
+	}
+
+	// Generous budget: even on slow CI a single-page rasterization
+	// plus a killed cairo process should finish in under a second.
+	// If this deadline is exceeded the cleanup path is broken and
+	// pdftocairo is running unconstrained.
+	const deadline = 20 * time.Second
+
+	done := make(chan ocrPageResult, 1)
+	go func() {
+		done <- ocrPage(t.Context(), tools, pdfPath, 1, nil)
+	}()
+
+	select {
+	case result := <-done:
+		require.Error(t, result.err)
+		assert.Contains(t, result.err.Error(), "tesseract")
+	case <-time.After(deadline):
+		require.FailNowf(t, "ocrPage blocked",
+			"ocrPage did not return within %v after tesseract start failure; "+
+				"pdftocairo was likely not killed in the cleanup path",
+			deadline)
+	}
+}
+
+// writeSamplePDFOrSkip copies the testdata/sample.pdf fixture into a
+// per-test temp directory and returns the path. Tests call this when
+// they need a real PDF to feed to pdftocairo; if the fixture is
+// missing the test is skipped.
+func writeSamplePDFOrSkip(t *testing.T) string {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join("testdata", "sample.pdf"))
+	if err != nil {
+		t.Skip("test fixture not found: testdata/sample.pdf")
+	}
+	pdfPath := filepath.Join(t.TempDir(), "input.pdf")
+	//nolint:gosec // pdfPath is t.TempDir() + constant filename; data is a test fixture
+	require.NoError(t, os.WriteFile(pdfPath, data, 0o600))
+	return pdfPath
 }
 
 func TestOCRTools_StubPath_ExtractPDF(t *testing.T) {
