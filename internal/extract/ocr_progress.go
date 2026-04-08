@@ -81,13 +81,16 @@ func findImageOCRExtractor(extractors []Extractor, mime string) *ImageOCRExtract
 }
 
 // pdfOCRToolsAndMaxPages returns the *OCRTools and MaxPages cap from the
-// first *PDFOCRExtractor in extractors. If no PDFOCRExtractor is present
-// it falls back to DefaultOCRTools() with an unlimited page cap so the
-// progress pipeline still runs for callers that construct extractor
-// slices without an explicit PDF OCR stage.
+// first available *PDFOCRExtractor in extractors. Unavailable extractors
+// (e.g. ones carrying stub paths that fail the tools().PDFOCRAvailable()
+// check) are skipped so a later runnable extractor in the slice wins, the
+// same selection rule findImageOCRExtractor uses. If no available
+// PDFOCRExtractor is found it falls back to DefaultOCRTools() with an
+// unlimited page cap so the progress pipeline still runs for callers
+// that construct extractor slices without an explicit PDF OCR stage.
 func pdfOCRToolsAndMaxPages(extractors []Extractor) (*OCRTools, int) {
 	for _, ext := range extractors {
-		if e, ok := ext.(*PDFOCRExtractor); ok {
+		if e, ok := ext.(*PDFOCRExtractor); ok && e.Available() {
 			return e.tools(), e.MaxPages
 		}
 	}

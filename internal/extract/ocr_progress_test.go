@@ -148,11 +148,56 @@ func TestExtractWithProgress_PDF_FallsBackToDefaultToolsWhenAbsent(t *testing.T)
 		"application/pdf",
 		[]Extractor{&PlainTextExtractor{}},
 	)
+	// A silent close without any terminal message is a regression: the
+	// caller would hang waiting for progress that never arrives. The
+	// test must observe either Done or Err before the channel closes.
+	var gotTerminal bool
 	for msg := range ch {
-		if msg.Done {
-			return
+		if msg.Done || msg.Err != nil {
+			gotTerminal = true
 		}
 	}
+	assert.True(t, gotTerminal,
+		"fallback path must emit a terminal Done or Err before closing")
+}
+
+// TestExtractWithProgress_PDF_SkipsUnavailablePDFExtractor verifies that
+// when the first *PDFOCRExtractor in the slice is unavailable (Tools not
+// populated), pdfOCRToolsAndMaxPages walks past it and picks the next
+// available one. Regression guard for the Available()-check bug in the
+// PDF selector.
+func TestExtractWithProgress_PDF_SkipsUnavailablePDFExtractor(t *testing.T) {
+	t.Parallel()
+
+	goodPDFInfo := filepath.Join(t.TempDir(), "good-pdfinfo")
+
+	extractors := []Extractor{
+		// First PDFOCRExtractor has an empty *OCRTools; Available() is false.
+		&PDFOCRExtractor{Tools: &OCRTools{}},
+		// Second one is fully populated and should be selected instead.
+		&PDFOCRExtractor{Tools: &OCRTools{
+			PDFInfo:    goodPDFInfo,
+			PDFToCairo: filepath.Join(t.TempDir(), "pdftocairo"),
+			Tesseract:  filepath.Join(t.TempDir(), "tesseract"),
+		}},
+	}
+
+	ch := ExtractWithProgress(
+		t.Context(),
+		[]byte("%PDF-stub"),
+		"application/pdf",
+		extractors,
+	)
+
+	var errMsg string
+	for msg := range ch {
+		if msg.Err != nil {
+			errMsg = msg.Err.Error()
+		}
+	}
+	require.NotEmpty(t, errMsg, "stub pdfinfo path must produce an error")
+	assert.Contains(t, errMsg, goodPDFInfo,
+		"must select the available PDFOCRExtractor, not the empty one")
 }
 
 // TestExtractWithProgress_ContextCancelled verifies that cancelling the
