@@ -55,6 +55,10 @@ func TestExtractWithProgress_EmptyImage(t *testing.T) {
 // matching *ImageOCRExtractor and not from an earlier *PDFOCRExtractor in
 // the slice. Regression guard for the bug where ExtractWithProgress reached
 // for the first-non-nil OCRTools across the whole slice.
+//
+// Assertions use filepath.Base because exec.Error.Error() runs the path
+// through strconv.Quote, which escapes backslashes on Windows and makes
+// raw-path substring checks fail there.
 func TestExtractWithProgress_Image_UsesImageExtractorTools(t *testing.T) {
 	t.Parallel()
 
@@ -87,9 +91,9 @@ func TestExtractWithProgress_Image_UsesImageExtractorTools(t *testing.T) {
 		}
 	}
 	require.NotEmpty(t, errMsg, "stub tesseract path must produce an error")
-	assert.Contains(t, errMsg, imgTesseract,
+	assert.Contains(t, errMsg, filepath.Base(imgTesseract),
 		"image OCR must use ImageOCRExtractor.Tools.Tesseract")
-	assert.NotContains(t, errMsg, pdfTesseract,
+	assert.NotContains(t, errMsg, filepath.Base(pdfTesseract),
 		"image OCR must not use PDFOCRExtractor.Tools.Tesseract")
 }
 
@@ -129,9 +133,9 @@ func TestExtractWithProgress_PDF_UsesPDFExtractorTools(t *testing.T) {
 		}
 	}
 	require.NotEmpty(t, errMsg, "stub pdfinfo path must produce an error")
-	assert.Contains(t, errMsg, pdfInfo,
+	assert.Contains(t, errMsg, filepath.Base(pdfInfo),
 		"PDF OCR must use PDFOCRExtractor.Tools.PDFInfo")
-	assert.NotContains(t, errMsg, imgTesseract,
+	assert.NotContains(t, errMsg, filepath.Base(imgTesseract),
 		"PDF OCR must not use ImageOCRExtractor.Tools.Tesseract")
 }
 
@@ -196,7 +200,7 @@ func TestExtractWithProgress_PDF_SkipsUnavailablePDFExtractor(t *testing.T) {
 		}
 	}
 	require.NotEmpty(t, errMsg, "stub pdfinfo path must produce an error")
-	assert.Contains(t, errMsg, goodPDFInfo,
+	assert.Contains(t, errMsg, filepath.Base(goodPDFInfo),
 		"must select the available PDFOCRExtractor, not the empty one")
 }
 

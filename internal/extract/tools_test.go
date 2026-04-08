@@ -6,6 +6,7 @@ package extract
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -270,13 +271,23 @@ func TestOCRTools_StubPath_PDFOCRExtractor(t *testing.T) {
 func TestOCRTools_StubPath_ErrorIsRich(t *testing.T) {
 	t.Parallel()
 
-	// Verify the error wraps the underlying exec.Error so callers can
-	// reach the path that failed via errors.As.
+	// Verify the error wraps a rich error type so callers can reach the
+	// failing path via errors.As. The exact type differs by platform:
+	// Linux fork/exec surfaces *os.PathError, while Windows
+	// lookExtensions surfaces *exec.Error. Both expose the path, and
+	// either is sufficient for callers to diagnose the failure.
 	stub := stubBinPath(t, "pdfinfo")
 	_, err := pdfPageCount(t.Context(), stub, writePDFFixture(t))
 	require.Error(t, err)
 
-	pathErr, ok := errors.AsType[*os.PathError](err)
-	require.True(t, ok, "expected wrapped *os.PathError, got %T: %v", err, err)
-	assert.Equal(t, stub, pathErr.Path)
+	if pathErr, ok := errors.AsType[*os.PathError](err); ok {
+		assert.Equal(t, stub, pathErr.Path)
+		return
+	}
+	if execErr, ok := errors.AsType[*exec.Error](err); ok {
+		assert.Equal(t, stub, execErr.Name)
+		return
+	}
+	require.FailNowf(t, "missing rich error wrap",
+		"expected wrapped *os.PathError or *exec.Error, got %T: %v", err, err)
 }

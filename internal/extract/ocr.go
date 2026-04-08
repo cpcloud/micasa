@@ -151,9 +151,16 @@ func ocrPage(
 		)}
 	}
 	if err := tessCmd.Start(); err != nil {
-		// Close the pipe reader so pdftocairo gets EPIPE and exits
-		// instead of blocking on a full pipe buffer.
+		// Close the pipe reader so pdftocairo gets EPIPE on its next
+		// write. On Linux that alone terminates pdftocairo, but on
+		// Windows the pipe-close propagation is not guaranteed to
+		// unblock a writer that has not yet flushed output, so kill
+		// the process explicitly before waiting. Without this, a stub
+		// tesseract with a real pdftocairo can hang indefinitely while
+		// cairoCmd.Wait() waits for pdftocairo to notice its consumer
+		// is gone.
 		_ = pipe.Close()
+		_ = cairoCmd.Process.Kill()
 		_ = cairoCmd.Wait()
 		return ocrPageResult{err: fmt.Errorf(
 			"tesseract page %d: %s: %w",
