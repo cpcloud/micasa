@@ -185,44 +185,73 @@ appliances, incidents, documents, all.`,
 	cmd.PersistentFlags().BoolVar(&jsonFlag, "json", false, "Output as JSON")
 	cmd.PersistentFlags().BoolVar(&deletedFlag, "deleted", false, "Include soft-deleted rows")
 
-	cmd.AddCommand(
-		newShowHouseCmd(&jsonFlag),
-		newShowEntityCmd("projects", "Show projects", &jsonFlag, &deletedFlag, showProjects),
-		newShowEntityCmd("vendors", "Show vendors", &jsonFlag, &deletedFlag, showVendors),
-		newShowEntityCmd("appliances", "Show appliances", &jsonFlag, &deletedFlag, showAppliances),
-		newShowEntityCmd("incidents", "Show incidents", &jsonFlag, &deletedFlag, showIncidents),
-		newShowEntityCmd("quotes", "Show quotes", &jsonFlag, &deletedFlag, showQuotes),
-		newShowEntityCmd(
+	// Per-entity show subcommands are deprecated in favor of
+	// "micasa <entity> list --table". The "all" subcommand is not
+	// deprecated since it has no replacement.
+	type showDef struct {
+		name       string
+		short      string
+		fn         func(io.Writer, *data.Store, bool, bool) error
+		deprecated string // empty = not deprecated
+	}
+	entityDefs := []showDef{
+		{"projects", "Show projects", showProjects, "use 'micasa project list --table' instead"},
+		{"vendors", "Show vendors", showVendors, "use 'micasa vendor list --table' instead"},
+		{
+			"appliances",
+			"Show appliances",
+			showAppliances,
+			"use 'micasa appliance list --table' instead",
+		},
+		{
+			"incidents",
+			"Show incidents",
+			showIncidents,
+			"use 'micasa incident list --table' instead",
+		},
+		{"quotes", "Show quotes", showQuotes, "use 'micasa quote list --table' instead"},
+		{
 			"maintenance",
 			"Show maintenance items",
-			&jsonFlag,
-			&deletedFlag,
 			showMaintenance,
-		),
-		newShowEntityCmd(
+			"use 'micasa maintenance list --table' instead",
+		},
+		{
 			"service-log",
 			"Show service log entries",
-			&jsonFlag,
-			&deletedFlag,
 			showServiceLog,
-		),
-		newShowEntityCmd("documents", "Show documents", &jsonFlag, &deletedFlag, showDocuments),
-		newShowEntityCmd(
+			"use 'micasa service-log list --table' instead",
+		},
+		{
+			"documents",
+			"Show documents",
+			showDocuments,
+			"use 'micasa document list --table' instead",
+		},
+		{
 			"project-types",
 			"Show project types",
-			&jsonFlag,
-			&deletedFlag,
 			showProjectTypes,
-		),
-		newShowEntityCmd(
+			"use 'micasa project-type list' instead",
+		},
+		{
 			"maintenance-categories",
 			"Show maintenance categories",
-			&jsonFlag,
-			&deletedFlag,
 			showMaintenanceCategories,
-		),
-		newShowEntityCmd("all", "Show all entities", &jsonFlag, &deletedFlag, showAll),
-	)
+			"use 'micasa maintenance-category list' instead",
+		},
+	}
+	houseCmd := newShowHouseCmd(&jsonFlag)
+	houseCmd.Deprecated = "use 'micasa house get' instead"
+	cmd.AddCommand(houseCmd)
+	for _, d := range entityDefs {
+		sub := newShowEntityCmd(d.name, d.short, &jsonFlag, &deletedFlag, d.fn)
+		if d.deprecated != "" {
+			sub.Deprecated = d.deprecated
+		}
+		cmd.AddCommand(sub)
+	}
+	cmd.AddCommand(newShowEntityCmd("all", "Show all entities", &jsonFlag, &deletedFlag, showAll))
 
 	return cmd
 }

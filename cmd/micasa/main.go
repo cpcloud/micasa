@@ -77,6 +77,17 @@ func newRootCmd() *cobra.Command {
 		newShowCmd(),
 		newQueryCmd(),
 		newGenCLIRefCmd(),
+		newApplianceCmd(),
+		newDocumentCmd(),
+		newHouseCmd(),
+		newIncidentCmd(),
+		newMaintenanceCategoryCmd(),
+		newMaintenanceCmd(),
+		newProjectCmd(),
+		newProjectTypeCmd(),
+		newQuoteCmd(),
+		newServiceLogCmd(),
+		newVendorCmd(),
 	)
 
 	return root
