@@ -77,6 +77,7 @@ func newRootCmd() *cobra.Command {
 		newShowCmd(),
 		newQueryCmd(),
 		newGenCLIRefCmd(),
+		newDBCmd(),
 	)
 
 	return root

@@ -33,6 +33,7 @@ micasa [database-path] [flags]
 
 - [`micasa backup`](#micasa-backup) -- Back up the database to a file
 - [`micasa config`](#micasa-config) -- Manage application configuration
+- [`micasa db`](#micasa-db) -- Read and write entity data
 - [`micasa demo`](#micasa-demo) -- Launch with sample data in an in-memory database
 - [`micasa mcp`](#micasa-mcp) -- Run MCP server for LLM client access
 - [`micasa pro`](#micasa-pro) -- Manage micasa Pro sync
@@ -124,6 +125,1500 @@ micasa config get [filter] [flags]
 ### See also
 
 - [`micasa config`](#micasa-config) -- Manage application configuration
+
+## micasa db
+
+Read and write entity data.
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for db |
+
+### Subcommands
+
+- [`micasa db appliance`](#micasa-db-appliance) -- Manage appliances
+- [`micasa db chat`](#micasa-db-chat) -- View and manage chat history
+- [`micasa db deletion`](#micasa-db-deletion) -- View deletion audit records
+- [`micasa db document`](#micasa-db-document) -- Manage documents
+- [`micasa db house`](#micasa-db-house) -- Manage house profile
+- [`micasa db incident`](#micasa-db-incident) -- Manage incidents
+- [`micasa db maintenance`](#micasa-db-maintenance) -- Manage maintenance items
+- [`micasa db maintenance-category`](#micasa-db-maintenance-category) -- Manage maintenance categorys
+- [`micasa db project`](#micasa-db-project) -- Manage projects
+- [`micasa db project-type`](#micasa-db-project-type) -- Manage project types
+- [`micasa db quote`](#micasa-db-quote) -- Manage quotes
+- [`micasa db service-log`](#micasa-db-service-log) -- Manage service log entrys
+- [`micasa db vendor`](#micasa-db-vendor) -- Manage vendors
+
+### See also
+
+- [`micasa`](#micasa) -- A terminal UI for tracking everything about your home
+
+## micasa db appliance
+
+Manage appliances.
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for appliance |
+
+### Subcommands
+
+- [`micasa db appliance add`](#micasa-db-appliance-add) -- Add a appliance
+- [`micasa db appliance delete`](#micasa-db-appliance-delete) -- Delete a appliance
+- [`micasa db appliance edit`](#micasa-db-appliance-edit) -- Edit a appliance
+- [`micasa db appliance get`](#micasa-db-appliance-get) -- Get a appliance by ID
+- [`micasa db appliance list`](#micasa-db-appliance-list) -- List appliances
+- [`micasa db appliance restore`](#micasa-db-appliance-restore) -- Restore a deleted appliance
+
+### See also
+
+- [`micasa db`](#micasa-db) -- Read and write entity data
+
+## micasa db appliance add
+
+Add a appliance.
+
+### Usage
+
+```
+micasa db appliance add [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--data` | - | JSON object with field values |
+| `--data-file` | - | Path to JSON file with field values |
+| `-h`, `--help` | - | help for add |
+
+### See also
+
+- [`micasa db appliance`](#micasa-db-appliance) -- Manage appliances
+
+## micasa db appliance delete
+
+Delete a appliance.
+
+### Usage
+
+```
+micasa db appliance delete <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for delete |
+
+### See also
+
+- [`micasa db appliance`](#micasa-db-appliance) -- Manage appliances
+
+## micasa db appliance edit
+
+Edit a appliance.
+
+### Usage
+
+```
+micasa db appliance edit <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--data` | - | JSON object with fields to update |
+| `--data-file` | - | Path to JSON file with fields to update |
+| `-h`, `--help` | - | help for edit |
+
+### See also
+
+- [`micasa db appliance`](#micasa-db-appliance) -- Manage appliances
+
+## micasa db appliance get
+
+Get a appliance by ID.
+
+### Usage
+
+```
+micasa db appliance get <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for get |
+| `--table` | - | Output as table |
+
+### See also
+
+- [`micasa db appliance`](#micasa-db-appliance) -- Manage appliances
+
+## micasa db appliance list
+
+List appliances.
+
+### Usage
+
+```
+micasa db appliance list [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--deleted` | - | Include soft-deleted rows |
+| `-h`, `--help` | - | help for list |
+| `--table` | - | Output as table |
+
+### See also
+
+- [`micasa db appliance`](#micasa-db-appliance) -- Manage appliances
+
+## micasa db appliance restore
+
+Restore a deleted appliance.
+
+### Usage
+
+```
+micasa db appliance restore <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for restore |
+
+### See also
+
+- [`micasa db appliance`](#micasa-db-appliance) -- Manage appliances
+
+## micasa db chat
+
+View and manage chat history.
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for chat |
+
+### Subcommands
+
+- [`micasa db chat delete`](#micasa-db-chat-delete) -- Delete a chat history entry
+- [`micasa db chat list`](#micasa-db-chat-list) -- List chat history
+
+### See also
+
+- [`micasa db`](#micasa-db) -- Read and write entity data
+
+## micasa db chat delete
+
+Delete a chat history entry.
+
+### Usage
+
+```
+micasa db chat delete <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for delete |
+
+### See also
+
+- [`micasa db chat`](#micasa-db-chat) -- View and manage chat history
+
+## micasa db chat list
+
+List chat history.
+
+### Usage
+
+```
+micasa db chat list [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for list |
+| `--table` | - | Output as table |
+
+### See also
+
+- [`micasa db chat`](#micasa-db-chat) -- View and manage chat history
+
+## micasa db deletion
+
+View deletion audit records.
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for deletion |
+
+### Subcommands
+
+- [`micasa db deletion list`](#micasa-db-deletion-list) -- List deletion records
+
+### See also
+
+- [`micasa db`](#micasa-db) -- Read and write entity data
+
+## micasa db deletion list
+
+List deletion records.
+
+### Usage
+
+```
+micasa db deletion list [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for list |
+| `--table` | - | Output as table |
+
+### See also
+
+- [`micasa db deletion`](#micasa-db-deletion) -- View deletion audit records
+
+## micasa db document
+
+Manage documents.
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for document |
+
+### Subcommands
+
+- [`micasa db document add`](#micasa-db-document-add) -- Add a document
+- [`micasa db document delete`](#micasa-db-document-delete) -- Delete a document
+- [`micasa db document edit`](#micasa-db-document-edit) -- Edit a document
+- [`micasa db document get`](#micasa-db-document-get) -- Get a document by ID
+- [`micasa db document list`](#micasa-db-document-list) -- List documents
+- [`micasa db document restore`](#micasa-db-document-restore) -- Restore a deleted document
+
+### See also
+
+- [`micasa db`](#micasa-db) -- Read and write entity data
+
+## micasa db document add
+
+Add a document.
+
+### Usage
+
+```
+micasa db document add [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--data` | - | JSON object with field values |
+| `--data-file` | - | Path to JSON file with field values |
+| `--file` | - | Path to file to upload |
+| `-h`, `--help` | - | help for add |
+
+### See also
+
+- [`micasa db document`](#micasa-db-document) -- Manage documents
+
+## micasa db document delete
+
+Delete a document.
+
+### Usage
+
+```
+micasa db document delete <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for delete |
+
+### See also
+
+- [`micasa db document`](#micasa-db-document) -- Manage documents
+
+## micasa db document edit
+
+Edit a document.
+
+### Usage
+
+```
+micasa db document edit <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--data` | - | JSON object with fields to update |
+| `--data-file` | - | Path to JSON file with fields to update |
+| `-h`, `--help` | - | help for edit |
+
+### See also
+
+- [`micasa db document`](#micasa-db-document) -- Manage documents
+
+## micasa db document get
+
+Get a document by ID.
+
+### Usage
+
+```
+micasa db document get <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for get |
+| `--table` | - | Output as table |
+
+### See also
+
+- [`micasa db document`](#micasa-db-document) -- Manage documents
+
+## micasa db document list
+
+List documents.
+
+### Usage
+
+```
+micasa db document list [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--deleted` | - | Include soft-deleted rows |
+| `-h`, `--help` | - | help for list |
+| `--table` | - | Output as table |
+
+### See also
+
+- [`micasa db document`](#micasa-db-document) -- Manage documents
+
+## micasa db document restore
+
+Restore a deleted document.
+
+### Usage
+
+```
+micasa db document restore <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for restore |
+
+### See also
+
+- [`micasa db document`](#micasa-db-document) -- Manage documents
+
+## micasa db house
+
+Manage house profile.
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for house |
+
+### Subcommands
+
+- [`micasa db house add`](#micasa-db-house-add) -- Add house profile
+- [`micasa db house edit`](#micasa-db-house-edit) -- Edit house profile
+- [`micasa db house get`](#micasa-db-house-get) -- Get house profile
+
+### See also
+
+- [`micasa db`](#micasa-db) -- Read and write entity data
+
+## micasa db house add
+
+Add house profile.
+
+### Usage
+
+```
+micasa db house add [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--data` | - | JSON object with field values |
+| `--data-file` | - | Path to JSON file with field values |
+| `-h`, `--help` | - | help for add |
+
+### See also
+
+- [`micasa db house`](#micasa-db-house) -- Manage house profile
+
+## micasa db house edit
+
+Edit house profile.
+
+### Usage
+
+```
+micasa db house edit [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--data` | - | JSON object with fields to update |
+| `--data-file` | - | Path to JSON file with fields to update |
+| `-h`, `--help` | - | help for edit |
+
+### See also
+
+- [`micasa db house`](#micasa-db-house) -- Manage house profile
+
+## micasa db house get
+
+Get house profile.
+
+### Usage
+
+```
+micasa db house get [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for get |
+
+### See also
+
+- [`micasa db house`](#micasa-db-house) -- Manage house profile
+
+## micasa db incident
+
+Manage incidents.
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for incident |
+
+### Subcommands
+
+- [`micasa db incident add`](#micasa-db-incident-add) -- Add a incident
+- [`micasa db incident delete`](#micasa-db-incident-delete) -- Delete a incident
+- [`micasa db incident edit`](#micasa-db-incident-edit) -- Edit a incident
+- [`micasa db incident get`](#micasa-db-incident-get) -- Get a incident by ID
+- [`micasa db incident list`](#micasa-db-incident-list) -- List incidents
+- [`micasa db incident restore`](#micasa-db-incident-restore) -- Restore a deleted incident
+
+### See also
+
+- [`micasa db`](#micasa-db) -- Read and write entity data
+
+## micasa db incident add
+
+Add a incident.
+
+### Usage
+
+```
+micasa db incident add [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--data` | - | JSON object with field values |
+| `--data-file` | - | Path to JSON file with field values |
+| `-h`, `--help` | - | help for add |
+
+### See also
+
+- [`micasa db incident`](#micasa-db-incident) -- Manage incidents
+
+## micasa db incident delete
+
+Delete a incident.
+
+### Usage
+
+```
+micasa db incident delete <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for delete |
+
+### See also
+
+- [`micasa db incident`](#micasa-db-incident) -- Manage incidents
+
+## micasa db incident edit
+
+Edit a incident.
+
+### Usage
+
+```
+micasa db incident edit <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--data` | - | JSON object with fields to update |
+| `--data-file` | - | Path to JSON file with fields to update |
+| `-h`, `--help` | - | help for edit |
+
+### See also
+
+- [`micasa db incident`](#micasa-db-incident) -- Manage incidents
+
+## micasa db incident get
+
+Get a incident by ID.
+
+### Usage
+
+```
+micasa db incident get <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for get |
+| `--table` | - | Output as table |
+
+### See also
+
+- [`micasa db incident`](#micasa-db-incident) -- Manage incidents
+
+## micasa db incident list
+
+List incidents.
+
+### Usage
+
+```
+micasa db incident list [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--deleted` | - | Include soft-deleted rows |
+| `-h`, `--help` | - | help for list |
+| `--table` | - | Output as table |
+
+### See also
+
+- [`micasa db incident`](#micasa-db-incident) -- Manage incidents
+
+## micasa db incident restore
+
+Restore a deleted incident.
+
+### Usage
+
+```
+micasa db incident restore <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for restore |
+
+### See also
+
+- [`micasa db incident`](#micasa-db-incident) -- Manage incidents
+
+## micasa db maintenance
+
+Manage maintenance items.
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for maintenance |
+
+### Subcommands
+
+- [`micasa db maintenance add`](#micasa-db-maintenance-add) -- Add a maintenance item
+- [`micasa db maintenance delete`](#micasa-db-maintenance-delete) -- Delete a maintenance item
+- [`micasa db maintenance edit`](#micasa-db-maintenance-edit) -- Edit a maintenance item
+- [`micasa db maintenance get`](#micasa-db-maintenance-get) -- Get a maintenance item by ID
+- [`micasa db maintenance list`](#micasa-db-maintenance-list) -- List maintenance items
+- [`micasa db maintenance restore`](#micasa-db-maintenance-restore) -- Restore a deleted maintenance item
+
+### See also
+
+- [`micasa db`](#micasa-db) -- Read and write entity data
+
+## micasa db maintenance add
+
+Add a maintenance item.
+
+### Usage
+
+```
+micasa db maintenance add [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--data` | - | JSON object with field values |
+| `--data-file` | - | Path to JSON file with field values |
+| `-h`, `--help` | - | help for add |
+
+### See also
+
+- [`micasa db maintenance`](#micasa-db-maintenance) -- Manage maintenance items
+
+## micasa db maintenance delete
+
+Delete a maintenance item.
+
+### Usage
+
+```
+micasa db maintenance delete <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for delete |
+
+### See also
+
+- [`micasa db maintenance`](#micasa-db-maintenance) -- Manage maintenance items
+
+## micasa db maintenance edit
+
+Edit a maintenance item.
+
+### Usage
+
+```
+micasa db maintenance edit <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--data` | - | JSON object with fields to update |
+| `--data-file` | - | Path to JSON file with fields to update |
+| `-h`, `--help` | - | help for edit |
+
+### See also
+
+- [`micasa db maintenance`](#micasa-db-maintenance) -- Manage maintenance items
+
+## micasa db maintenance get
+
+Get a maintenance item by ID.
+
+### Usage
+
+```
+micasa db maintenance get <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for get |
+| `--table` | - | Output as table |
+
+### See also
+
+- [`micasa db maintenance`](#micasa-db-maintenance) -- Manage maintenance items
+
+## micasa db maintenance list
+
+List maintenance items.
+
+### Usage
+
+```
+micasa db maintenance list [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--deleted` | - | Include soft-deleted rows |
+| `-h`, `--help` | - | help for list |
+| `--table` | - | Output as table |
+
+### See also
+
+- [`micasa db maintenance`](#micasa-db-maintenance) -- Manage maintenance items
+
+## micasa db maintenance restore
+
+Restore a deleted maintenance item.
+
+### Usage
+
+```
+micasa db maintenance restore <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for restore |
+
+### See also
+
+- [`micasa db maintenance`](#micasa-db-maintenance) -- Manage maintenance items
+
+## micasa db maintenance-category
+
+Manage maintenance categorys.
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for maintenance-category |
+
+### Subcommands
+
+- [`micasa db maintenance-category list`](#micasa-db-maintenance-category-list) -- List maintenance categorys
+
+### See also
+
+- [`micasa db`](#micasa-db) -- Read and write entity data
+
+## micasa db maintenance-category list
+
+List maintenance categorys.
+
+### Usage
+
+```
+micasa db maintenance-category list [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--deleted` | - | Include soft-deleted rows |
+| `-h`, `--help` | - | help for list |
+| `--table` | - | Output as table |
+
+### See also
+
+- [`micasa db maintenance-category`](#micasa-db-maintenance-category) -- Manage maintenance categorys
+
+## micasa db project
+
+Manage projects.
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for project |
+
+### Subcommands
+
+- [`micasa db project add`](#micasa-db-project-add) -- Add a project
+- [`micasa db project delete`](#micasa-db-project-delete) -- Delete a project
+- [`micasa db project edit`](#micasa-db-project-edit) -- Edit a project
+- [`micasa db project get`](#micasa-db-project-get) -- Get a project by ID
+- [`micasa db project list`](#micasa-db-project-list) -- List projects
+- [`micasa db project restore`](#micasa-db-project-restore) -- Restore a deleted project
+
+### See also
+
+- [`micasa db`](#micasa-db) -- Read and write entity data
+
+## micasa db project add
+
+Add a project.
+
+### Usage
+
+```
+micasa db project add [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--data` | - | JSON object with field values |
+| `--data-file` | - | Path to JSON file with field values |
+| `-h`, `--help` | - | help for add |
+
+### See also
+
+- [`micasa db project`](#micasa-db-project) -- Manage projects
+
+## micasa db project delete
+
+Delete a project.
+
+### Usage
+
+```
+micasa db project delete <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for delete |
+
+### See also
+
+- [`micasa db project`](#micasa-db-project) -- Manage projects
+
+## micasa db project edit
+
+Edit a project.
+
+### Usage
+
+```
+micasa db project edit <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--data` | - | JSON object with fields to update |
+| `--data-file` | - | Path to JSON file with fields to update |
+| `-h`, `--help` | - | help for edit |
+
+### See also
+
+- [`micasa db project`](#micasa-db-project) -- Manage projects
+
+## micasa db project get
+
+Get a project by ID.
+
+### Usage
+
+```
+micasa db project get <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for get |
+| `--table` | - | Output as table |
+
+### See also
+
+- [`micasa db project`](#micasa-db-project) -- Manage projects
+
+## micasa db project list
+
+List projects.
+
+### Usage
+
+```
+micasa db project list [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--deleted` | - | Include soft-deleted rows |
+| `-h`, `--help` | - | help for list |
+| `--table` | - | Output as table |
+
+### See also
+
+- [`micasa db project`](#micasa-db-project) -- Manage projects
+
+## micasa db project restore
+
+Restore a deleted project.
+
+### Usage
+
+```
+micasa db project restore <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for restore |
+
+### See also
+
+- [`micasa db project`](#micasa-db-project) -- Manage projects
+
+## micasa db project-type
+
+Manage project types.
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for project-type |
+
+### Subcommands
+
+- [`micasa db project-type list`](#micasa-db-project-type-list) -- List project types
+
+### See also
+
+- [`micasa db`](#micasa-db) -- Read and write entity data
+
+## micasa db project-type list
+
+List project types.
+
+### Usage
+
+```
+micasa db project-type list [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--deleted` | - | Include soft-deleted rows |
+| `-h`, `--help` | - | help for list |
+| `--table` | - | Output as table |
+
+### See also
+
+- [`micasa db project-type`](#micasa-db-project-type) -- Manage project types
+
+## micasa db quote
+
+Manage quotes.
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for quote |
+
+### Subcommands
+
+- [`micasa db quote add`](#micasa-db-quote-add) -- Add a quote
+- [`micasa db quote delete`](#micasa-db-quote-delete) -- Delete a quote
+- [`micasa db quote edit`](#micasa-db-quote-edit) -- Edit a quote
+- [`micasa db quote get`](#micasa-db-quote-get) -- Get a quote by ID
+- [`micasa db quote list`](#micasa-db-quote-list) -- List quotes
+- [`micasa db quote restore`](#micasa-db-quote-restore) -- Restore a deleted quote
+
+### See also
+
+- [`micasa db`](#micasa-db) -- Read and write entity data
+
+## micasa db quote add
+
+Add a quote.
+
+### Usage
+
+```
+micasa db quote add [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--data` | - | JSON object with field values |
+| `--data-file` | - | Path to JSON file with field values |
+| `-h`, `--help` | - | help for add |
+
+### See also
+
+- [`micasa db quote`](#micasa-db-quote) -- Manage quotes
+
+## micasa db quote delete
+
+Delete a quote.
+
+### Usage
+
+```
+micasa db quote delete <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for delete |
+
+### See also
+
+- [`micasa db quote`](#micasa-db-quote) -- Manage quotes
+
+## micasa db quote edit
+
+Edit a quote.
+
+### Usage
+
+```
+micasa db quote edit <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--data` | - | JSON object with fields to update |
+| `--data-file` | - | Path to JSON file with fields to update |
+| `-h`, `--help` | - | help for edit |
+
+### See also
+
+- [`micasa db quote`](#micasa-db-quote) -- Manage quotes
+
+## micasa db quote get
+
+Get a quote by ID.
+
+### Usage
+
+```
+micasa db quote get <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for get |
+| `--table` | - | Output as table |
+
+### See also
+
+- [`micasa db quote`](#micasa-db-quote) -- Manage quotes
+
+## micasa db quote list
+
+List quotes.
+
+### Usage
+
+```
+micasa db quote list [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--deleted` | - | Include soft-deleted rows |
+| `-h`, `--help` | - | help for list |
+| `--table` | - | Output as table |
+
+### See also
+
+- [`micasa db quote`](#micasa-db-quote) -- Manage quotes
+
+## micasa db quote restore
+
+Restore a deleted quote.
+
+### Usage
+
+```
+micasa db quote restore <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for restore |
+
+### See also
+
+- [`micasa db quote`](#micasa-db-quote) -- Manage quotes
+
+## micasa db service-log
+
+Manage service log entrys.
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for service-log |
+
+### Subcommands
+
+- [`micasa db service-log add`](#micasa-db-service-log-add) -- Add a service log entry
+- [`micasa db service-log delete`](#micasa-db-service-log-delete) -- Delete a service log entry
+- [`micasa db service-log edit`](#micasa-db-service-log-edit) -- Edit a service log entry
+- [`micasa db service-log get`](#micasa-db-service-log-get) -- Get a service log entry by ID
+- [`micasa db service-log list`](#micasa-db-service-log-list) -- List service log entrys
+- [`micasa db service-log restore`](#micasa-db-service-log-restore) -- Restore a deleted service log entry
+
+### See also
+
+- [`micasa db`](#micasa-db) -- Read and write entity data
+
+## micasa db service-log add
+
+Add a service log entry.
+
+### Usage
+
+```
+micasa db service-log add [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--data` | - | JSON object with field values |
+| `--data-file` | - | Path to JSON file with field values |
+| `-h`, `--help` | - | help for add |
+
+### See also
+
+- [`micasa db service-log`](#micasa-db-service-log) -- Manage service log entrys
+
+## micasa db service-log delete
+
+Delete a service log entry.
+
+### Usage
+
+```
+micasa db service-log delete <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for delete |
+
+### See also
+
+- [`micasa db service-log`](#micasa-db-service-log) -- Manage service log entrys
+
+## micasa db service-log edit
+
+Edit a service log entry.
+
+### Usage
+
+```
+micasa db service-log edit <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--data` | - | JSON object with fields to update |
+| `--data-file` | - | Path to JSON file with fields to update |
+| `-h`, `--help` | - | help for edit |
+
+### See also
+
+- [`micasa db service-log`](#micasa-db-service-log) -- Manage service log entrys
+
+## micasa db service-log get
+
+Get a service log entry by ID.
+
+### Usage
+
+```
+micasa db service-log get <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for get |
+| `--table` | - | Output as table |
+
+### See also
+
+- [`micasa db service-log`](#micasa-db-service-log) -- Manage service log entrys
+
+## micasa db service-log list
+
+List service log entrys.
+
+### Usage
+
+```
+micasa db service-log list [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--deleted` | - | Include soft-deleted rows |
+| `-h`, `--help` | - | help for list |
+| `--table` | - | Output as table |
+
+### See also
+
+- [`micasa db service-log`](#micasa-db-service-log) -- Manage service log entrys
+
+## micasa db service-log restore
+
+Restore a deleted service log entry.
+
+### Usage
+
+```
+micasa db service-log restore <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for restore |
+
+### See also
+
+- [`micasa db service-log`](#micasa-db-service-log) -- Manage service log entrys
+
+## micasa db vendor
+
+Manage vendors.
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for vendor |
+
+### Subcommands
+
+- [`micasa db vendor add`](#micasa-db-vendor-add) -- Add a vendor
+- [`micasa db vendor delete`](#micasa-db-vendor-delete) -- Delete a vendor
+- [`micasa db vendor edit`](#micasa-db-vendor-edit) -- Edit a vendor
+- [`micasa db vendor get`](#micasa-db-vendor-get) -- Get a vendor by ID
+- [`micasa db vendor list`](#micasa-db-vendor-list) -- List vendors
+- [`micasa db vendor restore`](#micasa-db-vendor-restore) -- Restore a deleted vendor
+
+### See also
+
+- [`micasa db`](#micasa-db) -- Read and write entity data
+
+## micasa db vendor add
+
+Add a vendor.
+
+### Usage
+
+```
+micasa db vendor add [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--data` | - | JSON object with field values |
+| `--data-file` | - | Path to JSON file with field values |
+| `-h`, `--help` | - | help for add |
+
+### See also
+
+- [`micasa db vendor`](#micasa-db-vendor) -- Manage vendors
+
+## micasa db vendor delete
+
+Delete a vendor.
+
+### Usage
+
+```
+micasa db vendor delete <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for delete |
+
+### See also
+
+- [`micasa db vendor`](#micasa-db-vendor) -- Manage vendors
+
+## micasa db vendor edit
+
+Edit a vendor.
+
+### Usage
+
+```
+micasa db vendor edit <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--data` | - | JSON object with fields to update |
+| `--data-file` | - | Path to JSON file with fields to update |
+| `-h`, `--help` | - | help for edit |
+
+### See also
+
+- [`micasa db vendor`](#micasa-db-vendor) -- Manage vendors
+
+## micasa db vendor get
+
+Get a vendor by ID.
+
+### Usage
+
+```
+micasa db vendor get <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for get |
+| `--table` | - | Output as table |
+
+### See also
+
+- [`micasa db vendor`](#micasa-db-vendor) -- Manage vendors
+
+## micasa db vendor list
+
+List vendors.
+
+### Usage
+
+```
+micasa db vendor list [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--deleted` | - | Include soft-deleted rows |
+| `-h`, `--help` | - | help for list |
+| `--table` | - | Output as table |
+
+### See also
+
+- [`micasa db vendor`](#micasa-db-vendor) -- Manage vendors
+
+## micasa db vendor restore
+
+Restore a deleted vendor.
+
+### Usage
+
+```
+micasa db vendor restore <id> [database-path] [flags]
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-h`, `--help` | - | help for restore |
+
+### See also
+
+- [`micasa db vendor`](#micasa-db-vendor) -- Manage vendors
 
 ## micasa demo
 
@@ -434,17 +1929,6 @@ appliances, incidents, documents, all.
 ### Subcommands
 
 - [`micasa show all`](#micasa-show-all) -- Show all entities
-- [`micasa show appliances`](#micasa-show-appliances) -- Show appliances
-- [`micasa show documents`](#micasa-show-documents) -- Show documents
-- [`micasa show house`](#micasa-show-house) -- Show house profile
-- [`micasa show incidents`](#micasa-show-incidents) -- Show incidents
-- [`micasa show maintenance`](#micasa-show-maintenance) -- Show maintenance items
-- [`micasa show maintenance-categories`](#micasa-show-maintenance-categories) -- Show maintenance categories
-- [`micasa show project-types`](#micasa-show-project-types) -- Show project types
-- [`micasa show projects`](#micasa-show-projects) -- Show projects
-- [`micasa show quotes`](#micasa-show-quotes) -- Show quotes
-- [`micasa show service-log`](#micasa-show-service-log) -- Show service log entries
-- [`micasa show vendors`](#micasa-show-vendors) -- Show vendors
 
 ### See also
 
@@ -465,303 +1949,6 @@ micasa show all [database-path] [flags]
 | Flag | Default | Description |
 |------|---------|-------------|
 | `-h`, `--help` | - | help for all |
-
-### Inherited flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--deleted` | - | Include soft-deleted rows |
-| `--json` | - | Output as JSON |
-
-### See also
-
-- [`micasa show`](#micasa-show) -- Display data as text or JSON
-
-## micasa show appliances
-
-Show appliances.
-
-### Usage
-
-```
-micasa show appliances [database-path] [flags]
-```
-
-### Flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `-h`, `--help` | - | help for appliances |
-
-### Inherited flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--deleted` | - | Include soft-deleted rows |
-| `--json` | - | Output as JSON |
-
-### See also
-
-- [`micasa show`](#micasa-show) -- Display data as text or JSON
-
-## micasa show documents
-
-Show documents.
-
-### Usage
-
-```
-micasa show documents [database-path] [flags]
-```
-
-### Flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `-h`, `--help` | - | help for documents |
-
-### Inherited flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--deleted` | - | Include soft-deleted rows |
-| `--json` | - | Output as JSON |
-
-### See also
-
-- [`micasa show`](#micasa-show) -- Display data as text or JSON
-
-## micasa show house
-
-Show house profile.
-
-### Usage
-
-```
-micasa show house [database-path] [flags]
-```
-
-### Flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `-h`, `--help` | - | help for house |
-
-### Inherited flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--deleted` | - | Include soft-deleted rows |
-| `--json` | - | Output as JSON |
-
-### See also
-
-- [`micasa show`](#micasa-show) -- Display data as text or JSON
-
-## micasa show incidents
-
-Show incidents.
-
-### Usage
-
-```
-micasa show incidents [database-path] [flags]
-```
-
-### Flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `-h`, `--help` | - | help for incidents |
-
-### Inherited flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--deleted` | - | Include soft-deleted rows |
-| `--json` | - | Output as JSON |
-
-### See also
-
-- [`micasa show`](#micasa-show) -- Display data as text or JSON
-
-## micasa show maintenance
-
-Show maintenance items.
-
-### Usage
-
-```
-micasa show maintenance [database-path] [flags]
-```
-
-### Flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `-h`, `--help` | - | help for maintenance |
-
-### Inherited flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--deleted` | - | Include soft-deleted rows |
-| `--json` | - | Output as JSON |
-
-### See also
-
-- [`micasa show`](#micasa-show) -- Display data as text or JSON
-
-## micasa show maintenance-categories
-
-Show maintenance categories.
-
-### Usage
-
-```
-micasa show maintenance-categories [database-path] [flags]
-```
-
-### Flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `-h`, `--help` | - | help for maintenance-categories |
-
-### Inherited flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--deleted` | - | Include soft-deleted rows |
-| `--json` | - | Output as JSON |
-
-### See also
-
-- [`micasa show`](#micasa-show) -- Display data as text or JSON
-
-## micasa show project-types
-
-Show project types.
-
-### Usage
-
-```
-micasa show project-types [database-path] [flags]
-```
-
-### Flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `-h`, `--help` | - | help for project-types |
-
-### Inherited flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--deleted` | - | Include soft-deleted rows |
-| `--json` | - | Output as JSON |
-
-### See also
-
-- [`micasa show`](#micasa-show) -- Display data as text or JSON
-
-## micasa show projects
-
-Show projects.
-
-### Usage
-
-```
-micasa show projects [database-path] [flags]
-```
-
-### Flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `-h`, `--help` | - | help for projects |
-
-### Inherited flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--deleted` | - | Include soft-deleted rows |
-| `--json` | - | Output as JSON |
-
-### See also
-
-- [`micasa show`](#micasa-show) -- Display data as text or JSON
-
-## micasa show quotes
-
-Show quotes.
-
-### Usage
-
-```
-micasa show quotes [database-path] [flags]
-```
-
-### Flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `-h`, `--help` | - | help for quotes |
-
-### Inherited flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--deleted` | - | Include soft-deleted rows |
-| `--json` | - | Output as JSON |
-
-### See also
-
-- [`micasa show`](#micasa-show) -- Display data as text or JSON
-
-## micasa show service-log
-
-Show service log entries.
-
-### Usage
-
-```
-micasa show service-log [database-path] [flags]
-```
-
-### Flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `-h`, `--help` | - | help for service-log |
-
-### Inherited flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--deleted` | - | Include soft-deleted rows |
-| `--json` | - | Output as JSON |
-
-### See also
-
-- [`micasa show`](#micasa-show) -- Display data as text or JSON
-
-## micasa show vendors
-
-Show vendors.
-
-### Usage
-
-```
-micasa show vendors [database-path] [flags]
-```
-
-### Flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `-h`, `--help` | - | help for vendors |
 
 ### Inherited flags
 
