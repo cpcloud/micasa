@@ -157,7 +157,7 @@ func TestVendorJSONOutput(t *testing.T) {
 func TestVendorCobraWiring(t *testing.T) {
 	t.Parallel()
 	dbPath := createTestDB(t)
-	out, err := executeCLI("vendor", "list", dbPath)
+	out, err := executeCLI("db", "vendor", "list", dbPath)
 	require.NoError(t, err)
 	assert.Equal(t, "[]\n", out)
 }
@@ -223,7 +223,7 @@ func TestProjectAddMissingFields(t *testing.T) {
 func TestProjectCobraWiring(t *testing.T) {
 	t.Parallel()
 	dbPath := createTestDB(t)
-	out, err := executeCLI("project", "list", dbPath)
+	out, err := executeCLI("db", "project", "list", dbPath)
 	require.NoError(t, err)
 	assert.Equal(t, "[]\n", out)
 }
@@ -258,7 +258,7 @@ func TestApplianceCRUD(t *testing.T) {
 func TestApplianceCobraWiring(t *testing.T) {
 	t.Parallel()
 	dbPath := createTestDB(t)
-	out, err := executeCLI("appliance", "list", dbPath)
+	out, err := executeCLI("db", "appliance", "list", dbPath)
 	require.NoError(t, err)
 	assert.Equal(t, "[]\n", out)
 }
@@ -295,7 +295,7 @@ func TestIncidentCRUD(t *testing.T) {
 func TestIncidentCobraWiring(t *testing.T) {
 	t.Parallel()
 	dbPath := createTestDB(t)
-	out, err := executeCLI("incident", "list", dbPath)
+	out, err := executeCLI("db", "incident", "list", dbPath)
 	require.NoError(t, err)
 	assert.Equal(t, "[]\n", out)
 }
@@ -365,7 +365,7 @@ func TestQuoteAddMissingFields(t *testing.T) {
 func TestQuoteCobraWiring(t *testing.T) {
 	t.Parallel()
 	dbPath := createTestDB(t)
-	out, err := executeCLI("quote", "list", dbPath)
+	out, err := executeCLI("db", "quote", "list", dbPath)
 	require.NoError(t, err)
 	assert.Equal(t, "[]\n", out)
 }
@@ -409,7 +409,7 @@ func TestMaintenanceAddMissingCategory(t *testing.T) {
 func TestMaintenanceCobraWiring(t *testing.T) {
 	t.Parallel()
 	dbPath := createTestDB(t)
-	out, err := executeCLI("maintenance", "list", dbPath)
+	out, err := executeCLI("db", "maintenance", "list", dbPath)
 	require.NoError(t, err)
 	assert.Equal(t, "[]\n", out)
 }
@@ -460,7 +460,7 @@ func TestServiceLogAddMissingFields(t *testing.T) {
 func TestServiceLogCobraWiring(t *testing.T) {
 	t.Parallel()
 	dbPath := createTestDB(t)
-	out, err := executeCLI("service-log", "list", dbPath)
+	out, err := executeCLI("db", "service-log", "list", dbPath)
 	require.NoError(t, err)
 	assert.Equal(t, "[]\n", out)
 }
@@ -532,7 +532,7 @@ func TestDocumentAddMissingFields(t *testing.T) {
 func TestDocumentCobraWiring(t *testing.T) {
 	t.Parallel()
 	dbPath := createTestDB(t)
-	out, err := executeCLI("document", "list", dbPath)
+	out, err := executeCLI("db", "document", "list", dbPath)
 	require.NoError(t, err)
 	assert.Equal(t, "[]\n", out)
 }
@@ -576,7 +576,7 @@ func TestHouseCRUD(t *testing.T) {
 func TestHouseCobraWiring(t *testing.T) {
 	t.Parallel()
 	dbPath := createTestDB(t)
-	out, err := executeCLI("house", "get", dbPath)
+	out, err := executeCLI("db", "house", "get", dbPath)
 	require.NoError(t, err)
 	assert.Equal(t, "{}\n", out)
 }
@@ -603,7 +603,7 @@ func TestProjectTypeList(t *testing.T) {
 func TestProjectTypeCobraWiring(t *testing.T) {
 	t.Parallel()
 	dbPath := createTestDB(t)
-	out, err := executeCLI("project-type", "list", dbPath)
+	out, err := executeCLI("db", "project-type", "list", dbPath)
 	require.NoError(t, err)
 	assert.Contains(t, out, "name")
 }
@@ -621,7 +621,7 @@ func TestMaintenanceCategoryList(t *testing.T) {
 func TestMaintenanceCategoryCobraWiring(t *testing.T) {
 	t.Parallel()
 	dbPath := createTestDB(t)
-	out, err := executeCLI("maintenance-category", "list", dbPath)
+	out, err := executeCLI("db", "maintenance-category", "list", dbPath)
 	require.NoError(t, err)
 	assert.Contains(t, out, "name")
 }

@@ -61,9 +61,10 @@ func TestGenCLIRef_ContainsAllVisibleCommands(t *testing.T) {
 		"## micasa show all",
 		"## micasa query",
 		"## micasa mcp",
-		"## micasa vendor",
-		"## micasa project",
-		"## micasa appliance",
+		"## micasa db",
+		"## micasa db vendor",
+		"## micasa db project",
+		"## micasa db appliance",
 	} {
 		assert.Contains(t, got, want+"\n", "missing section: %s", want)
 	}
@@ -174,7 +175,7 @@ func TestGenCLIRef_RendersSubcommandLinks(t *testing.T) {
 	assert.Contains(
 		t,
 		got,
-		"[`micasa vendor`](#micasa-vendor)",
+		"[`micasa db vendor`](#micasa-db-vendor)",
 	)
 	// Children link back via the See also block.
 	assert.Contains(t, got, "[`micasa`](#micasa) -- A terminal UI")

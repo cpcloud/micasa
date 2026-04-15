@@ -330,3 +330,25 @@ func dbPathFromEnvOrArgStr(s string) string {
 	}
 	return os.Getenv("MICASA_DB_PATH")
 }
+
+// newDBCmd creates the `db` parent command grouping all entity CRUD operations.
+func newDBCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "db",
+		Short: "Read and write entity data",
+	}
+	cmd.AddCommand(
+		newApplianceCmd(),
+		newDocumentCmd(),
+		newHouseCmd(),
+		newIncidentCmd(),
+		newMaintenanceCategoryCmd(),
+		newMaintenanceCmd(),
+		newProjectCmd(),
+		newProjectTypeCmd(),
+		newQuoteCmd(),
+		newServiceLogCmd(),
+		newVendorCmd(),
+	)
+	return cmd
+}
