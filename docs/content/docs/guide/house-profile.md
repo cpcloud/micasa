@@ -12,8 +12,8 @@ Your home's physical and financial details -- one per database.
 ## First-time setup
 
 On first launch (with no existing database), micasa presents the house profile
-form automatically. The `Name` field is required; everything else is optional.
-Fill in what you know now and come back later for the rest.
+form automatically. The `Nickname` field is required; everything else is
+optional. Fill in what you know now and come back later for the rest.
 
 ## Header strip
 
@@ -29,10 +29,10 @@ built. The trailing `○ N` warning appears when `N` fields are still empty.
 
 ## Overlay
 
-Press <kbd>tab</kbd> to open the house profile overlay. It's a three-column
-grid (Structure, Utilities, Financial) with an identity header line showing
-the nickname, address (click to open Google Maps), and a
-filled/total completion fraction.
+Press <kbd>tab</kbd> to open the house profile overlay. An identity header
+line shows the nickname, address (click to open Google Maps), and a
+filled/total completion fraction. Structure, Utilities, and Financial render
+side-by-side on wide terminals and stack vertically on narrow ones.
 
 Navigation:
 
