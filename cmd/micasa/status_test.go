@@ -170,6 +170,29 @@ func TestStatusTextIncidentsWhenever(t *testing.T) {
 		"styled output should contain ANSI escape sequences")
 }
 
+func TestStatusTextContainsANSI(t *testing.T) {
+	t.Parallel()
+	store := newTestStoreWithMigration(t)
+	cats, err := store.MaintenanceCategories()
+	require.NoError(t, err)
+
+	now := time.Date(2026, 4, 14, 12, 0, 0, 0, time.UTC)
+	pastDue := now.AddDate(0, 0, -5)
+	require.NoError(t, store.CreateMaintenance(&data.MaintenanceItem{
+		Name:       "ANSI test item",
+		CategoryID: cats[0].ID,
+		DueDate:    &pastDue,
+	}))
+
+	var buf bytes.Buffer
+	err = runStatus(&buf, &statusOpts{days: 30, isDark: true}, store, now)
+	var ee exitError
+	require.ErrorAs(t, err, &ee)
+
+	assert.Contains(t, buf.String(), "\x1b[",
+		"output should contain ANSI escape sequences")
+}
+
 func TestStatusTextActiveProjects(t *testing.T) {
 	t.Parallel()
 	store := newTestStoreWithMigration(t)
