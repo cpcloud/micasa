@@ -9,18 +9,29 @@ import (
 	"io"
 	"os"
 	"sort"
+	"text/tabwriter"
 	"time"
 
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
+	"github.com/charmbracelet/x/term"
 	"github.com/micasa-dev/micasa/internal/data"
 	"github.com/spf13/cobra"
 )
 
+// writerIsTerminal reports whether w is an *os.File backed by a terminal.
+// Any non-file writer (bytes.Buffer, io.Pipe, custom writers) is treated
+// as non-terminal so styled output never leaks to non-TTY destinations.
+func writerIsTerminal(w io.Writer) bool {
+	f, ok := w.(*os.File)
+	return ok && term.IsTerminal(f.Fd())
+}
+
 type statusOpts struct {
-	asJSON bool
-	days   int
-	isDark bool
+	asJSON  bool
+	days    int
+	isDark  bool
+	noStyle bool
 }
 
 const (
@@ -55,12 +66,14 @@ shell prompts, and status bar widgets.`,
 				return err
 			}
 			opts.isDark = lipgloss.HasDarkBackground(os.Stdin, os.Stderr)
+			out := cmd.OutOrStdout()
+			opts.noStyle = !writerIsTerminal(out)
 			store, err := openExisting(dbPathFromEnvOrArg(args))
 			if err != nil {
 				return err
 			}
 			defer func() { _ = store.Close() }()
-			return runStatus(cmd.OutOrStdout(), opts, store, time.Now())
+			return runStatus(out, opts, store, time.Now())
 		},
 	}
 
@@ -130,6 +143,10 @@ func runStatus(
 
 	if opts.asJSON {
 		if err := writeStatusJSON(w, overdue, upcoming, incidents, projects, needsAttention); err != nil {
+			return err
+		}
+	} else if opts.noStyle {
+		if err := writeStatusTextPlain(w, overdue, upcoming, incidents, projects, now); err != nil {
 			return err
 		}
 	} else {
@@ -345,6 +362,145 @@ func writeProjectsText(
 	}
 	if _, err := fmt.Fprintln(w, t); err != nil {
 		return fmt.Errorf("write projects table: %w", err)
+	}
+	return nil
+}
+
+// --- plain text output (non-TTY) ---
+
+func writeStatusTextPlain(
+	w io.Writer,
+	overdue, upcoming []maintenanceStatus,
+	incidents []data.Incident,
+	projects []data.Project,
+	now time.Time,
+) error {
+	wrote := false
+	if len(overdue) > 0 {
+		if err := writeOverdueTextPlain(w, overdue); err != nil {
+			return err
+		}
+		wrote = true
+	}
+	if len(upcoming) > 0 {
+		if wrote {
+			if _, err := fmt.Fprintln(w); err != nil {
+				return fmt.Errorf("write section separator: %w", err)
+			}
+		}
+		if err := writeUpcomingTextPlain(w, upcoming); err != nil {
+			return err
+		}
+		wrote = true
+	}
+	if len(incidents) > 0 {
+		if wrote {
+			if _, err := fmt.Fprintln(w); err != nil {
+				return fmt.Errorf("write section separator: %w", err)
+			}
+		}
+		if err := writeIncidentsTextPlain(w, incidents, now); err != nil {
+			return err
+		}
+		wrote = true
+	}
+	if len(projects) > 0 {
+		if wrote {
+			if _, err := fmt.Fprintln(w); err != nil {
+				return fmt.Errorf("write section separator: %w", err)
+			}
+		}
+		if err := writeProjectsTextPlain(w, projects, now); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func writeOverdueTextPlain(w io.Writer, items []maintenanceStatus) error {
+	if _, err := fmt.Fprintln(w, "=== OVERDUE ==="); err != nil {
+		return fmt.Errorf("write overdue header: %w", err)
+	}
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	if _, err := fmt.Fprintln(tw, "NAME\tOVERDUE"); err != nil {
+		return fmt.Errorf("write overdue columns: %w", err)
+	}
+	for _, m := range items {
+		if _, err := fmt.Fprintf(tw, "%s\t%s\n", m.Name, data.DaysText(m.Days)); err != nil {
+			return fmt.Errorf("write overdue row: %w", err)
+		}
+	}
+	if err := tw.Flush(); err != nil {
+		return fmt.Errorf("flush overdue table: %w", err)
+	}
+	return nil
+}
+
+func writeUpcomingTextPlain(w io.Writer, items []maintenanceStatus) error {
+	if _, err := fmt.Fprintln(w, "=== UPCOMING ==="); err != nil {
+		return fmt.Errorf("write upcoming header: %w", err)
+	}
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	if _, err := fmt.Fprintln(tw, "NAME\tDUE"); err != nil {
+		return fmt.Errorf("write upcoming columns: %w", err)
+	}
+	for _, m := range items {
+		if _, err := fmt.Fprintf(tw, "%s\t%s\n", m.Name, data.DaysText(m.Days)); err != nil {
+			return fmt.Errorf("write upcoming row: %w", err)
+		}
+	}
+	if err := tw.Flush(); err != nil {
+		return fmt.Errorf("flush upcoming table: %w", err)
+	}
+	return nil
+}
+
+func writeIncidentsTextPlain(w io.Writer, incidents []data.Incident, now time.Time) error {
+	if _, err := fmt.Fprintln(w, "=== INCIDENTS ==="); err != nil {
+		return fmt.Errorf("write incidents header: %w", err)
+	}
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	if _, err := fmt.Fprintln(tw, "TITLE\tSEVERITY\tREPORTED"); err != nil {
+		return fmt.Errorf("write incidents columns: %w", err)
+	}
+	for _, inc := range incidents {
+		days := data.DateDiffDays(now, inc.DateNoticed)
+		if days < 0 {
+			days = -days
+		}
+		if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\n", inc.Title, inc.Severity, data.DaysText(days)); err != nil {
+			return fmt.Errorf("write incidents row: %w", err)
+		}
+	}
+	if err := tw.Flush(); err != nil {
+		return fmt.Errorf("flush incidents table: %w", err)
+	}
+	return nil
+}
+
+func writeProjectsTextPlain(w io.Writer, projects []data.Project, now time.Time) error {
+	if _, err := fmt.Fprintln(w, "=== ACTIVE PROJECTS ==="); err != nil {
+		return fmt.Errorf("write projects header: %w", err)
+	}
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	if _, err := fmt.Fprintln(tw, "TITLE\tSTATUS\tSTARTED"); err != nil {
+		return fmt.Errorf("write projects columns: %w", err)
+	}
+	for _, p := range projects {
+		started := "-"
+		if p.StartDate != nil {
+			days := data.DateDiffDays(now, *p.StartDate)
+			if days < 0 {
+				days = -days
+			}
+			started = data.DaysText(days)
+		}
+		if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\n", p.Title, p.Status, started); err != nil {
+			return fmt.Errorf("write projects row: %w", err)
+		}
+	}
+	if err := tw.Flush(); err != nil {
+		return fmt.Errorf("flush projects table: %w", err)
 	}
 	return nil
 }

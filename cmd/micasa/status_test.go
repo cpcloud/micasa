@@ -7,6 +7,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -42,6 +44,24 @@ func TestExtractExitCodeExitError(t *testing.T) {
 func TestExtractExitCodeRegularError(t *testing.T) {
 	t.Parallel()
 	assert.Equal(t, 1, extractExitCode(errors.New("boom")))
+}
+
+// --- writerIsTerminal ---
+
+func TestWriterIsTerminal(t *testing.T) {
+	t.Parallel()
+	// bytes.Buffer is not a file
+	var buf bytes.Buffer
+	assert.False(t, writerIsTerminal(&buf))
+
+	// io.Discard is not a file
+	assert.False(t, writerIsTerminal(io.Discard))
+
+	// Temp file is an *os.File but not a terminal
+	f, err := os.CreateTemp(t.TempDir(), "tty-test")
+	require.NoError(t, err)
+	defer func() { _ = f.Close() }()
+	assert.False(t, writerIsTerminal(f))
 }
 
 // --- text output ---
@@ -422,6 +442,7 @@ func TestStatusCLITextClean(t *testing.T) {
 	out, err := executeCLI("status", src)
 	require.NoError(t, err)
 	assert.Empty(t, ansi.Strip(out))
+	assert.NotContains(t, out, "\x1b[", "non-TTY output must not contain ANSI escapes")
 }
 
 func TestStatusCLITextOverdue(t *testing.T) {
@@ -446,8 +467,36 @@ func TestStatusCLITextOverdue(t *testing.T) {
 	require.ErrorAs(t, err, &ee)
 	assert.Equal(t, 2, ee.code)
 	stripped := ansi.Strip(out)
-	assert.Contains(t, stripped, "OVERDUE")
+	assert.Contains(t, stripped, "=== OVERDUE ===")
 	assert.Contains(t, stripped, "CLI overdue item")
+	assert.NotContains(t, out, "\x1b[", "non-TTY output must not contain ANSI escapes")
+}
+
+func TestStatusCLINoStyleWhenNotTerminal(t *testing.T) {
+	t.Parallel()
+	src := createTestDB(t)
+	store, err := data.Open(src)
+	require.NoError(t, err)
+	cats, catErr := store.MaintenanceCategories()
+	require.NoError(t, catErr)
+
+	pastDue := time.Now().AddDate(0, 0, -3)
+	require.NoError(t, store.CreateMaintenance(&data.MaintenanceItem{
+		Name:       "No-style item",
+		CategoryID: cats[0].ID,
+		DueDate:    &pastDue,
+	}))
+	require.NoError(t, store.Close())
+
+	// executeCLI captures output to a bytes.Buffer (not a TTY), so
+	// term.IsTerminal(os.Stdout.Fd()) returns false -> plain output.
+	out, err := executeCLI("status", src)
+	require.Error(t, err)
+	var ee exitError
+	require.ErrorAs(t, err, &ee)
+	assert.Equal(t, 2, ee.code)
+	assert.Contains(t, out, "=== OVERDUE ===", "non-TTY path must use plain section headers")
+	assert.NotContains(t, out, "\x1b[", "non-TTY output must not contain ANSI escapes")
 }
 
 func TestStatusCLIJSONClean(t *testing.T) {
