@@ -4,14 +4,9 @@
 package data
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"time"
-	"unicode"
-
-	sqlite "modernc.org/sqlite"
-	sqlite3 "modernc.org/sqlite/lib"
 )
 
 // FTS5 virtual table and trigger names.
@@ -123,11 +118,6 @@ func (s *Store) SearchDocuments(query string) ([]DocumentSearchResult, error) {
 		return nil, nil
 	}
 
-	safeQuery := prepareFTSQuery(query)
-	if safeQuery == "" {
-		return nil, nil
-	}
-
 	var results []DocumentSearchResult
 	err := s.db.Raw(fmt.Sprintf(`
 		SELECT
@@ -144,122 +134,32 @@ func (s *Store) SearchDocuments(query string) ([]DocumentSearchResult, error) {
 			AND d.deleted_at IS NULL
 		ORDER BY rank
 		LIMIT 50
-	`, tableFTS, tableFTS, TableDocuments, tableFTS, tableFTS), safeQuery).
+	`, tableFTS, tableFTS, TableDocuments, tableFTS, tableFTS), prepareFTSQuery(query)).
 		Scan(&results).Error
 	if err != nil {
-		// FTS syntax errors should not crash the app. Return empty
-		// results so the UI can show "no matches" gracefully.
-		if isFTSSyntaxError(err) {
-			return nil, nil
-		}
 		return nil, fmt.Errorf("search documents: %w", err)
 	}
 	return results, nil
 }
 
-// prepareFTSQuery transforms a user query into a valid FTS5 expression.
+// prepareFTSQuery transforms a user query into a syntactically valid
+// FTS5 MATCH expression using the canonical phrase-wrap escape from
+// the FTS5 author: each whitespace-separated token becomes a quoted
+// phrase (with internal " doubled) suffixed with * for prefix matching,
+// and the phrases are implicitly ANDed.
 //
-// Simple queries get prefix matching: "plumb" -> "plumb*". Queries that
-// look like FTS5 operator usage (AND/OR/NOT, quotes, parens, *) pass
-// through when their quotes and parens are balanced; unbalanced ones
-// fall back to safe word search so a stray quote doesn't propagate as
-// a syntax error from SQLite.
+// FTS5 operators in user input (AND/OR/NOT/parens) are treated as
+// literal text, not operators -- the search box is type-as-you-go and
+// partial operator syntax mid-keystroke would otherwise error.
 //
-// Returns "" when the input contains no usable terms after sanitization
-// (e.g., only punctuation). Callers should treat this as "no results".
+// See https://sqlite.org/forum/info/82344cab7c5806980b287ce008975c6585d510e95ac7199de398ff9051ae0907
 func prepareFTSQuery(query string) string {
-	upper := strings.ToUpper(query)
-	hasFTSOps := strings.ContainsAny(query, `"*()`) ||
-		strings.Contains(upper, " AND ") ||
-		strings.Contains(upper, " OR ") ||
-		strings.Contains(upper, " NOT ") ||
-		strings.HasPrefix(upper, "NOT ")
-
-	if hasFTSOps && ftsDelimitersBalanced(query) && hasFTSTerms(query) {
-		return query
-	}
-	return ftsSafeWordsQuery(query)
-}
-
-// hasFTSTerms reports whether q contains at least one letter or digit
-// that could serve as a search term. Operator-only inputs like "***"
-// have no terms and would error at SQLite ("unknown special query").
-func hasFTSTerms(q string) bool {
-	for _, r := range q {
-		if unicode.IsLetter(r) || unicode.IsDigit(r) {
-			return true
-		}
-	}
-	return false
-}
-
-// ftsDelimitersBalanced reports whether double-quote and parenthesis
-// pairs in q are balanced. Inside a quoted phrase, "" escapes a literal
-// double-quote per FTS5 grammar.
-func ftsDelimitersBalanced(q string) bool {
-	parens := 0
-	inQuote := false
-	for i := 0; i < len(q); i++ {
-		c := q[i]
-		if inQuote {
-			if c == '"' {
-				if i+1 < len(q) && q[i+1] == '"' {
-					i++
-					continue
-				}
-				inQuote = false
-			}
-			continue
-		}
-		switch c {
-		case '"':
-			inQuote = true
-		case '(':
-			parens++
-		case ')':
-			parens--
-			if parens < 0 {
-				return false
-			}
-		}
-	}
-	return !inQuote && parens == 0
-}
-
-// ftsSafeWordsQuery splits q into whitespace-separated words, strips
-// FTS5 special characters from each, and joins them with a trailing *
-// for prefix matching. Words that become empty after stripping are
-// dropped; an all-special-chars input yields "".
-func ftsSafeWordsQuery(q string) string {
-	words := strings.Fields(q)
-	out := make([]string, 0, len(words))
-	for _, w := range words {
-		clean := strings.Map(func(r rune) rune {
-			switch r {
-			case '"', '*', '(', ')', ':', '+', '-', '^':
-				return -1
-			}
-			return r
-		}, w)
-		if clean != "" {
-			out = append(out, clean+"*")
-		}
+	fields := strings.Fields(query)
+	out := make([]string, len(fields))
+	for i, w := range fields {
+		out[i] = `"` + strings.ReplaceAll(w, `"`, `""`) + `"*`
 	}
 	return strings.Join(out, " ")
-}
-
-// isFTSSyntaxError reports whether err is a SQLite FTS5 syntax error.
-// Narrows by error type and result code before inspecting the message,
-// so unrelated errors that happen to mention "fts5" can't false-positive.
-func isFTSSyntaxError(err error) bool {
-	var sqliteErr *sqlite.Error
-	if !errors.As(err, &sqliteErr) {
-		return false
-	}
-	if sqliteErr.Code() != sqlite3.SQLITE_ERROR {
-		return false
-	}
-	return strings.Contains(sqliteErr.Error(), "fts5")
 }
 
 // RebuildFTSIndex forces a full rebuild of the FTS5 index. Useful after
