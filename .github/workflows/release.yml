@@ -12,6 +12,11 @@ on:
         description: "Release tag to (re)build artifacts for (e.g. v2.6.0)"
         required: true
         type: string
+      move_tags:
+        description: "Advance :latest / :<major> / :<major>.<minor> Docker tags. Leave off when backfilling an older release."
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: release-artifacts
@@ -64,6 +69,7 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MOVE_TAGS: ${{ github.event_name == 'release' || inputs.move_tags }}
 
       - name: Clean up untagged GHCR images
         env:
