@@ -175,10 +175,64 @@ func TestSearchDocumentsBadSyntaxGraceful(t *testing.T) {
 	t.Parallel()
 	store := newTestStore(t)
 
-	// Unbalanced quotes should not crash.
-	results, err := store.SearchDocuments(`"unclosed`)
+	// Each input is one that previously surfaced an FTS5 syntax error
+	// (or could in future regressions). Sanitization should keep them
+	// from reaching SQLite as bad syntax.
+	bad := []string{
+		`"unclosed`,
+		`unclosed"`,
+		`(kitchen`,
+		`kitchen)`,
+		`((nested`,
+		`"phrase with "" inside`,
+	}
+	for _, q := range bad {
+		t.Run(q, func(t *testing.T) {
+			results, err := store.SearchDocuments(q)
+			require.NoError(t, err)
+			assert.Empty(t, results)
+		})
+	}
+}
+
+// TestSearchDocumentsTrailingOperator covers the isFTSSyntaxError
+// safety net: queries that prepareFTSQuery passes through (balanced
+// delimiters, has terms) but still violate FTS5 grammar should be
+// swallowed and returned as no-results.
+func TestSearchDocumentsTrailingOperator(t *testing.T) {
+	t.Parallel()
+	store := newTestStore(t)
+	require.NoError(t, store.CreateDocument(&Document{
+		Title:    "Anything",
+		FileName: "a.pdf",
+	}))
+
+	// "(a AND)" passes hasFTSOps (paren), balanced (paren+quote), has
+	// terms (a), but FTS5 errors on the dangling AND operator.
+	results, err := store.SearchDocuments("(a AND)")
 	require.NoError(t, err)
 	assert.Empty(t, results)
+}
+
+// TestSearchDocumentsAllSpecialChars verifies that input consisting only
+// of FTS5 metacharacters is treated as an empty search (no results, no
+// error) rather than producing a malformed MATCH clause.
+func TestSearchDocumentsAllSpecialChars(t *testing.T) {
+	t.Parallel()
+	store := newTestStore(t)
+
+	require.NoError(t, store.CreateDocument(&Document{
+		Title:    "Something",
+		FileName: "s.pdf",
+	}))
+
+	for _, q := range []string{`***`, `:::`, `+++---`} {
+		t.Run(q, func(t *testing.T) {
+			results, err := store.SearchDocuments(q)
+			require.NoError(t, err)
+			assert.Nil(t, results)
+		})
+	}
 }
 
 func TestSearchDocumentsEntityFields(t *testing.T) {
@@ -247,12 +301,56 @@ func TestPrepareFTSQuerySimple(t *testing.T) {
 
 func TestPrepareFTSQueryOperators(t *testing.T) {
 	t.Parallel()
-	// Queries with operators pass through unchanged.
+	// Balanced operator queries pass through unchanged.
 	assert.Equal(t, `"exact phrase"`, prepareFTSQuery(`"exact phrase"`))
 	assert.Equal(t, "plumb*", prepareFTSQuery("plumb*"))
 	assert.Equal(t, "a AND b", prepareFTSQuery("a AND b"))
 	assert.Equal(t, "a OR b", prepareFTSQuery("a OR b"))
 	assert.Equal(t, "NOT bad", prepareFTSQuery("NOT bad"))
+	assert.Equal(t, "(a OR b)", prepareFTSQuery("(a OR b)"))
+}
+
+func TestPrepareFTSQueryUnbalancedFallsBack(t *testing.T) {
+	t.Parallel()
+	// Unbalanced delimiters trigger the safe fallback: specials are
+	// stripped and each remaining word gets prefix matching.
+	assert.Equal(t, "unclosed*", prepareFTSQuery(`"unclosed`))
+	assert.Equal(t, "kitchen*", prepareFTSQuery(`(kitchen`))
+	assert.Equal(t, "kitchen*", prepareFTSQuery(`kitchen)`))
+	assert.Equal(t, "a* b*", prepareFTSQuery(`"a b`))
+}
+
+func TestPrepareFTSQueryAllSpecials(t *testing.T) {
+	t.Parallel()
+	// No usable terms -> empty string. SearchDocuments treats this as
+	// "no results" without issuing a MATCH against SQLite.
+	assert.Empty(t, prepareFTSQuery(`***`))
+	assert.Empty(t, prepareFTSQuery(`+ - :`))
+}
+
+func TestFTSDelimitersBalanced(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		in   string
+		want bool
+	}{
+		{"", true},
+		{"plain text", true},
+		{`"phrase"`, true},
+		{`"with "" escape"`, true},
+		{`(a OR b)`, true},
+		{`((nested))`, true},
+		{`"unclosed`, false},
+		{`unclosed"`, false},
+		{`(open`, false},
+		{`close)`, false},
+		{`)early`, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.in, func(t *testing.T) {
+			assert.Equal(t, tt.want, ftsDelimitersBalanced(tt.in))
+		})
+	}
 }
 
 func TestRebuildFTSIndex(t *testing.T) {
