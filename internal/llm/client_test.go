@@ -528,6 +528,15 @@ func TestIsNetworkError(t *testing.T) {
 		},
 		{"unrelated error", errors.New("something else broke"), false},
 		{"context.Canceled", context.Canceled, false},
+		// Pin the new contract: errors that contain "connection refused"
+		// in their message but do NOT wrap a syscall sentinel are not
+		// classified as network errors. The previous string-fallback
+		// implementation matched these by substring.
+		{
+			"bare string says connection refused",
+			errors.New("dial tcp: connection refused"),
+			false,
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {

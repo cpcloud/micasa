@@ -172,12 +172,22 @@ func TestSearchDocumentsUpdateReflected(t *testing.T) {
 }
 
 // TestSearchDocumentsBadSyntaxGraceful verifies that inputs which would
-// be malformed FTS5 expressions if passed verbatim do not error out --
-// the phrase-wrap escape in prepareFTSQuery turns each token into a
-// quoted phrase, neutralizing the special characters.
+// be malformed FTS5 expressions if passed verbatim do not error out and
+// also do not accidentally match real documents. A document is inserted
+// so the no-match assertion is meaningful (an empty store would pass
+// even if the query rewrite broadened matches).
 func TestSearchDocumentsBadSyntaxGraceful(t *testing.T) {
 	t.Parallel()
 	store := newTestStore(t)
+
+	// Document content uses tokens that don't share any prefix with
+	// the test queries below, so any spurious match indicates a bug
+	// in the rewrite (e.g., a query collapsing to a bare wildcard).
+	require.NoError(t, store.CreateDocument(&Document{
+		Title:         "Zebra",
+		FileName:      "z.pdf",
+		ExtractedText: "rhinoceros giraffe leopard",
+	}))
 
 	bad := []string{
 		`"unclosed`,
@@ -189,7 +199,7 @@ func TestSearchDocumentsBadSyntaxGraceful(t *testing.T) {
 		`***`,
 		`:::`,
 		`+++---`,
-		`(a AND)`,
+		`(b AND)`,
 	}
 	for _, q := range bad {
 		t.Run(q, func(t *testing.T) {
