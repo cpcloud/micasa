@@ -129,14 +129,12 @@ jobs:
 
       - name: Commit and push
         env:
-          # Skip hooks this workflow would always trip as false positives:
-          # - vendor-hash-check fires when go.sum is staged but nix/package.nix
-          #   is not, which is exactly the state when `go mod tidy` reshapes
-          #   go.sum without altering vendor contents (this step already ran
-          #   the authoritative hash computation above).
-          # - go-mod-tidy reruns tidy and complains if it would change files;
-          #   the Tidy go modules step upstream already tidied.
-          SKIP: vendor-hash-check,go-mod-tidy
+          # vendor-hash-check fires when go.sum is staged but nix/package.nix
+          # is not, which is exactly the state when `go mod tidy` reshapes
+          # go.sum without altering vendor contents. The compute step above
+          # already ran the authoritative nix build, so this hook has nothing
+          # to add here.
+          SKIP: vendor-hash-check
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
