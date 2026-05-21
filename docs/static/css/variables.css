@@ -221,6 +221,15 @@
   [data-theme="dark"] .moon-y { opacity: 1; }
 }
 
+/* --- Pause animations while tab is hidden (idle-pause.js syncs this) --- */
+
+.animations-paused .star,
+.animations-paused .cloud-drift,
+.animations-paused .cloud-bob,
+.animations-paused .cursor::after {
+  animation-play-state: paused;
+}
+
 /* --- Touch-target sizing (shared chrome) --- */
 
 @media (pointer: coarse), (hover: none) {
