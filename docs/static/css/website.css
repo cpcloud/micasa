@@ -62,12 +62,14 @@ h2 .accent-alt {
 .cursor::after {
   content: "\2588";
   margin-left: 7px;
+  display: inline-block;
+  transform-origin: bottom;
   opacity: 0.6;
   animation: blink 1s step-end infinite;
 }
 
 @keyframes blink {
-  50% { opacity: 0; }
+  50% { transform: scaleY(0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
