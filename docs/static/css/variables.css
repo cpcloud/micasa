@@ -47,6 +47,22 @@
   --rect-fill: rgba(212, 118, 78, 0.10);
 }
 
+/* High-contrast overrides for users who request stronger contrast at
+   the OS level. Push tertiary text and links from AA (~5:1) to AAA
+   (>=7:1) without touching the brand identity colors used at heading
+   sizes. */
+@media (prefers-contrast: more) {
+  :root {
+    --warm-gray: #544c45;       /* 7.9:1 on cream */
+    --terracotta-dark: #7a3a23; /* 8.0:1 on cream */
+  }
+
+  [data-theme="dark"] {
+    --warm-gray: #beb09e;                /* 7.6:1 on dark cream */
+    --terracotta-dark: var(--terracotta-darker); /* 7.0:1 */
+  }
+}
+
 /* --- Skip link (shared across all pages) --- */
 
 .skip-link {
