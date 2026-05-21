@@ -976,6 +976,55 @@ h2:hover .badge-experimental .badge-label {
   color: var(--cream);
 }
 
+/* ── Touch targets ────────────────────────────────────────── */
+
+@media (pointer: coarse), (hover: none) {
+  .menu-toggle {
+    padding: 0.55rem 0.7rem;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .search-hint {
+    padding: 0.55rem 0.85rem;
+    min-height: 44px;
+  }
+
+  .sidebar-nav a {
+    padding: 0.6rem 1rem;
+  }
+
+  .sidebar-section {
+    padding-top: 0.6rem;
+  }
+
+  .docs-topbar-nav {
+    gap: 0.4rem;
+  }
+
+  .docs-topbar-nav a {
+    padding: 0.55rem 0.4rem;
+  }
+
+  .sidebar-external {
+    padding-top: 0.6rem;
+    padding-bottom: 0.6rem;
+  }
+
+  .sidebar-external a {
+    padding: 0.55rem 0.5rem;
+  }
+
+  .toc li {
+    padding: 0.05rem 0;
+  }
+
+  .toc a {
+    display: inline-block;
+    padding: 0.4rem 0.5rem 0.4rem 0;
+  }
+}
+
 /* ── Responsive ────────────────────────────────────────────── */
 
 @media (max-width: 800px) {

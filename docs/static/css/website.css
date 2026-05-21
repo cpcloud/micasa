@@ -551,6 +551,29 @@ footer {
   margin-top: 0.75rem;
 }
 
+/* --- Touch targets --- */
+@media (pointer: coarse), (hover: none) {
+  .hero-nav {
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    row-gap: 0.2rem;
+  }
+
+  .hero-nav a {
+    padding: 0.55rem 0.35rem;
+  }
+
+  .footer-nav {
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    row-gap: 0.2rem;
+  }
+
+  .footer-nav a {
+    padding: 0.55rem 0.35rem;
+  }
+}
+
 /* --- Responsive --- */
 @media (max-width: 600px) {
   html {

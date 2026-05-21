@@ -204,3 +204,11 @@
   .moon-y { opacity: 0; }
   [data-theme="dark"] .moon-y { opacity: 1; }
 }
+
+/* --- Touch-target sizing (shared chrome) --- */
+
+@media (pointer: coarse), (hover: none) {
+  .theme-toggle {
+    padding: 10px;
+  }
+}
