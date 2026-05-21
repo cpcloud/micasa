@@ -60,7 +60,7 @@ terminals support it, but some need explicit configuration:
 | GNOME Terminal | Supported since 3.46 |
 
 If your terminal doesn't support OSC 52, the keypress is silently
-ignored — nothing breaks, you just don't get clipboard content.
+ignored: nothing breaks, you just don't get clipboard content.
 
 ## Edit mode
 

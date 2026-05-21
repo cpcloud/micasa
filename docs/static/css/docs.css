@@ -763,7 +763,7 @@ h2:hover .badge-experimental .badge-label {
   font-size: 0.9em;
 }
 
-/* Sequence diagram colors — CSS custom properties auto-update on theme
+/* Sequence diagram colors. CSS custom properties auto-update on theme
    toggle, eliminating the need to re-render Mermaid diagrams. */
 
 .docs-main pre.mermaid .actor {
