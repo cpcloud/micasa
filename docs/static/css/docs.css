@@ -71,8 +71,7 @@ body {
   color: var(--terracotta);
 }
 
-.sidebar-brand-link::after {
-  content: ".";
+.sidebar-brand-link .dot {
   color: var(--terracotta);
 }
 
