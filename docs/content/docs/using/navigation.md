@@ -103,7 +103,7 @@ them. The active tab is highlighted in the tab bar.
 
 ## Detail views
 
-Some columns are drill columns (marked `↘` in the header) -- pressing <kbd>enter</kbd> on them opens a sub-table.
+Some columns are drill columns (marked `↘` in the header); pressing <kbd>enter</kbd> on them opens a sub-table.
 For example:
 
 - `Log` column on the <a href="/docs/guide/maintenance/" class="tab-pill">Maintenance</a> tab opens the service log for that item
