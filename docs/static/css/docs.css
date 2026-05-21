@@ -259,7 +259,7 @@ body {
 
 .search-modal .pagefind-ui__button {
   font-family: "JetBrains Mono", monospace;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   background: var(--linen);
   border: 1px solid var(--rule);
   border-radius: 4px;
@@ -278,7 +278,7 @@ body {
 .sidebar-section {
   padding: 0.4rem 1rem 0.2rem;
   font-family: "JetBrains Mono", monospace;
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--warm-gray);
@@ -327,7 +327,7 @@ body {
 
 .sidebar-external a {
   font-family: "JetBrains Mono", monospace;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: var(--warm-gray);
   text-decoration: none;
 }
@@ -375,7 +375,7 @@ body {
 
 .docs-topbar-nav a {
   font-family: "JetBrains Mono", monospace;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: var(--warm-gray);
 }
 
@@ -461,13 +461,13 @@ body {
 .toc {
   position: sticky;
   top: 1.75rem;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   line-height: 1.5;
 }
 
 .toc-label {
   font-family: "JetBrains Mono", monospace;
-  font-size: 0.6rem;
+  font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--warm-gray);
@@ -698,7 +698,7 @@ pre {
 
 .badge-experimental .badge-label {
   font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
-  font-size: 0.4em;
+  font-size: 0.7rem;
   font-weight: 500;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -922,7 +922,7 @@ h2:hover .badge-experimental .badge-label {
 .docs-pager__eyebrow {
   display: block;
   font-family: "JetBrains Mono", monospace;
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--warm-gray);
