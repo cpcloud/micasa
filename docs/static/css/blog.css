@@ -3,8 +3,8 @@
 
 /* micasa blog -- same palette and fonts as the main site, editorial layout */
 
-@import url("variables.css");
-@import url("fonts.css");
+/* variables.css and fonts.css are loaded as separate <link> tags in
+   HTML for parallel fetching. */
 
 *,
 *::before,

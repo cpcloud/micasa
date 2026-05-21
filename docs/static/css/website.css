@@ -1,7 +1,7 @@
 /* Copyright 2026 Phillip Cloud */
 /* Licensed under the Apache License, Version 2.0 */
 
-@import url("variables.css");
+/* variables.css is loaded as a separate <link> in HTML for parallel fetching */
 
 /* --- Reset & Base --- */
 *,

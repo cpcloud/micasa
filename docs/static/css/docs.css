@@ -3,8 +3,8 @@
 
 /* micasa docs -- same palette, fonts, and feel as the main website */
 
-@import url("variables.css");
-@import url("fonts.css");
+/* variables.css and fonts.css are loaded as separate <link> tags in
+   HTML for parallel fetching. */
 
 *,
 *::before,

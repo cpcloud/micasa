@@ -11,8 +11,8 @@
   <link rel="preload" as="font" type="font/woff2" href="{{ "fonts/source-serif-4-latin.woff2" | relURL }}" crossorigin>
   <link rel="preload" as="font" type="font/woff2" href="{{ "fonts/dm-serif-display-latin-400.woff2" | relURL }}" crossorigin>
   <link rel="stylesheet" href="{{ "css/fonts.css" | relURL }}">
+  <link rel="stylesheet" href="{{ "css/variables.css" | relURL }}">
   <link rel="stylesheet" href="{{ "css/website.css" | relURL }}">
-  <link rel="preload" as="video" type="video/webm" href="{{ "videos/demo.webm" | relURL }}">
   <script src="{{ "js/theme.js" | relURL }}"></script>
 </head>
 <body>
@@ -46,7 +46,7 @@
 
 <!-- Demo -->
 <div class="container demo-container">
-  <video src="{{ "videos/demo.webm" | relURL }}" class="demo-video" autoplay loop muted playsinline aria-label="Screen recording: opening micasa, browsing the Projects and Maintenance tabs, sorting columns, and inspecting a service log entry"></video>
+  <video src="{{ "videos/demo.webm" | relURL }}" poster="{{ "images/dashboard.webp" | relURL }}" class="demo-video" autoplay loop muted playsinline preload="metadata" aria-label="Screen recording: opening micasa, browsing the Projects and Maintenance tabs, sorting columns, and inspecting a service log entry"></video>
 </div>
 
 <hr class="section-rule section-rule--demo">
