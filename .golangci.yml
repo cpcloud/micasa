@@ -42,6 +42,12 @@ linters:
     - containedctx     # flags context in structs; TUI models legitimately store context
     - wsl_v5           # whitespace style v5; too opinionated
 
+    # Deprecated linter names; we use the v2 replacement instead
+    - gomodguard       # superseded by gomodguard_v2 in golangci-lint v2.12.x
+
+  enable:
+    - gomodguard_v2    # explicit v2 opt-in (default: all enables the deprecated v1 alias)
+
   settings:
     exhaustive:
       default-signifies-exhaustive: false
@@ -95,9 +101,11 @@ linters:
         path: _test\.go
         text: "G204|G704"
 
-      # goconst: repeated test fixture strings
+      # goconst: test-fixture strings (entity/document/category names, MIME
+      # types, SQLite type names, column-name map keys, ULIDs, dates)
+      # legitimately repeat across test cases
       - linters: [goconst]
-        path: internal/relay/(handler_suite|pgstore|stripe)_test\.go
+        path: _test\.go
 
       # unqueryvet: SELECT * in test SQL fixtures is intentional
       - linters: [unqueryvet]
