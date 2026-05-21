@@ -71,13 +71,13 @@ h2 .accent-alt {
 }
 
 a {
-  color: var(--terracotta);
+  color: var(--terracotta-dark);
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
 }
 
 a:hover {
-  color: var(--terracotta-dark);
+  color: var(--terracotta-darker);
 }
 
 code,
@@ -249,11 +249,11 @@ section + section {
 }
 
 .hero-nav a:hover {
-  color: var(--terracotta);
+  color: var(--terracotta-dark);
 }
 
 .hero-nav__primary {
-  color: var(--terracotta) !important;
+  color: var(--terracotta-dark) !important;
   font-weight: 600;
 }
 
@@ -277,7 +277,7 @@ section + section {
 }
 
 .hero-repo:hover {
-  color: var(--terracotta);
+  color: var(--terracotta-dark);
 }
 
 /* --- Demo video --- */
@@ -344,7 +344,7 @@ section + section {
 
 .feature-q::before {
   content: "Q. ";
-  color: var(--terracotta);
+  color: var(--terracotta-dark);
   font-weight: 700;
 }
 
@@ -355,7 +355,7 @@ section + section {
 
 .feature-a::before {
   content: "A. ";
-  color: var(--sage);
+  color: var(--sage-strong);
   font-weight: 700;
   margin-left: -1.75rem;
 }
@@ -426,12 +426,12 @@ section + section {
 
 /* --- Keybindings --- */
 .mode-normal {
-  background: var(--sage);
+  background: var(--sage-strong);
   color: var(--cream);
 }
 
 .mode-edit {
-  background: var(--terracotta);
+  background: var(--terracotta-dark);
   color: var(--cream);
 }
 
@@ -513,7 +513,7 @@ footer {
 }
 
 .footer-nav a:hover {
-  color: var(--terracotta);
+  color: var(--terracotta-dark);
 }
 
 .footer-sep {
